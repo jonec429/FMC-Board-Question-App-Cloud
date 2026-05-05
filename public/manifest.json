@@ -1,11 +1,11 @@
 {
-  "name": "FMC Board QBank",
+  "name": "FMC Board Question App",
   "short_name": "FMC QBank",
-  "description": "Interactive Board Question Bank for FMC Residents",
+  "description": "Advanced Resident Performance & Quiz System",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
