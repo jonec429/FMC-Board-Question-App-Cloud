@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, 
   Search, RefreshCw, Download, CheckCircle, XCircle 
-} from './Icons';
+} from './icons';
 import { ABFM_CONTENT_AREAS, ABFM_CATEGORIES } from '@/lib/constants';
 
 interface DashboardProps {

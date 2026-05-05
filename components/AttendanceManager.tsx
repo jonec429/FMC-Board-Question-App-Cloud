@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, Clipboard, Check, AlertTriangle, Save, Loader2 } from './Icons';
+import { Users, Clipboard, Check, AlertTriangle, Save, Loader2 } from './icons';
 
 export default function AttendanceManager() {
   const [pasteContent, setPasteContent] = useState('');

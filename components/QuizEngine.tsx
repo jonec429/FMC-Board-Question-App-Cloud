@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
-import { ChevronRight, ChevronLeft, Clock, Save, Loader2, Trophy, ArrowUpRight } from './Icons';
+import { ChevronRight, ChevronLeft, Clock, Save, Loader2, Trophy, ArrowUpRight } from './icons';
 
 interface QuizEngineProps {
   user: any;

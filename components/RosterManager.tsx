@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, Plus, Trash2, Mail, GraduationCap, Search, Loader2 } from './Icons';
+import { Users, Plus, Trash2, Mail, GraduationCap, Search, Loader2 } from './icons';
 
 export default function RosterManager() {
   const [roster, setRoster] = useState<any[]>([]);

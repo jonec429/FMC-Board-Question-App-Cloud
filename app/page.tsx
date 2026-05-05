@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import Login from '@/components/Login';
 import Dashboard from '@/components/Dashboard';
 import QuizEngine from '@/components/QuizEngine';
-import { Loader2 } from '@/components/Icons';
+import { Loader2 } from '@/components/icons';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);

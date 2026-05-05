@@ -6,7 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, Cell, PieChart, Pie
 } from 'recharts';
-import { TrendingUp, Users, Target, AlertCircle, Loader2 } from './Icons';
+import { TrendingUp, Users, Target, AlertCircle, Loader2 } from './icons';
 
 export default function AdminPerformance() {
   const [loading, setLoading] = useState(true);
