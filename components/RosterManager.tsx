@@ -13,13 +13,31 @@ export default function RosterManager() {
     async function fetchRoster() {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('profiles')
+        // Fetch the Guest List
+        const { data: authorized, error: authError } = await supabase
+          .from('authorized_roster')
           .select('*')
-          .order('full_name');
+          .order('name');
         
-        if (error) throw error;
-        setRoster(data || []);
+        // Fetch the Live Profiles (to see who created accounts)
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('email, id');
+
+        if (authError) throw authError;
+
+        // Merge them
+        const merged = authorized?.map(auth => {
+          const profile = profiles?.find(p => p.email === auth.email);
+          return {
+            ...auth,
+            full_name: auth.name,
+            has_account: !!profile,
+            profile_id: profile?.id
+          };
+        }) || [];
+
+        setRoster(merged);
       } catch (err) {
         console.error('Roster fetch error:', err);
       } finally {
@@ -100,9 +118,9 @@ export default function RosterManager() {
                 </td>
                 <td className="px-8 py-6">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${member.id.length > 30 ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
-                    <span className={`text-sm font-bold ${member.id.length > 30 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {member.id.length > 30 ? 'Account Created' : 'Roster Only'}
+                    <div className={`w-2 h-2 rounded-full ${member.has_account ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
+                    <span className={`text-sm font-bold ${member.has_account ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {member.has_account ? 'Active Account' : 'Invite Sent (Pending)'}
                     </span>
                   </div>
                 </td>
