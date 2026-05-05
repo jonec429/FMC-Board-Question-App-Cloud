@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
   Shield, LogOut, Database, BarChartIcon, Users, Settings, 
-  Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye, X, Clock, Calendar, RefreshCw, Plus, Edit3, Loader2
+  Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye, X, Clock, Calendar, RefreshCw, Plus, Edit3, Loader2, Save
 } from './AppIcons';
 
 import AdminPerformance from './AdminPerformance';
@@ -26,25 +26,25 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
   const [categories, setCategories] = useState<string[]>([]);
   const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [premadeQuizzes, setPremadeQuizzes] = useState<any[]>([]);
-  const [showBuilder, setShowBuilder] = useState(false);
   const [currentBlock, setCurrentBlock] = useState<any>(null);
+  
+  const [showBuilder, setShowBuilder] = useState(false);
   const [showQuestionBrowser, setShowQuestionBrowser] = useState(false);
   const [showBlockCreator, setShowBlockCreator] = useState(false);
   
+  const [newBlockTitle, setNewBlockTitle] = useState('');
+  const [isInitializing, setIsInitializing] = useState(false);
+
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
         const { data: qData } = await supabase.from('questions').select('category, year');
         if (qData) {
-          const uniqueCats = Array.from(new Set(qData.map(q => q.category))).filter(Boolean).sort() as string[];
-          const uniqueYears = Array.from(new Set(qData.map(q => q.year))).filter(Boolean).sort().reverse() as string[];
-          setCategories(uniqueCats);
-          setAvailableYears(uniqueYears);
-          setSelectedCats(uniqueCats);
-          setSelectedYears(uniqueYears);
+          setCategories(Array.from(new Set(qData.map(q => q.category))).filter(Boolean).sort() as string[]);
+          setAvailableYears(Array.from(new Set(qData.map(q => q.year))).filter(Boolean).sort().reverse() as string[]);
         }
-        
+
         const { data: quizData } = await supabase.from('quizzes').select('*').order('title');
         if (quizData) setPremadeQuizzes(quizData);
 
@@ -64,6 +64,42 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
     }
     fetchData();
   }, []);
+
+  const handleCreateBlock = async () => {
+    if (!newBlockTitle.trim()) return;
+    setIsInitializing(true);
+    try {
+      // 1. Create a quiz entry
+      const { data: quiz, error: qError } = await supabase
+        .from('quizzes')
+        .insert({
+          title: newBlockTitle,
+          description: 'Custom Academic Block',
+          question_ids: [], // Admin will fill this later
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (qError) throw qError;
+
+      // 2. Update Local State
+      setPremadeQuizzes([quiz, ...premadeQuizzes]);
+      setShowBlockCreator(false);
+      setNewBlockTitle('');
+      alert('Block Initialized! You can now browse questions to add them.');
+    } catch (err: any) {
+      alert('Error creating block: ' + err.message);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  const handleMixedBlock = async () => {
+    // Basic logic for resident mixed block
+    onStartQuiz({ topic: 'Mixed Block', count: 40 });
+    setShowBuilder(false);
+  };
 
   const tabs = isSuperAdmin ? [
     { id: 'performance', label: 'Program Performance', icon: BarChartIcon },
@@ -102,17 +138,6 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
           </div>
         </div>
       </nav>
-
-      {currentBlock && (
-        <div className="bg-blue-600 text-white py-3 px-4 shadow-inner">
-          <div className="max-w-7xl mx-auto flex items-center justify-center gap-4 text-sm font-black uppercase tracking-widest">
-            <Calendar className="w-4 h-4" />
-            <span>Academic Block {currentBlock.block_number} Active</span>
-            <span className="opacity-40">•</span>
-            <span>Ends {new Date(currentBlock.end_date).toLocaleDateString()}</span>
-          </div>
-        </div>
-      )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 pb-32">
         <div className="flex flex-col h-full animate-fade-in">
@@ -224,16 +249,26 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
         <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-[40px] shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-8 border-b border-slate-100 flex justify-between items-center">
-              <h2 className="text-2xl font-black text-slate-800">Question Bank (2023-2025)</h2>
-              <button onClick={() => setShowQuestionBrowser(false)} className="p-2 hover:bg-slate-50 rounded-xl"><X className="w-6 h-6" /></button>
+              <div>
+                <h2 className="text-2xl font-black text-slate-800">Question Bank (2023-2025)</h2>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Filter by Subject or Year</p>
+              </div>
+              <button onClick={() => setShowQuestionBrowser(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-all"><X className="w-6 h-6" /></button>
             </div>
-            <div className="flex-1 overflow-y-auto p-8 space-y-4">
-              {categories.map(cat => (
-                <div key={cat} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center">
-                  <span className="font-bold text-slate-700">{cat}</span>
-                  <span className="text-xs font-black text-blue-600 bg-white px-3 py-1 rounded-full shadow-sm">VERIFIED</span>
-                </div>
-              ))}
+            <div className="flex-1 overflow-y-auto p-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {categories.map(cat => (
+                  <div key={cat} className="p-6 bg-slate-50 rounded-2xl flex justify-between items-center group hover:bg-blue-50 transition-all border border-slate-100 hover:border-blue-200">
+                    <div>
+                      <span className="font-black text-slate-700 block">{cat}</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject Pool</span>
+                    </div>
+                    <button className="p-2 bg-white text-blue-600 rounded-xl shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:scale-110">
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -241,18 +276,51 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
 
       {showBlockCreator && (
         <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] shadow-2xl max-w-2xl w-full p-12 text-center">
-            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <div className="bg-white rounded-[40px] shadow-2xl max-w-2xl w-full p-12 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-blue-600" />
+            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
               <Plus className="w-10 h-10" />
             </div>
             <h2 className="text-3xl font-black text-slate-800 mb-2">Create Academic Block</h2>
-            <p className="text-slate-500 mb-8">Define a new block for the 2026-2027 curriculum.</p>
+            <p className="text-slate-500 mb-8 font-medium">Define a new block for the 2026-2027 curriculum.</p>
             <div className="space-y-4 text-left">
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Block Title</label>
-              <input type="text" placeholder="e.g. Block 1: Internal Medicine" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 focus:ring-2 focus:ring-blue-600 outline-none transition-all" />
+              <input 
+                type="text" 
+                value={newBlockTitle}
+                onChange={(e) => setNewBlockTitle(e.target.value)}
+                placeholder="e.g. Block 1: Internal Medicine" 
+                className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-100 focus:ring-4 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all font-bold text-slate-800" 
+              />
             </div>
-            <button className="w-full mt-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700">Initialize Block</button>
-            <button onClick={() => setShowBlockCreator(false)} className="mt-4 text-slate-400 font-bold hover:text-slate-600">Cancel</button>
+            <button 
+              onClick={handleCreateBlock}
+              disabled={isInitializing || !newBlockTitle.trim()}
+              className="w-full mt-10 py-5 bg-blue-600 text-white rounded-3xl font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isInitializing ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-5 h-5" />}
+              Initialize Block
+            </button>
+            <button onClick={() => setShowBlockCreator(false)} className="mt-6 text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600 transition-all">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {showBuilder && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[40px] shadow-2xl max-w-xl w-full p-12 text-center">
+            <div className="w-20 h-20 bg-purple-50 text-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl font-black text-slate-800 mb-2">Mixed Block Builder</h2>
+            <p className="text-slate-500 mb-10">Generate a custom 40-question review session.</p>
+            <button 
+              onClick={handleMixedBlock}
+              className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+            >
+              Generate Block
+            </button>
+            <button onClick={() => setShowBuilder(false)} className="mt-6 text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600 transition-all">Cancel</button>
           </div>
         </div>
       )}

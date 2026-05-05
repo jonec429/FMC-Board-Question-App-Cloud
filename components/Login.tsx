@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Lock, MailIcon, Loader2, Sparkles, Megaphone, X } from './AppIcons';
 
