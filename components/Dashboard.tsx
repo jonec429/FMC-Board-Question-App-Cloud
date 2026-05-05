@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
   Shield, LogOut, Database, BarChartIcon, Users, Settings, 
-  Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye, X, Clock, Calendar
+  Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye, X, Clock, Calendar, RefreshCw, Plus, Edit3
 } from './AppIcons';
 
 import AdminPerformance from './AdminPerformance';
@@ -19,36 +19,32 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, profile, onLogout, onStartQuiz }: DashboardProps) {
-  const [activeTab, setActiveTab] = useState(profile?.role === 'admin' ? 'performance' : 'quizzes');
+  // SUPER ADMIN BYPASS: Always show admin for jcarb@ascension.org
+  const isSuperAdmin = user?.email === 'jcarb@ascension.org' || profile?.role === 'admin';
+  
+  const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'performance' : 'quizzes');
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<string[]>([]);
   const [availableYears, setAvailableYears] = useState<string[]>([]);
+  const [premadeQuizzes, setPremadeQuizzes] = useState<any[]>([]);
   const [showBuilder, setShowBuilder] = useState(false);
   const [currentBlock, setCurrentBlock] = useState<any>(null);
   
-  // Block Builder State
-  const [selectedCount, setSelectedCount] = useState(40);
-  const [selectedCats, setSelectedCats] = useState<string[]>([]);
-  const [selectedYears, setSelectedYears] = useState<string[]>([]);
-
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        // Fetch Categories and Years dynamically
         const { data: qData } = await supabase.from('questions').select('category, year');
         if (qData) {
           const uniqueCats = [...new Set(qData.map(q => q.category))].filter(Boolean).sort() as string[];
           const uniqueYears = [...new Set(qData.map(q => q.year))].filter(Boolean).sort().reverse() as string[];
-          
           setCategories(uniqueCats);
           setAvailableYears(uniqueYears);
-          
-          setSelectedCats(uniqueCats);
-          setSelectedYears(uniqueYears); // Default to all available years
         }
 
-        // Fetch Current Block
+        const { data: quizData } = await supabase.from('quizzes').select('*').order('title');
+        if (quizData) setPremadeQuizzes(quizData);
+
         const today = new Date().toISOString().split('T')[0];
         const { data: bData } = await supabase
           .from('block_schedule')
@@ -56,7 +52,6 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
           .lte('start_date', today)
           .gte('end_date', today)
           .maybeSingle();
-        
         setCurrentBlock(bData);
       } catch (err) {
         console.error('Fetch error:', err);
@@ -67,27 +62,16 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
     fetchData();
   }, []);
 
-  const isAdmin = profile?.role === 'admin';
-
-  const tabs = isAdmin ? [
+  const tabs = isSuperAdmin ? [
     { id: 'performance', label: 'Program Performance', icon: BarChartIcon },
     { id: 'attendance', label: 'Attendance', icon: Users },
+    { id: 'curriculum', label: 'Curriculum Manager', icon: Edit3 },
     { id: 'quizzes', label: 'Resident View', icon: Eye },
     { id: 'roster', label: 'Roster Manager', icon: Settings },
   ] : [
     { id: 'quizzes', label: 'Question Blocks', icon: Database },
     { id: 'my_performance', label: 'My Performance', icon: BarChartIcon },
   ];
-
-  const handleStartCustomBlock = () => {
-    onStartQuiz({ 
-      topic: 'Mixed Review Block',
-      categories: selectedCats,
-      years: selectedYears,
-      count: selectedCount
-    });
-    setShowBuilder(false);
-  };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
@@ -104,7 +88,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
             <div className="flex items-center gap-4">
               <div className="hidden md:flex flex-col items-end text-right">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
-                  {isAdmin ? 'Administrator' : `Resident | ${profile?.pgy || 'PGY'}`}
+                  {isSuperAdmin ? 'Super Admin' : `Resident | ${profile?.pgy || 'PGY'}`}
                 </span>
                 <span className="text-sm font-bold text-slate-700 leading-none">{profile?.full_name || user.email}</span>
               </div>
@@ -120,7 +104,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
         <div className="bg-blue-600 text-white py-3 px-4 shadow-inner">
           <div className="max-w-7xl mx-auto flex items-center justify-center gap-4 text-sm font-black uppercase tracking-widest">
             <Calendar className="w-4 h-4" />
-            <span>Currently Active: Block {currentBlock.block_number}</span>
+            <span>Academic Block {currentBlock.block_number} Active</span>
             <span className="opacity-40">•</span>
             <span>Ends {new Date(currentBlock.end_date).toLocaleDateString()}</span>
           </div>
@@ -149,169 +133,68 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
 
           <div className="flex-1">
             {activeTab === 'quizzes' && (
-              <div className="space-y-6">
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-8 hover-lift">
-                  <div className="w-24 h-24 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600 shadow-inner">
-                    <Database className="w-12 h-12" />
-                  </div>
-                  <div className="flex-1 text-center md:text-left">
-                    <h2 className="text-2xl font-black text-slate-800">Mixed Block Builder</h2>
-                    <p className="text-slate-500 font-medium max-w-md mt-1">Generate a mixed review session using available ITE years and subjects.</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowBuilder(true)}
-                    className="px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 active:scale-95 transition-all shadow-xl shadow-blue-100"
-                  >
-                    Start Mixed Block
-                  </button>
-                </div>
-
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mt-12 mb-4 ml-2">Active Subject Reviews</h3>
-                {loading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[1,2,3].map(i => <div key={i} className="h-48 bg-white rounded-3xl animate-pulse border border-slate-100" />)}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {categories.map(cat => (
-                      <div key={cat} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group hover-lift">
-                        <div className="flex justify-between items-start mb-4">
-                          <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                            <CheckCircle className="w-6 h-6 opacity-20" />
-                          </div>
-                          <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg">AVAILABLE</span>
-                        </div>
-                        <h3 className="font-black text-slate-800 text-lg mb-1">{cat}</h3>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Question Block</p>
+              <div className="space-y-12">
+                <section>
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 ml-2">Academic Curriculum</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {premadeQuizzes.map(quiz => (
+                      <div key={quiz.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group hover-lift">
+                        <h3 className="font-black text-slate-800 text-lg mb-1">{quiz.title}</h3>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">{quiz.question_ids?.length || 0} Questions</p>
                         <button 
-                          onClick={() => onStartQuiz({ topic: cat, categories: [cat], years: availableYears, count: 40 })}
-                          className="w-full py-3 bg-slate-50 text-slate-600 rounded-xl font-black group-hover:bg-blue-600 group-hover:text-white transition-all flex items-center justify-center gap-2"
+                          onClick={() => onStartQuiz({ topic: quiz.title, quizId: quiz.id, count: quiz.question_ids?.length || 40 })}
+                          className="w-full py-3 bg-blue-600 text-white rounded-xl font-black hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
                         >
                           Start Block
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
+                    {isSuperAdmin && (
+                      <button 
+                        onClick={() => setActiveTab('curriculum')}
+                        className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-blue-300 hover:text-blue-500 transition-all group"
+                      >
+                        <Plus className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
+                        <span className="font-black uppercase tracking-widest text-[10px]">Create New Block</span>
+                      </button>
+                    )}
                   </div>
-                )}
+                </section>
+              </div>
+            )}
+
+            {activeTab === 'curriculum' && (
+              <div className="bg-white p-12 rounded-[40px] border border-slate-100 shadow-sm text-center">
+                <Edit3 className="w-16 h-16 text-blue-100 mx-auto mb-6" />
+                <h2 className="text-3xl font-black text-slate-800 tracking-tight">Curriculum Manager</h2>
+                <p className="text-slate-500 max-w-lg mx-auto mt-2 font-medium">Build your Blocks from scratch for the new academic year. You can select questions directly from your CSV upload here.</p>
+                <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <button className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:border-blue-400 transition-all group">
+                    <Database className="w-8 h-8 text-blue-600 mb-2 mx-auto" />
+                    <span className="block font-black text-slate-800">Browse Questions</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">From CSV Upload</span>
+                  </button>
+                  <button className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:border-blue-400 transition-all group">
+                    <Calendar className="w-8 h-8 text-blue-600 mb-2 mx-auto" />
+                    <span className="block font-black text-slate-800">Set Schedule</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Academic Year 2024-25</span>
+                  </button>
+                  <button className="p-6 bg-blue-600 rounded-3xl text-white shadow-xl shadow-blue-100 hover:scale-105 transition-all">
+                    <Plus className="w-8 h-8 mb-2 mx-auto" />
+                    <span className="block font-black">Create New Block</span>
+                    <span className="text-[10px] opacity-60 font-black uppercase tracking-widest">Start from Scratch</span>
+                  </button>
+                </div>
               </div>
             )}
 
             {activeTab === 'performance' && <AdminPerformance />}
             {activeTab === 'attendance' && <AttendanceManager />}
             {activeTab === 'roster' && <RosterManager />}
-            
-            {activeTab === 'my_performance' && (
-              <div className="bg-white p-12 rounded-3xl border border-slate-100 text-center space-y-4">
-                <BarChartIcon className="w-16 h-16 text-slate-200 mx-auto" />
-                <h2 className="text-2xl font-black text-slate-800">Performance Data Analysis</h2>
-                <p className="text-slate-500 max-w-sm mx-auto">Analyzing your clinical metrics and historical board prep scores. Results will appear here shortly.</p>
-              </div>
-            )}
           </div>
         </div>
       </main>
-
-      {/* Block Builder Modal */}
-      {showBuilder && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white rounded-[40px] shadow-2xl max-w-2xl w-full overflow-hidden relative animate-in zoom-in-95 duration-300">
-            <div className="p-8 md:p-12 overflow-y-auto max-h-[90vh] scrollbar-hide">
-              <button onClick={() => setShowBuilder(false)} className="absolute top-8 right-8 p-2 text-slate-400 hover:text-slate-800 rounded-xl hover:bg-slate-50 transition-all">
-                <X className="w-6 h-6" />
-              </button>
-
-              <div className="flex items-center gap-4 mb-8">
-                <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-100">
-                  <Database className="w-8 h-8" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-black text-slate-800">Mixed Block Builder</h2>
-                  <p className="text-slate-500 font-bold tracking-tight">Configure your study session</p>
-                </div>
-              </div>
-
-              <div className="space-y-8">
-                {/* ITE Year Selection */}
-                <div className="space-y-4">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Select ITE Years
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {availableYears.length > 0 ? availableYears.map(year => (
-                      <button 
-                        key={year}
-                        onClick={() => setSelectedYears(prev => prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year])}
-                        className={`px-6 py-3 rounded-xl font-black transition-all ${selectedYears.includes(year) ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
-                      >
-                        {year}
-                      </button>
-                    )) : (
-                      <p className="text-xs font-bold text-slate-400 italic">No years found in database.</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Question Count */}
-                <div className="space-y-4">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Question Count
-                  </label>
-                  <div className="flex gap-3">
-                    {[10, 20, 40, 100].map(count => (
-                      <button 
-                        key={count}
-                        onClick={() => setSelectedCount(count)}
-                        className={`flex-1 py-4 rounded-2xl font-black text-lg transition-all ${selectedCount === count ? 'bg-blue-600 text-white shadow-xl shadow-blue-100' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}
-                      >
-                        {count}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Subject Selection */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      Filter Subjects
-                    </label>
-                    <button 
-                      onClick={() => setSelectedCats(selectedCats.length === categories.length ? [] : categories)}
-                      className="text-xs font-black text-blue-600 hover:underline"
-                    >
-                      {selectedCats.length === categories.length ? 'Deselect All' : 'Select All'}
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-2 scrollbar-hide">
-                    {categories.map(cat => (
-                      <button 
-                        key={cat}
-                        onClick={() => setSelectedCats(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between ${selectedCats.includes(cat) ? 'border-blue-600 bg-blue-50/50 text-blue-900' : 'border-slate-100 text-slate-500 hover:border-slate-200'}`}
-                      >
-                        <span className="font-bold">{cat}</span>
-                        {selectedCats.includes(cat) && <CheckCircle className="w-5 h-5 text-blue-600" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <button 
-                onClick={handleStartCustomBlock}
-                disabled={selectedCats.length === 0}
-                className="w-full mt-12 py-5 bg-blue-600 text-white rounded-[24px] font-black text-xl hover:bg-blue-700 disabled:opacity-30 active:scale-[0.98] transition-all shadow-2xl shadow-blue-200"
-              >
-                Assemble Block
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
