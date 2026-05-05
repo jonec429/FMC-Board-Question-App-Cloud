@@ -10,8 +10,8 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSignIn = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
     setLoading(true);
     setError('');
     
@@ -35,8 +35,8 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
     setLoading(false);
   };
 
-  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSignUp = async (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
     setLoading(true);
     setError('');
 
