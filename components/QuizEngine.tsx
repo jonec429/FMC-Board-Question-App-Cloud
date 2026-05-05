@@ -3,16 +3,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
-import { ChevronRight, ChevronLeft, Clock, Save, Loader2, Trophy, ArrowUpRight } from './icons';
+import { ChevronRight, ChevronLeft, Clock, Save, Loader2, Trophy, X } from './icons';
 
 interface QuizEngineProps {
   user: any;
   quizId?: string;
   topic?: string;
   onComplete: (results: any) => void;
+  onCancel: () => void; // Added for emergency exit
 }
 
-export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngineProps) {
+export default function QuizEngine({ user, quizId, topic, onComplete, onCancel }: QuizEngineProps) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -20,59 +21,72 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
   const [syncing, setSyncing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(3600); // 1 hour default
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // 1. Fetch Questions & Restore Session
   useEffect(() => {
     async function initQuiz() {
-      setLoading(true);
-      
-      // Fetch Questions
-      let query = supabase.from('questions').select('*');
-      if (quizId) {
-        // Fetch specific quiz questions (assuming we have a mapping)
-        // For now, we'll fetch all or a subset
-        query = query.limit(40);
-      } else {
-        query = query.limit(40);
-      }
-      
-      const { data: qData, error: qError } = await query;
-      if (qError) {
-        console.error('Error fetching questions:', qError);
-        return;
-      }
-      setQuestions(qData || []);
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch Questions
+        let query = supabase.from('questions').select('*');
+        if (topic && topic !== 'Mixed Review Block') {
+          // If a specific category was clicked
+          const category = topic.replace(' Review', '');
+          query = query.eq('category', category).limit(40);
+        } else {
+          // Default Mixed Block
+          query = query.limit(40);
+        }
+        
+        const { data: qData, error: qError } = await query;
+        if (qError) throw qError;
+        if (!qData || qData.length === 0) throw new Error('No questions found for this block.');
+        
+        setQuestions(qData);
 
-      // Restore Session
-      const { data: sData } = await supabase
-        .from('quiz_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_completed', false)
-        .single();
-
-      if (sData) {
-        setSessionId(sData.id);
-        setCurrentIndex(sData.current_index);
-        setAnswers(sData.answers || {});
-        if (sData.time_left) setTimeLeft(sData.time_left);
-      } else {
-        // Create new session
-        const { data: newSession } = await supabase
+        // Restore or Create Session
+        const { data: sData } = await supabase
           .from('quiz_sessions')
-          .insert({
-            user_id: user.id,
-            quiz_id: quizId || null,
-            topic: topic || 'Mixed Block',
-            current_index: 0,
-            answers: {},
-            time_left: 3600
-          })
-          .select()
-          .single();
-        if (newSession) setSessionId(newSession.id);
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_completed', false)
+          .order('last_updated', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (sData) {
+          setSessionId(sData.id);
+          setCurrentIndex(sData.current_index);
+          setAnswers(sData.answers || {});
+          if (sData.time_left) setTimeLeft(sData.time_left);
+        } else {
+          // Create new session
+          const { data: newSession, error: sError } = await supabase
+            .from('quiz_sessions')
+            .insert({
+              user_id: user.id,
+              quiz_id: quizId || null,
+              topic: topic || 'Mixed Review Block',
+              current_index: 0,
+              answers: {},
+              time_left: 3600,
+              is_completed: false
+            })
+            .select()
+            .single();
+          
+          if (sError) console.error('Session error:', sError);
+          if (newSession) setSessionId(newSession.id);
+        }
+      } catch (err: any) {
+        console.error('Quiz init error:', err);
+        setError(err.message || 'Failed to load questions.');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     initQuiz();
   }, [user.id, quizId, topic]);
@@ -93,11 +107,10 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
     setSyncing(false);
   }, [sessionId, currentIndex, answers, timeLeft, syncing]);
 
-  // Sync on index change or answer
   useEffect(() => {
     const timer = setTimeout(() => {
       syncProgress();
-    }, 2000);
+    }, 3000);
     return () => clearTimeout(timer);
   }, [currentIndex, answers, syncProgress]);
 
@@ -120,6 +133,8 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
   };
 
   const handleFinish = async () => {
+    if (!window.confirm('Are you sure you want to finish this block?')) return;
+    
     setLoading(true);
     const score = questions.reduce((acc, q, idx) => {
       return acc + (answers[idx] === q.correct_index ? 1 : 0);
@@ -128,18 +143,16 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
     const resultData = {
       user_id: user.id,
       quiz_id: quizId || null,
-      topic: topic || 'Mixed Block',
+      topic: topic || 'Mixed Review Block',
       score,
       total: questions.length,
       percentage: (score / questions.length) * 100,
       answers: answers,
-      academic_points: score >= (questions.length * 0.7) ? 2 : 1 // Placeholder logic
+      academic_points: score >= (questions.length * 0.7) ? 2 : 1
     };
 
-    // Save to Results
     await supabase.from('results').insert(resultData);
 
-    // Close Session
     if (sessionId) {
       await supabase
         .from('quiz_sessions')
@@ -151,12 +164,36 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
     setLoading(false);
   };
 
-  if (loading && questions.length === 0) {
+  if (loading || error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto" />
-          <p className="font-black text-slate-400 uppercase tracking-widest text-sm">Loading Quiz Bank...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="bg-white p-8 rounded-3xl shadow-xl shadow-slate-200 border border-slate-100 max-w-sm w-full text-center space-y-6">
+          {error ? (
+            <>
+              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto">
+                <X className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-800">Connection Issue</h3>
+                <p className="text-slate-500 text-sm mt-1">{error}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto" />
+              <div>
+                <h3 className="text-xl font-black text-slate-800">Initializing Block</h3>
+                <p className="text-slate-500 text-sm mt-1 uppercase tracking-widest font-bold">FMC Board Question App</p>
+              </div>
+            </>
+          )}
+          
+          <button 
+            onClick={onCancel}
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all"
+          >
+            Exit to Dashboard
+          </button>
         </div>
       </div>
     );
@@ -172,9 +209,9 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center shadow-lg shadow-slate-200">
-              <Trophy className="w-5 h-5 text-yellow-500" />
-            </div>
+            <button onClick={onCancel} className="p-2 text-slate-400 hover:text-slate-800 rounded-lg">
+              <ChevronLeft className="w-6 h-6" />
+            </button>
             <div>
               <h2 className="font-black text-slate-800 leading-tight">{topic || 'FMC Board Review'}</h2>
               <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
@@ -190,7 +227,7 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
             {syncing && <Loader2 className="w-4 h-4 text-slate-300 animate-spin" />}
             <span className="text-[10px] font-black text-slate-300 uppercase tracking-tighter flex items-center gap-1">
               <Save className="w-3 h-3" />
-              Syncing to Cloud
+              Cloud Sync Active
             </span>
             <button 
               onClick={handleFinish}
@@ -201,7 +238,6 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
           </div>
         </div>
 
-        {/* Progress Bar */}
         <div className="max-w-5xl mx-auto mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div 
             className="h-full bg-blue-600 transition-all duration-500 ease-out"
@@ -235,7 +271,7 @@ export default function QuizEngine({ user, quizId, topic, onComplete }: QuizEngi
           </button>
           
           <div className="hidden md:flex flex-1 items-center justify-center gap-1.5">
-            {questions.map((_, idx) => (
+            {questions.slice(0, 20).map((_, idx) => (
               <div 
                 key={idx}
                 className={`w-2 h-2 rounded-full transition-all ${idx === currentIndex ? 'bg-blue-600 w-6' : answers[idx] !== undefined ? 'bg-emerald-400' : 'bg-slate-200'}`}
