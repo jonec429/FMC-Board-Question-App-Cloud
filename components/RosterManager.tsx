@@ -87,15 +87,22 @@ export default function RosterManager() {
                   </div>
                 </td>
                 <td className="px-8 py-6">
-                  <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${member.role === 'admin' ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'}`}>
-                    {member.role === 'admin' ? 'Faculty' : `PGY-${member.pgy || '?'}`}
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block w-fit ${member.role === 'admin' ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'}`}>
+                      {member.role === 'admin' ? 'Faculty' : member.pgy || 'Resident'}
+                    </span>
+                    {member.advisor && (
+                      <span className="text-[10px] font-bold text-slate-400 pl-1 italic">
+                        Advisor: {member.advisor}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-8 py-6">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${member.full_name ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
-                    <span className={`text-sm font-bold ${member.full_name ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {member.full_name ? 'Active' : 'Pending Invite'}
+                    <div className={`w-2 h-2 rounded-full ${member.id.length > 30 ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
+                    <span className={`text-sm font-bold ${member.id.length > 30 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {member.id.length > 30 ? 'Account Created' : 'Roster Only'}
                     </span>
                   </div>
                 </td>

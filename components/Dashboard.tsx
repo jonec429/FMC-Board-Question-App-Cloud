@@ -75,8 +75,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
         .insert({
           title: newBlockTitle,
           description: 'Custom Academic Block',
-          question_ids: [], // Admin will fill this later
-          is_active: true
+          question_ids: [] // Admin will fill this later
         })
         .select()
         .single();
