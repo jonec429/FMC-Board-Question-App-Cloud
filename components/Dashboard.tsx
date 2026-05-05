@@ -22,35 +22,47 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
   const [activeTab, setActiveTab] = useState(profile?.role === 'admin' ? 'performance' : 'quizzes');
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<string[]>([]);
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [showBuilder, setShowBuilder] = useState(false);
   const [currentBlock, setCurrentBlock] = useState<any>(null);
   
   // Block Builder State
   const [selectedCount, setSelectedCount] = useState(40);
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
-  const [selectedYears, setSelectedYears] = useState<string[]>(['2025', '2024', '2023']);
+  const [selectedYears, setSelectedYears] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchData() {
-      // Fetch Categories
-      const { data: qData } = await supabase.from('questions').select('category');
-      if (qData) {
-        const unique = [...new Set(qData.map(q => q.category))].filter(Boolean).sort();
-        setCategories(unique);
-        setSelectedCats(unique);
-      }
+      setLoading(true);
+      try {
+        // Fetch Categories and Years dynamically
+        const { data: qData } = await supabase.from('questions').select('category, year');
+        if (qData) {
+          const uniqueCats = [...new Set(qData.map(q => q.category))].filter(Boolean).sort() as string[];
+          const uniqueYears = [...new Set(qData.map(q => q.year))].filter(Boolean).sort().reverse() as string[];
+          
+          setCategories(uniqueCats);
+          setAvailableYears(uniqueYears);
+          
+          setSelectedCats(uniqueCats);
+          setSelectedYears(uniqueYears); // Default to all available years
+        }
 
-      // Fetch Current Block
-      const today = new Date().toISOString().split('T')[0];
-      const { data: bData } = await supabase
-        .from('block_schedule')
-        .select('*')
-        .lte('start_date', today)
-        .gte('end_date', today)
-        .maybeSingle();
-      
-      setCurrentBlock(bData);
-      setLoading(false);
+        // Fetch Current Block
+        const today = new Date().toISOString().split('T')[0];
+        const { data: bData } = await supabase
+          .from('block_schedule')
+          .select('*')
+          .lte('start_date', today)
+          .gte('end_date', today)
+          .maybeSingle();
+        
+        setCurrentBlock(bData);
+      } catch (err) {
+        console.error('Fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
     }
     fetchData();
   }, []);
@@ -104,7 +116,6 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
         </div>
       </nav>
 
-      {/* Block Schedule Banner */}
       {currentBlock && (
         <div className="bg-blue-600 text-white py-3 px-4 shadow-inner">
           <div className="max-w-7xl mx-auto flex items-center justify-center gap-4 text-sm font-black uppercase tracking-widest">
@@ -145,7 +156,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                   </div>
                   <div className="flex-1 text-center md:text-left">
                     <h2 className="text-2xl font-black text-slate-800">Mixed Block Builder</h2>
-                    <p className="text-slate-500 font-medium max-w-md mt-1">Configure your board review session by year, subject, and question count.</p>
+                    <p className="text-slate-500 font-medium max-w-md mt-1">Generate a mixed review session using available ITE years and subjects.</p>
                   </div>
                   <button 
                     onClick={() => setShowBuilder(true)}
@@ -155,10 +166,10 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                   </button>
                 </div>
 
-                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mt-12 mb-4 ml-2">Assigned Subject Reviews</h3>
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mt-12 mb-4 ml-2">Active Subject Reviews</h3>
                 {loading ? (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 opacity-50">
-                    {[1,2,3].map(i => <div key={i} className="h-48 bg-white rounded-3xl animate-pulse" />)}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[1,2,3].map(i => <div key={i} className="h-48 bg-white rounded-3xl animate-pulse border border-slate-100" />)}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -171,9 +182,9 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                           <span className="text-[10px] font-black bg-emerald-50 text-emerald-600 px-2 py-1 rounded-lg">AVAILABLE</span>
                         </div>
                         <h3 className="font-black text-slate-800 text-lg mb-1">{cat}</h3>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Subject Block</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Question Block</p>
                         <button 
-                          onClick={() => onStartQuiz({ topic: cat, count: 40 })}
+                          onClick={() => onStartQuiz({ topic: cat, categories: [cat], years: availableYears, count: 40 })}
                           className="w-full py-3 bg-slate-50 text-slate-600 rounded-xl font-black group-hover:bg-blue-600 group-hover:text-white transition-all flex items-center justify-center gap-2"
                         >
                           Start Block
@@ -193,8 +204,8 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
             {activeTab === 'my_performance' && (
               <div className="bg-white p-12 rounded-3xl border border-slate-100 text-center space-y-4">
                 <BarChartIcon className="w-16 h-16 text-slate-200 mx-auto" />
-                <h2 className="text-2xl font-black text-slate-800">Preparing Performance Profile</h2>
-                <p className="text-slate-500 max-w-sm mx-auto">We are gathering your recent clinical metrics and historical board prep scores. They will appear here shortly.</p>
+                <h2 className="text-2xl font-black text-slate-800">Performance Data Analysis</h2>
+                <p className="text-slate-500 max-w-sm mx-auto">Analyzing your clinical metrics and historical board prep scores. Results will appear here shortly.</p>
               </div>
             )}
           </div>
@@ -216,7 +227,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                 </div>
                 <div>
                   <h2 className="text-3xl font-black text-slate-800">Mixed Block Builder</h2>
-                  <p className="text-slate-500 font-bold tracking-tight">Configure Identical Original Session Flow</p>
+                  <p className="text-slate-500 font-bold tracking-tight">Configure your study session</p>
                 </div>
               </div>
 
@@ -228,7 +239,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                     Select ITE Years
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {['2025', '2024', '2023'].map(year => (
+                    {availableYears.length > 0 ? availableYears.map(year => (
                       <button 
                         key={year}
                         onClick={() => setSelectedYears(prev => prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year])}
@@ -236,7 +247,9 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                       >
                         {year}
                       </button>
-                    ))}
+                    )) : (
+                      <p className="text-xs font-bold text-slate-400 italic">No years found in database.</p>
+                    )}
                   </div>
                 </div>
 
@@ -290,7 +303,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
 
               <button 
                 onClick={handleStartCustomBlock}
-                disabled={selectedCats.length === 0 || selectedYears.length === 0}
+                disabled={selectedCats.length === 0}
                 className="w-full mt-12 py-5 bg-blue-600 text-white rounded-[24px] font-black text-xl hover:bg-blue-700 disabled:opacity-30 active:scale-[0.98] transition-all shadow-2xl shadow-blue-200"
               >
                 Assemble Block
