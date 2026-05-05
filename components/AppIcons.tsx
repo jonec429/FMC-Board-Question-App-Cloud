@@ -14,6 +14,7 @@ export const ChevronRight = (p: any) => <Icon {...p}><path d="m9 18 6-6-6-6" /><
 export const ChevronDown = (p: any) => <Icon {...p}><path d="m6 9 6 6 6-6" /></Icon>;
 export const ChevronUp = (p: any) => <Icon {...p}><path d="m18 15-6-6-6 6" /></Icon>;
 export const ChevronLeft = (p: any) => <Icon {...p}><path d="m15 18-6-6 6-6" /></Icon>;
+export const Calendar = (p: any) => <Icon {...p}><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></Icon>;
 export const CheckCircle = (p: any) => <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></Icon>;
 export const XCircle = (p: any) => <Icon {...p}><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></Icon>;
 export const BookOpen = (p: any) => <Icon {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></Icon>;
