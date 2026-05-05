@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { 
   Shield, LogOut, Database, BarChartIcon, Users, Settings, 
-  Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye, X, Clock, Calendar, RefreshCw, Plus, Edit3
+  Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye, X, Clock, Calendar, RefreshCw, Plus, Edit3, Loader2
 } from './AppIcons';
 
 import AdminPerformance from './AdminPerformance';
@@ -19,7 +19,6 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, profile, onLogout, onStartQuiz }: DashboardProps) {
-  // SUPER ADMIN BYPASS: Always show admin for jonathan.carbungco@ascension.org
   const isSuperAdmin = user?.email === 'jonathan.carbungco@ascension.org' || profile?.role === 'admin';
   
   const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'performance' : 'quizzes');
@@ -29,6 +28,8 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
   const [premadeQuizzes, setPremadeQuizzes] = useState<any[]>([]);
   const [showBuilder, setShowBuilder] = useState(false);
   const [currentBlock, setCurrentBlock] = useState<any>(null);
+  const [showQuestionBrowser, setShowQuestionBrowser] = useState(false);
+  const [showBlockCreator, setShowBlockCreator] = useState(false);
   
   useEffect(() => {
     async function fetchData() {
@@ -36,12 +37,14 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
       try {
         const { data: qData } = await supabase.from('questions').select('category, year');
         if (qData) {
-          const uniqueCats = [...new Set(qData.map(q => q.category))].filter(Boolean).sort() as string[];
-          const uniqueYears = [...new Set(qData.map(q => q.year))].filter(Boolean).sort().reverse() as string[];
+          const uniqueCats = Array.from(new Set(qData.map(q => q.category))).filter(Boolean).sort() as string[];
+          const uniqueYears = Array.from(new Set(qData.map(q => q.year))).filter(Boolean).sort().reverse() as string[];
           setCategories(uniqueCats);
           setAvailableYears(uniqueYears);
+          setSelectedCats(uniqueCats);
+          setSelectedYears(uniqueYears);
         }
-
+        
         const { data: quizData } = await supabase.from('quizzes').select('*').order('title');
         if (quizData) setPremadeQuizzes(quizData);
 
@@ -137,7 +140,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                 <section>
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 ml-2">Academic Curriculum</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {premadeQuizzes.map(quiz => (
+                    {premadeQuizzes.length > 0 ? premadeQuizzes.map(quiz => (
                       <div key={quiz.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group hover-lift">
                         <h3 className="font-black text-slate-800 text-lg mb-1">{quiz.title}</h3>
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">{quiz.question_ids?.length || 0} Questions</p>
@@ -149,17 +152,30 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
-                    ))}
-                    {isSuperAdmin && (
-                      <button 
-                        onClick={() => setActiveTab('curriculum')}
-                        className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-blue-300 hover:text-blue-500 transition-all group"
-                      >
-                        <Plus className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
-                        <span className="font-black uppercase tracking-widest text-[10px]">Create New Block</span>
-                      </button>
+                    )) : (
+                      <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-slate-100">
+                        <Database className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                        <h4 className="text-lg font-bold text-slate-800">No active blocks available</h4>
+                        <p className="text-slate-400 text-sm">Blocks will appear here once created in the Curriculum Manager.</p>
+                      </div>
                     )}
                   </div>
+                </section>
+
+                <section className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-8 hover-lift">
+                  <div className="w-24 h-24 bg-purple-50 rounded-3xl flex items-center justify-center text-purple-600 shadow-inner">
+                    <Sparkles className="w-12 h-12" />
+                  </div>
+                  <div className="flex-1 text-center md:text-left">
+                    <h2 className="text-2xl font-black text-slate-800">Mixed Block Builder</h2>
+                    <p className="text-slate-500 font-medium max-w-md mt-1">Generate a custom review session using any year or subject.</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowBuilder(true)}
+                    className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200"
+                  >
+                    Build Mixed Block
+                  </button>
                 </section>
               </div>
             )}
@@ -169,18 +185,25 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
                 <Edit3 className="w-16 h-16 text-blue-100 mx-auto mb-6" />
                 <h2 className="text-3xl font-black text-slate-800 tracking-tight">Curriculum Manager</h2>
                 <p className="text-slate-500 max-w-lg mx-auto mt-2 font-medium">Build your Blocks from scratch for the new academic year. You can select questions directly from your CSV upload here.</p>
+                
                 <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <button className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:border-blue-400 transition-all group">
+                  <button 
+                    onClick={() => setShowQuestionBrowser(true)}
+                    className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:border-blue-400 transition-all group"
+                  >
                     <Database className="w-8 h-8 text-blue-600 mb-2 mx-auto" />
-                    <span className="block font-black text-slate-800">Browse Questions</span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">From CSV Upload</span>
+                    <span className="block font-black text-slate-800">Browse Question Bank</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Active 2023-2025 Data</span>
                   </button>
                   <button className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:border-blue-400 transition-all group">
                     <Calendar className="w-8 h-8 text-blue-600 mb-2 mx-auto" />
                     <span className="block font-black text-slate-800">Set Schedule</span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Academic Year 2024-25</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Academic Year 2026-27</span>
                   </button>
-                  <button className="p-6 bg-blue-600 rounded-3xl text-white shadow-xl shadow-blue-100 hover:scale-105 transition-all">
+                  <button 
+                    onClick={() => setShowBlockCreator(true)}
+                    className="p-6 bg-blue-600 rounded-3xl text-white shadow-xl shadow-blue-100 hover:scale-105 transition-all"
+                  >
                     <Plus className="w-8 h-8 mb-2 mx-auto" />
                     <span className="block font-black">Create New Block</span>
                     <span className="text-[10px] opacity-60 font-black uppercase tracking-widest">Start from Scratch</span>
@@ -195,6 +218,44 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
           </div>
         </div>
       </main>
+
+      {/* Modals */}
+      {showQuestionBrowser && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[40px] shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+              <h2 className="text-2xl font-black text-slate-800">Question Bank (2023-2025)</h2>
+              <button onClick={() => setShowQuestionBrowser(false)} className="p-2 hover:bg-slate-50 rounded-xl"><X className="w-6 h-6" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8 space-y-4">
+              {categories.map(cat => (
+                <div key={cat} className="p-4 bg-slate-50 rounded-2xl flex justify-between items-center">
+                  <span className="font-bold text-slate-700">{cat}</span>
+                  <span className="text-xs font-black text-blue-600 bg-white px-3 py-1 rounded-full shadow-sm">VERIFIED</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBlockCreator && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[40px] shadow-2xl max-w-2xl w-full p-12 text-center">
+            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <Plus className="w-10 h-10" />
+            </div>
+            <h2 className="text-3xl font-black text-slate-800 mb-2">Create Academic Block</h2>
+            <p className="text-slate-500 mb-8">Define a new block for the 2026-2027 curriculum.</p>
+            <div className="space-y-4 text-left">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Block Title</label>
+              <input type="text" placeholder="e.g. Block 1: Internal Medicine" className="w-full p-4 bg-slate-50 rounded-2xl border border-slate-100 focus:ring-2 focus:ring-blue-600 outline-none transition-all" />
+            </div>
+            <button className="w-full mt-8 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700">Initialize Block</button>
+            <button onClick={() => setShowBlockCreator(false)} className="mt-4 text-slate-400 font-bold hover:text-slate-600">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
