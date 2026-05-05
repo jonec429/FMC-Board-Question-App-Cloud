@@ -62,3 +62,7 @@ export const Star = (p: any) => <Icon {...p}><polygon points="12 2 15.09 8.26 22
 export const Award = (p: any) => <Icon {...p}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></Icon>;
 export const ArrowUpRight = (p: any) => <Icon {...p}><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></Icon>;
 export const Loader2 = (p: any) => <Icon {...p}><path d="M12 2v4" /><path d="m16.2 7.8 2.9-2.9" /><path d="M18 12h4" /><path d="m16.2 16.2 2.9 2.9" /><path d="M12 18v4" /><path d="m7.8 16.2-2.9 2.9" /><path d="M2 12h4" /><path d="m7.8 7.8-2.9-2.9" /></Icon>;
+export const ChevronLeft = (p: any) => <Icon {...p}><path d="m15 18-6-6 6-6" /></Icon>;
+export const Home = (p: any) => <Icon {...p}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></Icon>;
+export const Menu = (p: any) => <Icon {...p}><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="18" x2="20" y2="18" /></Icon>;
+export const User = (p: any) => <Icon {...p}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></Icon>;
