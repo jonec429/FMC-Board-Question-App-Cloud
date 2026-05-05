@@ -19,8 +19,8 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, profile, onLogout, onStartQuiz }: DashboardProps) {
-  // SUPER ADMIN BYPASS: Always show admin for jcarb@ascension.org
-  const isSuperAdmin = user?.email === 'jcarb@ascension.org' || profile?.role === 'admin';
+  // SUPER ADMIN BYPASS: Always show admin for jonathan.carbungco@ascension.org
+  const isSuperAdmin = user?.email === 'jonathan.carbungco@ascension.org' || profile?.role === 'admin';
   
   const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'performance' : 'quizzes');
   const [loading, setLoading] = useState(true);
