@@ -97,11 +97,12 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
 
           <form onSubmit={handleSignIn} className="space-y-4">
             <div>
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-1 px-1">Ascension Email</label>
+              <label htmlFor="email" className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-1 px-1">Ascension Email</label>
               <div className="relative">
                 <MailIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                   type="email" 
+                  id="email"
                   name="email"
                   autoComplete="username"
                   value={email}
@@ -114,11 +115,12 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
             </div>
 
             <div>
-              <label className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-1 px-1">Password</label>
+              <label htmlFor="password" className="block text-xs font-black text-slate-400 uppercase tracking-wider mb-1 px-1">Password</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input 
                   type="password" 
+                  id="password"
                   name="password"
                   autoComplete="current-password"
                   value={password}
