@@ -12,6 +12,7 @@ export default function Home() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeQuiz, setActiveQuiz] = useState<any>(null);
+  const [currentBlock, setCurrentBlock] = useState<any>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -24,6 +25,16 @@ export default function Home() {
           .eq('id', session.user.id)
           .single();
         setProfile(profileData);
+
+        // Fetch Current Academic Block
+        const today = new Date().toISOString().split('T')[0];
+        const { data: bData } = await supabase
+          .from('block_schedule')
+          .select('*')
+          .lte('start_date', today)
+          .gte('end_date', today)
+          .maybeSingle();
+        setCurrentBlock(bData);
       }
       setLoading(false);
     };
@@ -73,7 +84,10 @@ export default function Home() {
     return (
       <QuizEngine 
         user={user} 
-        topic={activeQuiz.topic} 
+        topic={activeQuiz.topic}
+        categories={activeQuiz.categories}
+        count={activeQuiz.count}
+        currentBlock={currentBlock}
         onComplete={(results) => {
           setActiveQuiz(null);
         }} 
