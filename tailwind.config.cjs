@@ -1,9 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  // Global Scanner: Look everywhere!
   content: [
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./**/*.{js,ts,jsx,tsx,mdx}",
+    "!./node_modules/**/*",
   ],
   theme: {
     extend: {
@@ -12,7 +12,7 @@ module.exports = {
       },
       colors: {
         blue: {
-          600: '#1e3a8a', // FMC Deep Blue
+          600: '#1e3a8a',
           700: '#1d357b',
         },
       },
