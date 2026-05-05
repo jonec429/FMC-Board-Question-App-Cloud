@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Lock, MailIcon, Loader2, Sparkles } from './icons';
+import { Lock, MailIcon, Loader2, Sparkles } from './Icons';
 
 export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [email, setEmail] = useState('');
@@ -76,7 +76,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
     if (error) {
       setError(error.message);
     } else {
-      alert('Registration successful! Please check your email for a confirmation link.');
+      alert('Registration successful! You can now sign in.');
     }
     setLoading(false);
   };
@@ -89,7 +89,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4 text-white shadow-lg shadow-blue-200">
               <Sparkles className="w-8 h-8" />
             </div>
-            <h1 className="text-3xl font-black text-slate-800">FMC QBank</h1>
+            <h1 className="text-3xl font-black text-slate-800">FMC Board Question App</h1>
             <p className="text-slate-500 font-medium">Resident Performance System</p>
           </div>
 

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import Login from '@/components/Login';
 import Dashboard from '@/components/Dashboard';
 import QuizEngine from '@/components/QuizEngine';
-import { Loader2 } from '@/components/icons';
+import { Loader2 } from '@/components/Icons';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -18,7 +18,6 @@ export default function Home() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
-        // Fetch profile
         const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
@@ -77,8 +76,8 @@ export default function Home() {
         topic={activeQuiz.topic} 
         onComplete={(results) => {
           setActiveQuiz(null);
-          // Refresh data if needed
         }} 
+        onCancel={() => setActiveQuiz(null)}
       />
     );
   }

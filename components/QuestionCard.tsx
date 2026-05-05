@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle } from './icons';
+import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle } from './Icons';
 
 interface Question {
   id?: string;
