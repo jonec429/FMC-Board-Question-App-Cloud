@@ -2,14 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, Clipboard, Check, AlertTriangle, Save, Loader2, Calendar } from './AppIcons';
+import { Users, Clipboard, Check, AlertTriangle, Save, Loader2, Database } from './AppIcons';
 
 export default function AttendanceManager() {
   const [pasteContent, setPasteContent] = useState('');
   const [parsedData, setParsedData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [roster, setRoster] = useState<any[]>([]);
 
   useEffect(() => {
@@ -42,24 +41,20 @@ export default function AttendanceManager() {
       };
     });
 
-    // Remove duplicates from the same paste
-    const unique = matched.reduce((acc: any[], current) => {
-      const x = acc.find(item => item.email === current.email && item.email !== null);
-      if (!x) return acc.concat([current]);
-      else return acc;
-    }, []);
-
-    setParsedData(unique);
+    // For Monthly Bulk: We KEEP all matches (if a name appears 4 times, they get 4 credits)
+    setParsedData(matched);
     setLoading(false);
   };
 
   const saveAttendance = async () => {
     setSaving(true);
+    const today = new Date().toISOString().split('T')[0];
+    
     const validEntries = parsedData.filter(p => p.matched).map(p => ({
       email: p.email,
       full_name: p.name,
-      session_date: sessionDate,
-      method: 'Smart Paste'
+      session_date: today, // Record the bulk upload date
+      method: 'Monthly Bulk Upload'
     }));
 
     const { error } = await supabase.from('attendance').insert(validEntries);
@@ -67,7 +62,7 @@ export default function AttendanceManager() {
     if (error) {
       alert('Error saving attendance: ' + error.message);
     } else {
-      alert(`Successfully saved attendance for ${validEntries.length} residents!`);
+      alert(`Successfully saved ${validEntries.length} attendance credits for the month!`);
       setPasteContent('');
       setParsedData([]);
     }
@@ -76,22 +71,14 @@ export default function AttendanceManager() {
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right-4 duration-500 pb-20">
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-            <Calendar className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="font-black text-slate-800">Conference Date</h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Points will be logged for this day</p>
-          </div>
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-8">
+        <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+          <Database className="w-8 h-8" />
         </div>
-        <input 
-          type="date" 
-          value={sessionDate}
-          onChange={(e) => setSessionDate(e.target.value)}
-          className="p-4 bg-slate-50 border border-slate-100 rounded-2xl font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none"
-        />
+        <div>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight">Monthly Bulk Attendance</h2>
+          <p className="text-slate-500 font-medium max-w-lg">Paste your New Innovations export below. The engine will automatically match residents and assign multiple credits based on the list.</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -101,13 +88,13 @@ export default function AttendanceManager() {
               <div className="p-2 bg-slate-900 rounded-xl text-white">
                 <Clipboard className="w-5 h-5" />
               </div>
-              <h3 className="text-xl font-black text-slate-800">Smart Paste Ingestion</h3>
+              <h3 className="text-xl font-black text-slate-800">NI Data Ingestion</h3>
             </div>
             
             <textarea
               value={pasteContent}
               onChange={(e) => setPasteContent(e.target.value)}
-              placeholder="Paste raw New Innovations CSV or text here..."
+              placeholder="Paste raw New Innovations export text here..."
               className="w-full h-64 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:ring-0 transition-all font-mono text-sm"
             />
             
@@ -117,7 +104,7 @@ export default function AttendanceManager() {
               className="w-full mt-6 py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-blue-700 transition-all disabled:opacity-50 shadow-xl shadow-blue-100"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-              Analyze Attendance
+              Analyze Monthly Bulk
             </button>
           </div>
         </div>
@@ -129,7 +116,7 @@ export default function AttendanceManager() {
                 <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
                   <Users className="w-5 h-5" />
                 </div>
-                <h3 className="text-xl font-black text-slate-800">Results ({parsedData.length})</h3>
+                <h3 className="text-xl font-black text-slate-800">Matched Credits ({parsedData.filter(p=>p.matched).length})</h3>
               </div>
               
               {parsedData.some(p => p.matched) && (
@@ -139,7 +126,7 @@ export default function AttendanceManager() {
                   className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-black text-sm flex items-center gap-2 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Confirm & Save
+                  Confirm Bulk Save
                 </button>
               )}
             </div>
@@ -148,7 +135,7 @@ export default function AttendanceManager() {
               {parsedData.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300">
                   <Clipboard className="w-12 h-12 mb-2 opacity-10" />
-                  <p className="font-bold text-slate-200">Waiting for NI data...</p>
+                  <p className="font-bold text-slate-200">Waiting for NI export...</p>
                 </div>
               ) : (
                 parsedData.map((person, idx) => (
@@ -163,10 +150,7 @@ export default function AttendanceManager() {
                     {person.matched ? (
                       <Check className="w-5 h-5 text-emerald-500" />
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-red-400 uppercase">No Match</span>
-                        <AlertTriangle className="w-5 h-5 text-red-500" />
-                      </div>
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
                     )}
                   </div>
                 ))
