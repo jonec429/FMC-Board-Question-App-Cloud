@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Lock, MailIcon, Loader2, Sparkles } from './Icons';
+import { Lock, MailIcon, Loader2, Sparkles } from './AppIcons';
 
 export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [email, setEmail] = useState('');

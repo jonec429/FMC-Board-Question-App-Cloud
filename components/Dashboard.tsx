@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Shield, LogOut, Database, BarChartIcon, Users, Settings, 
   Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye
-} from './Icons';
+} from './AppIcons';
 
 interface DashboardProps {
   user: any;
