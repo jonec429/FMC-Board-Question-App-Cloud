@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, LogOut, Database, BarChartIcon, Users, Settings, 
-  Search, Sparkles, Megaphone, CheckCircle, ChevronRight
+  Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye
 } from './icons';
 
 interface DashboardProps {
@@ -22,12 +22,22 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading for smooth animation
     const timer = setTimeout(() => setLoading(false), 500);
     return () => clearTimeout(timer);
   }, []);
 
   const isAdmin = profile?.role === 'admin';
+
+  // Define tabs based on role
+  const tabs = isAdmin ? [
+    { id: 'performance', label: 'Program Performance', icon: BarChartIcon },
+    { id: 'attendance', label: 'Attendance', icon: Users },
+    { id: 'quizzes', label: 'Resident View', icon: Eye }, // Access to questions for Admin
+    { id: 'roster', label: 'Roster Manager', icon: Settings },
+  ] : [
+    { id: 'quizzes', label: 'Question Blocks', icon: Database },
+    { id: 'my_performance', label: 'My Progress', icon: BarChartIcon },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
@@ -66,15 +76,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
           {/* Tabs Navigation */}
           <div className="mb-8">
             <div className="flex bg-white p-1.5 rounded-2xl w-full overflow-x-auto scrollbar-hide shadow-sm border border-slate-200/50">
-              {(isAdmin ? [
-                { id: 'performance', label: 'Program Performance', icon: BarChartIcon },
-                { id: 'attendance', label: 'Attendance', icon: Users },
-                { id: 'content', label: 'Content Manager', icon: Database },
-                { id: 'settings', label: 'Settings', icon: Settings }
-              ] : [
-                { id: 'quizzes', label: 'Question Blocks', icon: Database },
-                { id: 'my_performance', label: 'My Progress', icon: BarChartIcon },
-              ]).map(tab => {
+              {tabs.map(tab => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
