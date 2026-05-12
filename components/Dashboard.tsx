@@ -2,60 +2,121 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { 
-  Shield, LogOut, Database, BarChartIcon, Users, Settings, 
-  Search, Sparkles, Megaphone, CheckCircle, ChevronRight, Eye, X, Clock, Calendar, RefreshCw, Plus, Edit3, Loader2, Save
+import {
+  LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
+  PlayCircle, Sparkles, X,
 } from './AppIcons';
-
-import AdminPerformance from './AdminPerformance';
-import AttendanceManager from './AttendanceManager';
-import RosterManager from './RosterManager';
 
 interface DashboardProps {
   user: any;
   profile: any;
+  currentBlock?: any;
   onLogout: () => void;
   onStartQuiz: (quiz: any) => void;
+  onOpenBuilder: () => void;
+  onOpenAdmin: () => void;
 }
 
-export default function Dashboard({ user, profile, onLogout, onStartQuiz }: DashboardProps) {
-  const isSuperAdmin = user?.email === 'jonathan.carbungco@ascension.org' || profile?.role === 'admin';
-  
-  const [activeTab, setActiveTab] = useState(isSuperAdmin ? 'performance' : 'quizzes');
+function getBlockSortKey(title: string): number {
+  const t = title || '';
+  if (/^demo/i.test(t)) return 9999;
+  const m = t.match(/Block\s+(\d+)/i);
+  if (m) return parseInt(m[1], 10);
+  if (/bonus/i.test(t)) return 500;
+  return 1000;
+}
+
+interface LeaderboardEntry {
+  email: string;
+  name: string;
+  pgy: string;
+  totalPoints: number;
+  totalQs: number;
+}
+
+export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpenBuilder, onOpenAdmin }: DashboardProps) {
+  const isSuperAdmin =
+    user?.email === 'jonathan.carbungco@ascension.org' ||
+    profile?.role === 'admin' ||
+    profile?.role === 'faculty' ||
+    profile?.pgy === 'Faculty';
+
   const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [availableYears, setAvailableYears] = useState<string[]>([]);
-  const [premadeQuizzes, setPremadeQuizzes] = useState<any[]>([]);
-  const [currentBlock, setCurrentBlock] = useState<any>(null);
-  
-  const [showBuilder, setShowBuilder] = useState(false);
-  const [showQuestionBrowser, setShowQuestionBrowser] = useState(false);
-  const [showBlockCreator, setShowBlockCreator] = useState(false);
-  
-  const [newBlockTitle, setNewBlockTitle] = useState('');
-  const [isInitializing, setIsInitializing] = useState(false);
+
+  // Data
+  const [blocks, setBlocks] = useState<any[]>([]);
+  const [myResults, setMyResults] = useState<any[]>([]);
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  // UI state
+  const [showMyStats, setShowMyStats] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const { data: qData } = await supabase.from('questions').select('category, year');
-        if (qData) {
-          setCategories(Array.from(new Set(qData.map(q => q.category))).filter(Boolean).sort() as string[]);
-          setAvailableYears(Array.from(new Set(qData.map(q => q.year))).filter(Boolean).sort().reverse() as string[]);
+        const [
+          { data: blockData },
+          { data: resultsData },
+          { data: sessionData },
+          { data: allResults },
+          { data: rosterData },
+        ] = await Promise.all([
+          supabase.from('blocks').select('*'),
+          supabase
+            .from('results')
+            .select('*')
+            .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('quiz_sessions')
+            .select('id, topic, quiz_id, current_index, answers, last_updated')
+            .eq('user_id', user.id)
+            .eq('is_completed', false)
+            .order('last_updated', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase.from('results').select('legacy_email, topic, total, academic_points'),
+          supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty'),
+        ]);
+
+        if (blockData) {
+          const sorted = [...blockData].sort((a, b) => getBlockSortKey(a.title) - getBlockSortKey(b.title));
+          setBlocks(sorted);
         }
+        if (resultsData) setMyResults(resultsData);
+        if (sessionData) setActiveSession(sessionData);
 
-        const { data: quizData } = await supabase.from('quizzes').select('*').order('title');
-        if (quizData) setPremadeQuizzes(quizData);
+        // Build leaderboard
+        if (allResults && rosterData) {
+          const rosterByEmail = new Map<string, { name: string; pgy: string }>();
+          rosterData.forEach((r: any) => {
+            if (r.email) rosterByEmail.set(r.email.toLowerCase(), { name: r.name, pgy: r.pgy });
+          });
 
-        const today = new Date().toISOString().split('T')[0];
-        const { data: bData } = await supabase
-          .from('block_schedule')
-          .select('*')
-          .lte('start_date', today)
-          .gte('end_date', today)
-          .maybeSingle();
-        setCurrentBlock(bData);
+          // Group results by email, dedupe by topic (best points per topic)
+          const byEmail = new Map<string, { topicBest: Map<string, number>; qs: number }>();
+          allResults.forEach((r: any) => {
+            const email = r.legacy_email?.toLowerCase();
+            if (!email) return;
+            if (!byEmail.has(email)) byEmail.set(email, { topicBest: new Map(), qs: 0 });
+            const entry = byEmail.get(email)!;
+            const cur = entry.topicBest.get(r.topic) || 0;
+            entry.topicBest.set(r.topic, Math.max(cur, r.academic_points || 0));
+            entry.qs += r.total || 0;
+          });
+
+          const lb: LeaderboardEntry[] = [];
+          rosterByEmail.forEach(({ name, pgy }, email) => {
+            const entry = byEmail.get(email);
+            const totalPoints = entry ? Array.from(entry.topicBest.values()).reduce((a, b) => a + b, 0) : 0;
+            const totalQs = entry?.qs || 0;
+            lb.push({ email, name, pgy, totalPoints, totalQs });
+          });
+          lb.sort((a, b) => b.totalPoints - a.totalPoints);
+          setLeaderboard(lb);
+        }
       } catch (err) {
         console.error('Fetch error:', err);
       } finally {
@@ -63,266 +124,429 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz }: Dash
       }
     }
     fetchData();
-  }, []);
+  }, [user.id, user.email]);
 
-  const handleCreateBlock = async () => {
-    if (!newBlockTitle.trim()) return;
-    setIsInitializing(true);
-    try {
-      // 1. Create a quiz entry
-      const { data: quiz, error: qError } = await supabase
-        .from('quizzes')
-        .insert({
-          title: newBlockTitle,
-          description: 'Custom Academic Block',
-          question_ids: [] // Admin will fill this later
-        })
-        .select()
-        .single();
-
-      if (qError) throw qError;
-
-      // 2. Update Local State
-      setPremadeQuizzes([quiz, ...premadeQuizzes]);
-      setShowBlockCreator(false);
-      setNewBlockTitle('');
-      alert('Block Initialized! You can now browse questions to add them.');
-    } catch (err: any) {
-      alert('Error creating block: ' + err.message);
-    } finally {
-      setIsInitializing(false);
+  // Best result per topic
+  const bestResultByTopic = new Map<string, any>();
+  myResults.forEach(r => {
+    const existing = bestResultByTopic.get(r.topic);
+    if (!existing || (r.percentage || 0) > (existing.percentage || 0)) {
+      bestResultByTopic.set(r.topic, r);
     }
-  };
+  });
 
-  const handleMixedBlock = async () => {
-    // Basic logic for resident mixed block
-    onStartQuiz({ topic: 'Mixed Block', count: 40 });
-    setShowBuilder(false);
-  };
+  // Best points per topic (dedupe retakes)
+  const topicBestPts = new Map<string, number>();
+  myResults
+    .filter(r => (r.academic_points || 0) > 0)
+    .forEach(r => {
+      const cur = topicBestPts.get(r.topic) || 0;
+      topicBestPts.set(r.topic, Math.max(cur, r.academic_points || 0));
+    });
 
-  const tabs = isSuperAdmin ? [
-    { id: 'performance', label: 'Program Performance', icon: BarChartIcon },
-    { id: 'attendance', label: 'Attendance', icon: Users },
-    { id: 'curriculum', label: 'Curriculum Manager', icon: Edit3 },
-    { id: 'quizzes', label: 'Resident View', icon: Eye },
-    { id: 'roster', label: 'Roster Manager', icon: Settings },
-  ] : [
-    { id: 'quizzes', label: 'Question Blocks', icon: Database },
-    { id: 'my_performance', label: 'My Performance', icon: BarChartIcon },
-  ];
+  const blocksCompleted = topicBestPts.size;
+  const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
+  const avgPct = myResults.length > 0
+    ? myResults.reduce((a, r) => a + (r.percentage || 0), 0) / myResults.length
+    : null;
 
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
-      <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-100 text-white">
-                <Shield className="w-6 h-6" />
-              </div>
-              <span className="text-xl font-black text-slate-800 tracking-tight">FMC Board Question App</span>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="hidden md:flex flex-col items-end text-right">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
-                  {isSuperAdmin ? 'Super Admin' : `Resident | ${profile?.pgy || 'PGY'}`}
-                </span>
-                <span className="text-sm font-bold text-slate-700 leading-none">{profile?.full_name || user.email}</span>
-              </div>
-              <button onClick={onLogout} className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all">
-                <LogOut className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
+  // === RESIDENT TOPIC-SELECT VIEW ===
+  const renderTopicSelect = () => (
+    <main className="flex-1 max-w-7xl w-full mx-auto px-6 md:px-8 py-6 md:py-8">
+      {/* Header */}
+      <div className="mb-8 flex justify-between items-start relative">
+        <div className="absolute -top-10 -left-10 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Noon Conference Blocks</h2>
+          <p className="text-slate-500 font-bold text-xs tracking-wide mt-1 uppercase opacity-60">
+            Ascension St. Vincent's FM Residency · {profile?.full_name || user.email}
+          </p>
         </div>
-      </nav>
+        <div className="flex items-center gap-2 relative z-20">
+          {isSuperAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+              title="Admin Console"
+            >
+              <Lock className="w-5 h-5" />
+            </button>
+          )}
+          <button onClick={onLogout} className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 pb-32">
-        <div className="flex flex-col h-full animate-fade-in">
-          <div className="mb-8">
-            <div className="flex bg-white p-1.5 rounded-2xl w-full overflow-x-auto scrollbar-hide shadow-sm border border-slate-200/50">
-              {tabs.map(tab => {
-                const Icon = tab.icon;
+      {/* Two-column body */}
+      <div className="flex flex-col md:flex-row gap-6">
+
+        {/* LEFT SIDEBAR */}
+        <div className="md:w-80 flex flex-col gap-4 shrink-0">
+          {/* My Performance — yellow gradient */}
+          <button
+            onClick={() => setShowMyStats(true)}
+            className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 text-yellow-800 rounded-3xl shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group"
+          >
+            <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 transition-transform">
+              <Trophy className="w-6 h-6 text-yellow-500" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-base">My Performance</p>
+              <p className="text-xs text-yellow-600">Stats, badges &amp; history</p>
+            </div>
+          </button>
+
+          {/* Leaderboard */}
+          {leaderboard.length > 0 && (
+            <LeaderboardWidget data={leaderboard} myEmail={user.email} />
+          )}
+
+          {/* Resume Saved Review */}
+          {activeSession && (
+            <button
+              onClick={() => {
+                const matchedBlock = blocks.find(b => b.title === activeSession.topic || b.id === activeSession.quiz_id);
+                onStartQuiz({
+                  topic: activeSession.topic,
+                  quizId: activeSession.quiz_id || matchedBlock?.id,
+                  count: 40,
+                });
+              }}
+              className="w-full p-4 bg-amber-50 text-amber-800 border border-amber-200 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-3"
+            >
+              <PlayCircle className="w-6 h-6 shrink-0" />
+              <div className="text-left flex-1 min-w-0">
+                <p className="font-bold">Resume Saved Review</p>
+                <p className="text-xs text-amber-600 opacity-80 truncate">
+                  {activeSession.topic} · Q{(activeSession.current_index || 0) + 1}
+                </p>
+              </div>
+            </button>
+          )}
+
+          {/* QOTD placeholder — wired up in Step 6 */}
+        </div>
+
+        {/* RIGHT MAIN */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Quiz Builder — indigo gradient */}
+          <button
+            onClick={onOpenBuilder}
+            className="w-full mb-6 flex items-center justify-center gap-4 p-5 bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-700 border border-indigo-200 rounded-3xl shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group"
+          >
+            <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 transition-transform">
+              <Sparkles className="w-7 h-7 text-indigo-500" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-lg">Quiz Builder</p>
+              <p className="text-xs text-indigo-500/80">Custom filters or quick mixed review</p>
+            </div>
+          </button>
+
+          <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs mb-3">Noon Conference Blocks</h3>
+
+          {loading ? (
+            <p className="text-center py-6 text-slate-400 text-sm italic">Loading Fixed Blocks...</p>
+          ) : blocks.length === 0 ? (
+            <p className="text-center py-6 text-slate-400 text-sm italic">No blocks available.</p>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {blocks.map(block => {
+                const result = bestResultByTopic.get(block.title);
+                const isCompleted = !!result && (result.academic_points || 0) > 0;
+                const hasResume = activeSession && activeSession.topic === block.title;
+
                 return (
-                  <button 
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)} 
-                    className={`flex-1 sm:flex-none px-6 py-3 text-sm font-bold rounded-xl transition-all duration-300 whitespace-nowrap flex items-center justify-center gap-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+                  <div
+                    key={block.id}
+                    onClick={() => onStartQuiz({ topic: block.title, quizId: block.id, count: 40 })}
+                    className="shrink-0 p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all group relative overflow-hidden ring-1 ring-slate-200/50 hover:ring-blue-400"
                   >
-                    <Icon className="w-4 h-4" />
-                    <span>{tab.label}</span>
-                  </button>
+                    {hasResume && !isCompleted && (
+                      <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[9px] font-bold px-2 py-0.5 rounded-bl-xl border-l border-b border-amber-200">
+                        Q{(activeSession.current_index || 0) + 1}
+                      </div>
+                    )}
+                    <div className="flex gap-3 items-center min-w-0">
+                      {isCompleted ? (
+                        <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+                      ) : (
+                        <FileText className="w-5 h-5 text-slate-400 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-bold text-base text-slate-800 truncate flex items-center gap-2">
+                          {block.title}
+                          {isCompleted && (
+                            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full border border-green-200 uppercase tracking-wider shrink-0">
+                              Done
+                            </span>
+                          )}
+                          {!isCompleted && hasResume && (
+                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200 uppercase tracking-wider shrink-0">
+                              Resume
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-400 font-medium">
+                          {result ? `Best: ${(result.percentage || 0).toFixed(1)}%` : '40 Questions'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0" />
+                  </div>
                 );
               })}
             </div>
-          </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
 
-          <div className="flex-1">
-            {activeTab === 'quizzes' && (
-              <div className="space-y-12">
-                <section>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-6 ml-2">Academic Curriculum</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {premadeQuizzes.length > 0 ? premadeQuizzes.map(quiz => (
-                      <div key={quiz.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group hover-lift">
-                        <h3 className="font-black text-slate-800 text-lg mb-1">{quiz.title}</h3>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">{quiz.question_ids?.length || 0} Questions</p>
-                        <button 
-                          onClick={() => onStartQuiz({ topic: quiz.title, quizId: quiz.id, count: quiz.question_ids?.length || 40 })}
-                          className="w-full py-3 bg-blue-600 text-white rounded-xl font-black hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
-                        >
-                          Start Block
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )) : (
-                      <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-slate-100">
-                        <Database className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                        <h4 className="text-lg font-bold text-slate-800">No active blocks available</h4>
-                        <p className="text-slate-400 text-sm">Blocks will appear here once created in the Curriculum Manager.</p>
-                      </div>
-                    )}
-                  </div>
-                </section>
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+      {renderTopicSelect()}
 
-                <section className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-8 hover-lift">
-                  <div className="w-24 h-24 bg-purple-50 rounded-3xl flex items-center justify-center text-purple-600 shadow-inner">
-                    <Sparkles className="w-12 h-12" />
-                  </div>
-                  <div className="flex-1 text-center md:text-left">
-                    <h2 className="text-2xl font-black text-slate-800">Mixed Block Builder</h2>
-                    <p className="text-slate-500 font-medium max-w-md mt-1">Generate a custom review session using any year or subject.</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowBuilder(true)}
-                    className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200"
-                  >
-                    Build Mixed Block
-                  </button>
-                </section>
-              </div>
-            )}
+      {/* MY STATS MODAL */}
+      {showMyStats && (
+        <MyStatsModal
+          onClose={() => setShowMyStats(false)}
+          profile={profile}
+          userEmail={user.email}
+          avgPct={avgPct}
+          blocksCompleted={blocksCompleted}
+          totalPoints={totalPoints}
+          myResults={myResults}
+          leaderboard={leaderboard}
+        />
+      )}
 
-            {activeTab === 'curriculum' && (
-              <div className="bg-white p-12 rounded-[40px] border border-slate-100 shadow-sm text-center">
-                <Edit3 className="w-16 h-16 text-blue-100 mx-auto mb-6" />
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight">Curriculum Manager</h2>
-                <p className="text-slate-500 max-w-lg mx-auto mt-2 font-medium">Build your Blocks from scratch for the new academic year. You can select questions directly from your CSV upload here.</p>
-                
-                <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <button 
-                    onClick={() => setShowQuestionBrowser(true)}
-                    className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:border-blue-400 transition-all group"
-                  >
-                    <Database className="w-8 h-8 text-blue-600 mb-2 mx-auto" />
-                    <span className="block font-black text-slate-800">Browse Question Bank</span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Active 2023-2025 Data</span>
-                  </button>
-                  <button className="p-6 bg-slate-50 rounded-3xl border border-slate-100 hover:border-blue-400 transition-all group">
-                    <Calendar className="w-8 h-8 text-blue-600 mb-2 mx-auto" />
-                    <span className="block font-black text-slate-800">Set Schedule</span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Academic Year 2026-27</span>
-                  </button>
-                  <button 
-                    onClick={() => setShowBlockCreator(true)}
-                    className="p-6 bg-blue-600 rounded-3xl text-white shadow-xl shadow-blue-100 hover:scale-105 transition-all"
-                  >
-                    <Plus className="w-8 h-8 mb-2 mx-auto" />
-                    <span className="block font-black">Create New Block</span>
-                    <span className="text-[10px] opacity-60 font-black uppercase tracking-widest">Start from Scratch</span>
-                  </button>
+    </div>
+  );
+}
+
+// === LEADERBOARD WIDGET ===
+function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmail: string }) {
+  const top = data.slice(0, 5);
+  const myEntry = data.find(d => d.email.toLowerCase() === myEmail.toLowerCase());
+  const myRank = myEntry ? data.findIndex(d => d.email === myEntry.email) + 1 : null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">Leaderboard</h3>
+        {myRank && <span className="text-[10px] font-bold text-blue-600">You: #{myRank}</span>}
+      </div>
+      <div className="space-y-1">
+        {top.map((r, i) => {
+          const isMe = r.email.toLowerCase() === myEmail.toLowerCase();
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+          return (
+            <div
+              key={r.email}
+              className={`flex items-center justify-between py-1.5 px-2 rounded-lg ${isMe ? 'bg-blue-50' : ''}`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold text-slate-400 w-5 shrink-0">
+                  {medal || `#${i + 1}`}
+                </span>
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold truncate ${isMe ? 'text-blue-700' : 'text-slate-700'}`}>
+                    {r.name}
+                  </p>
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {r.pgy.replace('Class of ', "'")}
+                  </p>
                 </div>
               </div>
-            )}
-
-            {activeTab === 'performance' && <AdminPerformance />}
-            {activeTab === 'attendance' && <AttendanceManager />}
-            {activeTab === 'roster' && <RosterManager />}
-          </div>
-        </div>
-      </main>
-
-      {/* Modals */}
-      {showQuestionBrowser && (
-        <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
-              <div>
-                <h2 className="text-2xl font-black text-slate-800">Question Bank (2023-2025)</h2>
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Filter by Subject or Year</p>
-              </div>
-              <button onClick={() => setShowQuestionBrowser(false)} className="p-2 hover:bg-slate-50 rounded-xl transition-all"><X className="w-6 h-6" /></button>
+              <span className={`text-xs font-black shrink-0 ml-2 ${isMe ? 'text-blue-700' : 'text-slate-600'}`}>
+                {r.totalPoints} pts
+              </span>
             </div>
-            <div className="flex-1 overflow-y-auto p-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {categories.map(cat => (
-                  <div key={cat} className="p-6 bg-slate-50 rounded-2xl flex justify-between items-center group hover:bg-blue-50 transition-all border border-slate-100 hover:border-blue-200">
-                    <div>
-                      <span className="font-black text-slate-700 block">{cat}</span>
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject Pool</span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// === MY STATS MODAL ===
+function MyStatsModal({
+  onClose,
+  profile,
+  userEmail,
+  avgPct,
+  blocksCompleted,
+  totalPoints,
+  myResults,
+  leaderboard,
+}: {
+  onClose: () => void;
+  profile: any;
+  userEmail: string;
+  avgPct: number | null;
+  blocksCompleted: number;
+  totalPoints: number;
+  myResults: any[];
+  leaderboard: LeaderboardEntry[];
+}) {
+  const totalQs = myResults.reduce((a, r) => a + (r.total || 0), 0);
+  const hasPerfect = myResults.some(r => (r.percentage || 0) >= 99.99);
+  const assignedCount = myResults.filter(r => (r.academic_points || 0) > 0).length;
+  const myRankIdx = leaderboard.findIndex(l => l.email.toLowerCase() === userEmail.toLowerCase());
+  const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
+
+  // Class leader: #1 within same PGY class
+  const classmates = profile?.pgy ? leaderboard.filter(l => l.pgy === profile.pgy) : [];
+  const classLeader = classmates.length > 0 ? classmates[0] : null;
+  const isClassLeader = classLeader?.email.toLowerCase() === userEmail.toLowerCase();
+
+  // Badges (computed from existing data — no QOTD or block schedule yet)
+  const badges: { label: string; emoji: string; color: string }[] = [];
+  if (assignedCount > 0) badges.push({ label: 'First Steps', emoji: '🎯', color: 'bg-blue-50 text-blue-700 border-blue-200' });
+  if (totalQs >= 200) badges.push({ label: 'Scholar IV', emoji: '📚', color: 'bg-purple-50 text-purple-700 border-purple-200' });
+  else if (totalQs >= 120) badges.push({ label: 'Scholar III', emoji: '📖', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' });
+  else if (totalQs >= 80) badges.push({ label: 'Scholar II', emoji: '📔', color: 'bg-blue-50 text-blue-700 border-blue-200' });
+  else if (totalQs >= 40) badges.push({ label: 'Scholar I', emoji: '📕', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' });
+  if (hasPerfect) badges.push({ label: 'Perfect Block', emoji: '✨', color: 'bg-amber-50 text-amber-700 border-amber-200' });
+  if (myRank !== null && myRank >= 1 && myRank <= 3) badges.push({ label: `Top ${myRank}`, emoji: '🏆', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' });
+  if (isClassLeader && classmates.length > 1) badges.push({ label: 'Class Leader', emoji: '👑', color: 'bg-rose-50 text-rose-700 border-rose-200' });
+
+  // Topic / subject breakdown (group by topic, compute avg)
+  const topicStats = new Map<string, { sum: number; count: number; qs: number }>();
+  myResults.forEach(r => {
+    if (!r.topic) return;
+    if (!topicStats.has(r.topic)) topicStats.set(r.topic, { sum: 0, count: 0, qs: 0 });
+    const entry = topicStats.get(r.topic)!;
+    entry.sum += r.percentage || 0;
+    entry.count += 1;
+    entry.qs += r.total || 0;
+  });
+  const topicAverages = Array.from(topicStats.entries())
+    .map(([topic, { sum, count, qs }]) => ({ topic, avg: sum / count, attempts: count, qs }))
+    .sort((a, b) => b.avg - a.avg);
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-start">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center shrink-0">
+              <Trophy className="w-5 h-5 text-yellow-500" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-xl font-black text-slate-800 truncate">{profile?.full_name || 'My Performance'}</h2>
+              <p className="text-xs font-bold text-slate-400 mt-0.5 truncate">
+                {profile?.pgy || '—'}{profile?.advisor ? ` · Advisor: ${profile.advisor}` : ''}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl shrink-0">
+            <X className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="text-center p-3 bg-slate-50 rounded-2xl">
+              <div className="text-xl font-black text-slate-800">{avgPct !== null ? `${avgPct.toFixed(1)}%` : '—'}</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Avg Score</div>
+            </div>
+            <div className="text-center p-3 bg-slate-50 rounded-2xl">
+              <div className="text-xl font-black text-slate-800">{totalQs}</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Questions Done</div>
+            </div>
+            <div className="text-center p-3 bg-slate-50 rounded-2xl">
+              <div className="text-xl font-black text-slate-800">{blocksCompleted}</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Blocks Done</div>
+            </div>
+            <div className="text-center p-3 bg-slate-50 rounded-2xl">
+              <div className="text-xl font-black text-slate-800">{totalPoints}</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Quiz Points</div>
+            </div>
+          </div>
+
+          {/* Badges */}
+          {badges.length > 0 && (
+            <div>
+              <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Badges &amp; Milestones</h3>
+              <div className="flex flex-wrap gap-2">
+                {badges.map((b, i) => (
+                  <span key={i} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${b.color}`}>
+                    <span>{b.emoji}</span>
+                    <span>{b.label}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Subject Breakdown */}
+          {topicAverages.length > 0 && (
+            <div>
+              <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Subject Breakdown</h3>
+              <div className="space-y-2">
+                {topicAverages.map(({ topic, avg, attempts, qs }) => (
+                  <div key={topic} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs text-slate-800 truncate">{topic}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
                     </div>
-                    <button className="p-2 bg-white text-blue-600 rounded-xl shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:scale-110">
-                      <Plus className="w-5 h-5" />
-                    </button>
+                    <div className="w-32 shrink-0">
+                      <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${avg >= 70 ? 'bg-emerald-500' : avg >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                          style={{ width: `${Math.max(0, Math.min(100, avg))}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className={`text-xs font-black shrink-0 w-12 text-right ${avg >= 70 ? 'text-emerald-700' : avg >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {avg.toFixed(1)}%
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {showBlockCreator && (
-        <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] shadow-2xl max-w-2xl w-full p-12 text-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-2 bg-blue-600" />
-            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
-              <Plus className="w-10 h-10" />
-            </div>
-            <h2 className="text-3xl font-black text-slate-800 mb-2">Create Academic Block</h2>
-            <p className="text-slate-500 mb-8 font-medium">Define a new block for the 2026-2027 curriculum.</p>
-            <div className="space-y-4 text-left">
-              <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Block Title</label>
-              <input 
-                type="text" 
-                value={newBlockTitle}
-                onChange={(e) => setNewBlockTitle(e.target.value)}
-                placeholder="e.g. Block 1: Internal Medicine" 
-                className="w-full p-5 bg-slate-50 rounded-2xl border border-slate-100 focus:ring-4 focus:ring-blue-100 focus:border-blue-600 outline-none transition-all font-bold text-slate-800" 
-              />
-            </div>
-            <button 
-              onClick={handleCreateBlock}
-              disabled={isInitializing || !newBlockTitle.trim()}
-              className="w-full mt-10 py-5 bg-blue-600 text-white rounded-3xl font-black text-lg shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isInitializing ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-5 h-5" />}
-              Initialize Block
-            </button>
-            <button onClick={() => setShowBlockCreator(false)} className="mt-6 text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600 transition-all">Cancel</button>
+          {/* History */}
+          <div>
+            <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Assessment History</h3>
+            {myResults.length > 0 ? (
+              <div className="space-y-2">
+                {myResults.map((r, i) => {
+                  const pts = r.academic_points || 0;
+                  const timingEmoji = pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'
+                    : pts === 1 ? '⏰'
+                    : pts >= 2 ? '⚡'
+                    : null;
+                  return (
+                    <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-slate-800 truncate">{r.topic}</p>
+                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                          {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+                          {timingEmoji && <span className="ml-2">{timingEmoji}</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                          {(r.percentage || 0).toFixed(1)}%
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400">{pts}pt</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-center py-8 text-slate-400 text-sm italic">No assessments completed yet.</p>
+            )}
           </div>
         </div>
-      )}
-
-      {showBuilder && (
-        <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] shadow-2xl max-w-xl w-full p-12 text-center">
-            <div className="w-20 h-20 bg-purple-50 text-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-              <Sparkles className="w-10 h-10" />
-            </div>
-            <h2 className="text-3xl font-black text-slate-800 mb-2">Mixed Block Builder</h2>
-            <p className="text-slate-500 mb-10">Generate a custom 40-question review session.</p>
-            <button 
-              onClick={handleMixedBlock}
-              className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
-            >
-              Generate Block
-            </button>
-            <button onClick={() => setShowBuilder(false)} className="mt-6 text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-600 transition-all">Cancel</button>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

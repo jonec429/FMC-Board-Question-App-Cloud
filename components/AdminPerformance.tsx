@@ -2,36 +2,111 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BarChartIcon, Users, Loader2, TrendingUp, Target, Mail } from './AppIcons';
+import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight } from './AppIcons';
+
+const AT_RISK_AVG = 60;
+const CONCERN_AVG = 70;
+const AT_RISK_ONTIME = 50;
+const CONCERN_ONTIME = 75;
+
+interface ResidentStat {
+  name: string;
+  email: string;
+  pgy: string;
+  advisor: string;
+  attempts: number;
+  avgPct: number;
+  blocksCompleted: number;
+  onTimePct: number;
+  totalPoints: number;
+  risk: 'red' | 'yellow' | 'green';
+  results: any[];
+}
+
+function getRisk(avgPct: number, onTimePct: number, attempts: number): 'red' | 'yellow' | 'green' {
+  if (attempts === 0) return 'green';
+  if (avgPct < AT_RISK_AVG || onTimePct < AT_RISK_ONTIME) return 'red';
+  if (avgPct < CONCERN_AVG || onTimePct < CONCERN_ONTIME) return 'yellow';
+  return 'green';
+}
+
+const riskColors = {
+  red: { row: 'bg-red-50/60', badge: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
+  yellow: { row: 'bg-amber-50/40', badge: 'bg-amber-100 text-amber-700', dot: 'bg-amber-400' },
+  green: { row: '', badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
+};
 
 export default function AdminPerformance() {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
+  const [residentStats, setResidentStats] = useState<ResidentStat[]>([]);
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'at_risk' | 'by_pgy'>('overview');
+  const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
 
   useEffect(() => {
     async function fetchStats() {
       setLoading(true);
       try {
-        const { data: results, error } = await supabase
-          .from('results')
-          .select('*, profiles(full_name, pgy)');
-        
-        if (error) throw error;
+        const [{ data: allResults }, profilesRes, { data: roster }] = await Promise.all([
+          supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at'),
+          supabase.from('profiles').select('*'),
+          supabase.from('authorized_roster').select('name, email, pgy, advisor').neq('pgy', 'Faculty'),
+        ]);
 
-        if (results && results.length > 0) {
-          const totalScore = results.reduce((acc, r) => acc + (r.score || 0), 0);
-          const avgScore = totalScore / results.length;
-          const passing = results.filter(r => (r.score || 0) >= 70).length;
-          
-          setStats({
-            average: Math.round(avgScore),
-            totalQuizzes: results.length,
-            passingRate: Math.round((passing / results.length) * 100),
-            recent: results.slice(0, 5)
+        const profileMap = new Map<string, string>();
+        (profilesRes.data || []).forEach((p: any) => {
+          const email = p?.email || p?.user_email;
+          if (p?.id && email) profileMap.set(p.id, email);
+        });
+
+        const enriched = (allResults || []).map((r: any) => ({
+          ...r,
+          email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
+        })).filter((r: any) => r.email);
+
+        const stats: ResidentStat[] = (roster || []).map((resident: any) => {
+          const resResults = enriched.filter(
+            (r: any) => r.email?.toLowerCase() === resident.email?.toLowerCase()
+          );
+
+          const assignedResults = resResults.filter((r: any) => (r.academic_points || 0) > 0);
+
+          // Dedupe by topic — for each block, keep best timing (highest points)
+          const topicBestPts = new Map<string, number>();
+          assignedResults.forEach((r: any) => {
+            const cur = topicBestPts.get(r.topic) || 0;
+            topicBestPts.set(r.topic, Math.max(cur, r.academic_points || 0));
           });
-        } else {
-          setStats({ average: 0, totalQuizzes: 0, passingRate: 0, recent: [] });
-        }
+          const blocksCompleted = topicBestPts.size;
+
+          const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(([topic]) => !topic?.toLowerCase().includes('bonus'));
+          const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
+          const onTimePct = nonBonusBlocks.length > 0
+            ? (onTimeBlocks.length / nonBonusBlocks.length) * 100
+            : 100;
+
+          const avgPct = resResults.length > 0
+            ? resResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / resResults.length
+            : 0;
+
+          const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
+
+          return {
+            name: resident.name,
+            email: resident.email,
+            pgy: resident.pgy,
+            advisor: resident.advisor,
+            attempts: resResults.length,
+            avgPct,
+            blocksCompleted,
+            onTimePct,
+            totalPoints,
+            risk: getRisk(avgPct, onTimePct, resResults.length),
+            results: resResults.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+          };
+        });
+
+        stats.sort((a, b) => b.totalPoints - a.totalPoints);
+        setResidentStats(stats);
       } catch (err) {
         console.error('Stats fetch error:', err);
       } finally {
@@ -50,62 +125,272 @@ export default function AdminPerformance() {
     );
   }
 
-  return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <span className="text-4xl font-black text-slate-800">{stats?.average}%</span>
-          <span className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Average Program Score</span>
-        </div>
-        
-        <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4">
-            <Target className="w-6 h-6" />
-          </div>
-          <span className="text-4xl font-black text-slate-800">{stats?.passingRate}%</span>
-          <span className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Residents Above 70%</span>
-        </div>
+  const redFlagged = residentStats.filter(r => r.risk === 'red');
+  const yellowFlagged = residentStats.filter(r => r.risk === 'yellow');
+  const programAvg = residentStats.length > 0
+    ? residentStats.filter(r => r.attempts > 0).reduce((a, r) => a + r.avgPct, 0) / (residentStats.filter(r => r.attempts > 0).length || 1)
+    : 0;
+  const boardReadiness = Math.round(residentStats.filter(r => r.attempts > 0 && r.avgPct >= 70).length / (residentStats.filter(r => r.attempts > 0).length || 1) * 100);
+  const onTimeProgramAvg = residentStats.length > 0
+    ? residentStats.filter(r => r.blocksCompleted > 0).reduce((a, r) => a + r.onTimePct, 0) / (residentStats.filter(r => r.blocksCompleted > 0).length || 1)
+    : 0;
 
-        <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-4">
-            <Users className="w-6 h-6" />
+  const pgyGroups: Record<string, ResidentStat[]> = {};
+  residentStats.forEach(r => {
+    const year = r.pgy.replace('Class of ', 'PGY (');
+    const label = r.pgy;
+    if (!pgyGroups[label]) pgyGroups[label] = [];
+    pgyGroups[label].push(r);
+  });
+
+  const ResidentTable = ({ residents }: { residents: ResidentStat[] }) => (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+            <th className="text-left px-6 py-3">Resident</th>
+            <th className="text-center px-4 py-3">PGY</th>
+            <th className="text-center px-4 py-3">Attempts</th>
+            <th className="text-center px-4 py-3">Avg %</th>
+            <th className="text-center px-4 py-3">Blocks Done</th>
+            <th className="text-center px-4 py-3">On-Time %</th>
+            <th className="text-center px-4 py-3">Points</th>
+            <th className="text-center px-4 py-3">Status</th>
+            <th className="px-4 py-3" />
+          </tr>
+        </thead>
+        <tbody>
+          {residents.map((r, i) => {
+            const colors = riskColors[r.risk];
+            return (
+              <tr key={i} className={`border-b border-slate-50 transition-all hover:brightness-95 cursor-pointer ${colors.row}`} onClick={() => setSelectedResident(r)}>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
+                    <span className="font-bold text-slate-800 text-sm">{r.name}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.pgy.replace('Class of ', '')}</td>
+                <td className="px-4 py-4 text-center font-bold text-slate-600 text-sm">{r.attempts}</td>
+                <td className="px-4 py-4 text-center">
+                  {r.attempts > 0 ? (
+                    <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.avgPct >= 70 ? 'text-emerald-700' : r.avgPct >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {r.avgPct.toFixed(1)}%
+                    </span>
+                  ) : <span className="text-slate-300 font-bold">—</span>}
+                </td>
+                <td className="px-4 py-4 text-center font-bold text-slate-600 text-sm">{r.blocksCompleted}</td>
+                <td className="px-4 py-4 text-center">
+                  {r.blocksCompleted > 0 ? (
+                    <span className={`text-sm font-bold ${r.onTimePct >= 75 ? 'text-emerald-600' : r.onTimePct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {r.onTimePct.toFixed(0)}%
+                    </span>
+                  ) : <span className="text-slate-300 font-bold">—</span>}
+                </td>
+                <td className="px-4 py-4 text-center font-black text-slate-700 text-sm">{r.totalPoints}</td>
+                <td className="px-4 py-4 text-center">
+                  {r.attempts > 0 ? (
+                    <span className={`text-xs font-black px-2 py-1 rounded-full ${colors.badge}`}>
+                      {r.risk === 'red' ? 'At Risk' : r.risk === 'yellow' ? 'Needs Attention' : 'On Track'}
+                    </span>
+                  ) : <span className="text-slate-300 text-xs font-bold">No Data</span>}
+                </td>
+                <td className="px-4 py-4">
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      {/* Program Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-3">
+            <TrendingUp className="w-5 h-5" />
           </div>
-          <span className="text-4xl font-black text-slate-800">{stats?.totalQuizzes}</span>
-          <span className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Total Assessments Done</span>
+          <span className="text-3xl font-black text-slate-800">{programAvg.toFixed(1)}%</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Program Avg</span>
+        </div>
+        <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+          <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-3">
+            <Target className="w-5 h-5" />
+          </div>
+          <span className="text-3xl font-black text-slate-800">{boardReadiness}%</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Above 70%</span>
+        </div>
+        <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+          <div className="w-10 h-10 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mb-3">
+            <BarChartIcon className="w-5 h-5" />
+          </div>
+          <span className="text-3xl font-black text-slate-800">{redFlagged.length}</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">At Risk</span>
+        </div>
+        <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
+          <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-3">
+            <Users className="w-5 h-5" />
+          </div>
+          <span className="text-3xl font-black text-slate-800">{residentStats.length}</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Residents</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-          <h3 className="text-lg font-black text-slate-800">Recent Performance Activity</h3>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Real-time Sync Active</span>
+      {/* Sub Tabs */}
+      <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/50 w-full md:w-auto">
+        {([['overview', 'Program Overview'], ['at_risk', `At Risk (${redFlagged.length + yellowFlagged.length})`], ['by_pgy', 'By Class Year']] as const).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setActiveSubTab(id)}
+            className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Overview Tab */}
+      {activeSubTab === 'overview' && (
+        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50">
+            <h3 className="font-black text-slate-800">All Residents</h3>
+            <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
+          </div>
+          <ResidentTable residents={residentStats} />
         </div>
-        <div className="p-8">
-          <div className="space-y-4">
-            {stats?.recent.length > 0 ? stats.recent.map((r: any, i: number) => (
-              <div key={i} className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-2xl transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-400">
-                    {r.profiles?.full_name?.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-800">{r.profiles?.full_name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{r.topic} • PGY-{r.profiles?.pgy}</p>
+      )}
+
+      {/* At Risk Tab */}
+      {activeSubTab === 'at_risk' && (
+        <div className="space-y-6">
+          {redFlagged.length > 0 && (
+            <div className="bg-white rounded-[32px] border border-red-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-red-50 bg-red-50/40">
+                <h3 className="font-black text-red-700">🔴 At Risk — Avg below 60% or On-Time below 50%</h3>
+              </div>
+              <ResidentTable residents={redFlagged} />
+            </div>
+          )}
+          {yellowFlagged.length > 0 && (
+            <div className="bg-white rounded-[32px] border border-amber-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-amber-50 bg-amber-50/40">
+                <h3 className="font-black text-amber-700">🟡 Needs Attention — Avg below 70% or On-Time below 75%</h3>
+              </div>
+              <ResidentTable residents={yellowFlagged} />
+            </div>
+          )}
+          {redFlagged.length === 0 && yellowFlagged.length === 0 && (
+            <div className="bg-white rounded-[32px] border border-emerald-100 p-16 text-center">
+              <div className="text-4xl mb-4">🎉</div>
+              <h3 className="font-black text-emerald-700 text-xl">All Residents On Track</h3>
+              <p className="text-slate-400 text-sm mt-2">No residents are currently flagged as at-risk.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* By PGY Tab */}
+      {activeSubTab === 'by_pgy' && (
+        <div className="space-y-6">
+          {Object.entries(pgyGroups).sort(([a], [b]) => a.localeCompare(b)).map(([pgy, residents]) => {
+            const groupAvg = residents.filter(r => r.attempts > 0).reduce((a, r) => a + r.avgPct, 0) / (residents.filter(r => r.attempts > 0).length || 1);
+            const groupPts = residents.reduce((a, r) => a + r.totalPoints, 0);
+            return (
+              <div key={pgy} className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+                  <h3 className="font-black text-slate-800">{pgy}</h3>
+                  <div className="flex gap-6 text-right">
+                    <div>
+                      <div className="text-lg font-black text-slate-800">{groupAvg.toFixed(1)}%</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Class Avg</div>
+                    </div>
+                    <div>
+                      <div className="text-lg font-black text-slate-800">{groupPts}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Pts</div>
+                    </div>
                   </div>
                 </div>
-                <div className={`px-4 py-1.5 rounded-full font-black text-sm ${r.score >= 70 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                  {r.score}%
+                <ResidentTable residents={residents} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Individual Resident Modal */}
+      {selectedResident && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-[40px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className={`w-3 h-3 rounded-full ${riskColors[selectedResident.risk].dot}`} />
+                  <h2 className="text-2xl font-black text-slate-800">{selectedResident.name}</h2>
+                </div>
+                <p className="text-sm font-bold text-slate-400">{selectedResident.pgy} · Advisor: {selectedResident.advisor || '—'}</p>
+                <div className="flex gap-4 mt-4">
+                  <div className="text-center">
+                    <div className="text-xl font-black text-slate-800">{selectedResident.avgPct.toFixed(1)}%</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Score</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-slate-800">{selectedResident.blocksCompleted}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Blocks Done</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-slate-800">{selectedResident.onTimePct.toFixed(0)}%</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">On-Time</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-slate-800">{selectedResident.totalPoints}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Points</div>
+                  </div>
                 </div>
               </div>
-            )) : (
-              <p className="text-center text-slate-400 py-12">No assessment activity recorded yet.</p>
-            )}
+              <button onClick={() => setSelectedResident(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
+                <X className="w-6 h-6 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Assessment History</h3>
+              {selectedResident.results.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedResident.results.map((r: any, i: number) => {
+                    const pts = r.academic_points || 0;
+                    const timingLabel = pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
+                      : pts === 1 ? '⏰ Late'
+                      : pts >= 2 ? '⚡ Bonus'
+                      : '—';
+                    return (
+                      <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all">
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-800 text-sm">{r.topic}</p>
+                          <p className="text-xs font-bold text-slate-400 mt-0.5">
+                            {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                            {(r.percentage || 0).toFixed(1)}%
+                          </span>
+                          <span className="text-xs font-bold text-slate-400">{pts} pt{pts !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center text-slate-400 py-12 font-bold">No assessments recorded yet.</p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
