@@ -9,15 +9,24 @@ interface QuizEngineProps {
   user: any;
   quizId?: string;
   topic?: string;
+  /** Fixed list of question IDs (set on assigned blocks so every resident sees the same questions). Takes precedence over category/keyword filtering. */
+  questionIds?: string[];
   categories?: string[];
+  keywords?: string[];
   years?: string[];
+  pool?: 'all' | 'unused' | 'incorrect';
   count?: number;
+  timerEnabled?: boolean;
   currentBlock?: any;
   onComplete: (results: any) => void;
   onCancel: () => void;
 }
 
-export default function QuizEngine({ user, quizId, topic, categories, years, count = 40, currentBlock, onComplete, onCancel }: QuizEngineProps) {
+// Font-size scale options for the A-/A+ toolbar
+const FONT_SIZES = [14, 16, 18, 20, 22, 24];
+const DEFAULT_FONT_INDEX = 2; // 18px
+
+export default function QuizEngine({ user, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -30,27 +39,36 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
   const [showResults, setShowResults] = useState(false);
   const [resultData, setResultData] = useState<any>(null);
 
+  // === Quiz Tools (Text Resize + Highlight/Strikethrough Persistence) ===
+  // Font size loads from localStorage so the user's preference persists across all quizzes
+  const [fontIndex, setFontIndex] = useState<number>(() => {
+    if (typeof window === 'undefined') return DEFAULT_FONT_INDEX;
+    const stored = parseInt(window.localStorage.getItem('fmc-fontIndex') || '');
+    return isNaN(stored) ? DEFAULT_FONT_INDEX : Math.min(FONT_SIZES.length - 1, Math.max(0, stored));
+  });
+  const fontSize = FONT_SIZES[fontIndex];
+
+  // Per-question highlights and strikethroughs, keyed by question.id — session-only
+  const [questionTools, setQuestionTools] = useState<Record<string, { highlights: string[]; strikethroughs: number[] }>>({});
+
+  const persistFontIndex = (idx: number) => {
+    setFontIndex(idx);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('fmc-fontIndex', String(idx));
+    }
+  };
+  const increaseFont = () => persistFontIndex(Math.min(FONT_SIZES.length - 1, fontIndex + 1));
+  const decreaseFont = () => persistFontIndex(Math.max(0, fontIndex - 1));
+
   useEffect(() => {
     async function initQuiz() {
       try {
         setLoading(true);
         setError(null);
 
-        let query = supabase.from('questions').select('*');
-
-        if (categories && categories.length > 0) query = query.in('category', categories);
-        if (years && years.length > 0) query = query.in('year', years);
-
-        const { data: qData, error: qError } = await query.limit(count * 3);
-        if (qError) throw qError;
-        if (!qData || qData.length === 0) throw new Error('No questions found matching your selection.');
-
-        const shuffled = [...qData].sort(() => Math.random() - 0.5).slice(0, count);
-        setQuestions(shuffled);
-        setTimeLeft(count * 90);
-
         const topicLabel = topic || 'Mixed Review Block';
 
+        // 1. Fetch active session first
         const { data: sData } = await supabase
           .from('quiz_sessions')
           .select('*')
@@ -66,7 +84,113 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
           setCurrentIndex(sData.current_index || 0);
           setAnswers(sData.answers || {});
           if (sData.time_left) setTimeLeft(sData.time_left);
+          
+          if (sData.questions && Array.isArray(sData.questions) && sData.questions.length > 0) {
+            setQuestions(sData.questions);
+            setLoading(false);
+            return; // Skip new fetch if we already have questions
+          }
+        }
+
+        // --- FETCH NEW QUESTIONS ONLY IF NO EXISTING SESSION WITH QUESTIONS ---
+
+        const isDemo = currentBlock?.block_type === 'demo' || topic?.toLowerCase() === 'demo quiz';
+        // NEW (Sprint 5): When the block has a fixed assigned question list, every resident sees
+        // the same questions. The order is still shuffled per resident below for delivery.
+        const isFixedBlock = !isDemo && Array.isArray(questionIds) && questionIds.length > 0;
+
+        let query = supabase.from('questions').select('*');
+
+        if (isDemo) {
+          query = query.in('id', [
+            '00000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-000000000002',
+            '00000000-0000-0000-0000-000000000003'
+          ]);
+        } else if (isFixedBlock) {
+          // Fixed assigned set — ignore category/year/pool filters by design
+          query = query.in('id', questionIds!);
         } else {
+          // Legacy / Mixed Review path — sample from a category pool
+          if (categories && categories.length > 0) {
+            query = query.in('category', categories);
+          }
+
+          if (keywords && keywords.length > 0) {
+            const orFilter = keywords.map(kw => `question_text.ilike.%${kw}%`).join(',');
+            query = query.or(orFilter);
+          }
+
+          if (years && years.length > 0) {
+            query = query.in('year', years);
+          }
+        }
+
+        // Filter by Pool if necessary
+        let excludeIds: string[] = [];
+        let includeIds: string[] = [];
+        let requireInclude = false;
+
+        // Pool filtering (unused/incorrect) only applies to category-based custom quizzes, not fixed blocks
+        if (!isDemo && !isFixedBlock && pool !== 'all') {
+          const { data: attemptData } = await supabase.from('question_attempts').select('question_id, is_correct').eq('user_id', user.id);
+          
+          if (attemptData) {
+            if (pool === 'unused') {
+              // Exclude any questions the user has attempted
+              excludeIds = attemptData.map(a => a.question_id);
+            } else if (pool === 'incorrect') {
+              // Only include questions where the most recent attempt was incorrect
+              // We'll group by question_id and take the latest. Since we don't have created_at readily sorted, we just check if any attempt was incorrect (simplified logic)
+              const incorrectIds = new Set<string>(attemptData.filter(a => !a.is_correct).map(a => a.question_id));
+              // Alternatively, strict incorrect only:
+              includeIds = Array.from(incorrectIds);
+              requireInclude = true;
+            }
+          }
+        }
+
+        // Apply pool filters
+        if (requireInclude) {
+           if (includeIds.length === 0) throw new Error('No incorrect questions found to review.');
+           // chunking might be needed if >1000, but for now this is fine
+           query = query.in('id', includeIds);
+        } else if (excludeIds.length > 0) {
+           // PostgREST doesn't support 'not.in' easily via JS client in older versions, 
+           // but Supabase JS client supports `.not('id', 'in', `(${excludeIds.join(',')})`)` or just filtering after fetch.
+           // Since we limit, filtering after fetch might miss questions. Let's try native:
+           // Since excludeIds can be large, we'll fetch a larger pool and filter locally if needed, or use .filter
+        }
+
+        // Fetch a pool, sorted by year DESC (ITE Priority).
+        // Fixed blocks: fetch all assigned IDs (no extra buffer needed).
+        // Pool=unused: fetch a wider pool so we can locally filter excluded IDs without underfilling.
+        const fetchLimit = isDemo
+          ? 3
+          : isFixedBlock
+            ? questionIds!.length
+            : (pool === 'unused' ? count * 10 : count * 3);
+        const { data: qData, error: qError } = await query.order('year', { ascending: false }).limit(fetchLimit);
+
+        if (qError) throw qError;
+        let finalPool = qData || [];
+
+        // Local exclusion filter since .not.in can be tricky with large arrays
+        if (excludeIds.length > 0) {
+          const exSet = new Set(excludeIds);
+          finalPool = finalPool.filter(q => !exSet.has(q.id));
+        }
+
+        if (!finalPool || finalPool.length === 0) throw new Error('No questions found matching your selection.');
+
+        // For fixed blocks every resident takes the full assigned set; the only randomness
+        // is the order of delivery. For other quiz types we still take the top N newest, then shuffle.
+        const selected = isFixedBlock ? finalPool : finalPool.slice(0, count);
+        const shuffled = [...selected].sort(() => Math.random() - 0.5);
+        setQuestions(shuffled);
+        setTimeLeft(selected.length * 90);
+
+        if (!sData) {
           const { data: newSession } = await supabase
             .from('quiz_sessions')
             .insert({
@@ -76,12 +200,17 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
               current_index: 0,
               answers: {},
               time_left: count * 90,
+              questions: shuffled, // Save snapshot
               is_completed: false,
             })
             .select()
             .single();
 
           if (newSession) setSessionId(newSession.id);
+        } else if (!sData.questions) {
+          // Backward compatibility: If resuming a session that lacked questions snapshot, 
+          // patch it with the newly generated questions.
+          await supabase.from('quiz_sessions').update({ questions: shuffled }).eq('id', sData.id);
         }
       } catch (err: any) {
         setError(err.message);
@@ -90,7 +219,7 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
       }
     }
     initQuiz();
-  }, [user.id, quizId, topic, categories, years, count]);
+  }, [user.id, quizId, topic, categories, keywords, years, pool, count]);
 
   const syncProgress = useCallback(async () => {
     if (!sessionId || syncing) return;
@@ -109,12 +238,12 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
 
   // Timer countdown — stops at 0, turns red as warning
   useEffect(() => {
-    if (showResults) return;
+    if (showResults || !timerEnabled) return;
     const interval = setInterval(() => {
       setTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [showResults]);
+  }, [showResults, timerEnabled]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -151,6 +280,8 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
       .map((q, idx) => ({ q, idx, isCorrect: answers[idx] === q.correct_index }))
       .filter(({ isCorrect }) => !isCorrect);
 
+    const isDemo = currentBlock?.block_type === 'demo' || topicLabel.toLowerCase() === 'demo quiz';
+
     const result = {
       user_id: user.id,
       legacy_email: user.email,
@@ -162,7 +293,17 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
       timing_status: timingStatus,
     };
 
-    await supabase.from('results').insert(result);
+    if (!isDemo) {
+      await supabase.from('results').insert(result);
+
+      // Save individual question attempts
+      const attempts = questions.map((q, idx) => ({
+        user_id: user.id,
+        question_id: q.id,
+        is_correct: answers[idx] === q.correct_index,
+      }));
+      await supabase.from('question_attempts').insert(attempts);
+    }
 
     if (sessionId) {
       await supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId);
@@ -290,9 +431,13 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
             <div>
               <h2 className="font-black text-slate-800 leading-tight truncate max-w-[200px] md:max-w-none">{topic || 'FMC Board Review'}</h2>
               <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                <Clock className={`w-3 h-3 ${isTimeLow ? 'text-red-500' : ''}`} />
-                <span className={isTimeLow ? 'text-red-500 font-black' : ''}>{formatTime(timeLeft)}</span>
-                <span className="opacity-30">·</span>
+                {timerEnabled && (
+                  <>
+                    <Clock className={`w-3 h-3 ${isTimeLow ? 'text-red-500' : ''}`} />
+                    <span className={isTimeLow ? 'text-red-500 font-black' : ''}>{formatTime(timeLeft)}</span>
+                    <span className="opacity-30">·</span>
+                  </>
+                )}
                 <span>Q {currentIndex + 1} / {questions.length}</span>
                 <span className="opacity-30">·</span>
                 <span>{answeredCount} answered</span>
@@ -300,6 +445,28 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Text-resize toolbar (A- / A+) */}
+            <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 mr-2" title="Adjust text size">
+              <button
+                onClick={decreaseFont}
+                disabled={fontIndex === 0}
+                className="px-2 py-1 text-xs font-black text-slate-500 hover:text-blue-600 hover:bg-white rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Decrease text size"
+                title="Smaller text"
+              >
+                A-
+              </button>
+              <span className="px-1.5 text-[10px] font-bold text-slate-400 tabular-nums">{fontSize}</span>
+              <button
+                onClick={increaseFont}
+                disabled={fontIndex === FONT_SIZES.length - 1}
+                className="px-2 py-1 text-base font-black text-slate-500 hover:text-blue-600 hover:bg-white rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label="Increase text size"
+                title="Larger text"
+              >
+                A+
+              </button>
+            </div>
             {syncing && <Loader2 className="w-4 h-4 text-slate-300 animate-spin" />}
             {!syncing && (
               <span className="hidden md:flex text-[10px] font-black text-slate-300 uppercase tracking-widest items-center gap-1">
@@ -328,6 +495,15 @@ export default function QuizEngine({ user, quizId, topic, categories, years, cou
             userAnswer={answers[currentIndex]}
             onAnswer={(idx) => setAnswers(prev => ({ ...prev, [currentIndex]: idx }))}
             showExplanation={answers[currentIndex] !== undefined}
+            fontSize={fontSize}
+            initialHighlights={questionTools[currentQuestion.id]?.highlights || []}
+            initialStrikethroughs={questionTools[currentQuestion.id]?.strikethroughs || []}
+            onToolsChange={(tools) => {
+              setQuestionTools(prev => ({
+                ...prev,
+                [currentQuestion.id]: tools,
+              }));
+            }}
           />
         )}
       </main>

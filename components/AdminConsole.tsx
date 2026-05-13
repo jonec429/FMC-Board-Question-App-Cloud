@@ -2,79 +2,166 @@
 
 import React, { useState } from 'react';
 import {
-  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock,
+  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Calendar,
 } from './AppIcons';
 import AdminPerformance from './AdminPerformance';
 import AttendanceManager from './AttendanceManager';
 import RosterManager from './RosterManager';
+import BlockScheduleManager from './BlockScheduleManager';
+import QuestionImporter from './QuestionImporter';
+import BlockBuilder from './BlockBuilder';
+import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 
 interface AdminConsoleProps {
+  user?: any;
+  profile?: any;
   onExit: () => void;
 }
 
-type TabId = 'content' | 'builder' | 'performance' | 'attendance' | 'metadata' | 'advanced';
+type TabId = 'performance' | 'roster' | 'schedule' | 'attendance' | 'builder' | 'content' | 'questions' | 'advanced';
 
-export default function AdminConsole({ onExit }: AdminConsoleProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('content');
+export default function AdminConsole({ user, profile, onExit }: AdminConsoleProps) {
+  const role = getUserRole(user, profile);
+  const userIsAdmin = isAdmin(user, profile);
+  // Faculty land directly on Performance; admins start on Performance too (most-used tab)
+  const [activeTab, setActiveTab] = useState<TabId>('performance');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const tabs: { id: TabId; label: string; icon: any }[] = [
-    { id: 'content', label: 'Content', icon: Database },
-    { id: 'builder', label: 'Block Builder', icon: PlusCircle },
-    { id: 'performance', label: 'Performance', icon: BarChartIcon },
-    { id: 'attendance', label: 'Attendance', icon: Users },
-    { id: 'metadata', label: 'Q Metadata', icon: Database },
-    { id: 'advanced', label: 'Advanced', icon: Settings },
+  // Sidebar groups — ordered by likely-use frequency
+  // `adminOnly: true` tabs are hidden from faculty users
+  type TabDef = { id: TabId; label: string; icon: any; adminOnly?: boolean; description?: string };
+  const tabGroups: { heading: string; items: TabDef[] }[] = [
+    {
+      heading: 'Reports',
+      items: [
+        { id: 'performance', label: 'Performance', icon: BarChartIcon, description: 'Resident progress & risk flags' },
+      ],
+    },
+    {
+      heading: 'Program Management',
+      items: [
+        { id: 'roster', label: 'Roster', icon: Users, adminOnly: true, description: 'Add, edit, archive members' },
+        { id: 'schedule', label: 'Block Schedule', icon: Calendar, adminOnly: true, description: 'Date windows for each block' },
+        { id: 'attendance', label: 'Attendance', icon: Clock, adminOnly: true, description: 'Bulk import from NI export' },
+      ],
+    },
+    {
+      heading: 'Content',
+      items: [
+        { id: 'questions', label: 'Questions', icon: Database, adminOnly: true, description: 'Bulk import from CSV / Gemini' },
+        { id: 'builder', label: 'Block Builder', icon: PlusCircle, adminOnly: true, description: 'Curate questions into blocks' },
+        { id: 'content', label: 'Curriculum', icon: Database, adminOnly: true, description: 'Edit & reorder blocks' },
+      ],
+    },
+    {
+      heading: 'System',
+      items: [
+        { id: 'advanced', label: 'Advanced', icon: Settings, adminOnly: true, description: 'Reporting & integrations' },
+      ],
+    },
   ];
+
+  // Filter out admin-only items for faculty, then drop any heading that has no items left
+  const visibleGroups = tabGroups
+    .map(g => ({ ...g, items: g.items.filter(i => userIsAdmin || !i.adminOnly) }))
+    .filter(g => g.items.length > 0);
+
+  const SidebarButton = ({ tab }: { tab: TabDef }) => {
+    const Icon = tab.icon;
+    const active = activeTab === tab.id;
+    return (
+      <button
+        onClick={() => {
+          setActiveTab(tab.id);
+          setMobileNavOpen(false);
+        }}
+        className={`group w-full text-left px-4 py-3 rounded-2xl font-bold text-sm transition-all flex items-start gap-3 ${
+          active
+            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+            : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      >
+        <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'}`} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate">{tab.label}</div>
+          {tab.description && (
+            <div className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 truncate ${active ? 'text-blue-100' : 'text-slate-400'}`}>
+              {tab.description}
+            </div>
+          )}
+        </div>
+      </button>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <div className="max-w-7xl mx-auto p-6 md:p-8">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <div className="relative">
-              <div className="absolute -top-6 -left-6 w-32 h-32 bg-blue-100/40 rounded-full blur-2xl pointer-events-none" />
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3 relative z-10">
-                <div className="p-2.5 bg-blue-600 rounded-2xl shadow-lg shadow-blue-200">
-                  <Shield className="text-white w-5 h-5" />
-                </div>
-                Admin Console
-              </h2>
-            </div>
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+        {/* Top Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="relative">
+            <div className="absolute -top-6 -left-6 w-32 h-32 bg-blue-100/40 rounded-full blur-2xl pointer-events-none" />
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-3 relative z-10">
+              <div className={`p-2.5 rounded-2xl shadow-lg ${userIsAdmin ? 'bg-blue-600 shadow-blue-200' : 'bg-emerald-600 shadow-emerald-200'}`}>
+                <Shield className="text-white w-5 h-5" />
+              </div>
+              <span className="hidden sm:inline">{userIsAdmin ? 'Admin Console' : 'Faculty Console'}</span>
+              <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${userIsAdmin ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {getRoleLabel(user, profile)}
+              </span>
+            </h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Mobile nav toggle */}
+            <button
+              onClick={() => setMobileNavOpen(v => !v)}
+              className="md:hidden p-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all"
+              aria-label="Toggle navigation"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
             <button
               onClick={onExit}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg active:scale-95 text-sm"
+              className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-all shadow-lg active:scale-95 text-sm"
             >
-              <LogOut className="w-4 h-4" /> Exit
+              <LogOut className="w-4 h-4" /> <span className="hidden sm:inline">Exit</span>
             </button>
-          </div>
-
-          {/* Tab Nav */}
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full overflow-x-auto shadow-inner border border-slate-200/50">
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 sm:flex-none px-4 py-2.5 text-sm font-bold rounded-xl transition-all duration-300 whitespace-nowrap flex items-center justify-center gap-2 ${isActive ? 'bg-white shadow-md text-blue-600' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-blue-500' : 'text-slate-400'}`} />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'content' && <ContentStub />}
-        {activeTab === 'builder' && <BuilderStub />}
-        {activeTab === 'performance' && <AdminPerformance />}
-        {activeTab === 'attendance' && <AttendanceManager />}
-        {activeTab === 'metadata' && <MetadataStub />}
-        {activeTab === 'advanced' && <AdvancedTab />}
+        {/* Body: Sidebar + Main */}
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Sidebar */}
+          <aside className={`md:w-64 shrink-0 ${mobileNavOpen ? 'block' : 'hidden md:block'}`}>
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-3 sticky top-6 space-y-4">
+              {visibleGroups.map(group => (
+                <div key={group.heading} className="space-y-1">
+                  <div className="px-4 pt-2 pb-1 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {group.heading}
+                  </div>
+                  {group.items.map(item => <SidebarButton key={item.id} tab={item} />)}
+                </div>
+              ))}
+              {!userIsAdmin && (
+                <div className="mx-3 mt-2 p-3 bg-emerald-50 text-emerald-700 rounded-xl text-[11px] font-bold leading-snug">
+                  Faculty access: you can review resident performance and your advisees. Other modules are admin-only.
+                </div>
+              )}
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 min-w-0">
+            {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} />}
+            {activeTab === 'roster' && <RosterManager />}
+            {activeTab === 'schedule' && <BlockScheduleManager />}
+            {activeTab === 'attendance' && <AttendanceManager />}
+            {activeTab === 'questions' && <QuestionImporter />}
+            {activeTab === 'builder' && <BlockBuilder />}
+            {activeTab === 'content' && <ContentStub />}
+            {activeTab === 'advanced' && <AdvancedTab />}
+          </main>
+        </div>
       </div>
     </div>
   );
@@ -132,39 +219,6 @@ function ContentStub() {
         'Sync live schedule from external sheet',
         'Email master performance reports to advisors',
         'Push local changes to the cloud',
-      ]}
-    />
-  );
-}
-
-function BuilderStub() {
-  return (
-    <StubCard
-      icon={PlusCircle}
-      title="Block Builder"
-      description="Curate questions from the master question bank into a fixed quiz block."
-      features={[
-        'Browse the master question bank with year + category filters',
-        'Select questions to include in a new block',
-        'Reorder selected questions',
-        'Edit question metadata inline',
-        'Save a new block to the curriculum',
-      ]}
-    />
-  );
-}
-
-function MetadataStub() {
-  return (
-    <StubCard
-      icon={Database}
-      title="Question Metadata"
-      description="Validate, export, and update question metadata across the master bank."
-      features={[
-        'Scan all quiz tabs for missing or duplicate composite IDs (YYYY-QQQ format)',
-        'Export current metadata as CSV',
-        'Bulk import updated metadata (difficulty, ABFM category)',
-        'Repair year and Q# fields',
       ]}
     />
   );

@@ -8,44 +8,73 @@ export default function RosterManager() {
   const [loading, setLoading] = useState(true);
   const [roster, setRoster] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newPerson, setNewPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchRoster = async () => {
+    setLoading(true);
+    try {
+      // Fetch the Guest List
+      const { data: authorized, error: authError } = await supabase
+        .from('authorized_roster')
+        .select('*')
+        .order('name');
+      
+      // Fetch the Live Profiles (to see who created accounts)
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('email, id');
+
+      if (authError) throw authError;
+
+      // Merge them
+      const merged = authorized?.map(auth => {
+        const profile = profiles?.find(p => p.email === auth.email);
+        return {
+          ...auth,
+          full_name: auth.name,
+          has_account: !!profile,
+          profile_id: profile?.id
+        };
+      }) || [];
+
+      setRoster(merged);
+    } catch (err) {
+      console.error('Roster fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchRoster() {
-      setLoading(true);
-      try {
-        // Fetch the Guest List
-        const { data: authorized, error: authError } = await supabase
-          .from('authorized_roster')
-          .select('*')
-          .order('name');
-        
-        // Fetch the Live Profiles (to see who created accounts)
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('email, id');
-
-        if (authError) throw authError;
-
-        // Merge them
-        const merged = authorized?.map(auth => {
-          const profile = profiles?.find(p => p.email === auth.email);
-          return {
-            ...auth,
-            full_name: auth.name,
-            has_account: !!profile,
-            profile_id: profile?.id
-          };
-        }) || [];
-
-        setRoster(merged);
-      } catch (err) {
-        console.error('Roster fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchRoster();
   }, []);
+
+  const handleAddPerson = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('authorized_roster')
+        .insert([{
+          name: newPerson.name,
+          email: newPerson.email.toLowerCase().trim(),
+          pgy: newPerson.pgy,
+          advisor: newPerson.advisor
+        }]);
+
+      if (error) throw error;
+      
+      setShowAddModal(false);
+      setNewPerson({ name: '', email: '', pgy: '', advisor: '' });
+      await fetchRoster();
+    } catch (err: any) {
+      alert(err.message || 'Error adding person');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const filtered = roster.filter(m => 
     m.full_name?.toLowerCase().includes(search.toLowerCase()) || 
@@ -74,7 +103,10 @@ export default function RosterManager() {
             className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm focus:ring-2 focus:ring-blue-600 outline-none transition-all font-medium text-slate-800"
           />
         </div>
-        <button className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200">
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200"
+        >
           <Plus className="w-5 h-5" />
           Add Authorized Person
         </button>
@@ -146,6 +178,76 @@ export default function RosterManager() {
           </tbody>
         </table>
       </div>
+
+      {/* Add Person Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-[40px] shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+              <h2 className="text-xl font-black text-slate-800">Add Authorized Person</h2>
+              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">Close</button>
+            </div>
+            <form onSubmit={handleAddPerson} className="p-8 space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Full Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newPerson.name}
+                  onChange={(e) => setNewPerson({...newPerson, name: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                  placeholder="e.g. Jonathan Carbungco"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Institutional Email</label>
+                <input 
+                  type="email" 
+                  required
+                  value={newPerson.email}
+                  onChange={(e) => setNewPerson({...newPerson, email: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                  placeholder="name@ascension.org"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">PGY Class / Role</label>
+                  <select 
+                    required
+                    value={newPerson.pgy}
+                    onChange={(e) => setNewPerson({...newPerson, pgy: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                  >
+                    <option value="">Select...</option>
+                    <option value="Class of 2025">Class of 2025 (PGY3)</option>
+                    <option value="Class of 2026">Class of 2026 (PGY2)</option>
+                    <option value="Class of 2027">Class of 2027 (PGY1)</option>
+                    <option value="Faculty">Faculty / Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Faculty Advisor</label>
+                  <input 
+                    type="text"
+                    value={newPerson.advisor}
+                    onChange={(e) => setNewPerson({...newPerson, advisor: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <button 
+                type="submit" 
+                disabled={submitting}
+                className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+              >
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Authorize Person'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

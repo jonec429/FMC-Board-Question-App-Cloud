@@ -18,23 +18,60 @@ interface QuestionCardProps {
   userAnswer?: number;
   onAnswer: (index: number) => void;
   showExplanation?: boolean;
+  fontSize?: number;
+  initialHighlights?: string[];
+  initialStrikethroughs?: number[];
+  onToolsChange?: (tools: { highlights: string[]; strikethroughs: number[] }) => void;
 }
 
-export default function QuestionCard({ 
-  question, 
-  userAnswer, 
-  onAnswer, 
-  showExplanation = false 
+// Escape special regex characters in user-selected text so we can safely build a RegExp
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Apply highlight markup to question_text by wrapping matching strings in <mark>
+function applyHighlights(html: string, highlights: string[]): string {
+  if (!highlights || highlights.length === 0) return html;
+  let result = html;
+  // Sort longest-first so longer phrases match before substrings of them
+  const sorted = [...highlights].sort((a, b) => b.length - a.length);
+  sorted.forEach(h => {
+    if (!h || h.length < 2) return;
+    const regex = new RegExp(`(${escapeRegex(h)})(?![^<]*>)`, 'g');
+    result = result.replace(regex, '<mark class="highlight-marker" style="background-color:#fef08a;color:inherit;">$1</mark>');
+  });
+  return result;
+}
+
+export default function QuestionCard({
+  question,
+  userAnswer,
+  onAnswer,
+  showExplanation = false,
+  fontSize = 18,
+  initialHighlights = [],
+  initialStrikethroughs = [],
+  onToolsChange,
 }: QuestionCardProps) {
-  const [highlights, setHighlights] = useState<{ start: number, end: number, text: string }[]>([]);
-  const [strikethroughs, setStrikethroughs] = useState<Set<number>>(new Set());
+  const [highlights, setHighlights] = useState<string[]>(initialHighlights);
+  const [strikethroughs, setStrikethroughs] = useState<Set<number>>(new Set(initialStrikethroughs));
   const stemRef = useRef<HTMLDivElement>(null);
 
-  // Reset strikethroughs and highlights when question changes
+  // Sync local state with parent-provided tools when navigating between questions
   useEffect(() => {
-    setStrikethroughs(new Set());
-    setHighlights([]);
-  }, [question.question_text]);
+    setHighlights(initialHighlights || []);
+    setStrikethroughs(new Set(initialStrikethroughs || []));
+  }, [question.id, question.question_text]);
+
+  // Notify parent whenever tools change so state can persist across navigation
+  useEffect(() => {
+    if (onToolsChange) {
+      onToolsChange({
+        highlights,
+        strikethroughs: Array.from(strikethroughs),
+      });
+    }
+  }, [highlights, strikethroughs]);
 
   const handleHighlight = () => {
     const selection = window.getSelection();
@@ -43,16 +80,15 @@ export default function QuestionCard({
     const range = selection.getRangeAt(0);
     if (!stemRef.current?.contains(range.commonAncestorContainer)) return;
 
-    // Simplified highlight: we'll just wrap the selection in a marker
-    // In a production app, we'd calculate offsets to preserve them across re-renders
-    const span = document.createElement('mark');
-    span.style.backgroundColor = '#fef08a'; // Tailwind yellow-200
-    span.style.color = 'inherit';
-    span.className = 'highlight-marker';
-    range.surroundContents(span);
-    
+    const text = selection.toString().trim();
+    if (text.length < 2) return;
+
+    // Save the highlighted text string so it survives re-renders
+    setHighlights(prev => prev.includes(text) ? prev : [...prev, text]);
     selection.removeAllRanges();
   };
+
+  const clearHighlights = () => setHighlights([]);
 
   const toggleStrikethrough = (e: React.MouseEvent, index: number) => {
     e.stopPropagation();
@@ -63,6 +99,8 @@ export default function QuestionCard({
   };
 
   const isCorrect = userAnswer === question.correct_index;
+  const renderedStemHtml = applyHighlights(question.question_text, highlights);
+  const optionFontSize = Math.max(14, fontSize - 2);
 
   return (
     <div className="w-full max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -72,19 +110,31 @@ export default function QuestionCard({
           <span className="px-3 py-1 bg-slate-100 text-slate-500 text-xs font-black rounded-full uppercase tracking-widest">
             {question.category || 'General Medicine'}
           </span>
-          <button 
-            onClick={handleHighlight}
-            className="p-2 text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 rounded-xl transition-all"
-            title="Highlight Selection"
-          >
-            <Highlighter className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {highlights.length > 0 && !showExplanation && (
+              <button
+                onClick={clearHighlights}
+                className="px-2 py-1 text-[10px] text-slate-400 hover:text-red-500 font-bold uppercase tracking-wider rounded transition-all"
+                title="Clear all highlights"
+              >
+                Clear ({highlights.length})
+              </button>
+            )}
+            <button
+              onClick={handleHighlight}
+              className="p-2 text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 rounded-xl transition-all"
+              title="Highlight Selection"
+            >
+              <Highlighter className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <div 
+        <div
           ref={stemRef}
-          className="text-xl font-bold leading-relaxed text-slate-800 select-text"
-          dangerouslySetInnerHTML={{ __html: question.question_text }}
+          className="font-bold leading-relaxed text-slate-800 select-text"
+          style={{ fontSize: `${fontSize}px` }}
+          dangerouslySetInnerHTML={{ __html: renderedStemHtml }}
         />
       </div>
 
@@ -114,6 +164,7 @@ export default function QuestionCard({
                 disabled={showExplanation}
                 onClick={() => !isStruck && onAnswer(index)}
                 className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
+                style={{ fontSize: `${optionFontSize}px` }}
               >
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
                   {String.fromCharCode(65 + index)}

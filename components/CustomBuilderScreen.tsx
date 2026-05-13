@@ -1,26 +1,45 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Sliders, Shuffle, XCircle, CheckCircle, Database, Loader2 } from './AppIcons';
+import { Sliders, Shuffle, XCircle, CheckCircle, Database, Loader2, AlertTriangle, Clock } from './AppIcons';
+import {
+  RECENT_ITE_YEAR_WINDOW,
+  LEGACY_WARNING_TITLE,
+  LEGACY_WARNING_BODY,
+  partitionYears,
+} from '@/lib/questionFilters';
 
 interface CustomBuilderScreenProps {
-  onStart: (config: { years: string[]; categories: string[]; count: number }) => void;
+  user: any;
+  onStart: (config: { years: string[]; categories: string[]; count: number; pool: 'all' | 'unused' | 'incorrect'; timerEnabled: boolean }) => void;
   onCancel: () => void;
 }
 
-export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilderScreenProps) {
+export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomBuilderScreenProps) {
   const [loading, setLoading] = useState(true);
   const [years, setYears] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(0);
 
   const [mode, setMode] = useState<'random' | 'custom'>('custom');
+  const [pool, setPool] = useState<'all' | 'unused' | 'incorrect'>('all');
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [weakestCategories, setWeakestCategories] = useState<string[]>([]);
   const [qCount, setQCount] = useState(40);
   const [qCountInput, setQCountInput] = useState('40');
+  const [timerEnabled, setTimerEnabled] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  // Legacy year reveal — residents must explicitly opt-in to ITEs > 3 years old
+  const [showLegacyYears, setShowLegacyYears] = useState(false);
+  const [showLegacyWarning, setShowLegacyWarning] = useState(false);
+
+  // Split the available years into recent (default visible) and legacy (opt-in) buckets
+  const { recent: recentYears, legacy: legacyYears } = useMemo(
+    () => partitionYears(years, RECENT_ITE_YEAR_WINDOW),
+    [years]
+  );
 
   useEffect(() => {
     async function fetchFilters() {
@@ -34,6 +53,24 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
           setCategories(catSet);
           setTotalQuestions(qData.length);
         }
+
+        // Fetch user results for weakest topics
+        const { data: rData } = await supabase.from('results').select('category_stats').eq('user_id', user?.id);
+        if (rData && rData.length > 0) {
+          const statsMap = new Map<string, { correct: number, total: number }>();
+          rData.forEach(r => {
+            if (r.category_stats) {
+              Object.entries(r.category_stats).forEach(([cat, st]: any) => {
+                const cur = statsMap.get(cat) || { correct: 0, total: 0 };
+                statsMap.set(cat, { correct: cur.correct + st.correct, total: cur.total + st.total });
+              });
+            }
+          });
+          const catPcts = Array.from(statsMap.entries()).map(([cat, st]) => ({ cat, pct: st.correct / st.total }));
+          catPcts.sort((a, b) => a.pct - b.pct);
+          setWeakestCategories(catPcts.slice(0, 3).map(x => x.cat));
+        }
+
       } catch (err) {
         console.error('Filter fetch error:', err);
       } finally {
@@ -41,14 +78,37 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
       }
     }
     fetchFilters();
-  }, []);
+  }, [user?.id]);
 
   const toggleYear = (y: string) => setSelectedYears(p => p.includes(y) ? p.filter(i => i !== y) : [...p, y]);
   const toggleCategory = (c: string) => setSelectedCategories(p => p.includes(c) ? p.filter(i => i !== c) : [...p, c]);
 
+  // "Select All" applies to whatever year set is currently visible (recent only,
+  // or recent + legacy after user opts in)
+  const visibleYears = showLegacyYears ? years : recentYears;
   const handleSelectAllYears = () => {
-    if (selectedYears.length === years.length) setSelectedYears([]);
-    else setSelectedYears([...years]);
+    if (visibleYears.every(y => selectedYears.includes(y))) {
+      // All visible selected → deselect them
+      setSelectedYears(prev => prev.filter(y => !visibleYears.includes(y)));
+    } else {
+      // Add any visible years not yet selected
+      setSelectedYears(prev => Array.from(new Set([...prev, ...visibleYears])));
+    }
+  };
+
+  const requestShowLegacyYears = () => {
+    if (showLegacyYears) {
+      // Already revealed — hiding requires no warning, but drop any selected legacy years for safety
+      setShowLegacyYears(false);
+      setSelectedYears(prev => prev.filter(y => !legacyYears.includes(y)));
+    } else {
+      setShowLegacyWarning(true);
+    }
+  };
+
+  const confirmShowLegacyYears = () => {
+    setShowLegacyYears(true);
+    setShowLegacyWarning(false);
   };
 
   const handleSelectAllCats = () => {
@@ -78,9 +138,13 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
     }
     setShowErrors(false);
     onStart({
-      years: mode === 'random' ? [] : selectedYears,
+      // Mixed Review always uses the recent-N window (residents who want older content
+      // must switch to Custom and explicitly opt in via the legacy toggle below).
+      years: mode === 'random' ? recentYears : selectedYears,
       categories: mode === 'random' ? [] : selectedCategories,
       count: qCount,
+      pool: pool,
+      timerEnabled,
     });
   };
 
@@ -132,19 +196,40 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
                 </div>
               </div>
 
+              {/* Question Bank Selection */}
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">2. Question Bank</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {(['all', 'unused', 'incorrect'] as const).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setPool(p)}
+                      className={`py-3 px-4 rounded-xl border-2 font-bold text-sm transition-all text-center capitalize ${pool === p ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300'}`}
+                    >
+                      {p} Questions
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Year Selection */}
               {mode === 'custom' && (
                 <div className={`bg-white p-5 rounded-2xl shadow-sm border ${showErrors && selectedYears.length === 0 ? 'border-red-400' : 'border-slate-200'}`}>
                   <div className="flex justify-between items-end mb-3">
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
-                      2. Select ITE Year(s) <span className="text-red-500">*</span>
+                      3. Select ITE Year(s) <span className="text-red-500">*</span>
                     </label>
                     <button onClick={handleSelectAllYears} className="text-xs font-bold text-indigo-600 hover:underline">
-                      {selectedYears.length === years.length ? 'Deselect All' : 'Select All'}
+                      {visibleYears.every(y => selectedYears.includes(y)) ? 'Deselect All' : 'Select All'}
                     </button>
                   </div>
+
+                  {/* Recent (default) */}
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                    Recent ITEs (last {RECENT_ITE_YEAR_WINDOW} years)
+                  </p>
                   <div className="flex flex-wrap gap-3">
-                    {years.map(y => (
+                    {recentYears.map(y => (
                       <label key={y} className="relative cursor-pointer group">
                         <input
                           type="checkbox"
@@ -158,8 +243,51 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
                         </div>
                       </label>
                     ))}
-                    {years.length === 0 && <span className="text-sm text-slate-400 italic">No years found.</span>}
+                    {recentYears.length === 0 && <span className="text-sm text-slate-400 italic">No recent years found.</span>}
                   </div>
+
+                  {/* Legacy reveal toggle */}
+                  {legacyYears.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={requestShowLegacyYears}
+                      className={`mt-4 text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors ${showLegacyYears ? 'text-slate-500 hover:text-slate-700' : 'text-amber-600 hover:text-amber-700'}`}
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      {showLegacyYears
+                        ? `Hide ${legacyYears.length} older year${legacyYears.length !== 1 ? 's' : ''}`
+                        : `Show ${legacyYears.length} older year${legacyYears.length !== 1 ? 's' : ''} (more than 3 years old)`}
+                    </button>
+                  )}
+
+                  {/* Legacy (after opt-in) */}
+                  {showLegacyYears && legacyYears.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-dashed border-amber-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                          Legacy ITEs — may not reflect current guidelines
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {legacyYears.map(y => (
+                          <label key={y} className="relative cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={selectedYears.includes(y)}
+                              onChange={() => toggleYear(y)}
+                            />
+                            <div className={`px-4 py-2 border-2 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 ${selectedYears.includes(y) ? 'bg-amber-600 border-amber-600 text-white' : 'border-amber-200 text-amber-700 bg-amber-50/40 group-hover:border-amber-400'}`}>
+                              {selectedYears.includes(y) && <CheckCircle className="w-4 h-4 text-white" />}
+                              <span>{y}</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {showErrors && selectedYears.length === 0 && (
                     <p className="text-xs text-red-500 font-bold mt-2">Please select at least one ITE year.</p>
                   )}
@@ -171,11 +299,21 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
                 <div className={`bg-white p-5 rounded-2xl shadow-sm border ${showErrors && selectedCategories.length === 0 ? 'border-red-400' : 'border-slate-200'}`}>
                   <div className="flex justify-between items-end mb-3">
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest">
-                      3. Select Topics <span className="text-red-500">*</span>
+                      4. Select Topics <span className="text-red-500">*</span>
                     </label>
-                    <button onClick={handleSelectAllCats} className="text-xs font-bold text-indigo-600 hover:underline">
-                      {selectedCategories.length === categories.length ? 'Deselect All' : 'Select All'}
-                    </button>
+                    <div className="flex gap-4 items-center">
+                      {weakestCategories.length > 0 && (
+                        <button 
+                          onClick={() => setSelectedCategories(weakestCategories)}
+                          className="text-xs font-bold text-red-500 hover:underline flex items-center gap-1"
+                        >
+                          Target Weakest Topics
+                        </button>
+                      )}
+                      <button onClick={handleSelectAllCats} className="text-xs font-bold text-indigo-600 hover:underline">
+                        {selectedCategories.length === categories.length ? 'Deselect All' : 'Select All'}
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
                     {categories.map(c => (
@@ -200,7 +338,7 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
               {/* Count */}
               <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
-                  {mode === 'custom' ? '4' : '2'}. Number of Questions{' '}
+                  {mode === 'custom' ? '5' : '3'}. Number of Questions{' '}
                   <span className="text-slate-400 font-normal normal-case">(5-100)</span>
                 </label>
                 <div className="flex items-center gap-4">
@@ -218,6 +356,21 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
                   </span>
                 </div>
               </div>
+
+              {/* Timer Option */}
+              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
+                    {mode === 'custom' ? '6' : '4'}. Exam Timer
+                  </label>
+                  <p className="text-xs text-slate-500 font-medium">Enable 90-second countdown per question</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" checked={timerEnabled} onChange={() => setTimerEnabled(!timerEnabled)} />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+              </div>
+
             </div>
           )}
 
@@ -243,6 +396,39 @@ export default function CustomBuilderScreen({ onStart, onCancel }: CustomBuilder
           </div>
         </div>
       </div>
+
+      {/* Legacy ITE Year Warning Modal */}
+      {showLegacyWarning && (
+        <div className="fixed inset-0 z-[90] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-[32px] shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex items-start gap-4">
+              <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-black text-slate-900 leading-tight">{LEGACY_WARNING_TITLE}</h3>
+              </div>
+            </div>
+            <div className="p-6 text-sm font-medium text-slate-600 leading-relaxed">
+              {LEGACY_WARNING_BODY}
+            </div>
+            <div className="p-6 border-t border-slate-100 flex gap-3">
+              <button
+                onClick={() => setShowLegacyWarning(false)}
+                className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-black text-sm hover:bg-slate-200 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmShowLegacyYears}
+                className="flex-1 py-3 bg-amber-600 text-white rounded-xl font-black text-sm hover:bg-amber-700 transition-all shadow-lg shadow-amber-100"
+              >
+                Yes, show legacy years
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

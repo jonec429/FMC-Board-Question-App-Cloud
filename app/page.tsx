@@ -115,9 +115,13 @@ export default function Home() {
         user={user}
         quizId={activeQuiz.quizId}
         topic={activeQuiz.topic}
+        questionIds={activeQuiz.questionIds}
         categories={activeQuiz.categories}
+        keywords={activeQuiz.keywords}
         years={activeQuiz.years}
+        pool={activeQuiz.pool}
         count={activeQuiz.count || 40}
+        timerEnabled={activeQuiz.timerEnabled}
         currentBlock={currentBlock}
         onComplete={() => setActiveQuiz(null)}
         onCancel={() => setActiveQuiz(null)}
@@ -125,9 +129,10 @@ export default function Home() {
     );
   }
 
-  if (showBuilder) {
+    if (showBuilder) {
     return (
       <CustomBuilderScreen
+        user={user}
         onStart={(config) => {
           setShowBuilder(false);
           setActiveQuiz({
@@ -135,6 +140,8 @@ export default function Home() {
             categories: config.categories.length > 0 ? config.categories : undefined,
             years: config.years.length > 0 ? config.years : undefined,
             count: config.count,
+            pool: config.pool,
+            timerEnabled: config.timerEnabled,
           });
         }}
         onCancel={() => setShowBuilder(false)}
@@ -143,7 +150,7 @@ export default function Home() {
   }
 
   if (showAdmin) {
-    return <AdminConsole onExit={() => setShowAdmin(false)} />;
+    return <AdminConsole user={user} profile={profile} onExit={() => setShowAdmin(false)} />;
   }
 
   return (

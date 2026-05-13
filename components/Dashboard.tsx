@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatDisplayName } from '@/lib/utils';
+import { canAccessAdmin } from '@/lib/roles';
 import {
   LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X,
+  PlayCircle, Sparkles, X, Settings,
 } from './AppIcons';
+import ProfileSettings from './ProfileSettings';
 
 interface DashboardProps {
   user: any;
@@ -17,8 +20,10 @@ interface DashboardProps {
   onOpenAdmin: () => void;
 }
 
-function getBlockSortKey(title: string): number {
-  const t = title || '';
+function getBlockSortKey(block: any): number {
+  // Prefer explicit sort_order from DB, fall back to title parsing
+  if (block.sort_order != null) return block.sort_order;
+  const t = block.title || '';
   if (/^demo/i.test(t)) return 9999;
   const m = t.match(/Block\s+(\d+)/i);
   if (m) return parseInt(m[1], 10);
@@ -35,11 +40,8 @@ interface LeaderboardEntry {
 }
 
 export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpenBuilder, onOpenAdmin }: DashboardProps) {
-  const isSuperAdmin =
-    user?.email === 'jonathan.carbungco@ascension.org' ||
-    profile?.role === 'admin' ||
-    profile?.role === 'faculty' ||
-    profile?.pgy === 'Faculty';
+  // Use centralized role helper (3-tier: resident / faculty / admin)
+  const isSuperAdmin = canAccessAdmin(user, profile);
 
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +53,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
 
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -82,7 +85,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
         ]);
 
         if (blockData) {
-          const sorted = [...blockData].sort((a, b) => getBlockSortKey(a.title) - getBlockSortKey(b.title));
+          const sorted = [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b));
           setBlocks(sorted);
         }
         if (resultsData) setMyResults(resultsData);
@@ -157,9 +160,9 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
       <div className="mb-8 flex justify-between items-start relative">
         <div className="absolute -top-10 -left-10 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10">
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Noon Conference Blocks</h2>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">FMC Board Review App</h2>
           <p className="text-slate-500 font-bold text-xs tracking-wide mt-1 uppercase opacity-60">
-            Ascension St. Vincent's FM Residency · {profile?.full_name || user.email}
+            Ascension St. Vincent's FM Residency · {formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : user.email}
           </p>
         </div>
         <div className="flex items-center gap-2 relative z-20">
@@ -172,11 +175,41 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
               <Lock className="w-5 h-5" />
             </button>
           )}
+          <button onClick={() => setShowSettings(true)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Profile Settings">
+            <Settings className="w-5 h-5" />
+          </button>
           <button onClick={onLogout} className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
             <LogOut className="w-5 h-5" />
           </button>
         </div>
       </div>
+
+      {/* Onboarding Banner for New Users */}
+      {myResults.length === 0 && !activeSession && !loading && (
+        <div className="mb-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex-1">
+            <h3 className="text-2xl font-black mb-2 flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-yellow-300" />
+              Welcome to the FMC QBank!
+            </h3>
+            <p className="text-blue-100 font-medium max-w-xl">
+              We recommend taking the Demo Quiz first to get familiar with the interface, tools, and question formats. It's only 3 questions and won't affect your stats.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              const demoBlock = blocks.find(b => b.block_type === 'demo' || b.title === 'Demo Quiz');
+              if (demoBlock) {
+                onStartQuiz({ topic: demoBlock.title, quizId: demoBlock.id, count: 3 });
+              }
+            }}
+            className="relative z-10 whitespace-nowrap bg-white text-blue-600 hover:bg-blue-50 px-8 py-4 rounded-xl font-black shadow-sm transition-all hover:scale-105 active:scale-95"
+          >
+            Take Demo Quiz
+          </button>
+        </div>
+      )}
 
       {/* Two-column body */}
       <div className="flex flex-col md:flex-row gap-6">
@@ -244,7 +277,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
             </div>
           </button>
 
-          <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs mb-3">Noon Conference Blocks</h3>
+          <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs mb-3">Board Review Blocks</h3>
 
           {loading ? (
             <p className="text-center py-6 text-slate-400 text-sm italic">Loading Fixed Blocks...</p>
@@ -257,10 +290,24 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
                 const isCompleted = !!result && (result.academic_points || 0) > 0;
                 const hasResume = activeSession && activeSession.topic === block.title;
 
+                // Sprint 5: prefer the fixed assigned question set so every resident sees the
+                // same questions (order is still randomized client-side in QuizEngine).
+                // Falls back to category filters for legacy/uninitialized blocks.
+                const hasFixedSet = block.question_ids && block.question_ids.length > 0;
+                const displayCount = hasFixedSet
+                  ? block.question_ids.length
+                  : (block.question_count || 40);
                 return (
                   <div
                     key={block.id}
-                    onClick={() => onStartQuiz({ topic: block.title, quizId: block.id, count: 40 })}
+                    onClick={() => onStartQuiz({
+                      topic: block.title,
+                      quizId: block.id,
+                      questionIds: hasFixedSet ? block.question_ids : undefined,
+                      categories: !hasFixedSet && block.category_filters && block.category_filters.length > 0 ? block.category_filters : undefined,
+                      keywords: !hasFixedSet && block.keyword_filters && block.keyword_filters.length > 0 ? block.keyword_filters : undefined,
+                      count: displayCount,
+                    })}
                     className="shrink-0 p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all group relative overflow-hidden ring-1 ring-slate-200/50 hover:ring-blue-400"
                   >
                     {hasResume && !isCompleted && (
@@ -289,7 +336,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
                           )}
                         </p>
                         <p className="text-xs text-slate-400 font-medium">
-                          {result ? `Best: ${(result.percentage || 0).toFixed(1)}%` : '40 Questions'}
+                          {result ? `Best: ${(result.percentage || 0).toFixed(1)}%` : `${displayCount} Questions`}
                         </p>
                       </div>
                     </div>
@@ -319,6 +366,19 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
           totalPoints={totalPoints}
           myResults={myResults}
           leaderboard={leaderboard}
+        />
+      )}
+
+      {showSettings && (
+        <ProfileSettings
+          user={user}
+          profile={profile}
+          onClose={() => setShowSettings(false)}
+          onProfileUpdate={(updated) => {
+            // Propagate the updated profile back so the UI refreshes
+            setShowSettings(false);
+            window.location.reload();
+          }}
         />
       )}
 
@@ -353,7 +413,7 @@ function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmai
                 </span>
                 <div className="min-w-0">
                   <p className={`text-xs font-bold truncate ${isMe ? 'text-blue-700' : 'text-slate-700'}`}>
-                    {r.name}
+                    {formatDisplayName(r.name)}
                   </p>
                   <p className="text-[10px] text-slate-400 truncate">
                     {r.pgy.replace('Class of ', "'")}
@@ -436,7 +496,7 @@ function MyStatsModal({
               <Trophy className="w-5 h-5 text-yellow-500" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-xl font-black text-slate-800 truncate">{profile?.full_name || 'My Performance'}</h2>
+              <h2 className="text-xl font-black text-slate-800 truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
               <p className="text-xs font-bold text-slate-400 mt-0.5 truncate">
                 {profile?.pgy || '—'}{profile?.advisor ? ` · Advisor: ${profile.advisor}` : ''}
               </p>

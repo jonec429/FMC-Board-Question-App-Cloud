@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { BookOpen, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X } from './AppIcons';
 
@@ -10,8 +10,25 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showAI, setShowAI] = useState(false);
   const [showNews, setShowNews] = useState(false);
+  const [changelog, setChangelog] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchChangelog = async () => {
+      try {
+        const res = await fetch('/api/changelog');
+        const data = await res.json();
+        if (data.updates) setChangelog(data.updates);
+      } catch (err) {
+        console.error('Failed to fetch changelog');
+      }
+    };
+    fetchChangelog();
+  }, []);
 
   const isEmailValid = email.toLowerCase().endsWith('@ascension.org');
   const showEmailError = email.length > 5 && !isEmailValid;
@@ -46,6 +63,18 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      setLoading(false);
+      return;
+    }
+
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('Please provide your first and last name.');
+      setLoading(false);
+      return;
+    }
+
     const { data: authorized, error: authError } = await supabase
       .from('authorized_roster')
       .select('name')
@@ -58,18 +87,50 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
-      options: { data: { full_name: authorized.name } },
+      options: { 
+        data: { 
+          full_name: `${firstName.trim()} ${lastName.trim()}`,
+          first_name: firstName.trim(),
+          last_name: lastName.trim()
+        } 
+      },
     });
 
-    if (error) setError(error.message);
-    else {
+    if (signUpError) {
+      setError(signUpError.message);
+    } else {
+      // Create/Update profile explicitly to be sure
+      await supabase.from('profiles').upsert({
+        id: signUpData.user?.id,
+        email: cleanEmail,
+        full_name: `${firstName.trim()} ${lastName.trim()}`,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        pgy: authorized.pgy,
+        role: authorized.pgy === 'Faculty' ? 'faculty' : 'resident'
+      });
+
       setError('');
       alert('Registration successful! You can now sign in.');
       setMode('signin');
     }
+    setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email || !isEmailValid) {
+      setError('Please enter a valid @ascension.org email address first.');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    });
+    if (error) setError(error.message);
+    else alert('Password reset link sent to your email.');
     setLoading(false);
   };
 
@@ -90,11 +151,34 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
           </div>
 
           {/* Form */}
-          <form onSubmit={mode === 'signin' ? handleSignIn : handleSignUp} className="flex flex-col gap-3 flex-1 justify-center">
+          <form id="fmc-login-form" onSubmit={mode === 'signin' ? handleSignIn : handleSignUp} className="flex flex-col gap-3 flex-1 justify-center">
+            {mode === 'signup' && (
+              <div className="grid grid-cols-2 gap-3 animate-fade-in">
+                <input
+                  type="text"
+                  placeholder="First Name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full px-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Last Name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full px-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
+                  required
+                />
+              </div>
+            )}
+            
             <div>
               <div className="relative">
                 <MailIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                 <input
+                  id="email"
+                  name="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -114,6 +198,8 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
               <input
+                id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -123,6 +209,31 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                 required
               />
             </div>
+
+            {mode === 'signup' && (
+              <div className="relative animate-fade-in">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                <input
+                  type="password"
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
+                  required
+                />
+              </div>
+            )}
+
+            {mode === 'signin' && (
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-right text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors"
+              >
+                Forgot Password?
+              </button>
+            )}
 
             {error && (
               <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-bold flex items-center gap-2">
@@ -197,9 +308,19 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
               </button>
             </div>
             <div className="space-y-3 text-sm text-slate-600 mb-6 max-h-96 overflow-y-auto">
-              <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Cloud Migration</div>
-              <p>The app has been migrated from Google Apps Script to the cloud — faster loads, persistent quiz sessions, and works as a PWA on mobile.</p>
-              <p className="text-xs italic text-slate-400">Same features as the GAS version. Sign in with your @ascension.org email and a password (instead of just an email).</p>
+              <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Latest Updates</div>
+              {changelog.length > 0 ? (
+                <ul className="space-y-3">
+                  {changelog.map((update, i) => (
+                    <li key={i} className="flex gap-2 items-start">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full shrink-0 mt-1.5" />
+                      <span className="leading-snug">{update}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Loading latest improvements...</p>
+              )}
             </div>
             <div className="flex justify-end">
               <button onClick={() => setShowNews(false)} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors">

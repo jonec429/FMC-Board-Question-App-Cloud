@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatDisplayName } from '@/lib/utils';
+import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight } from './AppIcons';
 
 const AT_RISK_AVG = 60;
@@ -36,11 +38,31 @@ const riskColors = {
   green: { row: '', badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
 };
 
-export default function AdminPerformance() {
+interface AdminPerformanceProps {
+  user?: any;
+  profile?: any;
+}
+
+type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'my_advisees';
+
+export default function AdminPerformance({ user, profile }: AdminPerformanceProps = {}) {
+  const userIsAdmin = isAdmin(user, profile);
+  const userIsFaculty = isFaculty(user, profile);
+  const facultyName = getFacultyAdviseeFilter(user, profile);
+  // Faculty-only users start on "My Advisees"; admins keep the overview default
+  const defaultTab: SubTab = userIsAdmin ? 'overview' : 'my_advisees';
+
   const [loading, setLoading] = useState(true);
   const [residentStats, setResidentStats] = useState<ResidentStat[]>([]);
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'at_risk' | 'by_pgy'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultTab);
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
+
+  // Residents this faculty advises — matched by `authorized_roster.advisor == profile.full_name`
+  const myAdvisees = useMemo(() => {
+    if (!facultyName) return [] as ResidentStat[];
+    const needle = facultyName.toLowerCase().trim();
+    return residentStats.filter(r => (r.advisor || '').toLowerCase().trim() === needle);
+  }, [residentStats, facultyName]);
 
   useEffect(() => {
     async function fetchStats() {
@@ -167,7 +189,7 @@ export default function AdminPerformance() {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
-                    <span className="font-bold text-slate-800 text-sm">{r.name}</span>
+                    <span className="font-bold text-slate-800 text-sm">{formatDisplayName(r.name)}</span>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.pgy.replace('Class of ', '')}</td>
@@ -240,18 +262,58 @@ export default function AdminPerformance() {
         </div>
       </div>
 
-      {/* Sub Tabs */}
+      {/* Sub Tabs — faculty see a "My Advisees" tab unique to their account */}
       <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/50 w-full md:w-auto">
-        {([['overview', 'Program Overview'], ['at_risk', `At Risk (${redFlagged.length + yellowFlagged.length})`], ['by_pgy', 'By Class Year']] as const).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setActiveSubTab(id)}
-            className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            {label}
-          </button>
-        ))}
+        {(() => {
+          const baseTabs: [SubTab, string][] = [
+            ['overview', 'Program Overview'],
+            ['at_risk', `At Risk (${redFlagged.length + yellowFlagged.length})`],
+            ['by_pgy', 'By Class Year'],
+          ];
+          // Faculty-only tab: appears first when user is faculty (admins can also pull it up if they have advisees)
+          const tabs: [SubTab, string][] = userIsFaculty && facultyName
+            ? [['my_advisees', `My Advisees (${myAdvisees.length})`], ...baseTabs]
+            : baseTabs;
+          return tabs.map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setActiveSubTab(id)}
+              className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              {label}
+            </button>
+          ));
+        })()}
       </div>
+
+      {/* My Advisees Tab (faculty-focused view) */}
+      {activeSubTab === 'my_advisees' && (
+        <div className="bg-white rounded-[32px] border border-emerald-100 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-emerald-50 bg-emerald-50/40 flex items-center justify-between">
+            <div>
+              <h3 className="font-black text-emerald-700">My Advisees</h3>
+              <p className="text-xs font-bold text-emerald-600/70 mt-0.5">
+                Residents assigned to {formatDisplayName(facultyName || '')} — click any row to view block history
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-black text-emerald-700">{myAdvisees.length}</div>
+              <div className="text-[10px] font-black text-emerald-600/70 uppercase tracking-widest">Advisees</div>
+            </div>
+          </div>
+          {myAdvisees.length > 0 ? (
+            <ResidentTable residents={myAdvisees} />
+          ) : (
+            <div className="p-12 text-center">
+              <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="font-bold text-slate-500">No advisees assigned</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Residents are mapped to faculty via the <code>advisor</code> column in the authorized roster.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Overview Tab */}
       {activeSubTab === 'overview' && (
@@ -329,7 +391,7 @@ export default function AdminPerformance() {
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <div className={`w-3 h-3 rounded-full ${riskColors[selectedResident.risk].dot}`} />
-                  <h2 className="text-2xl font-black text-slate-800">{selectedResident.name}</h2>
+                  <h2 className="text-2xl font-black text-slate-800">{formatDisplayName(selectedResident.name)}</h2>
                 </div>
                 <p className="text-sm font-bold text-slate-400">{selectedResident.pgy} · Advisor: {selectedResident.advisor || '—'}</p>
                 <div className="flex gap-4 mt-4">
