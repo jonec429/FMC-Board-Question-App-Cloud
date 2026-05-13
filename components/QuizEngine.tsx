@@ -434,7 +434,14 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
                 {timerEnabled && (
                   <>
                     <Clock className={`w-3 h-3 ${isTimeLow ? 'text-red-500' : ''}`} />
-                    <span className={isTimeLow ? 'text-red-500 font-black' : ''}>{formatTime(timeLeft)}</span>
+                    <span 
+                      className={isTimeLow ? 'text-red-500 font-black' : ''}
+                      role="timer"
+                      aria-live="polite"
+                      aria-label={`${formatTime(timeLeft)} remaining`}
+                    >
+                      {formatTime(timeLeft)}
+                    </span>
                     <span className="opacity-30">·</span>
                   </>
                 )}

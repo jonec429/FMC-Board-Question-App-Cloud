@@ -80,9 +80,9 @@ This file serves as the shared source of truth for development progress between 
 - [x] Comprehensive code review of `33e12a1` (1:1 legacy alignment commit) — see `REVIEW_FINDINGS.md`
 - [x] **[Bug Fix]** Login.tsx: Added missing `useEffect` import (was causing runtime error on changelog fetch)
 - [x] **[Bug Fix]** Login.tsx: Added missing closing brace to `handleSignUp` function (was causing build failure)
-- [ ] **[Recommended]** Create `lib/types.ts` with shared interfaces (User, Profile, Question, Result, Block)
-- [ ] **[Recommended]** Add React Error Boundaries around main app sections
-- [ ] **[Recommended]** Add `aria-label` and `role="timer"` to QuizEngine countdown for accessibility
+- [x] **[Recommended]** Create `lib/types.ts` with shared interfaces (User, Profile, Question, Result, Block)
+- [x] **[Recommended]** Add React Error Boundaries around main app sections (`app/error.tsx`)
+- [x] **[Recommended]** Add `aria-label` and `role="timer"` to QuizEngine countdown for accessibility
 
 ---
 
@@ -192,8 +192,9 @@ This file serves as the shared source of truth for development progress between 
   - Strikeout Tool now session-persistent: struck answer choices survive navigation.
   - Refactored QuestionCard to accept `fontSize`, `initialHighlights`, `initialStrikethroughs`, and `onToolsChange` props for parent-managed state.
 
-### 2026-05-13 — Coordination Protocol (Antigravity)
+### 2026-05-13 — Coordination Protocol & Phase 1 Polish (Antigravity)
 - Established AI Coordination & Handover Protocol in ROADMAP.md, including a documentation hierarchy, Peer Review rule, and a **Quick Start Prompt** for the user to initiate new sessions.
+- Completed remaining Phase 1 Code Quality tasks: created `lib/types.ts` with core data models, implemented global Next.js Error Boundary (`app/error.tsx`), and added ARIA accessibility tags to the `QuizEngine` timer.
 
 ### 2026-05-12 — Phase 1 Stabilization & Code Review
 
