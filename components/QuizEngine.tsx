@@ -34,6 +34,7 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [resumingLater, setResumingLater] = useState(false);
   const [timeLeft, setTimeLeft] = useState(count * 90);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -326,6 +327,37 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
 
   const handleFinish = () => submitQuiz(false);
 
+  // Flush latest state to quiz_sessions BEFORE leaving — the 3s debounce sync
+  // gets cancelled on unmount, so without this the user's last few actions
+  // (answer changes, navigation) silently disappear if they exit quickly.
+  const handleResumeLater = async () => {
+    if (resumingLater) return;
+    setResumingLater(true);
+    try {
+      if (sessionId) {
+        await withTimeout(
+          supabase
+            .from('quiz_sessions')
+            .update({
+              current_index: currentIndex,
+              answers,
+              time_left: timeLeft,
+              last_updated: new Date().toISOString(),
+            })
+            .eq('id', sessionId),
+          8000
+        );
+      }
+    } catch (err) {
+      console.error('Resume Later save failed:', err);
+      if (!window.confirm('Could not save your latest progress. Exit anyway? Your earlier auto-saved progress is still safe.')) {
+        setResumingLater(false);
+        return;
+      }
+    }
+    onCancel();
+  };
+
   // RESULTS SCREEN
   if (showResults && resultData) {
     const { score, total, percentage, academic_points, timing_status, missedQuestions } = resultData;
@@ -435,8 +467,13 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={onCancel} className="p-2 text-slate-400 hover:text-slate-800 rounded-lg">
-              <ChevronLeft className="w-6 h-6" />
+            <button
+              onClick={handleResumeLater}
+              disabled={resumingLater}
+              className="p-2 text-slate-400 hover:text-slate-800 rounded-lg disabled:opacity-50"
+              title="Save progress and return to dashboard"
+            >
+              {resumingLater ? <Loader2 className="w-6 h-6 animate-spin" /> : <ChevronLeft className="w-6 h-6" />}
             </button>
             <div>
               <h2 className="font-black text-slate-800 leading-tight truncate max-w-[200px] md:max-w-none">{topic || 'FMC Board Review'}</h2>
@@ -492,11 +529,12 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
               </span>
             )}
             <button
-              onClick={onCancel}
-              className="ml-4 px-6 py-2 bg-slate-100 text-slate-600 rounded-xl font-black text-sm hover:bg-slate-200 transition-all shadow-sm"
+              onClick={handleResumeLater}
+              disabled={resumingLater}
+              className="ml-4 px-6 py-2 bg-slate-100 text-slate-600 rounded-xl font-black text-sm hover:bg-slate-200 transition-all shadow-sm disabled:opacity-60 flex items-center gap-2"
               title="Save progress and return to dashboard"
             >
-              Resume Later
+              {resumingLater ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving…</> : 'Resume Later'}
             </button>
           </div>
         </div>

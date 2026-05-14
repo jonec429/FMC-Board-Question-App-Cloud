@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { withTimeout } from '@/lib/utils';
 import { X, Loader2, CheckCircle, Lock, MailIcon } from './AppIcons';
 
 interface ProfileSettingsProps {
@@ -38,19 +39,22 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
     try {
-      const updateTask = async () => {
-        // 1. Update auth metadata
-        const { error: authError } = await supabase.auth.updateUser({
+      // 1. Update auth metadata (10s timeout — auth updates are the most common hang point)
+      const { error: authError } = (await withTimeout(
+        supabase.auth.updateUser({
           data: {
             full_name: fullName,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
           },
-        });
-        if (authError) throw authError;
+        }),
+        10000
+      )) as any;
+      if (authError) throw new Error(`Auth update failed: ${authError.message}`);
 
-        // 2. Update profiles table
-        const { error: profileError } = await supabase
+      // 2. Update profiles table
+      const { error: profileError } = (await withTimeout(
+        supabase
           .from('profiles')
           .upsert({
             id: user.id,
@@ -58,21 +62,24 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
             full_name: fullName,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
-          });
-        if (profileError) throw profileError;
+          }),
+        10000
+      )) as any;
+      if (profileError) throw new Error(`Profile update failed: ${profileError.message}`);
 
-        // 3. Optional: update authorized_roster if they are a resident/faculty
-        await supabase
-          .from('authorized_roster')
-          .update({ name: fullName })
-          .eq('email', user.email);
-      };
-
-      // Ensure the whole update task doesn't take longer than 10s
-      await Promise.race([
-        updateTask(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out. Please check your connection.')), 30000))
-      ]);
+      // 3. Update authorized_roster — best-effort, logged but non-fatal
+      try {
+        const { error: rosterError } = (await withTimeout(
+          supabase
+            .from('authorized_roster')
+            .update({ name: fullName })
+            .eq('email', user.email),
+          10000
+        )) as any;
+        if (rosterError) console.warn('Roster name sync failed (non-fatal):', rosterError);
+      } catch (rosterErr) {
+        console.warn('Roster name sync failed (non-fatal):', rosterErr);
+      }
 
       onProfileUpdate({
         ...profile,

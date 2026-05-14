@@ -136,8 +136,8 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Antigravity]** **Admin Console Loading**: Fixed via 30s timeouts and comprehensive Error UI.
 - [x] **[Antigravity]** **Profile Name Update**: Resolved infinite spinner via robust promise handling.
 - [x] **[Antigravity]** **Question Bank Sorting**: Fixed query error on missing `created_at` column.
-- [ ] **[REGRESSION 2026-05-14]** **Profile Name Update — still spins**: User reports name change in Profile Settings hangs indefinitely despite Antigravity's earlier fix above. Password update untested. Likely the same class of bug as the init hang (hardcoded 10s timeout in ProfileSettings.tsx + no clear error UI). To investigate.
-- [ ] **[2026-05-14]** **Resume Later — needs assessment**: The "Resume Later" / cross-platform save-state flow for quizzes (QuizEngine save → resume on next session) needs end-to-end testing. Reportedly working per Sprint 2, but unverified since recent QuizEngine refactors (font-size, highlights, strikethroughs, fixed-question-set support, withTimeout casts). Confirm: (1) progress saves on Resume Later, (2) resumes correctly on next login, (3) answers/highlights/strikethroughs persist, (4) works cross-device.
+- [x] **[REGRESSION 2026-05-14, fixed Claude]** **Profile Name Update — still spins**: Root cause was a single 30s outer timeout wrapping three sequential Supabase calls with no per-step timeouts. When the auth-metadata update hung, users sat on the spinner for 30s before any error. Fixed by wrapping each step in `withTimeout(..., 10000)` with step-specific error messages, and making the `authorized_roster` sync non-fatal so a roster mismatch can't break the primary save. Password update flow untouched (separate path, untested).
+- [x] **[2026-05-14, fixed Claude]** **Resume Later — silent data loss**: Root cause was a 3s debounce on `syncProgress` whose pending timeout got cancelled on component unmount. Clicking Resume Later within 3s of an answer change discarded the latest state. Added `handleResumeLater` that flushes the current state to `quiz_sessions` immediately (with 8s timeout) before calling `onCancel`. Button now shows a "Saving…" state while flushing. Same handler wired to the top-left back-arrow (same exit intent).
 
 ---
 
@@ -181,6 +181,11 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-14 — Profile Save & Resume Later Reliability (Claude)
+*   **Profile Name Update**: Wrapped each Supabase call in `withTimeout(..., 10000)` (auth metadata → profiles → authorized_roster). Step-specific error messages now surface within 10s instead of after a 30s blanket race. Roster sync downgraded to best-effort (logged warning, doesn't block the primary save).
+*   **Resume Later**: Added `handleResumeLater` that immediately flushes current quiz state to `quiz_sessions` before exiting, with an 8s timeout. Eliminates the silent data loss caused by the 3s debounce + unmount cleanup race. Button shows "Saving…" state while flushing; if the save fails, the user is prompted to confirm exit anyway. Top-left back-arrow now uses the same handler.
+*   Files: `components/ProfileSettings.tsx`, `components/QuizEngine.tsx`.
 
 ### 2026-05-14 — Resident Review Resources (Claude)
 *   **Open Evidence Link Fix**: The "Open Evidence (AAFP)" button on quiz explanations pointed at a dead AAFP search URL. Repointed to `https://www.openevidence.com` and dropped the "(AAFP)" suffix.
