@@ -48,22 +48,11 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
     };
 
     try {
-      // 1. Update auth metadata (most common hang point)
-      const { error: authError } = (await runStep(
-        'Step 1 / auth metadata',
-        supabase.auth.updateUser({
-          data: {
-            full_name: fullName,
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-          },
-        })
-      )) as any;
-      if (authError) throw new Error(`[Step 1 / auth metadata] ${authError.message}`);
-
-      // 2. Update profiles table
+      // 1. Update profiles table — THE actual save the app cares about.
+      // Promoted to first because Step 2 (auth metadata, below) is known to
+      // hang in certain session states and is not load-bearing for this app.
       const { error: profileError } = (await runStep(
-        'Step 2 / profiles row',
+        'profiles row',
         supabase
           .from('profiles')
           .upsert({
@@ -74,7 +63,25 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
             last_name: lastName.trim(),
           })
       )) as any;
-      if (profileError) throw new Error(`[Step 2 / profiles row] ${profileError.message}`);
+      if (profileError) throw new Error(`[profiles row] ${profileError.message}`);
+
+      // 2. Update auth metadata — FIRE-AND-FORGET. supabase.auth.updateUser
+      // is known to hang in certain session states. The app reads names
+      // from the profiles table (above), not from user_metadata, so this
+      // call is best-effort sync only. Not awaited so it can't block the
+      // user's save UX. Errors are logged for diagnostics.
+      supabase.auth
+        .updateUser({
+          data: {
+            full_name: fullName,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+          },
+        })
+        .then(({ error }) => {
+          if (error) console.warn('Auth metadata sync failed (non-fatal):', error);
+        })
+        .catch((err) => console.warn('Auth metadata sync threw (non-fatal):', err));
 
       // 3. Update authorized_roster — best-effort, logged but non-fatal
       try {

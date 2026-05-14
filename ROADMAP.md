@@ -183,7 +183,10 @@ This file serves as the shared source of truth for development progress between 
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
 ### 2026-05-14 — Profile Save & Resume Later Reliability (Claude)
-*   **Profile Name Update**: Wrapped each Supabase call in `withTimeout(..., 10000)` (auth metadata → profiles → authorized_roster). Step-specific error messages now surface within 10s instead of after a 30s blanket race. Roster sync downgraded to best-effort (logged warning, doesn't block the primary save).
+*   **Profile Name Update — root cause identified and routed around**: Step-labeled timeouts revealed that `supabase.auth.updateUser({ data: ... })` was the consistently-hanging call. Investigation: the app reads names exclusively from the `profiles` table, never from `user_metadata`, so the auth-metadata sync is dead weight for this app's UX. Restructured the save flow:
+    *   `profiles` upsert is now the primary save (10s timeout, surfaces step-labeled error if it fails).
+    *   `auth.updateUser` is **fire-and-forget** — not awaited, errors logged but never block the user. If Supabase ever fixes the underlying hang, this still keeps the metadata in sync for any future integrations (custom email templates, Edge Functions, etc.).
+    *   `authorized_roster` sync remains best-effort with logged warning.
 *   **Resume Later**: Added `handleResumeLater` that immediately flushes current quiz state to `quiz_sessions` before exiting, with an 8s timeout. Eliminates the silent data loss caused by the 3s debounce + unmount cleanup race. Button shows "Saving…" state while flushing; if the save fails, the user is prompted to confirm exit anyway. Top-left back-arrow now uses the same handler.
 *   Files: `components/ProfileSettings.tsx`, `components/QuizEngine.tsx`.
 
