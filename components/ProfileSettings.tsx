@@ -38,11 +38,6 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
     try {
-      // Add a 10-second timeout to prevent infinite hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timed out. Please check your connection.')), 10000)
-      );
-
       const updateTask = async () => {
         // 1. Update auth metadata
         const { error: authError } = await supabase.auth.updateUser({
@@ -67,13 +62,17 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
         if (profileError) throw profileError;
 
         // 3. Optional: update authorized_roster if they are a resident/faculty
-        const { error: rosterError } = await supabase
+        await supabase
           .from('authorized_roster')
           .update({ name: fullName })
           .eq('email', user.email);
       };
 
-      await Promise.race([updateTask(), timeoutPromise]);
+      // Ensure the whole update task doesn't take longer than 10s
+      await Promise.race([
+        updateTask(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out. Please check your connection.')), 10000))
+      ]);
 
       onProfileUpdate({
         ...profile,

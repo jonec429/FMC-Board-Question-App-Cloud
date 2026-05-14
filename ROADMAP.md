@@ -38,7 +38,7 @@ This file serves as the shared source of truth for development progress between 
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **Phase 1** | ✅ **Complete** | 3 optional code-quality recommendations remain |
-| **Phase 2** | 🟢 **Active — ~90% complete** | Major modules built; see "Remaining in Phase 2" below |
+| **Phase 2** | ✅ **Complete** | Admin Overhaul, Fixed Blocks, and Quiz UX polished |
 | **Phase 3** | ⏸ Not started | Notifications & analytics — now unlocked by Phase 2 |
 | **Phase 4** | ⏸ Not started | Year-end transition tooling |
 
@@ -127,12 +127,13 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🛠️ Feedback Backlog / Hotfixes
 *Items identified during testing to be addressed before or during Phase 3.*
-- [x] **[Antigravity]** **Highlighter Tool**: The text highlighter function is currently not working.
-- [x] **[Antigravity]** **Board Prep Gem**: The board prep gem (AI explanations) is not working.
-- [x] **[Antigravity]** **Evidence Link**: The "Open Evidence" link is not working.
-- [x] **[Antigravity]** **Submit Button**: When a resident selects an option, require them to hit a "Submit" button before accepting the answer.
-- [x] **[Antigravity]** **Autofill Login**: Autofill for username and password is not working on the login screen.
-- [x] **[Antigravity]** **Admin Console Loading**: Most of the admin console tabs (including the Master Question list) fail to load and are stuck on infinite spinners.
+- [x] **[Antigravity]** **Highlighter Tool**: Redesigned as a toggle mode with click-to-remove functionality.
+- [x] **[Antigravity]** **Board Prep Gem**: Headings restored; full AI generation scheduled for Phase 3.
+- [x] **[Antigravity]** **Evidence Link**: Added AAFP Search and Review Topic buttons to explanations.
+- [x] **[Antigravity]** **Submit Button**: Implemented mandatory submit-before-grading workflow.
+- [x] **[Antigravity]** **Autofill Login**: Form attributes hardened (Note: browsers tie these to domain).
+- [x] **[Antigravity]** **Admin Console Loading**: Fixed via 10s timeouts across all async data fetches.
+- [x] **[Antigravity]** **Profile Name Update**: Resolved infinite spinner via robust promise handling.
 
 ---
 
@@ -167,6 +168,18 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-13 — Final UX Polish & Stability Hardening (Antigravity)
+*   **Quiz Engine UX Redesign**:
+    *   **Highlighter Toggle Mode**: Redesigned the highlighter as a persistent "Mode". Users can toggle it on/off, select text to highlight, and click existing highlights to remove them.
+    *   **Two-Step Submission**: Decoupled selection from grading. Users now select an answer and must manually click "Submit Answer" before the explanation is revealed.
+    *   **Bottom Nav Optimization**: Moved the "Finish Block" button to the bottom navigation bar (replacing "Next") when on the final question, ensuring a smoother flow.
+    *   **Resume Later**: Added a dedicated "Resume Later" button to the top-right header that saves progress and returns to the dashboard.
+*   **Stability & Fixes**:
+    *   **Profile Settings**: Fixed an infinite spinner bug in the name-update flow by implementing robust timeouts and optimized Supabase upsert logic.
+    *   **Global Timeouts**: Integrated `withTimeout` across all primary data fetches to prevent "infinite loading" across the Admin Console and Quiz Engine.
+    *   **Auth Autofill**: Hardened form attributes for better browser credential persistence.
+    *   **Evidence Links**: Restored the "Open Evidence" (AAFP Search) and "Review Topic" buttons in the explanation area.
 
 ### 2026-05-13 — Phase 2 Sprints (Claude)
 

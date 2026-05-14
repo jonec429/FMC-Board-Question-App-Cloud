@@ -492,11 +492,11 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
               </span>
             )}
             <button
-              onClick={handleFinish}
-              disabled={submitting}
-              className="ml-4 px-6 py-2 bg-blue-600 text-white rounded-xl font-black text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:opacity-50"
+              onClick={onCancel}
+              className="ml-4 px-6 py-2 bg-slate-100 text-slate-600 rounded-xl font-black text-sm hover:bg-slate-200 transition-all shadow-sm"
+              title="Save progress and return to dashboard"
             >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Finish Block'}
+              Resume Later
             </button>
           </div>
         </div>
@@ -535,14 +535,26 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
             <ChevronLeft className="w-5 h-5" />
             Prev
           </button>
-          <button
-            onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
-            disabled={currentIndex === questions.length - 1}
-            className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-xl shadow-slate-200"
-          >
-            Next
-            <ChevronRight className="w-5 h-5" />
-          </button>
+          {currentIndex === questions.length - 1 ? (
+            <button
+              onClick={handleFinish}
+              disabled={submitting}
+              className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-green-200"
+            >
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                <>Finish Block <ChevronRight className="w-5 h-5" /></>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
+              disabled={currentIndex === questions.length - 1}
+              className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-xl shadow-slate-200"
+            >
+              Next
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </nav>
     </div>

@@ -250,17 +250,28 @@ export default function QuestionCard({
             <div dangerouslySetInnerHTML={{ __html: question.explanation || 'No explanation provided.' }} />
           </div>
 
-          {question.resource_link && (
+          <div className="mt-8 flex flex-wrap gap-4">
             <a 
-              href={question.resource_link} 
+              href={`https://www.aafp.org/search.html?q=${encodeURIComponent(question.category || 'Family Medicine')}`}
               target="_blank" 
               rel="noopener noreferrer"
-              className="mt-8 inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-blue-400 font-bold transition-all border border-white/10"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500/10 hover:bg-blue-500/20 rounded-2xl text-blue-400 font-bold transition-all border border-blue-500/20"
             >
               <ExternalLink className="w-4 h-4" />
-              Reference Material
+              Open Evidence (AAFP)
             </a>
-          )}
+            {question.resource_link && (
+              <a 
+                href={question.resource_link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Review Topic Material
+              </a>
+            )}
+          </div>
         </div>
       )}
     </div>
