@@ -202,6 +202,8 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
               const demoBlock = blocks.find(b => b.block_type === 'demo' || b.title === 'Demo Quiz');
               if (demoBlock) {
                 onStartQuiz({ topic: demoBlock.title, quizId: demoBlock.id, count: 3 });
+              } else {
+                onStartQuiz({ topic: 'Demo Quiz', count: 3 });
               }
             }}
             className="relative z-10 whitespace-nowrap bg-white text-blue-600 hover:bg-blue-50 px-8 py-4 rounded-xl font-black shadow-sm transition-all hover:scale-105 active:scale-95"
