@@ -136,6 +136,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Antigravity]** **Admin Console Loading**: Fixed via 30s timeouts and comprehensive Error UI.
 - [x] **[Antigravity]** **Profile Name Update**: Resolved infinite spinner via robust promise handling.
 - [x] **[Antigravity]** **Question Bank Sorting**: Fixed query error on missing `created_at` column.
+- [ ] **[REGRESSION 2026-05-14]** **Profile Name Update — still spins**: User reports name change in Profile Settings hangs indefinitely despite Antigravity's earlier fix above. Password update untested. Likely the same class of bug as the init hang (hardcoded 10s timeout in ProfileSettings.tsx + no clear error UI). To investigate.
 
 ---
 
@@ -177,7 +178,14 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
-### 2026-05-13 — Admin Stability & Phase 3 Planning (Antigravity)
+### 2026-05-14 — App Initializer Hardening (Claude)
+*   **Root Cause Diagnosis**: Production and preview deployments were hanging on "Initializing FMC BRQ App..." indefinitely with zero Supabase requests firing. Network tab confirmed the Supabase client was never reaching the wire.
+*   **Defensive Fix in `app/page.tsx`**:
+    *   Wrapped the `init()` useEffect in `try/catch/finally` so `setLoading(false)` always runs, eliminating the silent-spinner failure mode.
+    *   Wrapped `supabase.auth.getSession()` and the `loadProfile`/`loadCurrentBlock` parallel awaits in `withTimeout(..., 15000)`.
+    *   Added an explicit env-var sanity check that surfaces a clear error if `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` are missing at runtime.
+    *   New `initError` state + actionable error UI with retry button (replaces infinite spinner). Lists common causes: Supabase pause, env vars, network.
+*   **Outstanding**: The underlying cause of the original hang still needs confirmation — likely either Sensitive env-var values weren't actually saved in Vercel, or the Supabase project is paused. The new error screen will tell us which on next reload.
 *   **Admin Console Hardening**:
     *   **Global Request Timeouts**: Increased timeout to 30s to accommodate slow cold starts and large data payloads.
     *   **Comprehensive Error UI**: Added visual error alerts and "Retry" buttons to all Admin modules (Performance, Roster, Questions, Block Builder, Attendance). No more silent failures.

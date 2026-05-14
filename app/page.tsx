@@ -8,15 +8,22 @@ import QuizEngine from '@/components/QuizEngine';
 import CustomBuilderScreen from '@/components/CustomBuilderScreen';
 import AdminConsole from '@/components/AdminConsole';
 import { Loader2 } from '@/components/AppIcons';
+import { withTimeout } from '@/lib/utils';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
   const [activeQuiz, setActiveQuiz] = useState<any>(null);
   const [currentBlock, setCurrentBlock] = useState<any>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+
+  // Sanity check: warn loudly if Supabase env vars never got wired up
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const envMissing = !supabaseUrl || !supabaseKey;
 
   const loadProfile = async (sessionUser: any) => {
     // Try to find an existing profile row first
@@ -65,12 +72,26 @@ export default function Home() {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        await Promise.all([loadProfile(session.user), loadCurrentBlock()]);
+      if (envMissing) {
+        setInitError('Supabase environment variables are not configured. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel project settings, then redeploy.');
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+      try {
+        const { data: { session } } = await withTimeout(supabase.auth.getSession(), 15000);
+        if (session?.user) {
+          setUser(session.user);
+          await withTimeout(
+            Promise.all([loadProfile(session.user), loadCurrentBlock()]),
+            15000
+          );
+        }
+      } catch (err: any) {
+        console.error('App init error:', err);
+        setInitError(err?.message || 'Failed to initialize the app. Check your network and Supabase project status.');
+      } finally {
+        setLoading(false);
+      }
     };
 
     init();
@@ -105,6 +126,31 @@ export default function Home() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
           <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing FMC BRQ App...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (initError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-red-100 shadow-sm">
+          <h2 className="text-xl font-black text-red-600 mb-3">App Failed to Start</h2>
+          <p className="text-sm text-slate-700 mb-4 font-medium">{initError}</p>
+          <div className="bg-slate-50 rounded-xl p-4 mb-6 text-xs text-slate-500 leading-relaxed">
+            <p className="font-bold text-slate-600 mb-1">Common causes:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Supabase project paused (free tier auto-pauses)</li>
+              <li>Missing or incorrect Vercel environment variables</li>
+              <li>Network connectivity issue</li>
+            </ul>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full px-5 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg active:scale-95"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
