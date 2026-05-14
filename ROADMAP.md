@@ -38,13 +38,14 @@ This file serves as the shared source of truth for development progress between 
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **Phase 1** | ✅ **Complete** | 3 optional code-quality recommendations remain |
-| **Phase 2** | ✅ **Complete** | Admin Overhaul, Fixed Blocks, and Quiz UX polished |
-| **Phase 3** | ⏸ Not started | Notifications & analytics — now unlocked by Phase 2 |
+| **Phase 2** | ✅ **Complete** | Admin Overhaul, Fixed Blocks, and Stability Hardened |
+| **Phase 3** | ⏸ Not started | Notifications, QOTD & analytics — Phase 2 complete |
 | **Phase 4** | ⏸ Not started | Year-end transition tooling |
 
 ### ⚠️ Action Required From Admin
 - [x] **Sprint 5 step 1**: SQL migration `migrate_blocks_question_ids.sql` run in Supabase ✅
 - [ ] **Sprint 5 step 2**: Open the app → Admin Console → Block Builder → click **"Initialize N Blocks"** to lock in question sets
+- [ ] **Environment Setup**: Install Node.js, restart VS Code, and run `npm install` to resolve local module errors.
 
 ### 🎯 Remaining in Phase 2
 1. **Sprint 4B** — Browse + per-question Edit UI for the question bank *(next up)*
@@ -132,8 +133,9 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Antigravity]** **Evidence Link**: Added AAFP Search and Review Topic buttons to explanations.
 - [x] **[Antigravity]** **Submit Button**: Implemented mandatory submit-before-grading workflow.
 - [x] **[Antigravity]** **Autofill Login**: Form attributes hardened (Note: browsers tie these to domain).
-- [x] **[Antigravity]** **Admin Console Loading**: Fixed via 10s timeouts across all async data fetches.
+- [x] **[Antigravity]** **Admin Console Loading**: Fixed via 30s timeouts and comprehensive Error UI.
 - [x] **[Antigravity]** **Profile Name Update**: Resolved infinite spinner via robust promise handling.
+- [x] **[Antigravity]** **Question Bank Sorting**: Fixed query error on missing `created_at` column.
 
 ---
 
@@ -143,10 +145,16 @@ This file serves as the shared source of truth for development progress between 
 ### Email Integrations
 - [ ] Implement Email service provider (e.g. Resend or SendGrid) to restore the legacy functionality of emailing the resident the results of their quiz upon completion.
 
+### Question of the Day (QOTD)
+- [ ] **[NEW]** **Full QOTD Ecosystem**:
+    - [ ] **Automated Selection**: Daily job to pick a high-yield question (ITE focus).
+    - [ ] **Push/Email Notifications**: Alert residents at a set time (e.g., 8:00 AM).
+    - [ ] **Dedicated QOTD UI**: Quick-access interface for the daily question (separate from full blocks).
+    - [ ] **Stat Tracking**: Track streak, daily participation rate, and cohort performance.
+
 ### Push Notifications
 - [ ] Implement Web Push API (iOS 16.4+ compatible)
 - [ ] Add "Notification Settings" to User Profile
-- [ ] Automate "Question of the Day" reminders
 - [ ] Implement Mid-block and End-block deadline alerts
 
 ### AI & Analytics
@@ -169,7 +177,17 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
-### 2026-05-13 — Final UX Polish & Stability Hardening (Antigravity)
+### 2026-05-13 — Admin Stability & Phase 3 Planning (Antigravity)
+*   **Admin Console Hardening**:
+    *   **Global Request Timeouts**: Increased timeout to 30s to accommodate slow cold starts and large data payloads.
+    *   **Comprehensive Error UI**: Added visual error alerts and "Retry" buttons to all Admin modules (Performance, Roster, Questions, Block Builder, Attendance). No more silent failures.
+    *   **Database Query Fix**: Resolved a "Column not found" error in the Question Bank by switching to `year` based sorting.
+*   **Next Steps**:
+    *   Added "Question of the Day" (QOTD) to Phase 3 roadmap per user request.
+    *   Addressed TypeScript lint errors in AdminConsole and QuizEngine.
+    *   **Environment Advisory**: Identified missing Node.js dependencies locally; added "Environment Setup" task to the action list.
+
+### 2026-05-13 — Final UX Polish & UX Refinements (Antigravity)
 *   **Quiz Engine UX Redesign**:
     *   **Highlighter Toggle Mode**: Redesigned the highlighter as a persistent "Mode". Users can toggle it on/off, select text to highlight, and click existing highlights to remove them.
     *   **Two-Step Submission**: Decoupled selection from grading. Users now select an answer and must manually click "Submit Answer" before the explanation is revealed.

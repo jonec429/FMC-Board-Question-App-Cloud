@@ -7,6 +7,7 @@ import { withTimeout } from '@/lib/utils';
 
 export default function RosterManager() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [roster, setRoster] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -38,8 +39,9 @@ export default function RosterManager() {
       }) || [];
 
       setRoster(merged);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Roster fetch error:', err);
+      setError(err.message || 'Failed to fetch roster. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -161,7 +163,29 @@ export default function RosterManager() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {filtered.length > 0 ? filtered.map((member) => (
+            {loading ? (
+              <tr>
+                <td colSpan={4} className="px-8 py-20 text-center">
+                  <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Fetching Program Roster...</p>
+                </td>
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={4} className="px-8 py-20 text-center">
+                  <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 max-w-sm mx-auto shadow-sm text-center">
+                    <h3 className="text-sm font-black mb-1 text-center">Connection Error</h3>
+                    <p className="font-medium text-red-500 mb-4 text-xs text-center">{error}</p>
+                    <button 
+                      onClick={() => fetchRoster()}
+                      className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all text-xs"
+                    >
+                      Retry Fetch
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ) : filtered.length > 0 ? filtered.map((member) => (
               <tr key={member.id} className="group hover:bg-slate-50/50 transition-all">
                 <td className="px-8 py-6">
                   <div className="flex items-center gap-4">
@@ -224,8 +248,8 @@ export default function RosterManager() {
             )) : (
               <tr>
                 <td colSpan={4} className="px-8 py-20 text-center text-slate-400">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p className="font-bold">No members found matching your search.</p>
+                  <Users className="w-12 h-12 mx-auto mb-4 opacity-20 text-center" />
+                  <p className="font-bold text-center">No members found matching your search.</p>
                 </td>
               </tr>
             )}

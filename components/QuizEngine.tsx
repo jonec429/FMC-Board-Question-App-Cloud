@@ -70,7 +70,7 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
         const topicLabel = topic || 'Mixed Review Block';
 
         // 1. Fetch active session first
-        const { data: sData } = await withTimeout(
+        const { data: sData } = (await withTimeout(
           supabase
             .from('quiz_sessions')
             .select('*')
@@ -80,7 +80,7 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
             .order('last_updated', { ascending: false })
             .limit(1)
             .maybeSingle()
-        );
+        )) as any;
 
         if (sData) {
           setSessionId(sData.id);
@@ -136,9 +136,9 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
 
         // Pool filtering (unused/incorrect) only applies to category-based custom quizzes, not fixed blocks
         if (!isDemo && !isFixedBlock && pool !== 'all') {
-          const { data: attemptData } = await withTimeout(
+          const { data: attemptData } = (await withTimeout(
             supabase.from('question_attempts').select('question_id, is_correct').eq('user_id', user.id)
-          );
+          )) as any;
           
           if (attemptData) {
             if (pool === 'unused') {
@@ -175,9 +175,9 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
           : isFixedBlock
             ? questionIds!.length
             : (pool === 'unused' ? count * 10 : count * 3);
-        const { data: qData, error: qError } = await withTimeout(
+        const { data: qData, error: qError } = (await withTimeout(
           query.order('year', { ascending: false }).limit(fetchLimit)
-        );
+        )) as any;
 
         if (qError) throw qError;
         let finalPool = qData || [];
@@ -198,7 +198,7 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
         setTimeLeft(selected.length * 90);
 
         if (!sData) {
-          const { data: newSession } = await withTimeout(
+          const { data: newSession } = (await withTimeout(
             supabase
               .from('quiz_sessions')
               .insert({
@@ -214,7 +214,7 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
               })
               .select('id')
               .single()
-          );
+          )) as any;
 
           if (newSession) setSessionId(newSession.id);
         } else if (!sData.questions) {

@@ -55,24 +55,29 @@ function QuestionBrowser() {
   // Pagination (Simple limit for now)
   const [limit, setLimit] = useState(50);
 
+  const [error, setError] = useState<string | null>(null);
+
+
   const fetchQuestions = async () => {
     setLoading(true);
+    setError(null);
     try {
       let query = supabase
         .from('questions')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('year', { ascending: false })
         .limit(limit);
 
       if (categoryFilter) query = query.eq('category', categoryFilter);
       if (yearFilter) query = query.eq('year', yearFilter);
       if (search) query = query.ilike('question_text', `%${search}%`);
 
-      const { data, error } = await withTimeout(query);
-      if (error) throw error;
+      const { data, error: fetchErr } = await withTimeout(query);
+      if (fetchErr) throw fetchErr;
       setQuestions(data || []);
     } catch (err: any) {
-      alert('Error fetching questions: ' + err.message);
+      console.error('Fetch questions error:', err);
+      setError(err.message || 'Failed to load questions.');
     } finally {
       setLoading(false);
     }

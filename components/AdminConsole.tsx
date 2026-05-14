@@ -66,7 +66,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
     .map(g => ({ ...g, items: g.items.filter(i => userIsAdmin || !i.adminOnly) }))
     .filter(g => g.items.length > 0);
 
-  const SidebarButton = ({ tab }: { tab: TabDef }) => {
+  const SidebarButton = ({ tab }: { tab: TabDef; key?: string }) => {
     const Icon = tab.icon;
     const active = activeTab === tab.id;
     return (

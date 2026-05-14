@@ -21,7 +21,7 @@ export function formatDisplayName(fullName?: string | null): string {
  * the specified milliseconds, it rejects with a timeout error.
  * Used to prevent infinite spinners when Supabase or network requests hang.
  */
-export function withTimeout<T>(promise: Promise<T>, ms: number = 10000): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, ms: number = 30000): Promise<T> {
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('Request timed out. Please check your connection.')), ms)
   );

@@ -71,7 +71,7 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
       // Ensure the whole update task doesn't take longer than 10s
       await Promise.race([
         updateTask(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out. Please check your connection.')), 10000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Update timed out. Please check your connection.')), 30000))
       ]);
 
       onProfileUpdate({

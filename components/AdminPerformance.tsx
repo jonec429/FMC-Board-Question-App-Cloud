@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatDisplayName } from '@/lib/utils';
+import { formatDisplayName, withTimeout } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight } from './AppIcons';
 
@@ -53,6 +53,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const defaultTab: SubTab = userIsAdmin ? 'overview' : 'my_advisees';
 
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [residentStats, setResidentStats] = useState<ResidentStat[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultTab);
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
@@ -130,14 +131,33 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
         stats.sort((a, b) => b.totalPoints - a.totalPoints);
         setResidentStats(stats);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Stats fetch error:', err);
+        setError(err.message || 'Failed to load resident statistics. Please refresh.');
       } finally {
         setLoading(false);
       }
     }
     fetchStats();
   }, []);
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+        <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 max-w-md animate-fade-in shadow-sm">
+          <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <h3 className="text-xl font-black mb-2">Connection Error</h3>
+          <p className="font-medium text-red-500 mb-6">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg active:scale-95"
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -147,6 +167,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       </div>
     );
   }
+
+
 
   const redFlagged = residentStats.filter(r => r.risk === 'red');
   const yellowFlagged = residentStats.filter(r => r.risk === 'yellow');
