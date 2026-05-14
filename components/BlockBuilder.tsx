@@ -12,6 +12,7 @@ import {
   LEGACY_WARNING_BODY,
   partitionYears,
 } from '@/lib/questionFilters';
+import { withTimeout } from '@/lib/utils';
 
 interface Block {
   id: string;
@@ -53,21 +54,26 @@ export default function BlockBuilder() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [{ data: blockData }, { data: qData }, { data: resData }] = await Promise.all([
-      supabase.from('blocks').select('*'),
-      supabase.from('questions').select('id, question_text, category, year, options, correct_index'),
-      supabase.from('results').select('topic'),
-    ]);
-    if (blockData) setBlocks([...blockData].sort((a, b) => blockSortKey(a) - blockSortKey(b)));
-    if (qData) setAllQuestions(qData);
+    try {
+      const fetchTask = Promise.all([
+        supabase.from('blocks').select('*'),
+        supabase.from('questions').select('id, question_text, category, year, options, correct_index'),
+        supabase.from('results').select('topic'),
+      ]);
+      const [{ data: blockData }, { data: qData }, { data: resData }] = await withTimeout(fetchTask);
+      if (blockData) setBlocks([...blockData].sort((a, b) => blockSortKey(a) - blockSortKey(b)));
+      if (qData) setAllQuestions(qData);
 
-    const counts = new Map<string, number>();
-    (resData || []).forEach((r: any) => {
-      counts.set(r.topic, (counts.get(r.topic) || 0) + 1);
-    });
-    setResultsCount(counts);
-
-    setLoading(false);
+      const counts = new Map<string, number>();
+      (resData || []).forEach((r: any) => {
+        counts.set(r.topic, (counts.get(r.topic) || 0) + 1);
+      });
+      setResultsCount(counts);
+    } catch (err) {
+      console.error('BlockBuilder fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

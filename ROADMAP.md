@@ -127,18 +127,20 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🛠️ Feedback Backlog / Hotfixes
 *Items identified during testing to be addressed before or during Phase 3.*
-- [ ] **Highlighter Tool**: The text highlighter function is currently not working.
-- [ ] **Board Prep Gem**: The board prep gem (AI explanations) is not working.
-- [ ] **Evidence Link**: The "Open Evidence" link is not working.
-- [ ] **Submit Button**: When a resident selects an option, require them to hit a "Submit" button before accepting the answer (currently it accepts immediately on click).
-- [ ] **Email Results**: Restore the legacy functionality of emailing the resident the results of their quiz upon completion.
-- [ ] **Autofill Login**: Autofill for username and password is not working on the login screen.
-- [ ] **Admin Console Loading**: Most of the admin console tabs (including the Master Question list) fail to load and are stuck on infinite spinners.
+- [x] **[Antigravity]** **Highlighter Tool**: The text highlighter function is currently not working.
+- [x] **[Antigravity]** **Board Prep Gem**: The board prep gem (AI explanations) is not working.
+- [x] **[Antigravity]** **Evidence Link**: The "Open Evidence" link is not working.
+- [x] **[Antigravity]** **Submit Button**: When a resident selects an option, require them to hit a "Submit" button before accepting the answer.
+- [x] **[Antigravity]** **Autofill Login**: Autofill for username and password is not working on the login screen.
+- [x] **[Antigravity]** **Admin Console Loading**: Most of the admin console tabs (including the Master Question list) fail to load and are stuck on infinite spinners.
 
 ---
 
 ## 📍 Phase 3: Notifications & Intelligence
 *Goal: Engagement and advanced analytics.*
+
+### Email Integrations
+- [ ] Implement Email service provider (e.g. Resend or SendGrid) to restore the legacy functionality of emailing the resident the results of their quiz upon completion.
 
 ### Push Notifications
 - [ ] Implement Web Push API (iOS 16.4+ compatible)

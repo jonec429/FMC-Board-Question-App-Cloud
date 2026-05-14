@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Users, Clipboard, Check, AlertTriangle, Save, Loader2, Database } from './AppIcons';
+import { withTimeout } from '@/lib/utils';
 
 export default function AttendanceManager() {
   const [pasteContent, setPasteContent] = useState('');
@@ -13,8 +14,12 @@ export default function AttendanceManager() {
 
   useEffect(() => {
     async function fetchRoster() {
-      const { data } = await supabase.from('profiles').select('email, full_name');
-      if (data) setRoster(data);
+      try {
+        const { data } = await withTimeout(supabase.from('profiles').select('email, full_name'));
+        if (data) setRoster(data);
+      } catch (err) {
+        console.error('Attendance fetch error:', err);
+      }
     }
     fetchRoster();
   }, []);

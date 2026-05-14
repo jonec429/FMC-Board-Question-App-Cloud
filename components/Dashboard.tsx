@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatDisplayName } from '@/lib/utils';
+import { formatDisplayName, withTimeout } from '@/lib/utils';
 import { canAccessAdmin } from '@/lib/roles';
 import {
   LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings,
+  PlayCircle, Sparkles, X, Settings, Target,
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 
@@ -59,13 +59,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
     async function fetchData() {
       setLoading(true);
       try {
-        const [
-          { data: blockData },
-          { data: resultsData },
-          { data: sessionData },
-          { data: allResults },
-          { data: rosterData },
-        ] = await Promise.all([
+        const fetchTask = Promise.all([
           supabase.from('blocks').select('*'),
           supabase
             .from('results')
@@ -83,6 +77,14 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
           supabase.from('results').select('legacy_email, topic, total, academic_points'),
           supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty'),
         ]);
+
+        const [
+          { data: blockData },
+          { data: resultsData },
+          { data: sessionData },
+          { data: allResults },
+          { data: rosterData },
+        ] = await withTimeout(fetchTask);
 
         if (blockData) {
           const sorted = [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b));

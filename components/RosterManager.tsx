@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
+import { withTimeout } from '@/lib/utils';
 
 export default function RosterManager() {
   const [loading, setLoading] = useState(true);
@@ -17,16 +18,11 @@ export default function RosterManager() {
   const fetchRoster = async () => {
     setLoading(true);
     try {
-      // Fetch the Guest List
-      const { data: authorized, error: authError } = await supabase
-        .from('authorized_roster')
-        .select('*')
-        .order('name');
-      
-      // Fetch the Live Profiles (to see who created accounts)
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('email, id');
+      const fetchTask = Promise.all([
+        supabase.from('authorized_roster').select('*').order('name'),
+        supabase.from('profiles').select('email, id')
+      ]);
+      const [{ data: authorized, error: authError }, { data: profiles }] = await withTimeout(fetchTask);
 
       if (authError) throw authError;
 

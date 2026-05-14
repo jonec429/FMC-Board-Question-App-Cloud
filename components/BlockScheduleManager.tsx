@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Calendar, Loader2, Plus, Trash2, Save, X, CheckCircle, ChevronRight } from './AppIcons';
+import { withTimeout } from '@/lib/utils';
 
 interface Block {
   id: string;
@@ -59,13 +60,14 @@ export default function BlockScheduleManager() {
     setLoading(true);
     setError(null);
     try {
-      const [{ data: blockData }, { data: scheduleData }] = await Promise.all([
+      const fetchTask = Promise.all([
         supabase.from('blocks').select('id, title, block_type, question_count').order('title'),
         supabase
           .from('block_schedule')
           .select('id, block_id, start_date, end_date, blocks(id, title, block_type, question_count)')
           .order('start_date', { ascending: true }),
       ]);
+      const [{ data: blockData }, { data: scheduleData }] = await withTimeout(fetchTask);
 
       setBlocks(blockData || []);
 

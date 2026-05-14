@@ -55,13 +55,15 @@ export default function QuestionCard({
 }: QuestionCardProps) {
   const [highlights, setHighlights] = useState<string[]>(initialHighlights);
   const [strikethroughs, setStrikethroughs] = useState<Set<number>>(new Set(initialStrikethroughs));
+  const [selectedOption, setSelectedOption] = useState<number | undefined>(userAnswer);
   const stemRef = useRef<HTMLDivElement>(null);
 
   // Sync local state with parent-provided tools when navigating between questions
   useEffect(() => {
     setHighlights(initialHighlights || []);
     setStrikethroughs(new Set(initialStrikethroughs || []));
-  }, [question.id, question.question_text]);
+    setSelectedOption(userAnswer);
+  }, [question.id, question.question_text, userAnswer]);
 
   // Notify parent whenever tools change so state can persist across navigation
   useEffect(() => {
@@ -98,6 +100,12 @@ export default function QuestionCard({
     setStrikethroughs(newSet);
   };
 
+  const handleSubmit = () => {
+    if (selectedOption !== undefined) {
+      onAnswer(selectedOption);
+    }
+  };
+
   const isCorrect = userAnswer === question.correct_index;
   const renderedStemHtml = applyHighlights(question.question_text, highlights);
   const optionFontSize = Math.max(14, fontSize - 2);
@@ -121,7 +129,7 @@ export default function QuestionCard({
               </button>
             )}
             <button
-              onClick={handleHighlight}
+              onMouseDown={(e) => { e.preventDefault(); handleHighlight(); }}
               className="p-2 text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 rounded-xl transition-all"
               title="Highlight Selection"
             >
@@ -141,7 +149,7 @@ export default function QuestionCard({
       {/* Options */}
       <div className="grid gap-3">
         {question.options.map((option, index) => {
-          const isSelected = userAnswer === index;
+          const isSelected = selectedOption === index;
           const isCorrectOption = index === question.correct_index;
           const isStruck = strikethroughs.has(index);
           
@@ -162,7 +170,7 @@ export default function QuestionCard({
             <div key={index} className="relative group">
               <button
                 disabled={showExplanation}
-                onClick={() => !isStruck && onAnswer(index)}
+                onClick={() => !isStruck && !showExplanation && setSelectedOption(index)}
                 className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
                 style={{ fontSize: `${optionFontSize}px` }}
               >
@@ -194,6 +202,19 @@ export default function QuestionCard({
           );
         })}
       </div>
+
+      {/* Submit Button */}
+      {!showExplanation && (
+        <div className="pt-2 animate-fade-in">
+          <button
+            onClick={handleSubmit}
+            disabled={selectedOption === undefined}
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl shadow-blue-200"
+          >
+            Submit Answer
+          </button>
+        </div>
+      )}
 
       {/* Explanation Area */}
       {showExplanation && (

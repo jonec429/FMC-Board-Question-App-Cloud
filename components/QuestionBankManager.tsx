@@ -7,6 +7,7 @@ import {
 } from './AppIcons';
 import QuestionImporter from './QuestionImporter';
 import { CANONICAL_CATEGORIES } from '@/lib/csvImport';
+import { withTimeout } from '@/lib/utils';
 
 type SubTab = 'browse' | 'import';
 
@@ -67,7 +68,7 @@ function QuestionBrowser() {
       if (yearFilter) query = query.eq('year', yearFilter);
       if (search) query = query.ilike('question_text', `%${search}%`);
 
-      const { data, error } = await query;
+      const { data, error } = await withTimeout(query);
       if (error) throw error;
       setQuestions(data || []);
     } catch (err: any) {

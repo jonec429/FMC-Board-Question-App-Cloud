@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { BookOpen, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X } from './AppIcons';
+import { withTimeout } from '@/lib/utils';
 
 export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [email, setEmail] = useState('');
@@ -44,7 +45,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email, password }));
     if (error) setError(error.message);
     else onLogin(data.user);
     setLoading(false);
@@ -75,11 +76,13 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
-    const { data: authorized, error: authError } = await supabase
-      .from('authorized_roster')
-      .select('name')
-      .eq('email', cleanEmail)
-      .single();
+    const { data: authorized, error: authError } = await withTimeout(
+      supabase
+        .from('authorized_roster')
+        .select('name')
+        .eq('email', cleanEmail)
+        .single()
+    );
 
     if (authError || !authorized) {
       setError('Email not found in the authorized program roster. Please contact Dr. Carbungco.');
@@ -87,31 +90,35 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: { 
-        data: { 
-          full_name: `${firstName.trim()} ${lastName.trim()}`,
-          first_name: firstName.trim(),
-          last_name: lastName.trim()
-        } 
-      },
-    });
+    const { data: signUpData, error: signUpError } = await withTimeout(
+      supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: { 
+          data: { 
+            full_name: `${firstName.trim()} ${lastName.trim()}`,
+            first_name: firstName.trim(),
+            last_name: lastName.trim()
+          } 
+        },
+      })
+    );
 
     if (signUpError) {
       setError(signUpError.message);
     } else {
       // Create/Update profile explicitly to be sure
-      await supabase.from('profiles').upsert({
-        id: signUpData.user?.id,
-        email: cleanEmail,
-        full_name: `${firstName.trim()} ${lastName.trim()}`,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        pgy: authorized.pgy,
-        role: authorized.pgy === 'Faculty' ? 'faculty' : 'resident'
-      });
+      await withTimeout(
+        supabase.from('profiles').upsert({
+          id: signUpData.user?.id,
+          email: cleanEmail,
+          full_name: `${firstName.trim()} ${lastName.trim()}`,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          pgy: authorized.pgy,
+          role: authorized.pgy === 'Faculty' ? 'faculty' : 'resident'
+        })
+      );
 
       setError('');
       alert('Registration successful! You can now sign in.');
@@ -126,9 +133,11 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,
-    });
+    const { error } = await withTimeout(
+      supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      })
+    );
     if (error) setError(error.message);
     else alert('Password reset link sent to your email.');
     setLoading(false);
@@ -182,7 +191,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="username"
+                  autoComplete="email"
                   placeholder="Email Address"
                   className={`w-full pl-12 pr-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 transition-all text-base ${showEmailError ? 'border-2 border-red-500 focus:ring-red-200' : 'focus:ring-blue-500'}`}
                   required

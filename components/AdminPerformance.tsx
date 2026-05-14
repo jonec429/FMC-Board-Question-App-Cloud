@@ -68,11 +68,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     async function fetchStats() {
       setLoading(true);
       try {
-        const [{ data: allResults }, profilesRes, { data: roster }] = await Promise.all([
+        const fetchTask = Promise.all([
           supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at'),
           supabase.from('profiles').select('*'),
           supabase.from('authorized_roster').select('name, email, pgy, advisor').neq('pgy', 'Faculty'),
         ]);
+        const [{ data: allResults }, profilesRes, { data: roster }] = await withTimeout(fetchTask);
 
         const profileMap = new Map<string, string>();
         (profilesRes.data || []).forEach((p: any) => {
