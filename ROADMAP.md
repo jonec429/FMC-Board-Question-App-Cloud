@@ -132,6 +132,8 @@ This file serves as the shared source of truth for development progress between 
 - [ ] **Evidence Link**: The "Open Evidence" link is not working.
 - [ ] **Submit Button**: When a resident selects an option, require them to hit a "Submit" button before accepting the answer (currently it accepts immediately on click).
 - [ ] **Email Results**: Restore the legacy functionality of emailing the resident the results of their quiz upon completion.
+- [ ] **Autofill Login**: Autofill for username and password is not working on the login screen.
+- [ ] **Master Question List**: The master question list is not loading in the Admin Console.
 
 ---
 
