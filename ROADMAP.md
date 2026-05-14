@@ -137,6 +137,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Antigravity]** **Profile Name Update**: Resolved infinite spinner via robust promise handling.
 - [x] **[Antigravity]** **Question Bank Sorting**: Fixed query error on missing `created_at` column.
 - [ ] **[REGRESSION 2026-05-14]** **Profile Name Update — still spins**: User reports name change in Profile Settings hangs indefinitely despite Antigravity's earlier fix above. Password update untested. Likely the same class of bug as the init hang (hardcoded 10s timeout in ProfileSettings.tsx + no clear error UI). To investigate.
+- [ ] **[2026-05-14]** **Resume Later — needs assessment**: The "Resume Later" / cross-platform save-state flow for quizzes (QuizEngine save → resume on next session) needs end-to-end testing. Reportedly working per Sprint 2, but unverified since recent QuizEngine refactors (font-size, highlights, strikethroughs, fixed-question-set support, withTimeout casts). Confirm: (1) progress saves on Resume Later, (2) resumes correctly on next login, (3) answers/highlights/strikethroughs persist, (4) works cross-device.
 
 ---
 
@@ -163,6 +164,9 @@ This file serves as the shared source of truth for development progress between 
 - [ ] Google Gemini Integration: Assist Admins in pulling questions for lectures by topic/keyword.
 - [ ] AI-Generated explanations for incorrect answers (Opt-in)
 
+### Resident Review Experience
+- [ ] **[NEW 2026-05-14]** **Resident Review Tab**: Dedicated page where residents can revisit questions they answered incorrectly, with quick access to Open Evidence, Board Prep Gem, and Review Topic Material links per question. Goal: reinforce weak areas without restarting an entire block. May overlap with the existing "Weakest Topics" custom block — decide whether to extend that flow or build a separate review surface.
+
 ---
 
 ## 📍 Phase 4: Graduation & Rollover
@@ -177,6 +181,12 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-14 — Resident Review Resources (Claude)
+*   **Open Evidence Link Fix**: The "Open Evidence (AAFP)" button on quiz explanations pointed at a dead AAFP search URL. Repointed to `https://www.openevidence.com` and dropped the "(AAFP)" suffix.
+*   **Board Prep Gem — now clickable**: Previously just a decorative heading. Added a new button (purple, gem icon) in the explanation toolbar that opens the residency's Google Gemini Gem for board prep in a new tab.
+*   **Review Topic Material — always renders with Drive fallback**: Previously hidden when `question.resource_link` was null. Now always visible. If a per-question `resource_link` is set in Supabase it takes precedence; otherwise the button opens the residency's shared Google Drive board-review folder with `?q={question.category}` appended to attempt pre-filling the in-folder search bar. Note: Google Drive's `?q=` URL parameter behavior is inconsistent — if it stops honoring the param, residents still land on the right folder and can search manually.
+*   File: `components/QuestionCard.tsx`.
 
 ### 2026-05-14 — App Initializer Hardening (Claude)
 *   **Root Cause Diagnosis**: Production and preview deployments were hanging on "Initializing FMC BRQ App..." indefinitely with zero Supabase requests firing. Network tab confirmed the Supabase client was never reaching the wire.

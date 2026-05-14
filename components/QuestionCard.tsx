@@ -251,26 +251,33 @@ export default function QuestionCard({
           </div>
 
           <div className="mt-8 flex flex-wrap gap-4">
-            <a 
-              href={`https://www.aafp.org/search.html?q=${encodeURIComponent(question.category || 'Family Medicine')}`}
-              target="_blank" 
+            <a
+              href="https://www.openevidence.com"
+              target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500/10 hover:bg-blue-500/20 rounded-2xl text-blue-400 font-bold transition-all border border-blue-500/20"
             >
               <ExternalLink className="w-4 h-4" />
-              Open Evidence (AAFP)
+              Open Evidence
             </a>
-            {question.resource_link && (
-              <a 
-                href={question.resource_link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Review Topic Material
-              </a>
-            )}
+            <a
+              href="https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X?usp=sharing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-2xl text-purple-300 font-bold transition-all border border-purple-500/20"
+            >
+              <Gem className="w-4 h-4" />
+              Board Prep Gem
+            </a>
+            <a
+              href={question.resource_link || `https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?q=${encodeURIComponent(question.category || '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Review Topic Material
+            </a>
           </div>
         </div>
       )}
