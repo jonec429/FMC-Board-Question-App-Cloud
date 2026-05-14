@@ -125,6 +125,16 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
+## 🛠️ Feedback Backlog / Hotfixes
+*Items identified during testing to be addressed before or during Phase 3.*
+- [ ] **Highlighter Tool**: The text highlighter function is currently not working.
+- [ ] **Board Prep Gem**: The board prep gem (AI explanations) is not working.
+- [ ] **Evidence Link**: The "Open Evidence" link is not working.
+- [ ] **Submit Button**: When a resident selects an option, require them to hit a "Submit" button before accepting the answer (currently it accepts immediately on click).
+- [ ] **Email Results**: Restore the legacy functionality of emailing the resident the results of their quiz upon completion.
+
+---
+
 ## 📍 Phase 3: Notifications & Intelligence
 *Goal: Engagement and advanced analytics.*
 
