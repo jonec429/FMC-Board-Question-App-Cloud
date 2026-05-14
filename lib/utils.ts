@@ -3,17 +3,17 @@
  */
 
 /**
- * Formats a full name into the professional "Dr. LastName" display format.
+ * Formats a full name into the professional "Dr. First Last" display format.
  * Used across the Dashboard, Leaderboard, Admin Console, and Performance views.
+ * Showing the full name (vs. just the last name) helps disambiguate residents
+ * who share a last name.
  *
  * @param fullName - The full name string (e.g., "Jonathan Carbungco")
- * @returns Formatted display name (e.g., "Dr. Carbungco"), or "Unknown" if no name provided.
+ * @returns Formatted display name (e.g., "Dr. Jonathan Carbungco"), or "Unknown" if no name provided.
  */
 export function formatDisplayName(fullName?: string | null): string {
   if (!fullName || fullName.trim().length === 0) return 'Unknown';
-  const parts = fullName.trim().split(/\s+/);
-  const lastName = parts[parts.length - 1];
-  return `Dr. ${lastName}`;
+  return `Dr. ${fullName.trim().replace(/\s+/g, ' ')}`;
 }
 
 /**

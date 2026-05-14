@@ -45,6 +45,7 @@ This file serves as the shared source of truth for development progress between 
 ### ⚠️ Action Required From Admin
 - [x] **Sprint 5 step 1**: SQL migration `migrate_blocks_question_ids.sql` run in Supabase ✅
 - [ ] **Sprint 5 step 2**: Open the app → Admin Console → Block Builder → click **"Initialize N Blocks"** to lock in question sets
+- [ ] **2026-05-14 — Profile Names Migration**: Run `migrate_profiles_split_names.sql` in Supabase SQL Editor. Adds `first_name`/`last_name` columns to `profiles` and backfills from `full_name`. Required before Profile Settings name save will succeed.
 - [ ] **Environment Setup**: Install Node.js, restart VS Code, and run `npm install` to resolve local module errors.
 
 ### 🎯 Remaining in Phase 2
@@ -181,6 +182,12 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-14 — Profile Names Schema Migration & Display Update (Claude)
+*   **Root cause of Profile name save failure** (after the fire-and-forget auth fix surfaced the real error): the `profiles` table is missing the `first_name` and `last_name` columns that `ProfileSettings.tsx` and `Login.tsx` both write to. Supabase silently rejects the entire row when an unknown column is written. **Every signup since this code was written has silently failed to create a profiles row** — the app's fallback to `authorized_roster` is what's been keeping users functional.
+*   **New SQL migration**: `migrate_profiles_split_names.sql` adds the two columns (idempotent) and backfills from `full_name` by splitting on the first space (multi-word last names like "de la Cruz" preserved correctly; multi-word first names will need user correction). **Admin must run this in Supabase SQL Editor.**
+*   **Display change in `formatDisplayName`**: Now returns "Dr. {full_name}" instead of "Dr. {last word only}". Helps disambiguate residents who share a last name. Affects Dashboard greeting, Performance tab, Leaderboard, Faculty Advisees subtitle, and the modal header in resident drill-downs.
+*   Files: `migrate_profiles_split_names.sql` (new), `lib/utils.ts`.
 
 ### 2026-05-14 — Profile Save & Resume Later Reliability (Claude)
 *   **Profile Name Update — root cause identified and routed around**: Step-labeled timeouts revealed that `supabase.auth.updateUser({ data: ... })` was the consistently-hanging call. Investigation: the app reads names exclusively from the `profiles` table, never from `user_metadata`, so the auth-metadata sync is dead weight for this app's UX. Restructured the save flow:
