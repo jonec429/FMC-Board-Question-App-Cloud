@@ -286,7 +286,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
               <p className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-amber-900 italic text-xs">
                 AI results should be cross-referenced with standard-of-care medical literature.
               </p>
-              <p>Clinical decisions should always be based on established guidelines (ABFM/ACOG/AAP) and your professional judgment. No PHI is stored in this system.</p>
+              <p>Clinical decisions should always be based on established guidelines (AAFP/ACOG/AAP) and your professional judgment. No PHI is stored in this system.</p>
             </div>
             <div className="flex justify-end">
               <button onClick={() => setShowAI(false)} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors">
