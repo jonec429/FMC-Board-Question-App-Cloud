@@ -38,22 +38,32 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
 
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
+    // Helper: tag timeout/network errors with which step they belong to
+    const runStep = async <T,>(label: string, op: Promise<T>): Promise<T> => {
+      try {
+        return await withTimeout(op, 10000);
+      } catch (err: any) {
+        throw new Error(`[${label}] ${err?.message || 'unknown error'}`);
+      }
+    };
+
     try {
-      // 1. Update auth metadata (10s timeout — auth updates are the most common hang point)
-      const { error: authError } = (await withTimeout(
+      // 1. Update auth metadata (most common hang point)
+      const { error: authError } = (await runStep(
+        'Step 1 / auth metadata',
         supabase.auth.updateUser({
           data: {
             full_name: fullName,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
           },
-        }),
-        10000
+        })
       )) as any;
-      if (authError) throw new Error(`Auth update failed: ${authError.message}`);
+      if (authError) throw new Error(`[Step 1 / auth metadata] ${authError.message}`);
 
       // 2. Update profiles table
-      const { error: profileError } = (await withTimeout(
+      const { error: profileError } = (await runStep(
+        'Step 2 / profiles row',
         supabase
           .from('profiles')
           .upsert({
@@ -62,19 +72,18 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
             full_name: fullName,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
-          }),
-        10000
+          })
       )) as any;
-      if (profileError) throw new Error(`Profile update failed: ${profileError.message}`);
+      if (profileError) throw new Error(`[Step 2 / profiles row] ${profileError.message}`);
 
       // 3. Update authorized_roster — best-effort, logged but non-fatal
       try {
-        const { error: rosterError } = (await withTimeout(
+        const { error: rosterError } = (await runStep(
+          'Step 3 / authorized_roster',
           supabase
             .from('authorized_roster')
             .update({ name: fullName })
-            .eq('email', user.email),
-          10000
+            .eq('email', user.email)
         )) as any;
         if (rosterError) console.warn('Roster name sync failed (non-fatal):', rosterError);
       } catch (rosterErr) {
