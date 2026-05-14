@@ -8,7 +8,7 @@ import AdminPerformance from './AdminPerformance';
 import AttendanceManager from './AttendanceManager';
 import RosterManager from './RosterManager';
 import BlockScheduleManager from './BlockScheduleManager';
-import QuestionImporter from './QuestionImporter';
+import QuestionBankManager from './QuestionBankManager';
 import BlockBuilder from './BlockBuilder';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 
@@ -48,7 +48,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
     {
       heading: 'Content',
       items: [
-        { id: 'questions', label: 'Questions', icon: Database, adminOnly: true, description: 'Bulk import from CSV / Gemini' },
+        { id: 'questions', label: 'Questions', icon: Database, adminOnly: true, description: 'Browse bank or bulk import' },
         { id: 'builder', label: 'Block Builder', icon: PlusCircle, adminOnly: true, description: 'Curate questions into blocks' },
         { id: 'content', label: 'Curriculum', icon: Database, adminOnly: true, description: 'Edit & reorder blocks' },
       ],
@@ -156,7 +156,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
             {activeTab === 'roster' && <RosterManager />}
             {activeTab === 'schedule' && <BlockScheduleManager />}
             {activeTab === 'attendance' && <AttendanceManager />}
-            {activeTab === 'questions' && <QuestionImporter />}
+            {activeTab === 'questions' && <QuestionBankManager />}
             {activeTab === 'builder' && <BlockBuilder />}
             {activeTab === 'content' && <ContentStub />}
             {activeTab === 'advanced' && <AdvancedTab />}

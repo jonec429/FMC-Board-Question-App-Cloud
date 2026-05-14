@@ -121,7 +121,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Claude] [Pivoted]** ~~"Google Sheets Master Sync"~~ → **CSV Bulk Import + In-App Edit** workflow chosen instead — sheet becomes optional AI scratch pad, app owns the question bank. See changelog 2026-05-13.
 - [x] **[Claude]** Build spreadsheet validation engine (Catch errors before they hit the app) — implemented in `lib/csvImport.ts` (`parseAndValidate`): required-field check, category resolution with alias-correction, correct-index bounds check, truncated-text warnings, duplicate detection.
 - [x] **[Claude]** Bulk CSV Import UI — `components/QuestionImporter.tsx`: paste or upload .csv, validate with per-row error/warning preview, duplicate toggle, confirm-then-write to Supabase. Wired into Admin Console under Content → Questions.
-- [ ] **Sprint 4B (queued):** Browse + per-question Edit UI for existing questions in the bank — see Current Status section.
+- [x] **[Claude]** Sprint 4B: Browse + per-question Edit UI for existing questions in the bank — fully implemented via new `QuestionBankManager`.
 
 ---
 
@@ -193,6 +193,7 @@ This file serves as the shared source of truth for development progress between 
   - Refactored QuestionCard to accept `fontSize`, `initialHighlights`, `initialStrikethroughs`, and `onToolsChange` props for parent-managed state.
 
 ### 2026-05-13 — Coordination Protocol & Phase 1 Polish (Antigravity)
+- **Sprint 4B Completion**: Built `QuestionBankManager.tsx` to serve as a unified hub for the Question Bank. Added a full browse/search/filter table, per-question Edit modals, and Delete functionality, while moving the bulk importer into a sub-tab.
 - **Infrastructure**: Successfully configured the custom production URL `brq.stvfamilymed.org` using a Squarespace CNAME and Vercel.
 - **Sprint 3 Completion**: Finished the `RosterManager` implementation by adding full **Edit** and **Archive** (delete) functionality via interactive modals, completing the roster CRUD operations.
 - Established AI Coordination & Handover Protocol in ROADMAP.md, including a documentation hierarchy, Peer Review rule, and a **Quick Start Prompt** for the user to initiate new sessions.
