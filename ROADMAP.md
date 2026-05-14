@@ -115,7 +115,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Claude]** Create "Block Schedule" manager (Topic + Date range selection) — new `BlockScheduleManager.tsx` with active/upcoming/past sections and create/edit/delete flows.
 
 ### Infrastructure & Branding
-- [ ] Configure Custom URL (Custom Domain setup)
+- [x] Configure Custom URL (Custom Domain setup) — Configured `fmcbrq.stvfamilymed.org` via Squarespace/Vercel.
 
 ### Question Management (Durable Link)
 - [x] **[Claude] [Pivoted]** ~~"Google Sheets Master Sync"~~ → **CSV Bulk Import + In-App Edit** workflow chosen instead — sheet becomes optional AI scratch pad, app owns the question bank. See changelog 2026-05-13.
@@ -193,6 +193,7 @@ This file serves as the shared source of truth for development progress between 
   - Refactored QuestionCard to accept `fontSize`, `initialHighlights`, `initialStrikethroughs`, and `onToolsChange` props for parent-managed state.
 
 ### 2026-05-13 — Coordination Protocol & Phase 1 Polish (Antigravity)
+- **Infrastructure**: Successfully configured the custom production URL `fmcbrq.stvfamilymed.org` using a Squarespace CNAME and Vercel.
 - **Sprint 3 Completion**: Finished the `RosterManager` implementation by adding full **Edit** and **Archive** (delete) functionality via interactive modals, completing the roster CRUD operations.
 - Established AI Coordination & Handover Protocol in ROADMAP.md, including a documentation hierarchy, Peer Review rule, and a **Quick Start Prompt** for the user to initiate new sessions.
 - Completed remaining Phase 1 Code Quality tasks: created `lib/types.ts` with core data models, implemented global Next.js Error Boundary (`app/error.tsx`), and added ARIA accessibility tags to the `QuizEngine` timer.
