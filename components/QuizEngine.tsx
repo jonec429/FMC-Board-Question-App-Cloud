@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
 import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X } from './AppIcons';
+import { withTimeout } from '@/lib/utils';
 
 interface QuizEngineProps {
   user: any;
