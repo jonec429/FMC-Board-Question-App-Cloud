@@ -77,14 +77,25 @@ export default function Home() {
         setLoading(false);
         return;
       }
+      // Tag timeout/network errors with which init step they belong to
+      const runStep = async <T,>(label: string, op: Promise<T>): Promise<T> => {
+        try {
+          return await withTimeout(op, 15000);
+        } catch (err: any) {
+          throw new Error(`[${label}] ${err?.message || 'unknown error'}`);
+        }
+      };
+
       try {
-        const { data: { session } } = await withTimeout(supabase.auth.getSession(), 15000);
+        const { data: { session } } = (await runStep(
+          'getSession',
+          supabase.auth.getSession()
+        )) as any;
         if (session?.user) {
           setUser(session.user);
-          await withTimeout(
-            Promise.all([loadProfile(session.user), loadCurrentBlock()]),
-            15000
-          );
+          // Run sequentially with step labels so a single hung query is identifiable
+          await runStep('loadProfile', loadProfile(session.user));
+          await runStep('loadCurrentBlock', loadCurrentBlock());
         }
       } catch (err: any) {
         console.error('App init error:', err);
