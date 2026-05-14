@@ -38,7 +38,7 @@ function applyHighlights(html: string, highlights: string[]): string {
   sorted.forEach(h => {
     if (!h || h.length < 2) return;
     const regex = new RegExp(`(${escapeRegex(h)})(?![^<]*>)`, 'g');
-    result = result.replace(regex, '<mark class="highlight-marker" style="background-color:#fef08a;color:inherit;">$1</mark>');
+    result = result.replace(regex, '<mark class="highlight-marker cursor-pointer hover:bg-red-200 transition-colors" style="background-color:#fef08a;color:inherit;" title="Click to remove highlight">$1</mark>');
   });
   return result;
 }
@@ -56,6 +56,7 @@ export default function QuestionCard({
   const [highlights, setHighlights] = useState<string[]>(initialHighlights);
   const [strikethroughs, setStrikethroughs] = useState<Set<number>>(new Set(initialStrikethroughs));
   const [selectedOption, setSelectedOption] = useState<number | undefined>(userAnswer);
+  const [highlightMode, setHighlightMode] = useState(false);
   const stemRef = useRef<HTMLDivElement>(null);
 
   // Sync local state with parent-provided tools when navigating between questions
@@ -75,7 +76,8 @@ export default function QuestionCard({
     }
   }, [highlights, strikethroughs]);
 
-  const handleHighlight = () => {
+  const handleMouseUp = () => {
+    if (!highlightMode) return;
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
 
@@ -88,6 +90,16 @@ export default function QuestionCard({
     // Save the highlighted text string so it survives re-renders
     setHighlights(prev => prev.includes(text) ? prev : [...prev, text]);
     selection.removeAllRanges();
+  };
+
+  const handleStemClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName.toLowerCase() === 'mark' && target.classList.contains('highlight-marker')) {
+      const textToRemove = target.textContent;
+      if (textToRemove) {
+        setHighlights(prev => prev.filter(h => h !== textToRemove));
+      }
+    }
   };
 
   const clearHighlights = () => setHighlights([]);
@@ -129,9 +141,9 @@ export default function QuestionCard({
               </button>
             )}
             <button
-              onMouseDown={(e) => { e.preventDefault(); handleHighlight(); }}
-              className="p-2 text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 rounded-xl transition-all"
-              title="Highlight Selection"
+              onClick={() => setHighlightMode(!highlightMode)}
+              className={`p-2 rounded-xl transition-all ${highlightMode ? 'text-yellow-600 bg-yellow-100 shadow-inner' : 'text-slate-400 hover:text-yellow-500 hover:bg-yellow-50'}`}
+              title="Toggle Highlight Mode"
             >
               <Highlighter className="w-5 h-5" />
             </button>
@@ -140,7 +152,9 @@ export default function QuestionCard({
 
         <div
           ref={stemRef}
-          className="font-bold leading-relaxed text-slate-800 select-text"
+          onMouseUp={handleMouseUp}
+          onClick={handleStemClick}
+          className={`font-bold leading-relaxed text-slate-800 ${highlightMode ? 'cursor-text selection:bg-yellow-200' : ''}`}
           style={{ fontSize: `${fontSize}px` }}
           dangerouslySetInnerHTML={{ __html: renderedStemHtml }}
         />
