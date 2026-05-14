@@ -45,31 +45,39 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
     async function fetchFilters() {
       setLoading(true);
       try {
-        const { data: qData } = await supabase.from('questions').select('category, year');
-        if (qData) {
-          const yearSet = Array.from(new Set(qData.map((q: any) => q.year))).filter(Boolean).sort().reverse() as string[];
-          const catSet = Array.from(new Set(qData.map((q: any) => q.category))).filter(Boolean).sort() as string[];
-          setYears(yearSet);
-          setCategories(catSet);
-          setTotalQuestions(qData.length);
-        }
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timed out while loading questions. Please check your connection.')), 10000)
+        );
 
-        // Fetch user results for weakest topics
-        const { data: rData } = await supabase.from('results').select('category_stats').eq('user_id', user?.id);
-        if (rData && rData.length > 0) {
-          const statsMap = new Map<string, { correct: number, total: number }>();
-          rData.forEach(r => {
-            if (r.category_stats) {
-              Object.entries(r.category_stats).forEach(([cat, st]: any) => {
-                const cur = statsMap.get(cat) || { correct: 0, total: 0 };
-                statsMap.set(cat, { correct: cur.correct + st.correct, total: cur.total + st.total });
-              });
-            }
-          });
-          const catPcts = Array.from(statsMap.entries()).map(([cat, st]) => ({ cat, pct: st.correct / st.total }));
-          catPcts.sort((a, b) => a.pct - b.pct);
-          setWeakestCategories(catPcts.slice(0, 3).map(x => x.cat));
-        }
+        const fetchTask = async () => {
+          const { data: qData } = await supabase.from('questions').select('category, year');
+          if (qData) {
+            const yearSet = Array.from(new Set(qData.map((q: any) => q.year))).filter(Boolean).sort().reverse() as string[];
+            const catSet = Array.from(new Set(qData.map((q: any) => q.category))).filter(Boolean).sort() as string[];
+            setYears(yearSet);
+            setCategories(catSet);
+            setTotalQuestions(qData.length);
+          }
+
+          // Fetch user results for weakest topics
+          const { data: rData } = await supabase.from('results').select('category_stats').eq('user_id', user?.id);
+          if (rData && rData.length > 0) {
+            const statsMap = new Map<string, { correct: number, total: number }>();
+            rData.forEach(r => {
+              if (r.category_stats) {
+                Object.entries(r.category_stats).forEach(([cat, st]: any) => {
+                  const cur = statsMap.get(cat) || { correct: 0, total: 0 };
+                  statsMap.set(cat, { correct: cur.correct + st.correct, total: cur.total + st.total });
+                });
+              }
+            });
+            const catPcts = Array.from(statsMap.entries()).map(([cat, st]) => ({ cat, pct: st.correct / st.total }));
+            catPcts.sort((a, b) => a.pct - b.pct);
+            setWeakestCategories(catPcts.slice(0, 3).map(x => x.cat));
+          }
+        };
+
+        await Promise.race([fetchTask(), timeoutPromise]);
 
       } catch (err) {
         console.error('Filter fetch error:', err);

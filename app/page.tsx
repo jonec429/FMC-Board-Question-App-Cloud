@@ -99,7 +99,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing FMC Cloud...</p>
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing FMC BRQ App...</p>
         </div>
       </div>
     );

@@ -38,27 +38,42 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
     try {
-      // Update auth metadata
-      await supabase.auth.updateUser({
-        data: {
-          full_name: fullName,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-        },
-      });
+      // Add a 10-second timeout to prevent infinite hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timed out. Please check your connection.')), 10000)
+      );
 
-      // Update profiles table
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          full_name: fullName,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
+      const updateTask = async () => {
+        // 1. Update auth metadata
+        const { error: authError } = await supabase.auth.updateUser({
+          data: {
+            full_name: fullName,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+          },
         });
+        if (authError) throw authError;
 
-      if (profileError) throw profileError;
+        // 2. Update profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            email: user.email,
+            full_name: fullName,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+          });
+        if (profileError) throw profileError;
+
+        // 3. Optional: update authorized_roster if they are a resident/faculty
+        const { error: rosterError } = await supabase
+          .from('authorized_roster')
+          .update({ name: fullName })
+          .eq('email', user.email);
+      };
+
+      await Promise.race([updateTask(), timeoutPromise]);
 
       onProfileUpdate({
         ...profile,
@@ -70,7 +85,8 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
       setNameSuccess(true);
       setTimeout(() => setNameSuccess(false), 3000);
     } catch (err: any) {
-      setError(err.message || 'Failed to update name.');
+      console.error('Profile update error:', err);
+      setError(err.message || 'Failed to update name. Please try again.');
     } finally {
       setSaving(false);
     }
