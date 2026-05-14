@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Search, Users, Loader2, Mail, Trash2, Plus } from './AppIcons';
+import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
 
 export default function RosterManager() {
   const [loading, setLoading] = useState(true);
@@ -10,6 +10,8 @@ export default function RosterManager() {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPerson, setNewPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPerson, setEditingPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchRoster = async () => {
@@ -73,6 +75,46 @@ export default function RosterManager() {
       alert(err.message || 'Error adding person');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleEditPerson = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('authorized_roster')
+        .update({
+          name: editingPerson.name,
+          pgy: editingPerson.pgy,
+          advisor: editingPerson.advisor
+        })
+        .eq('email', editingPerson.email);
+
+      if (error) throw error;
+      
+      setShowEditModal(false);
+      setEditingPerson({ name: '', email: '', pgy: '', advisor: '' });
+      await fetchRoster();
+    } catch (err: any) {
+      alert(err.message || 'Error updating person');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeletePerson = async (email: string) => {
+    if (!window.confirm(`Are you sure you want to remove ${email} from the authorized roster?`)) return;
+    try {
+      const { error } = await supabase
+        .from('authorized_roster')
+        .delete()
+        .eq('email', email);
+      
+      if (error) throw error;
+      await fetchRoster();
+    } catch (err: any) {
+      alert(err.message || 'Error removing person');
     }
   };
 
@@ -158,10 +200,26 @@ export default function RosterManager() {
                 </td>
                 <td className="px-8 py-6 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                    <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
-                      <Mail className="w-5 h-5" />
+                    <button 
+                      onClick={() => {
+                        setEditingPerson({
+                          name: member.full_name || '',
+                          email: member.email,
+                          pgy: member.pgy || '',
+                          advisor: member.advisor || ''
+                        });
+                        setShowEditModal(true);
+                      }}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      title="Edit Person"
+                    >
+                      <Edit3 className="w-5 h-5" />
                     </button>
-                    <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
+                    <button 
+                      onClick={() => handleDeletePerson(member.email)}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title="Remove Person"
+                    >
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
@@ -223,6 +281,7 @@ export default function RosterManager() {
                     <option value="Class of 2025">Class of 2025 (PGY3)</option>
                     <option value="Class of 2026">Class of 2026 (PGY2)</option>
                     <option value="Class of 2027">Class of 2027 (PGY1)</option>
+                    <option value="Class of 2028">Class of 2028</option>
                     <option value="Faculty">Faculty / Admin</option>
                   </select>
                 </div>
@@ -243,6 +302,75 @@ export default function RosterManager() {
                 className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Authorize Person'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Person Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-[40px] shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+              <h2 className="text-xl font-black text-slate-800">Edit Authorized Person</h2>
+              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">Close</button>
+            </div>
+            <form onSubmit={handleEditPerson} className="p-8 space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Full Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingPerson.name}
+                  onChange={(e) => setEditingPerson({...editingPerson, name: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Institutional Email</label>
+                <input 
+                  type="email" 
+                  disabled
+                  value={editingPerson.email}
+                  className="w-full px-4 py-3 bg-slate-100 rounded-xl border border-slate-200 outline-none text-slate-500 font-bold cursor-not-allowed"
+                  title="Email cannot be changed"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">PGY Class / Role</label>
+                  <select 
+                    required
+                    value={editingPerson.pgy}
+                    onChange={(e) => setEditingPerson({...editingPerson, pgy: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                  >
+                    <option value="">Select...</option>
+                    <option value="Class of 2025">Class of 2025 (PGY3)</option>
+                    <option value="Class of 2026">Class of 2026 (PGY2)</option>
+                    <option value="Class of 2027">Class of 2027 (PGY1)</option>
+                    <option value="Class of 2028">Class of 2028</option>
+                    <option value="Faculty">Faculty / Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Faculty Advisor</label>
+                  <input 
+                    type="text"
+                    value={editingPerson.advisor}
+                    onChange={(e) => setEditingPerson({...editingPerson, advisor: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <button 
+                type="submit" 
+                disabled={submitting}
+                className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all flex items-center justify-center gap-2"
+              >
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save Changes'}
               </button>
             </form>
           </div>

@@ -110,7 +110,7 @@ This file serves as the shared source of truth for development progress between 
 
 ### Admin Console Redesign
 - [x] **[Claude]** Implement Sidebar navigation for Admin Console — left rail with grouped sections (Reports / Program Management / Content / System), mobile-collapsible.
-- [/] **[Claude]** Create dedicated "Roster Management" center (Add/Edit/Archive) — Roster tab now surfaces RosterManager from the sidebar; **Add** works, **Edit/Archive** still pending follow-up.
+- [x] **[Claude & Antigravity]** Create dedicated "Roster Management" center (Add/Edit/Archive) — Roster tab surfaces RosterManager from the sidebar; **Add**, **Edit**, and **Archive** all fully implemented.
 - [x] **[Claude]** Build "Attendance Center" (Bulk import and manual tracking) — Bulk import via NI paste working in AttendanceManager; manual tracking deferred.
 - [x] **[Claude]** Create "Block Schedule" manager (Topic + Date range selection) — new `BlockScheduleManager.tsx` with active/upcoming/past sections and create/edit/delete flows.
 
@@ -193,6 +193,7 @@ This file serves as the shared source of truth for development progress between 
   - Refactored QuestionCard to accept `fontSize`, `initialHighlights`, `initialStrikethroughs`, and `onToolsChange` props for parent-managed state.
 
 ### 2026-05-13 — Coordination Protocol & Phase 1 Polish (Antigravity)
+- **Sprint 3 Completion**: Finished the `RosterManager` implementation by adding full **Edit** and **Archive** (delete) functionality via interactive modals, completing the roster CRUD operations.
 - Established AI Coordination & Handover Protocol in ROADMAP.md, including a documentation hierarchy, Peer Review rule, and a **Quick Start Prompt** for the user to initiate new sessions.
 - Completed remaining Phase 1 Code Quality tasks: created `lib/types.ts` with core data models, implemented global Next.js Error Boundary (`app/error.tsx`), and added ARIA accessibility tags to the `QuizEngine` timer.
 
