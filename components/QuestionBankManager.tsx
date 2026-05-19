@@ -117,13 +117,24 @@ function QuestionBrowser({ adminData, onRefresh }: QuestionBankManagerProps) {
     }
   };
 
-  const openEditModal = (q: any) => {
-    // Pad options to 5 for the form
-    const paddedOptions = [...(q.options || []), '', '', '', '', ''].slice(0, 5);
+  const openEditModal = async (q: any) => {
+    // The bulk admin fetch omits `explanation` and `resource_link` (too large for upfront
+    // load). Lazy-fetch them now before opening the editor so the form is pre-populated.
+    let full = q;
+    try {
+      const { data, error } = await withTimeout(
+        supabase.from('questions').select('explanation, resource_link').eq('id', q.id).single(),
+        5000
+      );
+      if (!error && data) full = { ...q, ...data };
+    } catch (err) {
+      console.warn('Lazy-fetch of full question failed; opening editor with partial row:', err);
+    }
+    const paddedOptions = [...(full.options || []), '', '', '', '', ''].slice(0, 5);
     setEditingQuestion({
-      ...q,
+      ...full,
       options: paddedOptions,
-      correct_index: q.correct_index.toString()
+      correct_index: full.correct_index.toString()
     });
     setShowEditModal(true);
   };

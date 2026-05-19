@@ -20,10 +20,12 @@ export function useAdminData(userIsAdmin: boolean) {
     setLoading(true);
     setError(null);
     try {
-      // We fetch the core curriculum and performance datasets all at once.
-      // This takes 2-4 seconds on initial load, but makes tab switching instant.
+      // Slim `questions` select: omits `explanation` and `resource_link`. Those fields
+      // are multi-paragraph and only needed by the QuestionBankManager edit modal,
+      // which lazy-fetches the full row on demand. Pulling them upfront blew past
+      // the 30s timeout on the initial admin load.
       const fetchTask = Promise.all([
-        supabase.from('questions').select('*').order('year', { ascending: false }),
+        supabase.from('questions').select('id, question_text, category, year, keyword, options, correct_index').order('year', { ascending: false }),
         supabase.from('blocks').select('*'),
         supabase.from('block_schedule').select('*'),
         supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at'),
@@ -38,11 +40,22 @@ export function useAdminData(userIsAdmin: boolean) {
         resultsRes,
         profilesRes,
         rosterRes
-      ] = await withTimeout(fetchTask, 30000);
+      ] = await withTimeout(fetchTask, 45000);
 
-      // Check for hard errors on critical tables
-      if (qRes.error) throw qRes.error;
-      if (blocksRes.error) throw blocksRes.error;
+      // Soft failures: log per-table errors, show whatever loaded. Only escalate to
+      // a hard error if BOTH load-bearing tables (questions + blocks) fail — the
+      // admin console can still be useful (Roster, Attendance) without questions.
+      const failed: string[] = [];
+      if (qRes.error) { console.warn('admin fetch: questions failed:', qRes.error.message); failed.push('questions'); }
+      if (blocksRes.error) { console.warn('admin fetch: blocks failed:', blocksRes.error.message); failed.push('blocks'); }
+      if (scheduleRes.error) console.warn('admin fetch: block_schedule failed:', scheduleRes.error.message);
+      if (resultsRes.error) console.warn('admin fetch: results failed:', resultsRes.error.message);
+      if (profilesRes.error) console.warn('admin fetch: profiles failed:', profilesRes.error.message);
+      if (rosterRes.error) console.warn('admin fetch: roster failed:', rosterRes.error.message);
+
+      if (failed.length === 2) {
+        throw new Error('Failed to load core data (questions and blocks both unavailable). Please retry.');
+      }
 
       setData({
         questions: qRes.data || [],

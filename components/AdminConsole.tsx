@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Calendar, Loader2
+  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Loader2
 } from './AppIcons';
 import AdminPerformance from './AdminPerformance';
 import AttendanceManager from './AttendanceManager';
@@ -18,7 +18,7 @@ interface AdminConsoleProps {
   onExit: () => void;
 }
 
-type TabId = 'performance' | 'roster' | 'schedule' | 'attendance' | 'builder' | 'content' | 'questions' | 'advanced';
+type TabId = 'performance' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'advanced';
 
 export default function AdminConsole({ user, profile, onExit }: AdminConsoleProps) {
   const role = getUserRole(user, profile);
@@ -43,7 +43,6 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
       heading: 'Program Management',
       items: [
         { id: 'roster', label: 'Roster', icon: Users, adminOnly: true, description: 'Add, edit, archive members' },
-        { id: 'schedule', label: 'Block Schedule', icon: Calendar, adminOnly: true, description: 'Date windows for each block' },
         { id: 'attendance', label: 'Attendance', icon: Clock, adminOnly: true, description: 'Bulk import from NI export' },
       ],
     },

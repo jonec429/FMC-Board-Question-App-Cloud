@@ -155,8 +155,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[2026-05-14, fixed Claude]** **Resume Later — silent data loss**: Root cause was a 3s debounce on `syncProgress` whose pending timeout got cancelled on component unmount. Clicking Resume Later within 3s of an answer change discarded the latest state. Added `handleResumeLater` that flushes the current state to `quiz_sessions` immediately (with 8s timeout) before calling `onCancel`. Button now shows a "Saving…" state while flushing. Same handler wired to the top-left back-arrow (same exit intent).
 - [ ] **[Security 2026-05-19, flagged Claude] [MUST FIX BEFORE LAUNCH]** **Tighten RLS policies on `questions`, `blocks`, `block_schedule`**: Current policies (from `migrate_admin_fixes.sql`) grant `ALL` to any `authenticated` user via `USING (true)`. Any logged-in resident could write to the question bank, schedule, or block metadata via direct Supabase API calls — bypassing the UI's admin-only checks entirely. Low practical risk today (small trusted roster) but unacceptable for general rollout. Replace with role-based policies that check `auth.uid()` against an `admin`/`faculty` role in `profiles` for write operations.
 - [ ] **[Security 2026-05-19, flagged Claude]** **`migrate_admin_fixes.sql` is destructive if re-run**: First statement is `DROP TABLE IF EXISTS public.block_schedule CASCADE` with no guard. File now carries a "DO NOT RE-RUN" header, but the safer fix is to split it into idempotent steps (`CREATE TABLE IF NOT EXISTS …`, conditional ALTERs) before reusing any of it as a template for future migrations.
-
----
+- [ ] **[Perf 2026-05-19, follow-up after hotfix]** **`sessionStorage`-backed cache for `useAdminData`**: Currently the admin console refetches every table on every fresh entry (page reload or AdminConsole remount). A 5-min TTL cache for slowly-changing data (questions, blocks, block_schedule, profiles, roster) would make re-entry instant. `results` should stay always-fresh. Cache must be busted on mutation (roster edit → bust roster slice, block save → bust blocks slice, etc). ~30 lines, no external deps.
 
 ## 📍 Phase 3: Notifications & Intelligence
 *Goal: Engagement and advanced analytics.*
@@ -205,6 +204,15 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-19 — Admin Console Timeout Hotfix (Claude)
+*   **Root cause**: The new `useAdminData` hook pulled `questions.select('*')` on every admin entry — including multi-paragraph `explanation` text for every question. Combined `Promise.all` over 6 tables exceeded the 30s `withTimeout` ceiling, so the entire Admin Console showed "Request timed out" before any tab could render. Pre-consolidation, each tab fetched its own data and individually fit in the budget; the consolidation moved everything to one upfront fetch without slimming the per-table selects.
+*   **Fix 1 — Slim the `questions` upfront select** (`hooks/useAdminData.ts`): now selects `id, question_text, category, year, keyword, options, correct_index` — drops `explanation` and `resource_link` (the two heaviest columns). Cuts payload by ~80%.
+*   **Fix 2 — Lazy-fetch full row on edit** (`components/QuestionBankManager.tsx`): `openEditModal` is now async and pulls `explanation, resource_link` for the single question being edited (5s timeout, ~50ms in practice). Edit UX unchanged.
+*   **Fix 3 — Soft per-table failures** (`hooks/useAdminData.ts`): individual table errors are now logged-and-skipped instead of throwing the whole console into an error state. Only escalates to a hard error if BOTH `questions` AND `blocks` fail (true core-data outage). Bumped the safety timeout from 30s → 45s as belt-and-suspenders.
+*   **Cleanup**: Removed the dead `Block Schedule` sidebar entry in `AdminConsole.tsx` (no render branch existed for it after the 2026-05-18 consolidation — clicking it produced an empty pane).
+*   **Follow-up logged**: `sessionStorage` cache for `useAdminData` added to backlog so re-entry is instant within a session.
+*   Files: `hooks/useAdminData.ts`, `components/AdminConsole.tsx`, `components/QuestionBankManager.tsx`, `ROADMAP.md`.
 
 ### 2026-05-19 — Roadmap Cleanup, Security Flags & Antigravity Work Pushed Live (Claude)
 *   **Action list synced**: Added the 2026-05-18 `migrate_blocks_archive.sql` to the Admin action checklist (marked complete per user confirmation) and updated Sprint 5 step 2 to point at the new **Curriculum** tab instead of the now-deleted Block Builder tab.
