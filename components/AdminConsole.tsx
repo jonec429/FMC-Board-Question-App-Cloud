@@ -165,11 +165,11 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
             ) : (
               <>
                 {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} adminData={adminData} />}
-                {activeTab === 'roster' && <RosterManager />}
+                {activeTab === 'roster' && <RosterManager adminData={adminData} onRefresh={refetch} />}
                 {activeTab === 'attendance' && <AttendanceManager />}
                 {activeTab === 'questions' && <QuestionBankManager adminData={adminData} onRefresh={refetch} />}
                 {activeTab === 'builder' && <CurriculumManager adminData={adminData} onRefresh={refetch} />}
-                {activeTab === 'advanced' && <AdvancedTab />}
+                {activeTab === 'advanced' && <AdvancedTab adminData={adminData} onRefresh={refetch} />}
               </>
             )}
           </main>
@@ -236,7 +236,7 @@ function ContentStub() {
   );
 }
 
-function AdvancedTab() {
+function AdvancedTab({ adminData, onRefresh }: { adminData?: any; onRefresh?: () => Promise<void> }) {
   const [section, setSection] = useState<'roster' | 'reports'>('roster');
 
   return (
@@ -256,7 +256,7 @@ function AdvancedTab() {
         </button>
       </div>
 
-      {section === 'roster' && <RosterManager />}
+      {section === 'roster' && <RosterManager adminData={adminData} onRefresh={onRefresh} />}
       {section === 'reports' && (
         <StubCard
           icon={Sparkles}

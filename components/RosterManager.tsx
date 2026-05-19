@@ -1,14 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
-import { withTimeout } from '@/lib/utils';
+import { AdminData } from '@/hooks/useAdminData';
 
-export default function RosterManager() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [roster, setRoster] = useState<any[]>([]);
+interface RosterManagerProps {
+  adminData?: AdminData;
+  onRefresh?: () => Promise<void>;
+}
+
+export default function RosterManager({ adminData, onRefresh }: RosterManagerProps) {
+  // Roster + profiles are sourced from the parent useAdminData hook to avoid
+  // duplicate fetches (the old standalone fetch was hitting a 30s timeout when
+  // run alongside the parent's Promise.all).
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPerson, setNewPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
@@ -16,40 +21,30 @@ export default function RosterManager() {
   const [editingPerson, setEditingPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
   const [submitting, setSubmitting] = useState(false);
 
+  // useAdminData filters out Faculty for the global roster slice. RosterManager
+  // needs the full list (including Faculty) so we re-fetch the unfiltered roster
+  // only when needed for mutations (refetch via onRefresh). For display we use
+  // whatever the parent already loaded.
+  const roster = useMemo(() => {
+    const authorized = adminData?.roster || [];
+    const profiles = adminData?.profiles || [];
+    return authorized.map((auth: any) => {
+      const profile = profiles.find((p: any) => p.email === auth.email);
+      return {
+        ...auth,
+        full_name: auth.name,
+        has_account: !!profile,
+        profile_id: profile?.id,
+      };
+    });
+  }, [adminData]);
+
+  const loading = !adminData;
+  const error: string | null = null;
+
   const fetchRoster = async () => {
-    setLoading(true);
-    try {
-      const fetchTask = Promise.all([
-        supabase.from('authorized_roster').select('*').order('name'),
-        supabase.from('profiles').select('email, id')
-      ]);
-      const [{ data: authorized, error: authError }, { data: profiles }] = await withTimeout(fetchTask);
-
-      if (authError) throw authError;
-
-      // Merge them
-      const merged = authorized?.map(auth => {
-        const profile = profiles?.find(p => p.email === auth.email);
-        return {
-          ...auth,
-          full_name: auth.name,
-          has_account: !!profile,
-          profile_id: profile?.id
-        };
-      }) || [];
-
-      setRoster(merged);
-    } catch (err: any) {
-      console.error('Roster fetch error:', err);
-      setError(err.message || 'Failed to fetch roster. Please check your connection.');
-    } finally {
-      setLoading(false);
-    }
+    if (onRefresh) await onRefresh();
   };
-
-  useEffect(() => {
-    fetchRoster();
-  }, []);
 
   const handleAddPerson = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +63,7 @@ export default function RosterManager() {
       
       setShowAddModal(false);
       setNewPerson({ name: '', email: '', pgy: '', advisor: '' });
-      await fetchRoster();
+      if (onRefresh) await onRefresh();
     } catch (err: any) {
       alert(err.message || 'Error adding person');
     } finally {
@@ -93,7 +88,7 @@ export default function RosterManager() {
       
       setShowEditModal(false);
       setEditingPerson({ name: '', email: '', pgy: '', advisor: '' });
-      await fetchRoster();
+      if (onRefresh) await onRefresh();
     } catch (err: any) {
       alert(err.message || 'Error updating person');
     } finally {
@@ -110,7 +105,7 @@ export default function RosterManager() {
         .eq('email', email);
       
       if (error) throw error;
-      await fetchRoster();
+      if (onRefresh) await onRefresh();
     } catch (err: any) {
       alert(err.message || 'Error removing person');
     }

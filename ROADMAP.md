@@ -205,6 +205,14 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-05-19 — Roster Refactor: Eliminate Duplicate Fetch (Claude)
+*   **Symptom**: Clicking the Roster tab (or Advanced → Roster) showed "Connection Error — Request timed out" after 30s. Performance tab showed 0 residents.
+*   **Diagnosis**: `RosterManager` was doing its own `authorized_roster + profiles` fetch on mount via `useEffect` + `withTimeout(..., 30000)`, duplicating data that `useAdminData` already loads. This second fetch was hanging — possibly due to Supabase connection contention or a slow RLS evaluation on `profiles`/`authorized_roster` (no obvious schema mismatch found).
+*   **Fix**: Refactored `RosterManager` to consume `adminData.roster` + `adminData.profiles` via props (same pattern as `QuestionBankManager` and `CurriculumManager`). Removed the standalone fetch entirely. Mutations (Add / Edit / Delete) still write directly to Supabase, then call `onRefresh` to repull through the parent hook.
+*   **Wired up**: `AdminConsole` now passes `adminData` + `refetch` to both the top-level Roster tab AND the `AdvancedTab → Roster` sub-tab.
+*   **Honest caveat**: This eliminates the 30s timeout error but **does not fix the underlying issue if `profiles` / `authorized_roster` are also failing in `useAdminData`** (which would manifest as Performance still showing 0 residents). If that's still happening after this push, the next investigation is whether `fix_profiles_rls_recursion.sql` (file present in repo but absent from the Supabase migration history) needs to be applied.
+*   Files: `components/RosterManager.tsx`, `components/AdminConsole.tsx`.
+
 ### 2026-05-19 — Admin Console Hotfix Follow-up: Schema Mismatch (Claude)
 *   **Root cause**: The slim `questions` select in the timeout hotfix included a `keyword` column that exists in `lib/types.ts` but **never existed in the actual DB** (see `import_questions.sql` — real columns are `year, category, system, abfm_category, question_text, correct_index, explanation, resource_link, options`). Selecting a non-existent column fails the entire Supabase query, which my soft-failure code then quietly collapsed into an empty `questions` array. Result: Questions tab "No questions found" and Curriculum Manager showing "Needs Qs" on every block.
 *   **Fix**: Removed `keyword` from the select. Added a strong comment warning future edits to verify column existence before adding to the list.
