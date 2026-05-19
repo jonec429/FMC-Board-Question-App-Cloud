@@ -2,15 +2,15 @@
 
 import React, { useState } from 'react';
 import {
-  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Calendar,
+  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Calendar, Loader2
 } from './AppIcons';
 import AdminPerformance from './AdminPerformance';
 import AttendanceManager from './AttendanceManager';
 import RosterManager from './RosterManager';
-import BlockScheduleManager from './BlockScheduleManager';
+import CurriculumManager from './CurriculumManager';
 import QuestionBankManager from './QuestionBankManager';
-import BlockBuilder from './BlockBuilder';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
+import { useAdminData } from '@/hooks/useAdminData';
 
 interface AdminConsoleProps {
   user?: any;
@@ -26,6 +26,8 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
   // Faculty land directly on Performance; admins start on Performance too (most-used tab)
   const [activeTab, setActiveTab] = useState<TabId>('performance');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const { data: adminData, loading, error, refetch } = useAdminData(userIsAdmin);
 
   // Sidebar groups — ordered by likely-use frequency
   // `adminOnly: true` tabs are hidden from faculty users
@@ -49,8 +51,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
       heading: 'Content',
       items: [
         { id: 'questions', label: 'Questions', icon: Database, adminOnly: true, description: 'Browse bank or bulk import' },
-        { id: 'builder', label: 'Block Builder', icon: PlusCircle, adminOnly: true, description: 'Curate questions into blocks' },
-        { id: 'content', label: 'Curriculum', icon: Database, adminOnly: true, description: 'Edit & reorder blocks' },
+        { id: 'builder', label: 'Curriculum Manager', icon: PlusCircle, adminOnly: true, description: 'Manage dates and questions' },
       ],
     },
     {
@@ -152,14 +153,26 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
 
           {/* Main Content */}
           <main className="flex-1 min-w-0">
-            {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} />}
-            {activeTab === 'roster' && <RosterManager />}
-            {activeTab === 'schedule' && <BlockScheduleManager />}
-            {activeTab === 'attendance' && <AttendanceManager />}
-            {activeTab === 'questions' && <QuestionBankManager />}
-            {activeTab === 'builder' && <BlockBuilder />}
-            {activeTab === 'content' && <ContentStub />}
-            {activeTab === 'advanced' && <AdvancedTab />}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Downloading Database...</p>
+              </div>
+            ) : error || !adminData ? (
+              <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm">
+                <p className="text-red-500 font-bold">{error || 'Failed to load data.'}</p>
+                <button onClick={refetch} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
+              </div>
+            ) : (
+              <>
+                {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} adminData={adminData} />}
+                {activeTab === 'roster' && <RosterManager />}
+                {activeTab === 'attendance' && <AttendanceManager />}
+                {activeTab === 'questions' && <QuestionBankManager adminData={adminData} onRefresh={refetch} />}
+                {activeTab === 'builder' && <CurriculumManager adminData={adminData} onRefresh={refetch} />}
+                {activeTab === 'advanced' && <AdvancedTab />}
+              </>
+            )}
           </main>
         </div>
       </div>

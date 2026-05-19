@@ -1,20 +1,9 @@
-'use client';
-
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import {
-  PlusCircle, Loader2, Search, X, Save, AlertTriangle, CheckCircle, ChevronRight,
-  Database, Sparkles, FileText, Clock,
-} from './AppIcons';
-import {
-  RECENT_ITE_YEAR_WINDOW,
-  LEGACY_WARNING_TITLE,
-  LEGACY_WARNING_BODY,
-  partitionYears,
-} from '@/lib/questionFilters';
-import { withTimeout } from '@/lib/utils';
+import { CheckCircle, AlertTriangle, Sparkles, Save, Loader2, X, Search, Clock, FileText } from './AppIcons';
+import { partitionYears, RECENT_ITE_YEAR_WINDOW, LEGACY_WARNING_TITLE, LEGACY_WARNING_BODY } from '@/lib/questionFilters';
 
-interface Block {
+export interface Block {
   id: string;
   title: string;
   block_type?: string;
@@ -25,7 +14,7 @@ interface Block {
   question_ids?: string[];
 }
 
-interface Question {
+export interface Question {
   id: string;
   question_text: string;
   category: string;
@@ -34,268 +23,7 @@ interface Question {
   correct_index: number;
 }
 
-// === Sort helper (mirrors Dashboard logic) ===
-function blockSortKey(b: Block): number {
-  if (b.sort_order != null) return b.sort_order;
-  const t = b.title || '';
-  if (/^demo/i.test(t)) return 9999;
-  const m = t.match(/Block\s+(\d+)/i);
-  if (m) return parseInt(m[1], 10);
-  if (/bonus/i.test(t)) return 500;
-  return 1000;
-}
-
-export default function BlockBuilder() {
-  const [loading, setLoading] = useState(true);
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
-  const [resultsCount, setResultsCount] = useState<Map<string, number>>(new Map()); // block title → results count
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const fetchTask = Promise.all([
-        supabase.from('blocks').select('*'),
-        supabase.from('questions').select('id, question_text, category, year, options, correct_index'),
-        supabase.from('results').select('topic'),
-      ]);
-      const [{ data: blockData }, { data: qData }, { data: resData }] = await withTimeout(fetchTask);
-      if (blockData) setBlocks([...blockData].sort((a, b) => blockSortKey(a) - blockSortKey(b)));
-      if (qData) setAllQuestions(qData);
-
-      const counts = new Map<string, number>();
-      (resData || []).forEach((r: any) => {
-        counts.set(r.topic, (counts.get(r.topic) || 0) + 1);
-      });
-      setResultsCount(counts);
-    } catch (err) {
-      console.error('BlockBuilder fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const selectedBlock = blocks.find(b => b.id === selectedBlockId) || null;
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Blocks &amp; Question Bank…</p>
-      </div>
-    );
-  }
-
-  if (selectedBlock) {
-    return (
-      <BlockEditor
-        block={selectedBlock}
-        allQuestions={allQuestions}
-        residentsCount={resultsCount.get(selectedBlock.title) || 0}
-        onBack={() => setSelectedBlockId(null)}
-        onSaved={async () => {
-          await fetchAll();
-        }}
-      />
-    );
-  }
-
-  return (
-    <BlockList
-      blocks={blocks}
-      allQuestions={allQuestions}
-      resultsCount={resultsCount}
-      onSelect={setSelectedBlockId}
-      onRefresh={fetchAll}
-    />
-  );
-}
-
-// =====================================================================
-// BLOCK LIST VIEW
-// =====================================================================
-
-function BlockList({
-  blocks,
-  allQuestions,
-  resultsCount,
-  onSelect,
-  onRefresh,
-}: {
-  blocks: Block[];
-  allQuestions: Question[];
-  resultsCount: Map<string, number>;
-  onSelect: (id: string) => void;
-  onRefresh: () => Promise<void>;
-}) {
-  const [initializing, setInitializing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-
-  // Counts of blocks needing initialization
-  const uninitialized = blocks.filter(
-    b => (!b.question_ids || b.question_ids.length === 0) && b.block_type !== 'demo'
-  );
-
-  // Pick questions for a block based on its category filters (newest year first).
-  // Defaults to recent ITEs only (last RECENT_ITE_YEAR_WINDOW years) so the cohort starts
-  // on current-guideline content. Admins can manually add legacy questions later via the editor.
-  const allYearsInBank = useMemo(
-    () => Array.from(new Set(allQuestions.map(q => q.year).filter(Boolean))),
-    [allQuestions]
-  );
-  const { legacy: legacyYearsInBank } = useMemo(
-    () => partitionYears(allYearsInBank, RECENT_ITE_YEAR_WINDOW),
-    [allYearsInBank]
-  );
-
-  const pickQuestionsForBlock = (block: Block): string[] => {
-    const cats = block.category_filters || [];
-    if (cats.length === 0) return [];
-    const legacySet = new Set(legacyYearsInBank);
-    const matching = allQuestions
-      .filter(q => cats.includes(q.category))
-      .filter(q => !legacySet.has(q.year))
-      .sort((a, b) => (b.year || '').localeCompare(a.year || ''))
-      .slice(0, block.question_count || 40);
-    return matching.map(q => q.id);
-  };
-
-  const handleInitializeAll = async () => {
-    if (!window.confirm(`Auto-populate ${uninitialized.length} block(s) using their existing category filters? This locks in the same questions for every resident going forward.`)) return;
-    setInitializing(true);
-    setStatusMessage(null);
-
-    let successCount = 0;
-    let errorCount = 0;
-    for (const block of uninitialized) {
-      const ids = pickQuestionsForBlock(block);
-      if (ids.length === 0) {
-        errorCount++;
-        continue;
-      }
-      const { error } = await supabase.from('blocks').update({ question_ids: ids }).eq('id', block.id);
-      if (error) errorCount++;
-      else successCount++;
-    }
-    setStatusMessage(`Initialized ${successCount} block(s). ${errorCount > 0 ? `${errorCount} skipped (no matching questions).` : ''}`);
-    await onRefresh();
-    setInitializing(false);
-  };
-
-  return (
-    <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-      {/* Hero */}
-      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 justify-between">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
-            <PlusCircle className="w-7 h-7" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Block Builder</h2>
-            <p className="text-slate-500 font-medium max-w-2xl mt-1">
-              Every resident sees the <b>same questions</b> in the same block — order is shuffled per resident. Pick exactly which questions belong to each block here.
-            </p>
-          </div>
-        </div>
-        {uninitialized.length > 0 && (
-          <button
-            onClick={handleInitializeAll}
-            disabled={initializing}
-            className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black text-sm flex items-center gap-2 hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 disabled:opacity-50 whitespace-nowrap"
-          >
-            {initializing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            Initialize {uninitialized.length} Block{uninitialized.length !== 1 ? 's' : ''}
-          </button>
-        )}
-      </div>
-
-      {statusMessage && (
-        <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 p-4 rounded-2xl font-bold flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 shrink-0" />
-          <span>{statusMessage}</span>
-        </div>
-      )}
-
-      {uninitialized.length > 0 && (
-        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <p className="font-black text-amber-800">
-              {uninitialized.length} block{uninitialized.length !== 1 ? 's are' : ' is'} still using legacy category sampling
-            </p>
-            <p className="text-xs font-bold text-amber-700/80 mt-0.5">
-              These blocks currently give each resident a random sample from their category filters. Click "Initialize" above (or open a block) to lock in a fixed set.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Block Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {blocks.map(block => {
-          const assigned = block.question_ids?.length || 0;
-          const target = block.question_count || 40;
-          const isDemo = block.block_type === 'demo';
-          const initialized = assigned > 0;
-          const takenBy = resultsCount.get(block.title) || 0;
-          return (
-            <button
-              key={block.id}
-              onClick={() => onSelect(block.id)}
-              className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-left hover:-translate-y-0.5 hover:shadow-md transition-all group"
-            >
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-black text-slate-800 text-base truncate">{block.title}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    {block.block_type && (
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{block.block_type}</span>
-                    )}
-                  </div>
-                </div>
-                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0" />
-              </div>
-              <div className="flex items-center gap-3 mt-2">
-                {isDemo ? (
-                  <span className="px-2.5 py-1 bg-purple-50 text-purple-700 text-[10px] font-black uppercase tracking-widest rounded-full">
-                    Demo · Hardcoded
-                  </span>
-                ) : initialized ? (
-                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-full">
-                    ✓ {assigned} Questions Fixed
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-1 bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-full">
-                    Not initialized · target {target}
-                  </span>
-                )}
-                {takenBy > 0 && (
-                  <span className="text-[10px] font-bold text-slate-400">{takenBy} attempt{takenBy !== 1 ? 's' : ''}</span>
-                )}
-              </div>
-              {block.category_filters && block.category_filters.length > 0 && (
-                <p className="text-xs font-bold text-slate-400 mt-3 truncate">
-                  Categories: {block.category_filters.join(', ')}
-                </p>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// =====================================================================
-// BLOCK EDITOR VIEW
-// =====================================================================
-
-function BlockEditor({
+export default function BlockEditor({
   block,
   allQuestions,
   residentsCount,
@@ -387,13 +115,10 @@ function BlockEditor({
   };
 
   const autoPopulate = () => {
-    // Pick newest-year-first from the current filtered set (respects user's category/year filters)
-    // If no filters applied, fall back to the block's stored category_filters
     let pool = filteredQuestions;
     if (filterCat === '' && filterYear === '' && !search && block.category_filters && block.category_filters.length > 0) {
       pool = allQuestions.filter(q => block.category_filters!.includes(q.category));
     }
-    // Default: restrict to recent ITEs unless the admin explicitly opted into legacy years
     if (!showLegacyYears) {
       const legacySet = new Set(legacyYears);
       pool = pool.filter(q => !legacySet.has(q.year));

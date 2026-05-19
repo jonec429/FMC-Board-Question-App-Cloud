@@ -8,10 +8,16 @@ import {
 import QuestionImporter from './QuestionImporter';
 import { CANONICAL_CATEGORIES } from '@/lib/csvImport';
 import { withTimeout } from '@/lib/utils';
+import { AdminData } from '@/hooks/useAdminData';
 
 type SubTab = 'browse' | 'import';
 
-export default function QuestionBankManager() {
+interface QuestionBankManagerProps {
+  adminData?: AdminData;
+  onRefresh?: () => Promise<void>;
+}
+
+export default function QuestionBankManager({ adminData, onRefresh }: QuestionBankManagerProps) {
   const [activeTab, setActiveTab] = useState<SubTab>('browse');
 
   return (
@@ -33,14 +39,13 @@ export default function QuestionBankManager() {
       </div>
 
       {/* Main Content */}
-      {activeTab === 'browse' ? <QuestionBrowser /> : <QuestionImporter />}
+      {activeTab === 'browse' ? <QuestionBrowser adminData={adminData} onRefresh={onRefresh} /> : <QuestionImporter />}
     </div>
   );
 }
 
-function QuestionBrowser() {
-  const [loading, setLoading] = useState(true);
-  const [questions, setQuestions] = useState<any[]>([]);
+function QuestionBrowser({ adminData, onRefresh }: QuestionBankManagerProps) {
+  const allQuestions = adminData?.questions || [];
   
   // Filters
   const [search, setSearch] = useState('');
@@ -57,46 +62,23 @@ function QuestionBrowser() {
 
   const [error, setError] = useState<string | null>(null);
 
-
-  const fetchQuestions = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      let query = supabase
-        .from('questions')
-        .select('*')
-        .order('year', { ascending: false })
-        .limit(limit);
-
-      if (categoryFilter) query = query.eq('category', categoryFilter);
-      if (yearFilter) query = query.eq('year', yearFilter);
-      if (search) query = query.ilike('question_text', `%${search}%`);
-
-      const { data, error: fetchErr } = await withTimeout(query);
-      if (fetchErr) throw fetchErr;
-      setQuestions(data || []);
-    } catch (err: any) {
-      console.error('Fetch questions error:', err);
-      setError(err.message || 'Failed to load questions.');
-    } finally {
-      setLoading(false);
+  const displayQuestions = React.useMemo(() => {
+    let filtered = allQuestions;
+    if (categoryFilter) filtered = filtered.filter(q => q.category === categoryFilter);
+    if (yearFilter) filtered = filtered.filter(q => q.year === yearFilter);
+    if (search) {
+      const term = search.toLowerCase();
+      filtered = filtered.filter(q => q.question_text.toLowerCase().includes(term));
     }
-  };
-
-  // Debounce fetch when filters change
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchQuestions();
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [search, categoryFilter, yearFilter, limit]);
+    return filtered.slice(0, limit);
+  }, [allQuestions, search, categoryFilter, yearFilter, limit]);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to permanently delete this question? This action cannot be undone.')) return;
     try {
       const { error } = await supabase.from('questions').delete().eq('id', id);
       if (error) throw error;
-      setQuestions(questions.filter(q => q.id !== id));
+      if (onRefresh) await onRefresh();
     } catch (err: any) {
       alert('Error deleting: ' + err.message);
     }
@@ -127,7 +109,7 @@ function QuestionBrowser() {
       if (error) throw error;
 
       setShowEditModal(false);
-      fetchQuestions(); // Refresh to ensure data is perfectly in sync
+      if (onRefresh) await onRefresh(); // Refresh to ensure data is perfectly in sync
     } catch (err: any) {
       alert('Error saving: ' + err.message);
     } finally {
@@ -191,13 +173,7 @@ function QuestionBrowser() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {loading && questions.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-12 text-center">
-                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
-                  </td>
-                </tr>
-              ) : questions.length === 0 ? (
+              {displayQuestions.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-12 text-center text-slate-400 font-bold">
                     <Database className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -205,7 +181,7 @@ function QuestionBrowser() {
                   </td>
                 </tr>
               ) : (
-                questions.map((q) => (
+                displayQuestions.map((q) => (
                   <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="text-sm font-medium text-slate-800 line-clamp-2">
@@ -244,7 +220,7 @@ function QuestionBrowser() {
             </tbody>
           </table>
         </div>
-        {questions.length >= limit && !loading && (
+        {displayQuestions.length === limit && (
           <div className="p-4 border-t border-slate-50 flex justify-center">
             <button 
               onClick={() => setLimit(l => l + 50)}

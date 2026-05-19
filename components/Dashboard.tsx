@@ -60,7 +60,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
       setLoading(true);
       try {
         const fetchTask = Promise.all([
-          supabase.from('blocks').select('*'),
+          supabase.from('blocks').select('*').eq('is_archived', false),
           supabase
             .from('results')
             .select('*')

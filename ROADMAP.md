@@ -33,19 +33,33 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
-## 📊 Current Status (Snapshot — 2026-05-13)
+## 🚦 Deployment Workflow
+
+**Current (pre-launch):** Pushing directly to `main` is OK because no residents are using the app yet — fast iteration matters more than preview safety.
+
+**Once we roll out to users (REQUIRED — do not skip this transition):**
+- ❌ Stop pushing untested changes straight to `main`.
+- ✅ Use one of:
+    - **Local dev** (`npm run dev` → http://localhost:3000) for unverified changes, OR
+    - **Vercel preview deployments**: push to a feature branch → Vercel auto-generates a unique preview URL → test there with real Supabase → merge to `main` only after verifying.
+- The "push to main = instantly live for residents" model is acceptable now and unacceptable later. Whichever AI agent is in the seat at launch must enforce this.
+
+---
+
+## 📊 Current Status (Snapshot — 2026-05-19)
 
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **Phase 1** | ✅ **Complete** | 3 optional code-quality recommendations remain |
 | **Phase 2** | ✅ **Complete** | Admin Overhaul, Fixed Blocks, and Stability Hardened |
-| **Phase 3** | ⏸ Not started | Notifications, QOTD & analytics — Phase 2 complete |
+| **Phase 3** | 🟡 **Partially started** | Curriculum Manager (UI Optimization) ✅ done. Notifications, QOTD, analytics & Resident Review still pending. |
 | **Phase 4** | ⏸ Not started | Year-end transition tooling |
 
 ### ⚠️ Action Required From Admin
 - [x] **Sprint 5 step 1**: SQL migration `migrate_blocks_question_ids.sql` run in Supabase ✅
-- [ ] **Sprint 5 step 2**: Open the app → Admin Console → Block Builder → click **"Initialize N Blocks"** to lock in question sets
+- [ ] **Sprint 5 step 2**: Open the app → Admin Console → **Curriculum** → click **"Initialize N Blocks"** to lock in question sets *(note: the old "Block Builder" tab was merged into the new Curriculum Manager on 2026-05-18)*
 - [x] **2026-05-14 — Profile Names Migration**: Run `migrate_profiles_split_names.sql` in Supabase SQL Editor. Adds `first_name`/`last_name` columns to `profiles` and backfills from `full_name`. Required before Profile Settings name save will succeed. ✅
+- [x] **2026-05-18 — Block Archiving Migration**: Run `migrate_blocks_archive.sql` in Supabase SQL Editor. Adds `is_archived` boolean column to `blocks` (idempotent — safe to re-run). Required for the new Curriculum Manager's archive flow. ✅
 - [x] **Environment Setup**: Install Node.js, restart VS Code, and run `npm install` to resolve local module errors. ✅
 
 ### 🎯 Remaining in Phase 2
@@ -98,7 +112,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] Implement "Mixed Review" preset (random across most recent 3 ITE years, 5-200 Qs) — intentionally per-resident random.
 - [x] **[NEW]** "Weakest Topics" Custom Block: Auto-generate a block targeting the user's lowest-scoring categories — intentionally per-resident.
 - [x] **[NEW]** Cross-Platform Save State: Quiz progress synced to user account (start on desktop, resume on mobile, etc.).
-- [x] **[Claude] [NEW]** Block Builder UI: Admin can view all blocks, see init status, auto-populate from category filters with one click, or manually curate questions with category/year/search filters. Save warns if residents have already taken the block.
+- [x] **[Claude] [NEW]** Block Builder UI: Admin can view all blocks, see init status, auto-populate from category filters with one click, or manually curate questions with category/year/search filters. Save warns if residents have already taken the block. *(Superseded 2026-05-18 — merged into `CurriculumManager.tsx` + `BlockEditor.tsx`.)*
 
 ### Quiz Tools & Accessibility
 - [x] **[NEW]** Text Resizing: Allow users to adjust question/answer font size (A-/A+ toolbar, persists via localStorage).
@@ -114,7 +128,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Claude]** Implement Sidebar navigation for Admin Console — left rail with grouped sections (Reports / Program Management / Content / System), mobile-collapsible.
 - [x] **[Claude & Antigravity]** Create dedicated "Roster Management" center (Add/Edit/Archive) — Roster tab surfaces RosterManager from the sidebar; **Add**, **Edit**, and **Archive** all fully implemented.
 - [x] **[Claude]** Build "Attendance Center" (Bulk import and manual tracking) — Bulk import via NI paste working in AttendanceManager; manual tracking deferred.
-- [x] **[Claude]** Create "Block Schedule" manager (Topic + Date range selection) — new `BlockScheduleManager.tsx` with active/upcoming/past sections and create/edit/delete flows.
+- [x] **[Claude]** Create "Block Schedule" manager (Topic + Date range selection) — new `BlockScheduleManager.tsx` with active/upcoming/past sections and create/edit/delete flows. *(Superseded 2026-05-18 — merged into `CurriculumManager.tsx`.)*
 
 ### Infrastructure & Branding
 - [x] Configure Custom URL (Custom Domain setup) — Configured `brq.stvfamilymed.org` via Squarespace/Vercel.
@@ -139,6 +153,8 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Antigravity]** **Question Bank Sorting**: Fixed query error on missing `created_at` column.
 - [x] **[REGRESSION 2026-05-14, fixed Claude]** **Profile Name Update — still spins**: Root cause was a single 30s outer timeout wrapping three sequential Supabase calls with no per-step timeouts. When the auth-metadata update hung, users sat on the spinner for 30s before any error. Fixed by wrapping each step in `withTimeout(..., 10000)` with step-specific error messages, and making the `authorized_roster` sync non-fatal so a roster mismatch can't break the primary save. Password update flow untouched (separate path, untested).
 - [x] **[2026-05-14, fixed Claude]** **Resume Later — silent data loss**: Root cause was a 3s debounce on `syncProgress` whose pending timeout got cancelled on component unmount. Clicking Resume Later within 3s of an answer change discarded the latest state. Added `handleResumeLater` that flushes the current state to `quiz_sessions` immediately (with 8s timeout) before calling `onCancel`. Button now shows a "Saving…" state while flushing. Same handler wired to the top-left back-arrow (same exit intent).
+- [ ] **[Security 2026-05-19, flagged Claude] [MUST FIX BEFORE LAUNCH]** **Tighten RLS policies on `questions`, `blocks`, `block_schedule`**: Current policies (from `migrate_admin_fixes.sql`) grant `ALL` to any `authenticated` user via `USING (true)`. Any logged-in resident could write to the question bank, schedule, or block metadata via direct Supabase API calls — bypassing the UI's admin-only checks entirely. Low practical risk today (small trusted roster) but unacceptable for general rollout. Replace with role-based policies that check `auth.uid()` against an `admin`/`faculty` role in `profiles` for write operations.
+- [ ] **[Security 2026-05-19, flagged Claude]** **`migrate_admin_fixes.sql` is destructive if re-run**: First statement is `DROP TABLE IF EXISTS public.block_schedule CASCADE` with no guard. File now carries a "DO NOT RE-RUN" header, but the safer fix is to split it into idempotent steps (`CREATE TABLE IF NOT EXISTS …`, conditional ALTERs) before reusing any of it as a template for future migrations.
 
 ---
 
@@ -168,6 +184,13 @@ This file serves as the shared source of truth for development progress between 
 ### Resident Review Experience
 - [ ] **[NEW 2026-05-14]** **Resident Review Tab**: Dedicated page where residents can revisit questions they answered incorrectly, with quick access to Open Evidence, Board Prep Gem, and Review Topic Material links per question. Goal: reinforce weak areas without restarting an entire block. May overlap with the existing "Weakest Topics" custom block — decide whether to extend that flow or build a separate review surface.
 
+### Curriculum Manager (UI Optimization)
+- [x] **[NEW]** **Unified Curriculum Tab**:
+    - [x] Merge the "Block Schedule" and "Block Builder" tabs into a single interface.
+    - [x] Add explicit ability to **Create New Blocks** (e.g., custom electives).
+    - [x] Add explicit ability to **Delete/Archive Blocks**.
+    - [x] Hoist data fetching to `AdminConsole` to eliminate loading times when switching tabs.
+
 ---
 
 ## 📍 Phase 4: Graduation & Rollover
@@ -182,6 +205,22 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-19 — Roadmap Cleanup, Security Flags & Antigravity Work Pushed Live (Claude)
+*   **Action list synced**: Added the 2026-05-18 `migrate_blocks_archive.sql` to the Admin action checklist (marked complete per user confirmation) and updated Sprint 5 step 2 to point at the new **Curriculum** tab instead of the now-deleted Block Builder tab.
+*   **Status snapshot refreshed**: Bumped snapshot date to 2026-05-19 and re-classified Phase 3 as "Partially started" since the Curriculum Manager UI Optimization landed under that phase on 2026-05-18.
+*   **Superseded-file notes**: Annotated the historical `BlockBuilder` and `BlockScheduleManager` task entries in Phase 2 so future agents don't go hunting for deleted files.
+*   **SQL hardening**: Made `migrate_blocks_archive.sql` idempotent (`ADD COLUMN IF NOT EXISTS`) so re-running it on an already-migrated database is a no-op instead of an error. Added DO-NOT-RE-RUN warning header to `migrate_admin_fixes.sql` (destructive `DROP TABLE` on first line).
+*   **Security backlog**: Flagged two pre-launch must-fix items — overly permissive RLS policies (any authenticated user can write to questions/blocks/schedule) and the destructive `migrate_admin_fixes.sql` re-run risk.
+*   **Deployment workflow section added**: Documented the current "push straight to main" workflow as pre-launch only, with explicit instructions to switch to local dev or Vercel preview deployments once residents start using the app.
+*   **Antigravity 2026-05-18 work pushed**: The Curriculum Manager consolidation, `useAdminData` hook, archive migration, and supporting Antigravity diagnostic scripts had been sitting uncommitted in the working tree since 2026-05-18 — production was still serving the pre-consolidation build. Committed in two commits (feat + chore) and pushed to `main`. Vercel rebuild expected within ~60s.
+*   Files: `ROADMAP.md`, `migrate_blocks_archive.sql`, `migrate_admin_fixes.sql`, plus 2026-05-18 Antigravity bundle.
+
+### 2026-05-18 — Admin Console Performance & Curriculum Manager Consolidation (Antigravity)
+*   **Instant Tab Navigation**: Created `useAdminData` custom hook to hoist data fetching (blocks, schedule, results, questions) to the `AdminConsole` root level. Child tabs now receive this data synchronously via props, eliminating the 3-5 second loading spinner when switching between management tools.
+*   **Curriculum Manager Pivot**: Deleted the disjointed `BlockScheduleManager.tsx` and `BlockBuilder.tsx` components and merged them into a unified `CurriculumManager.tsx`. Admins can now view schedules, edit question counts, create brand new blocks, and access the block builder all from one table.
+*   **Block Archiving**: Added `is_archived` boolean to the `blocks` table. Instead of deleting historical blocks (which would break past resident score calculations), admins can now safely "Archive" a block if it has resident completions. Archived blocks are hidden from the resident dashboard but maintain their historical leaderboard stats.
+*   Files: `components/CurriculumManager.tsx` (new), `components/BlockEditor.tsx` (extracted), `hooks/useAdminData.ts` (new), `components/AdminConsole.tsx`, `components/AdminPerformance.tsx`, `components/QuestionBankManager.tsx`, `components/Dashboard.tsx`, `components/AppIcons.tsx`, `migrate_blocks_archive.sql` (new).
 
 ### 2026-05-14 — Profile Names Schema Migration & Display Update (Claude)
 *   **Root cause of Profile name save failure** (after the fire-and-forget auth fix surfaced the real error): the `profiles` table is missing the `first_name` and `last_name` columns that `ProfileSettings.tsx` and `Login.tsx` both write to. Supabase silently rejects the entire row when an unknown column is written. **Every signup since this code was written has silently failed to create a profiles row** — the app's fallback to `authorized_roster` is what's been keeping users functional.

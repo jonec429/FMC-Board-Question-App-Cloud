@@ -38,25 +38,85 @@ const riskColors = {
   green: { row: '', badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
 };
 
+import { AdminData } from '@/hooks/useAdminData';
+
 interface AdminPerformanceProps {
   user?: any;
   profile?: any;
+  adminData?: AdminData;
 }
 
 type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'my_advisees';
 
-export default function AdminPerformance({ user, profile }: AdminPerformanceProps = {}) {
+export default function AdminPerformance({ user, profile, adminData }: AdminPerformanceProps) {
   const userIsAdmin = isAdmin(user, profile);
   const userIsFaculty = isFaculty(user, profile);
   const facultyName = getFacultyAdviseeFilter(user, profile);
   // Faculty-only users start on "My Advisees"; admins keep the overview default
   const defaultTab: SubTab = userIsAdmin ? 'overview' : 'my_advisees';
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [residentStats, setResidentStats] = useState<ResidentStat[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultTab);
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
+
+  const residentStats = useMemo(() => {
+    if (!adminData) return [];
+    const { results: allResults, profiles, roster } = adminData;
+
+    const profileMap = new Map<string, string>();
+    profiles.forEach((p: any) => {
+      const email = p?.email || p?.user_email;
+      if (p?.id && email) profileMap.set(p.id, email);
+    });
+
+    const enriched = allResults.map((r: any) => ({
+      ...r,
+      email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
+    })).filter((r: any) => r.email);
+
+    const stats: ResidentStat[] = roster.map((resident: any) => {
+      const resResults = enriched.filter(
+        (r: any) => r.email?.toLowerCase() === resident.email?.toLowerCase()
+      );
+
+      const assignedResults = resResults.filter((r: any) => (r.academic_points || 0) > 0);
+
+      // Dedupe by topic — for each block, keep best timing (highest points)
+      const topicBestPts = new Map<string, number>();
+      assignedResults.forEach((r: any) => {
+        const cur = topicBestPts.get(r.topic) || 0;
+        topicBestPts.set(r.topic, Math.max(cur, r.academic_points || 0));
+      });
+      const blocksCompleted = topicBestPts.size;
+
+      const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(([topic]) => !topic?.toLowerCase().includes('bonus'));
+      const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
+      const onTimePct = nonBonusBlocks.length > 0
+        ? (onTimeBlocks.length / nonBonusBlocks.length) * 100
+        : 100;
+
+      const avgPct = resResults.length > 0
+        ? resResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / resResults.length
+        : 0;
+
+      const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
+
+      return {
+        name: resident.name,
+        email: resident.email,
+        pgy: resident.pgy,
+        advisor: resident.advisor,
+        attempts: resResults.length,
+        avgPct,
+        blocksCompleted,
+        onTimePct,
+        totalPoints,
+        risk: getRisk(avgPct, onTimePct, resResults.length),
+        results: resResults.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+      };
+    });
+
+    return stats.sort((a, b) => b.totalPoints - a.totalPoints);
+  }, [adminData]);
 
   // Residents this faculty advises — matched by `authorized_roster.advisor == profile.full_name`
   const myAdvisees = useMemo(() => {
@@ -64,111 +124,6 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     const needle = facultyName.toLowerCase().trim();
     return residentStats.filter(r => (r.advisor || '').toLowerCase().trim() === needle);
   }, [residentStats, facultyName]);
-
-  useEffect(() => {
-    async function fetchStats() {
-      setLoading(true);
-      try {
-        const fetchTask = Promise.all([
-          supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at'),
-          supabase.from('profiles').select('*'),
-          supabase.from('authorized_roster').select('name, email, pgy, advisor').neq('pgy', 'Faculty'),
-        ]);
-        const [{ data: allResults }, profilesRes, { data: roster }] = await withTimeout(fetchTask);
-
-        const profileMap = new Map<string, string>();
-        (profilesRes.data || []).forEach((p: any) => {
-          const email = p?.email || p?.user_email;
-          if (p?.id && email) profileMap.set(p.id, email);
-        });
-
-        const enriched = (allResults || []).map((r: any) => ({
-          ...r,
-          email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
-        })).filter((r: any) => r.email);
-
-        const stats: ResidentStat[] = (roster || []).map((resident: any) => {
-          const resResults = enriched.filter(
-            (r: any) => r.email?.toLowerCase() === resident.email?.toLowerCase()
-          );
-
-          const assignedResults = resResults.filter((r: any) => (r.academic_points || 0) > 0);
-
-          // Dedupe by topic — for each block, keep best timing (highest points)
-          const topicBestPts = new Map<string, number>();
-          assignedResults.forEach((r: any) => {
-            const cur = topicBestPts.get(r.topic) || 0;
-            topicBestPts.set(r.topic, Math.max(cur, r.academic_points || 0));
-          });
-          const blocksCompleted = topicBestPts.size;
-
-          const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(([topic]) => !topic?.toLowerCase().includes('bonus'));
-          const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
-          const onTimePct = nonBonusBlocks.length > 0
-            ? (onTimeBlocks.length / nonBonusBlocks.length) * 100
-            : 100;
-
-          const avgPct = resResults.length > 0
-            ? resResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / resResults.length
-            : 0;
-
-          const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
-
-          return {
-            name: resident.name,
-            email: resident.email,
-            pgy: resident.pgy,
-            advisor: resident.advisor,
-            attempts: resResults.length,
-            avgPct,
-            blocksCompleted,
-            onTimePct,
-            totalPoints,
-            risk: getRisk(avgPct, onTimePct, resResults.length),
-            results: resResults.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-          };
-        });
-
-        stats.sort((a, b) => b.totalPoints - a.totalPoints);
-        setResidentStats(stats);
-      } catch (err: any) {
-        console.error('Stats fetch error:', err);
-        setError(err.message || 'Failed to load resident statistics. Please refresh.');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchStats();
-  }, []);
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-        <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 max-w-md animate-fade-in shadow-sm">
-          <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
-          <h3 className="text-xl font-black mb-2">Connection Error</h3>
-          <p className="font-medium text-red-500 mb-6">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-6 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg active:scale-95"
-          >
-            Retry Connection
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Aggregating Resident Data...</p>
-      </div>
-    );
-  }
-
-
 
   const redFlagged = residentStats.filter(r => r.risk === 'red');
   const yellowFlagged = residentStats.filter(r => r.risk === 'yellow');
