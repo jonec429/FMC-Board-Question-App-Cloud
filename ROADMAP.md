@@ -205,6 +205,12 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-05-19 — Admin Console Hotfix Follow-up: Schema Mismatch (Claude)
+*   **Root cause**: The slim `questions` select in the timeout hotfix included a `keyword` column that exists in `lib/types.ts` but **never existed in the actual DB** (see `import_questions.sql` — real columns are `year, category, system, abfm_category, question_text, correct_index, explanation, resource_link, options`). Selecting a non-existent column fails the entire Supabase query, which my soft-failure code then quietly collapsed into an empty `questions` array. Result: Questions tab "No questions found" and Curriculum Manager showing "Needs Qs" on every block.
+*   **Fix**: Removed `keyword` from the select. Added a strong comment warning future edits to verify column existence before adding to the list.
+*   **Outstanding (needs DevTools investigation)**: Roster + Advanced tabs reported as "not loading," and Performance tab shows 0 residents despite roster import. Suspect a separate RLS / fetch issue on `authorized_roster` + `profiles`. Will diagnose from the next round of browser console output.
+*   File: `hooks/useAdminData.ts`.
+
 ### 2026-05-19 — Admin Console Timeout Hotfix (Claude)
 *   **Root cause**: The new `useAdminData` hook pulled `questions.select('*')` on every admin entry — including multi-paragraph `explanation` text for every question. Combined `Promise.all` over 6 tables exceeded the 30s `withTimeout` ceiling, so the entire Admin Console showed "Request timed out" before any tab could render. Pre-consolidation, each tab fetched its own data and individually fit in the budget; the consolidation moved everything to one upfront fetch without slimming the per-table selects.
 *   **Fix 1 — Slim the `questions` upfront select** (`hooks/useAdminData.ts`): now selects `id, question_text, category, year, keyword, options, correct_index` — drops `explanation` and `resource_link` (the two heaviest columns). Cuts payload by ~80%.

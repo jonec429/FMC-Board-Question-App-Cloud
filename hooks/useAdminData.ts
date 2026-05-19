@@ -20,12 +20,13 @@ export function useAdminData(userIsAdmin: boolean) {
     setLoading(true);
     setError(null);
     try {
-      // Slim `questions` select: omits `explanation` and `resource_link`. Those fields
-      // are multi-paragraph and only needed by the QuestionBankManager edit modal,
-      // which lazy-fetches the full row on demand. Pulling them upfront blew past
-      // the 30s timeout on the initial admin load.
+      // Slim `questions` select: only columns confirmed in import_questions.sql.
+      // Omits `explanation` and `resource_link` (multi-paragraph, lazy-fetched by
+      // QuestionBankManager.openEditModal). Do NOT add columns here without
+      // verifying they exist in the DB — selecting a missing column fails the
+      // entire query silently and empties the Questions and Curriculum tabs.
       const fetchTask = Promise.all([
-        supabase.from('questions').select('id, question_text, category, year, keyword, options, correct_index').order('year', { ascending: false }),
+        supabase.from('questions').select('id, question_text, category, year, options, correct_index').order('year', { ascending: false }),
         supabase.from('blocks').select('*'),
         supabase.from('block_schedule').select('*'),
         supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at'),
