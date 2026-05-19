@@ -370,9 +370,9 @@ function BlockEditor({
 
   const targetCount = block.question_count || 40;
   const isDirty = useMemo(() => {
-    const a = new Set(block.question_ids || []);
+    const a = block.question_ids || [];
     const b = selectedIds;
-    if (a.size !== b.size) return true;
+    if (a.length !== b.size) return true;
     for (const id of a) if (!b.has(id)) return true;
     return false;
   }, [block.question_ids, selectedIds]);

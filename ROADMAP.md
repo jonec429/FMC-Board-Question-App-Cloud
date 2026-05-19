@@ -45,14 +45,14 @@ This file serves as the shared source of truth for development progress between 
 ### ⚠️ Action Required From Admin
 - [x] **Sprint 5 step 1**: SQL migration `migrate_blocks_question_ids.sql` run in Supabase ✅
 - [ ] **Sprint 5 step 2**: Open the app → Admin Console → Block Builder → click **"Initialize N Blocks"** to lock in question sets
-- [ ] **2026-05-14 — Profile Names Migration**: Run `migrate_profiles_split_names.sql` in Supabase SQL Editor. Adds `first_name`/`last_name` columns to `profiles` and backfills from `full_name`. Required before Profile Settings name save will succeed.
-- [ ] **Environment Setup**: Install Node.js, restart VS Code, and run `npm install` to resolve local module errors.
+- [x] **2026-05-14 — Profile Names Migration**: Run `migrate_profiles_split_names.sql` in Supabase SQL Editor. Adds `first_name`/`last_name` columns to `profiles` and backfills from `full_name`. Required before Profile Settings name save will succeed. ✅
+- [x] **Environment Setup**: Install Node.js, restart VS Code, and run `npm install` to resolve local module errors. ✅
 
 ### 🎯 Remaining in Phase 2
-1. **Sprint 4B** — Browse + per-question Edit UI for the question bank *(next up)*
-2. **Roster Edit/Archive** — finish the Roster CRUD (Add already works; Edit/Archive deferred)
-3. **Custom URL** — DNS/Vercel config only, no code change
-4. **Question-level Analytics** (Phase 3 territory but unblocked now that fixed question sets exist)
+- [x] **Sprint 4B** — Browse + per-question Edit UI for the question bank ✅
+- [x] **Roster Edit/Archive** — finish the Roster CRUD ✅
+- [x] **Custom URL** — DNS/Vercel config only, no code change ✅
+- [ ] **Question-level Analytics** (Moved to Phase 3)
 
 ---
 

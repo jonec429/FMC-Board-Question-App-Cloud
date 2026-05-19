@@ -38,10 +38,12 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
 
     const fullName = `${firstName.trim()} ${lastName.trim()}`;
 
-    // Helper: tag timeout/network errors with which step they belong to
-    const runStep = async <T,>(label: string, op: Promise<T>): Promise<T> => {
+    // Helper: tag timeout/network errors with which step they belong to.
+    // Default 10s is enough for most calls; pass a longer timeout for steps
+    // known to be slow (e.g., Supabase upserts that re-evaluate RLS on return).
+    const runStep = async <T,>(label: string, op: Promise<T> | PromiseLike<T>, timeoutMs = 10000): Promise<T> => {
       try {
-        return await withTimeout(op, 10000);
+        return await withTimeout(op, timeoutMs);
       } catch (err: any) {
         throw new Error(`[${label}] ${err?.message || 'unknown error'}`);
       }
@@ -51,6 +53,9 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
       // 1. Update profiles table — THE actual save the app cares about.
       // Promoted to first because Step 2 (auth metadata, below) is known to
       // hang in certain session states and is not load-bearing for this app.
+      // Longer timeout (30s) because the upsert can be slow on Supabase free
+      // tier — the row write itself succeeds quickly, but the response that
+      // re-reads it through RLS sometimes takes 10–20s on cold starts.
       const { error: profileError } = (await runStep(
         'profiles row',
         supabase
@@ -61,27 +66,26 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
             full_name: fullName,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
-          })
+          }),
+        30000
       )) as any;
       if (profileError) throw new Error(`[profiles row] ${profileError.message}`);
 
-      // 2. Update auth metadata — FIRE-AND-FORGET. supabase.auth.updateUser
-      // is known to hang in certain session states. The app reads names
-      // from the profiles table (above), not from user_metadata, so this
-      // call is best-effort sync only. Not awaited so it can't block the
-      // user's save UX. Errors are logged for diagnostics.
-      supabase.auth
-        .updateUser({
-          data: {
-            full_name: fullName,
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-          },
-        })
-        .then(({ error }) => {
-          if (error) console.warn('Auth metadata sync failed (non-fatal):', error);
-        })
-        .catch((err) => console.warn('Auth metadata sync threw (non-fatal):', err));
+      // [REMOVED 2026-05-14] supabase.auth.updateUser was previously called
+      // here to keep user_metadata in sync with the profiles row. It has
+      // been removed because:
+      //   1. This app reads names exclusively from the profiles table
+      //      (formatDisplayName operates on full_name).
+      //   2. auth.updateUser hangs reliably in some session states. Even
+      //      as a fire-and-forget call it leaves the supabase-js client in
+      //      a refresh-token retry loop that corrupts localStorage, so the
+      //      next getSession() on page reload also hangs.
+      //   3. The only theoretical loss is Supabase's built-in email
+      //      template interpolation (e.g., "Hi {{first_name}}" in password
+      //      reset emails) — which this app doesn't customize.
+      // If user_metadata sync is ever needed (custom email templates,
+      // social login, Edge Functions reading JWT claims), re-add with a
+      // proper error-handling / refresh-token-recovery strategy.
 
       // 3. Update authorized_roster — best-effort, logged but non-fatal
       try {

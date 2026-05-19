@@ -99,6 +99,29 @@ export default function Home() {
         }
       } catch (err: any) {
         console.error('App init error:', err);
+        // [Self-heal] supabase-js sometimes corrupts its own localStorage
+        // (sb-*-auth-token) and then getSession hangs forever on the next
+        // mount trying to parse/refresh it. When that happens we have to
+        // wipe the state and start over. The first time we hit this we
+        // try the recovery automatically; if it loops we stop and surface
+        // the error so the user isn't stuck in a reload cycle.
+        const isGetSessionHang = err?.message?.includes('[getSession]');
+        const alreadyTriedRecovery = typeof window !== 'undefined'
+          && window.sessionStorage.getItem('fmc-auth-recovery-attempted') === '1';
+        if (isGetSessionHang && !alreadyTriedRecovery && typeof window !== 'undefined') {
+          window.sessionStorage.setItem('fmc-auth-recovery-attempted', '1');
+          try {
+            // Clear all supabase auth keys from localStorage
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < window.localStorage.length; i++) {
+              const key = window.localStorage.key(i);
+              if (key && key.startsWith('sb-')) keysToRemove.push(key);
+            }
+            keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+          } catch {}
+          window.location.reload();
+          return;
+        }
         setInitError(err?.message || 'Failed to initialize the app. Check your network and Supabase project status.');
       } finally {
         setLoading(false);
@@ -156,12 +179,24 @@ export default function Home() {
               <li>Network connectivity issue</li>
             </ul>
           </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="w-full px-5 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg active:scale-95"
-          >
-            Retry
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="flex-1 px-5 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg active:scale-95"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => {
+                window.localStorage.clear();
+                window.sessionStorage.clear();
+                window.location.reload();
+              }}
+              className="flex-1 px-5 py-3 bg-white text-red-600 font-bold border-2 border-red-100 rounded-xl hover:bg-red-50 transition-all shadow-sm active:scale-95"
+            >
+              Reset Session
+            </button>
+          </div>
         </div>
       </div>
     );
