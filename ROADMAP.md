@@ -205,6 +205,13 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-05-20 — Roster RLS Fix + Baseline Verified Working (Claude)
+*   **Root cause of empty Roster + 0 residents**: `authorized_roster` had RLS enabled but **no SELECT policy** for authenticated users. RLS silently filters blocked reads (no error, no timeout) — the query succeeded and returned 0 rows. The absence of any `admin fetch: authorized_roster` warning in the browser console was the tell. Unlike questions/blocks/profiles, the roster never got an explicit RLS policy this session.
+*   **Fix**: `fix_roster_rls.sql` (new, in repo) — clean-slates roster policies and recreates permissive read + write. Run in Supabase. **Verified working**: Roster shows all 49 people with derived PGY labels; Performance shows 34 residents (faculty/fellows excluded), 69.6% program avg.
+*   **YoY model confirmed live**: derived PGY1/2/3 labels, "Show graduates" toggles on Roster + Performance, fellow/faculty exclusion from resident metrics — all working on the live site.
+*   **Decision — data layer**: the recurring admin-console timeouts trace to a hand-rolled fetching hook (`useAdminData`). Agreed long-term fix is to replace it with **TanStack Query (React Query)** for automatic retries, caching, stale-while-revalidate, request dedup, and lazy per-tab loading of the heavy `questions` table. Planned as the next focused refactor. (Server-side fetching considered but rejected as over-engineering — changes auth model, and RQ captures ~90% of the reliability benefit at far lower risk.)
+*   Files: `fix_roster_rls.sql` (new), `ROADMAP.md`.
+
 ### 2026-05-20 — Admin Console Resilience: Per-Query Timeouts (Claude)
 *   **Symptom**: Entire Admin Console intermittently shows "Request timed out" — all tabs dead behind one error screen.
 *   **Root fragility**: `useAdminData` ran all 6 table queries under a single combined `withTimeout(Promise.all, 45s)`. If ANY one query hung (Supabase free-tier cold start, slow RLS eval), the whole batch timed out and the console died. This pattern bit us repeatedly this session.
