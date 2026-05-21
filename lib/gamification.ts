@@ -211,7 +211,12 @@ export async function processGamification(
               if (attemptsData) {
                 const uniqueAttemptedIds = new Set(attemptsData.map(a => a.question_id));
                 if (uniqueAttemptedIds.size >= targetCount) {
-                  await evaluateBadge(userId, 'Topic Master', true);
+                  const badgeName = `Topic Master: ${topicCategory}`;
+                  await evaluateBadge(userId, badgeName, true, {
+                    description: `Answered every question for ${topicCategory} from the most recent ITE.`,
+                    icon: '🎓',
+                    type: 'block'
+                  });
                 }
               }
             }
@@ -225,15 +230,36 @@ export async function processGamification(
   }
 }
 
-async function evaluateBadge(userId: string, badgeName: string, condition: boolean) {
+async function evaluateBadge(
+  userId: string, 
+  badgeName: string, 
+  condition: boolean, 
+  createIfNotExists?: { description: string; icon: string; type: string }
+) {
   if (!condition) return;
 
   // Find badge
-  const { data: badge } = await supabase
+  let { data: badge } = await supabase
     .from('badges')
     .select('id')
     .eq('name', badgeName)
     .single();
+
+  if (!badge && createIfNotExists) {
+    // Create the badge dynamically
+    const { data: newBadge } = await supabase
+      .from('badges')
+      .insert({
+        name: badgeName,
+        description: createIfNotExists.description,
+        icon: createIfNotExists.icon,
+        type: createIfNotExists.type
+      })
+      .select('id')
+      .single();
+      
+    badge = newBadge;
+  }
 
   if (!badge) return;
 

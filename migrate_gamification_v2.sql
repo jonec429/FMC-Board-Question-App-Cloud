@@ -21,6 +21,5 @@ VALUES
   ('700 Club', 'Answered 700 total questions.', '🛸', 'block'),
   ('800 Club', 'Answered 800 total questions.', '🌠', 'block'),
   ('900 Club', 'Answered 900 total questions.', '🌌', 'block'),
-  ('1k Club', 'Answered 1000 total questions.', '👑', 'block'),
-  ('Topic Master', 'Answered every question for a specific ABFM category from the most recent ITE.', '🎓', 'block')
+  ('1k Club', 'Answered 1000 total questions.', '👑', 'block')
 ON CONFLICT (name) DO NOTHING;
