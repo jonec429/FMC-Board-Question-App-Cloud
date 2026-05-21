@@ -205,6 +205,13 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-05-20 — Sortable Tables (Performance + Roster) (Claude)
+*   **New** `lib/sorting.tsx`: reusable `useSortState` hook, pure `sortItems()` sorter, `SortHeader` clickable-header component, and a `lastName()` helper (sorts "First Last" by final token). Numbers sort numerically; text via locale-aware compare.
+*   **AdminPerformance**: every column in the resident tables is now click-to-sort (Resident by last name, PGY, Attempts, Avg %, Blocks, On-Time %, Points, Status) with asc/desc toggle. Default remains Points-descending. Applies across Overview / At Risk / By Class Year / My Advisees.
+*   **RosterManager**: Member (last name), Class/Role (derived label), and Account Status columns are click-to-sort. Default is last-name ascending.
+*   Sort state lives in the parent component (not the inline table) so it survives re-renders. `tsc --noEmit` passes.
+*   Files: `lib/sorting.tsx` (new), `components/AdminPerformance.tsx`, `components/RosterManager.tsx`.
+
 ### 2026-05-20 — Roster RLS Fix + Baseline Verified Working (Claude)
 *   **Root cause of empty Roster + 0 residents**: `authorized_roster` had RLS enabled but **no SELECT policy** for authenticated users. RLS silently filters blocked reads (no error, no timeout) — the query succeeded and returned 0 rows. The absence of any `admin fetch: authorized_roster` warning in the browser console was the tell. Unlike questions/blocks/profiles, the roster never got an explicit RLS policy this session.
 *   **Fix**: `fix_roster_rls.sql` (new, in repo) — clean-slates roster policies and recreates permissive read + write. Run in Supabase. **Verified working**: Roster shows all 49 people with derived PGY labels; Performance shows 34 residents (faculty/fellows excluded), 69.6% program avg.

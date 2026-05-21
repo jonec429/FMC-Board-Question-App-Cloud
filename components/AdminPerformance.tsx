@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { formatDisplayName } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
+import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight } from './AppIcons';
 
 const AT_RISK_AVG = 60;
@@ -60,6 +61,23 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultTab);
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
   const [showGraduates, setShowGraduates] = useState(false);
+
+  // Table sorting (shared across the resident tables; default = points desc)
+  const { sortKey, sortDir, toggle } = useSortState({ key: 'points', dir: 'desc' });
+  const residentAccessor = (r: ResidentStat, key: string): string | number => {
+    switch (key) {
+      case 'name': return lastName(r.name);
+      case 'pgy': return r.label;
+      case 'attempts': return r.attempts;
+      case 'avg': return r.avgPct;
+      case 'blocks': return r.blocksCompleted;
+      case 'ontime': return r.onTimePct;
+      case 'points': return r.totalPoints;
+      case 'status': return r.risk === 'red' ? 0 : r.risk === 'yellow' ? 1 : 2;
+      default: return 0;
+    }
+  };
+  const sortRes = (list: ResidentStat[]) => sortItems(list, residentAccessor, sortKey, sortDir);
 
   const residentStats = useMemo(() => {
     if (!adminData) return [];
@@ -157,14 +175,14 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
       <table className="w-full">
         <thead>
           <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-            <th className="text-left px-6 py-3">Resident</th>
-            <th className="text-center px-4 py-3">PGY</th>
-            <th className="text-center px-4 py-3">Attempts</th>
-            <th className="text-center px-4 py-3">Avg %</th>
-            <th className="text-center px-4 py-3">Blocks Done</th>
-            <th className="text-center px-4 py-3">On-Time %</th>
-            <th className="text-center px-4 py-3">Points</th>
-            <th className="text-center px-4 py-3">Status</th>
+            <SortHeader label="Resident" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-left px-6 py-3" />
+            <SortHeader label="PGY" sortKey="pgy" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Attempts" sortKey="attempts" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Avg %" sortKey="avg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Blocks Done" sortKey="blocks" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="On-Time %" sortKey="ontime" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Points" sortKey="points" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <th className="px-4 py-3" />
           </tr>
         </thead>
@@ -300,7 +318,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
             </div>
           </div>
           {myAdvisees.length > 0 ? (
-            <ResidentTable residents={myAdvisees} />
+            <ResidentTable residents={sortRes(myAdvisees)} />
           ) : (
             <div className="p-12 text-center">
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -320,7 +338,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
             <h3 className="font-black text-slate-800">All Residents</h3>
             <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
           </div>
-          <ResidentTable residents={residentStats} />
+          <ResidentTable residents={sortRes(residentStats)} />
         </div>
       )}
 
@@ -332,7 +350,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
               <div className="p-6 border-b border-red-50 bg-red-50/40">
                 <h3 className="font-black text-red-700">🔴 At Risk — Avg below 60% or On-Time below 50%</h3>
               </div>
-              <ResidentTable residents={redFlagged} />
+              <ResidentTable residents={sortRes(redFlagged)} />
             </div>
           )}
           {yellowFlagged.length > 0 && (
@@ -340,7 +358,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
               <div className="p-6 border-b border-amber-50 bg-amber-50/40">
                 <h3 className="font-black text-amber-700">🟡 Needs Attention — Avg below 70% or On-Time below 75%</h3>
               </div>
-              <ResidentTable residents={yellowFlagged} />
+              <ResidentTable residents={sortRes(yellowFlagged)} />
             </div>
           )}
           {redFlagged.length === 0 && yellowFlagged.length === 0 && (
@@ -374,7 +392,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
                     </div>
                   </div>
                 </div>
-                <ResidentTable residents={residents} />
+                <ResidentTable residents={sortRes(residents)} />
               </div>
             );
           })}

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
 import { AdminData } from '@/hooks/useAdminData';
 import { deriveLabel, isGraduated, mapSelectionToFields, getRoleOptions } from '@/lib/academicYear';
+import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 
 interface RosterManagerProps {
   adminData?: AdminData;
@@ -17,6 +18,7 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
   // run alongside the parent's Promise.all).
   const [search, setSearch] = useState('');
   const [showGraduates, setShowGraduates] = useState(false);
+  const { sortKey, sortDir, toggle } = useSortState({ key: 'member', dir: 'asc' });
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPerson, setNewPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
   const [showEditModal, setShowEditModal] = useState(false);
@@ -128,6 +130,16 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
     return matchesSearch && graduateOk;
   });
 
+  const rosterAccessor = (m: any, key: string): string | number => {
+    switch (key) {
+      case 'member': return lastName(m.full_name);
+      case 'class': return deriveLabel(m);
+      case 'status': return m.has_account ? 0 : 1;
+      default: return 0;
+    }
+  };
+  const sortedRoster = sortItems(filtered, rosterAccessor, sortKey, sortDir);
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 space-y-4">
@@ -172,9 +184,9 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              <th className="px-8 py-6">Member</th>
-              <th className="px-8 py-6">Class / Role</th>
-              <th className="px-8 py-6">Account Status</th>
+              <SortHeader label="Member" sortKey="member" activeKey={sortKey} dir={sortDir} onSort={toggle} className="px-8 py-6 text-left" />
+              <SortHeader label="Class / Role" sortKey="class" activeKey={sortKey} dir={sortDir} onSort={toggle} className="px-8 py-6 text-left" />
+              <SortHeader label="Account Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle} className="px-8 py-6 text-left" />
               <th className="px-8 py-6 text-right">Actions</th>
             </tr>
           </thead>
@@ -201,7 +213,7 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                   </div>
                 </td>
               </tr>
-            ) : filtered.length > 0 ? filtered.map((member) => (
+            ) : sortedRoster.length > 0 ? sortedRoster.map((member) => (
               <tr key={member.id} className="group hover:bg-slate-50/50 transition-all">
                 <td className="px-8 py-6">
                   <div className="flex items-center gap-4">
