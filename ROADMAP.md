@@ -81,11 +81,10 @@ This file serves as the shared source of truth for development progress between 
 ## 🤝 Session Handoff — 2026-05-21 (Antigravity)
 
 **What shipped today (all live on `main`, verified by `tsc --noEmit`):**
-1. **Real Last-Name Sort**: Updated `RosterManager` and `AdminPerformance` to capture and sort by true last name. Added `migrate_roster_split_names.sql`.
-2. **Pre-launch RLS Security**: Hardened write operations for `questions`, `blocks`, `block_schedule`, and `authorized_roster`. Added `tighten_rls_policies.sql`.
-3. **Admin Reorg**: Retired the legacy "Advanced" tab, finalizing the clean 5-tab structure for the Admin Console.
-4. **Year Transition Wizard**: Built a new UI to bulk-graduate PGY3s, explain auto-advancement, and onboard incoming PGY1s (with faculty advisor capture). Accessible from the Roster Manager.
-5. **Academic Year Tagging**: Added `academic_year` column to `results` and `blocks` (via `migrate_academic_year.sql`). The Dashboard and Admin Performance screens now feature an "Academic Year" dropdown (e.g., "AY 25-26") that correctly filters data.
+1. **Gamification & Badges**: Added a visual badge system (100 Club, 200 Club, etc.), streak tracking, and interactive icons in the `Dashboard` and `ProfileSettings`. Tooltips added on hover.
+2. **QOTD & Cron Stability**: Added reaction emojis to the Question of the Day, built caching for QOTD loads, wrapped all QOTD fetches in `withTimeout`, and locked down Vercel Cron routes with `CRON_SECRET` authorization to prevent unwanted push notifications.
+3. **Admin & Review Timeouts**: Hardened the entire app's data-fetching layers (`useAdminData.ts`, `ResidentReview.tsx`, `page.tsx`) with strict timeout boundaries to prevent infinite loading spinners when Supabase auth or network requests hang.
+4. **QoL Enhancements**: Added an Eye/EyeOff toggle for password visibility in Login, Registration, and Profile Settings. Added user designation (PGY vs Faculty/Fellow) to the dashboard display.
 
 **Next tasks, priority order:**
 1. **Reporting & Risk (Phase 4)**: Implement "Resident Risk" logic and exportable PDF reporting in the Admin Console.
@@ -242,6 +241,12 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-21 — Gamification & Stability (Antigravity)
+*   **Gamification**: Introduced the "100/200/300/400/500/1k Club" badge system and "Hot Streak" tracking to the Dashboard to increase resident engagement.
+*   **Quality of Life**: Added a password visibility toggle (Eye/EyeOff) to all login and profile screens. Added visual roles/designations (e.g. Faculty, Fellow) to the dashboard.
+*   **Infinite Spinner Fixes**: Added hard timeout wrappers (`withTimeout`) across `useAdminData.ts`, `ResidentReview.tsx`, and the QOTD loader to prevent the app from hanging silently when Supabase auth or the network drops.
+*   **Cron Security**: Locked down the `/api/cron/qotd-morning` and `qotd-noon` routes by strictly enforcing the `CRON_SECRET` auth header, stopping random web crawlers and build jobs from sending unwanted push notifications.
 
 ### 2026-05-21 — Question Analytics Heatmap (Antigravity)
 *   **New** `QuestionHeatmap.tsx`: Added a new "Trend Analysis" tab to the Admin Performance screen to help faculty pinpoint cohort weaknesses.
