@@ -2,11 +2,19 @@ import { supabase } from './supabase';
 import { getCurrentAcademicYear } from './academicYear';
 
 /**
+ * Helper to get the current date explicitly in EST
+ */
+export function getESTDate(date: Date = new Date()): Date {
+  return new Date(date.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+}
+
+/**
  * Calculates the deterministic index of the QOTD based on the number of weekdays
  * since July 1st of the current academic year.
  */
 export function getQotdIndex(date: Date = new Date()): number | null {
-  const dayOfWeek = date.getDay();
+  const estDate = getESTDate(date);
+  const dayOfWeek = estDate.getDay();
   // 0 = Sunday, 6 = Saturday
   if (dayOfWeek === 0 || dayOfWeek === 6) {
     return null; // No QOTD on weekends
@@ -19,7 +27,7 @@ export function getQotdIndex(date: Date = new Date()): number | null {
   
   // Strip time for accurate day counting
   const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-  const current = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const current = new Date(estDate.getFullYear(), estDate.getMonth(), estDate.getDate());
 
   let weekdays = 0;
   const tempDate = new Date(start);
@@ -80,8 +88,9 @@ export function isPastNoon(date: Date = new Date()): boolean {
 }
 
 /**
- * Helper to get today's date string (YYYY-MM-DD) in local time
+ * Helper to get today's date string (YYYY-MM-DD) in local time (EST)
  */
 export function getTodayDateString(date: Date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const estDate = getESTDate(date);
+  return `${estDate.getFullYear()}-${String(estDate.getMonth() + 1).padStart(2, '0')}-${String(estDate.getDate()).padStart(2, '0')}`;
 }

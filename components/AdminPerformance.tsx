@@ -94,7 +94,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
     });
 
     const enriched = allResults
-      .filter((r: any) => r.academic_year === selectedYear)
+      .filter((r: any) => selectedYear === 0 || r.academic_year === selectedYear)
       .map((r: any) => ({
         ...r,
         email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
@@ -315,6 +315,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
             onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
             className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
           >
+            <option value={0}>All Time (YoY Trend)</option>
             {getAvailableAcademicYears().map(year => (
               <option key={year} value={year}>{formatAcademicYear(year)}</option>
             ))}

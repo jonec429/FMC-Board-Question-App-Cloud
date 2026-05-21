@@ -6,7 +6,8 @@ import QuestionCard from './QuestionCard';
 import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
-import { isPastNoon, getTodayDateString } from '@/lib/qotd';
+import { getTodayDateString, isPastNoon } from '@/lib/qotd';
+import { processGamification } from '@/lib/gamification';
 
 interface QuizEngineProps {
   user: any;
@@ -392,8 +393,19 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           user_id: user.id,
           question_id: questions[0].id,
           is_correct: answers[0] === questions[0].correct_index,
+          is_qotd: true
         }), 30000);
       }
+
+      // Process Gamification (Streaks & Badges) asynchronously
+      processGamification(
+        user.id,
+        !!isQotd,
+        answers[0] === questions[0].correct_index,
+        questions[0].id,
+        questions.length,
+        result.percentage
+      );
 
       if (sessionId) {
         await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 30000);
@@ -500,7 +512,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   { e: '🤯', l: 'Hard' },
                   { e: '🤨', l: 'Tricky' },
                   { e: '👍', l: 'Fair' },
-                  { e: '🥱', l: 'Easy' }
+                  { e: '🥱', l: 'Easy' },
+                  { e: '😴', l: 'Too Easy' }
                 ].map(({ e, l }) => (
                   <button
                     key={e}
@@ -589,7 +602,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               {/* Noon Conference Box */}
               <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-1 rounded-3xl shadow-lg">
                 <div className="bg-white rounded-[20px] p-6 text-center">
-                  <h3 className="text-xl font-black text-slate-800 mb-2">Noon Conference Topic</h3>
+                  <h3 className="text-xl font-black text-slate-800 mb-2">Noon Conference Reminder</h3>
                   <p className="text-slate-600 font-medium text-sm">
                     We will discuss this question and its learning points at today's Noon Conference! Be ready to share your thoughts.
                   </p>
@@ -599,19 +612,25 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               {/* Social Aggregates */}
               {qotdAggregates && (
                 <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center">
-                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Cohort Reactions</h3>
-                  <div className="flex justify-center gap-6 md:gap-12">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Co-Residents' Reactions</h3>
+                  <div className="flex justify-center gap-4 md:gap-8">
                     {[
                       { e: '🤯', l: 'Hard' },
                       { e: '🤨', l: 'Tricky' },
                       { e: '👍', l: 'Fair' },
-                      { e: '🥱', l: 'Easy' }
+                      { e: '🥱', l: 'Easy' },
+                      { e: '😴', l: 'Too Easy' }
                     ].map(({ e, l }) => (
-                      <div key={e} className="flex flex-col items-center gap-2">
-                        <span className="text-4xl">{e}</span>
-                        <span className="text-xl font-black text-slate-700">{qotdAggregates[e] || 0}</span>
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{l}</span>
-                      </div>
+                      <button 
+                        key={e} 
+                        onClick={() => handleReaction(e)}
+                        disabled={!!qotdReaction}
+                        className={`flex flex-col items-center gap-2 transition-all p-2 rounded-xl ${qotdReaction === e ? 'bg-indigo-50 scale-110' : qotdReaction ? 'opacity-50' : 'hover:bg-slate-100 hover:scale-105 active:scale-95'}`}
+                      >
+                        <span className="text-3xl md:text-4xl">{e}</span>
+                        <span className={`text-xl font-black ${qotdReaction === e ? 'text-indigo-600' : 'text-slate-700'}`}>{qotdAggregates[e] || 0}</span>
+                        <span className={`text-xs font-bold uppercase tracking-widest ${qotdReaction === e ? 'text-indigo-400' : 'text-slate-400'}`}>{l}</span>
+                      </button>
                     ))}
                   </div>
                 </div>

@@ -56,6 +56,8 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [qotdQuestion, setQotdQuestion] = useState<any>(null);
   const [qotdAttempt, setQotdAttempt] = useState<any>(null);
+  const [userStreak, setUserStreak] = useState<any>(null);
+  const [userBadges, setUserBadges] = useState<any[]>([]);
 
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
@@ -67,13 +69,21 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
       setLoading(true);
       try {
         const fetchTasks = [
-          supabase.from('blocks').select('*').eq('is_archived', false).eq('academic_year', selectedYear),
-          supabase
-            .from('results')
-            .select('*')
-            .eq('academic_year', selectedYear)
-            .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
-            .order('created_at', { ascending: false }),
+          selectedYear === 0 
+            ? supabase.from('blocks').select('*').eq('is_archived', false)
+            : supabase.from('blocks').select('*').eq('is_archived', false).eq('academic_year', selectedYear),
+          selectedYear === 0
+            ? supabase
+                .from('results')
+                .select('*')
+                .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
+                .order('created_at', { ascending: false })
+            : supabase
+                .from('results')
+                .select('*')
+                .eq('academic_year', selectedYear)
+                .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
+                .order('created_at', { ascending: false }),
           supabase
             .from('quiz_sessions')
             .select('id, topic, quiz_id, current_index, answers, last_updated')
@@ -82,8 +92,12 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
             .order('last_updated', { ascending: false })
             .limit(1)
             .maybeSingle(),
-          supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear),
+          selectedYear === 0
+            ? supabase.from('results').select('legacy_email, topic, total, academic_points')
+            : supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear),
           supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty'),
+          supabase.from('user_streaks').select('*').eq('user_id', user.id).maybeSingle(),
+          supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', user.id)
         ];
 
         const qotd = await getQotdQuestion();
@@ -106,11 +120,15 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
           { data: sessionData },
           { data: allResults },
           { data: rosterData },
+          { data: streakData },
+          { data: badgesData },
           { data: qotdAttemptData },
         ] = resultArgs;
 
         if (qotd) setQotdQuestion(qotd);
         if (qotdAttemptData) setQotdAttempt(qotdAttemptData);
+        if (streakData) setUserStreak(streakData);
+        if (badgesData) setUserBadges(badgesData.map((b: any) => ({ ...b.badges, earned_at: b.earned_at })));
 
         if (blockData) {
           const sorted = [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b));
@@ -198,6 +216,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
               onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
               className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
             >
+              <option value={0}>All Time (YoY Trend)</option>
               {getAvailableAcademicYears().map(year => (
                 <option key={year} value={year}>{formatAcademicYear(year)}</option>
               ))}
@@ -291,6 +310,33 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
                    </div>
                  )}
                </div>
+            </div>
+           )}
+
+          {/* Streaks & Badges */}
+          {(userStreak?.current_qotd_streak > 0 || userBadges.length > 0) && (
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm animate-fade-in">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Achievements</h3>
+              
+              {userStreak?.current_qotd_streak > 0 && (
+                <div className="flex items-center gap-3 mb-4 p-3 bg-orange-50 text-orange-700 rounded-xl border border-orange-100">
+                  <div className="text-2xl animate-pulse">🔥</div>
+                  <div>
+                    <div className="font-black text-lg">{userStreak.current_qotd_streak} Day Streak</div>
+                    <div className="text-xs font-bold opacity-80">QOTD</div>
+                  </div>
+                </div>
+              )}
+
+              {userBadges.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {userBadges.map((badge, idx) => (
+                    <div key={idx} title={badge.name + ' - ' + badge.description} className="flex items-center justify-center w-10 h-10 bg-slate-50 border border-slate-100 rounded-full text-xl cursor-help hover:bg-slate-100 transition-colors shadow-sm">
+                      {badge.icon}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
