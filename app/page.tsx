@@ -199,63 +199,63 @@ export default function Home() {
     return <Login onLogin={setUser} />;
   }
 
-  if (activeQuiz) {
-    return (
-      <QuizEngine
-        user={user}
-        isQotd={activeQuiz.isQotd}
-        qotdQuestion={activeQuiz.qotdQuestion}
-        isQotdCompleted={activeQuiz.isQotdCompleted}
-        qotdAttempt={activeQuiz.qotdAttempt}
-        quizId={activeQuiz.quizId}
-        topic={activeQuiz.topic}
-        questionIds={activeQuiz.questionIds}
-        categories={activeQuiz.categories}
-        keywords={activeQuiz.keywords}
-        years={activeQuiz.years}
-        pool={activeQuiz.pool}
-        count={activeQuiz.count || 40}
-        timerEnabled={activeQuiz.timerEnabled}
-        currentBlock={currentBlock}
-        onComplete={() => setActiveQuiz(null)}
-        onCancel={() => setActiveQuiz(null)}
-      />
-    );
-  }
-
-    if (showBuilder) {
-    return (
-      <CustomBuilderScreen
-        user={user}
-        onStart={(config) => {
-          setShowBuilder(false);
-          setActiveQuiz({
-            topic: 'Mixed Review Block',
-            categories: config.categories.length > 0 ? config.categories : undefined,
-            years: config.years.length > 0 ? config.years : undefined,
-            count: config.count,
-            pool: config.pool,
-            timerEnabled: config.timerEnabled,
-          });
-        }}
-        onCancel={() => setShowBuilder(false)}
-      />
-    );
-  }
-
-  if (showAdmin) {
-    return <AdminConsole user={user} profile={profile} onExit={() => setShowAdmin(false)} />;
-  }
-
   return (
-    <Dashboard
-      user={user}
-      profile={profile}
-      currentBlock={currentBlock}
-      onLogout={handleLogout}
-      onStartQuiz={(quiz: any) => setActiveQuiz(quiz)}
-      onOpenBuilder={() => setShowBuilder(true)}
-      onOpenAdmin={() => setShowAdmin(true)}
-    />
+    <>
+      <div style={{ display: (showBuilder || showAdmin || activeQuiz) ? 'none' : 'block' }}>
+        <Dashboard
+          user={user}
+          profile={profile}
+          currentBlock={currentBlock}
+          onLogout={handleLogout}
+          onStartQuiz={(quiz: any) => setActiveQuiz(quiz)}
+          onOpenBuilder={() => setShowBuilder(true)}
+          onOpenAdmin={() => setShowAdmin(true)}
+        />
+      </div>
+
+      {activeQuiz && (
+        <QuizEngine
+          user={user}
+          isQotd={activeQuiz.isQotd}
+          qotdQuestion={activeQuiz.qotdQuestion}
+          isQotdCompleted={activeQuiz.isQotdCompleted}
+          qotdAttempt={activeQuiz.qotdAttempt}
+          quizId={activeQuiz.quizId}
+          topic={activeQuiz.topic}
+          questionIds={activeQuiz.questionIds}
+          categories={activeQuiz.categories}
+          keywords={activeQuiz.keywords}
+          years={activeQuiz.years}
+          pool={activeQuiz.pool}
+          count={activeQuiz.count || 40}
+          timerEnabled={activeQuiz.timerEnabled}
+          currentBlock={currentBlock}
+          onComplete={() => setActiveQuiz(null)}
+          onCancel={() => setActiveQuiz(null)}
+        />
+      )}
+
+      {showBuilder && (
+        <CustomBuilderScreen
+          user={user}
+          onStart={(config) => {
+            setShowBuilder(false);
+            setActiveQuiz({
+              topic: 'Mixed Review Block',
+              categories: config.categories.length > 0 ? config.categories : undefined,
+              years: config.years.length > 0 ? config.years : undefined,
+              count: config.count,
+              pool: config.pool,
+              timerEnabled: config.timerEnabled,
+            });
+          }}
+          onCancel={() => setShowBuilder(false)}
+        />
+      )}
+
+      {showAdmin && (
+        <AdminConsole user={user} profile={profile} onExit={() => setShowAdmin(false)} />
+      )}
+    </>
   );
 }
