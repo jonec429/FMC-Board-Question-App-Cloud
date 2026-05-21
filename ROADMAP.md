@@ -46,27 +46,56 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
-## 📊 Current Status (Snapshot — 2026-05-19)
+## 📊 Current Status (Snapshot — 2026-05-20)
 
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **Phase 1** | ✅ **Complete** | 3 optional code-quality recommendations remain |
 | **Phase 2** | ✅ **Complete** | Admin Overhaul, Fixed Blocks, and Stability Hardened |
 | **Phase 3** | 🟡 **Partially started** | Curriculum Manager (UI Optimization) ✅ done. Notifications, QOTD, analytics & Resident Review still pending. |
-| **Phase 4** | ⏸ Not started | Year-end transition tooling |
+| **Phase 4** | 🟡 **Foundation laid** | YoY schema + derived-PGY model done (2026-05-20). "Start Year Transition" wizard + reporting still pending. |
+
+**Data layer (2026-05-20):** Admin console now runs on **TanStack Query** (retries, caching, lazy questions). The recurring timeout issues are resolved. See changelog.
 
 ### ⚠️ Action Required From Admin
 - [x] **Sprint 5 step 1**: SQL migration `migrate_blocks_question_ids.sql` run in Supabase ✅
 - [ ] **Sprint 5 step 2**: Open the app → Admin Console → **Curriculum** → click **"Initialize N Blocks"** to lock in question sets *(note: the old "Block Builder" tab was merged into the new Curriculum Manager on 2026-05-18)*
-- [x] **2026-05-14 — Profile Names Migration**: Run `migrate_profiles_split_names.sql` in Supabase SQL Editor. Adds `first_name`/`last_name` columns to `profiles` and backfills from `full_name`. Required before Profile Settings name save will succeed. ✅
-- [x] **2026-05-18 — Block Archiving Migration**: Run `migrate_blocks_archive.sql` in Supabase SQL Editor. Adds `is_archived` boolean column to `blocks` (idempotent — safe to re-run). Required for the new Curriculum Manager's archive flow. ✅
-- [x] **Environment Setup**: Install Node.js, restart VS Code, and run `npm install` to resolve local module errors. ✅
+- [x] **2026-05-14 — Profile Names Migration**: `migrate_profiles_split_names.sql` — adds `first_name`/`last_name` to `profiles`. ✅
+- [x] **2026-05-18 — Block Archiving Migration**: `migrate_blocks_archive.sql` — adds `is_archived` to `blocks`. ✅
+- [x] **2026-05-20 — YoY Schema Migration**: `migrate_yoy_schema.sql` — adds `cohort_year`/`track`/`pgy_override`/`status`/`graduated_year` to `authorized_roster`, backfilled. ✅
+- [x] **2026-05-20 — Roster RLS Fix**: `fix_roster_rls.sql` — roster had RLS enabled but no SELECT policy, silently hiding all rows. ✅
+- [ ] **NEXT — Roster Split-Names Migration**: `migrate_roster_split_names.sql` (to be written by Antigravity — see "Real Last-Name Sort" task below). Adds `first_name`/`last_name` to `authorized_roster` so tables sort by true last name. **Admin must run it in Supabase once written.**
+- [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20 — Antigravity should `npm install` after pulling.)*
 
 ### 🎯 Remaining in Phase 2
 - [x] **Sprint 4B** — Browse + per-question Edit UI for the question bank ✅
 - [x] **Roster Edit/Archive** — finish the Roster CRUD ✅
 - [x] **Custom URL** — DNS/Vercel config only, no code change ✅
 - [ ] **Question-level Analytics** (Moved to Phase 3)
+
+---
+
+## 🤝 Session Handoff — 2026-05-20 (Claude → Antigravity)
+
+**Heads up:** run `npm install` after pulling — `@tanstack/react-query` was added this session.
+
+**What shipped today (all live on `main`, verified by `tsc --noEmit` + `next build`):**
+1. Pushed Antigravity's 2026-05-18 Curriculum Manager consolidation that was sitting uncommitted.
+2. Fixed a chain of admin-console timeouts (oversized questions payload → duplicate fetch → roster RLS → transient blips).
+3. **Year-over-Year model** — `migrate_yoy_schema.sql` (run ✅) + `lib/academicYear.ts`. PGY now derived from `cohort_year`; tracks for FM resident / OB fellow / academic fellow / faculty; graduate hiding. Verified live (34 residents, derived PGY labels).
+4. **Sortable tables** — `lib/sorting.tsx`; all Performance + Roster columns click-to-sort.
+5. **Data layer → TanStack Query** — replaced the fragile hand-rolled `useAdminData`. Retries/caching/dedup + lazy `questions`. This is what finally killed the timeouts.
+
+**Verified working on the live site:** admin console loads fast & reliably; Roster shows all 49 people; Performance shows 34 residents; Questions/Curriculum lazy-load.
+
+**Next tasks, priority order:**
+1. **Real Last-Name Sort** (user-requested) — full spec in Feedback Backlog below. Needs a new `migrate_roster_split_names.sql` (admin runs it).
+2. **Finish admin reorg** — the planned 5-tab structure still has a leftover **Advanced** tab to retire (its Roster sub-tab duplicates the top-level Roster; its Reports stub belongs in a future Reports tab).
+3. **"Start Year Transition" wizard** — bulk-graduate PGY3s + onboard new PGY1s each July. The YoY schema already supports it (`status`, `graduated_year`, `cohort_year`).
+4. **`academic_year` tagging** on `results`/`blocks` for historical dashboard filtering.
+5. **[Pre-launch] Tighten RLS write policies** — currently `USING(true)` for all authenticated users on questions/blocks/schedule/roster.
+
+**Workflow note:** still pushing straight to `main` (pre-launch, no users). User works on the live BRQ URL, not local. See "Deployment Workflow" above for the post-launch transition.
 
 ---
 
@@ -153,7 +182,12 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Antigravity]** **Question Bank Sorting**: Fixed query error on missing `created_at` column.
 - [x] **[REGRESSION 2026-05-14, fixed Claude]** **Profile Name Update — still spins**: Root cause was a single 30s outer timeout wrapping three sequential Supabase calls with no per-step timeouts. When the auth-metadata update hung, users sat on the spinner for 30s before any error. Fixed by wrapping each step in `withTimeout(..., 10000)` with step-specific error messages, and making the `authorized_roster` sync non-fatal so a roster mismatch can't break the primary save. Password update flow untouched (separate path, untested).
 - [x] **[2026-05-14, fixed Claude]** **Resume Later — silent data loss**: Root cause was a 3s debounce on `syncProgress` whose pending timeout got cancelled on component unmount. Clicking Resume Later within 3s of an answer change discarded the latest state. Added `handleResumeLater` that flushes the current state to `quiz_sessions` immediately (with 8s timeout) before calling `onCancel`. Button now shows a "Saving…" state while flushing. Same handler wired to the top-left back-arrow (same exit intent).
-- [ ] **[Security 2026-05-19, flagged Claude] [MUST FIX BEFORE LAUNCH]** **Tighten RLS policies on `questions`, `blocks`, `block_schedule`**: Current policies (from `migrate_admin_fixes.sql`) grant `ALL` to any `authenticated` user via `USING (true)`. Any logged-in resident could write to the question bank, schedule, or block metadata via direct Supabase API calls — bypassing the UI's admin-only checks entirely. Low practical risk today (small trusted roster) but unacceptable for general rollout. Replace with role-based policies that check `auth.uid()` against an `admin`/`faculty` role in `profiles` for write operations.
+- [ ] **[Security 2026-05-19, flagged Claude] [MUST FIX BEFORE LAUNCH]** **Tighten RLS policies on `questions`, `blocks`, `block_schedule`, `authorized_roster`**: Current policies (from `migrate_admin_fixes.sql` and `fix_roster_rls.sql`) grant `ALL` to any `authenticated` user via `USING (true)`. Any logged-in resident could write to the question bank, schedule, block metadata, or roster via direct Supabase API calls — bypassing the UI's admin-only checks entirely. Low practical risk today (small trusted roster) but unacceptable for general rollout. Replace with role-based policies that check `auth.uid()` against an `admin`/`faculty` role in `profiles` for write operations. **Reads can stay open; writes must be locked down.**
+- [ ] **[Feature 2026-05-20, requested by user — for Antigravity] Real Last-Name Sort**: Tables currently sort the Resident/Member column via `lastName()` in `lib/sorting.tsx`, which takes the **final token** of the full name. Two-part last names ("Jan Dela Cruz" → sorts under "Cruz") sort wrong. **Robust fix (user explicitly wants the real field, not a heuristic):**
+    1. Write `migrate_roster_split_names.sql` — add `first_name` + `last_name` to `authorized_roster` (mirror `migrate_profiles_split_names.sql`), idempotent, backfill from `name` (split on first space — then admin hand-corrects two-part surnames). Admin runs it in Supabase.
+    2. Update RosterManager Add/Edit modal to capture `first_name`/`last_name` as separate fields (or at least `last_name`), writing them on save.
+    3. Update sort accessors — `RosterManager` `rosterAccessor` (`'member'` case) and `AdminPerformance` `residentAccessor` (`'name'` case) — to use `last_name` when present, falling back to the existing `lastName()` heuristic for un-migrated rows. Graceful: works before AND after the migration runs.
+    4. The `profiles` table already has `last_name`; could be joined, but `authorized_roster` is the source of truth for names pre-signup, so adding the columns there is cleaner.
 - [ ] **[Security 2026-05-19, flagged Claude]** **`migrate_admin_fixes.sql` is destructive if re-run**: First statement is `DROP TABLE IF EXISTS public.block_schedule CASCADE` with no guard. File now carries a "DO NOT RE-RUN" header, but the safer fix is to split it into idempotent steps (`CREATE TABLE IF NOT EXISTS …`, conditional ALTERs) before reusing any of it as a template for future migrations.
 - [x] **[Perf 2026-05-19 → done 2026-05-20]** ~~`sessionStorage`-backed cache for `useAdminData`~~ **Superseded by the TanStack Query refactor** (2026-05-20) — React Query provides caching, stale-while-revalidate, retries, and dedup, which covers this item and more.
 
