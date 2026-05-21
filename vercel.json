@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/qotd-morning",
+      "schedule": "0 8 * * 1-5"
+    },
+    {
+      "path": "/api/cron/qotd-noon",
+      "schedule": "0 12 * * 1-5"
+    }
+  ]
+}

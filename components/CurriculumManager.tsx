@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive } from './AppIcons';
 import { AdminData } from '@/hooks/useAdminData';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW } from '@/lib/questionFilters';
+import { getCurrentAcademicYear } from '@/lib/academicYear';
 import BlockEditor from './BlockEditor'; // We will extract this or keep it here
 
 interface CurriculumManagerProps {
@@ -109,6 +110,7 @@ export default function CurriculumManager({ adminData, onRefresh }: CurriculumMa
       title,
       block_type: 'standard',
       question_count: 40,
+      academic_year: getCurrentAcademicYear(),
     });
     await onRefresh();
   };

@@ -4,11 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName, withTimeout } from '@/lib/utils';
 import { canAccessAdmin } from '@/lib/roles';
+import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Target,
+  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon,
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
+import ResidentReview from './ResidentReview';
+import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 
 interface DashboardProps {
   user: any;
@@ -46,24 +49,29 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
   const [loading, setLoading] = useState(true);
 
   // Data
+  const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
   const [blocks, setBlocks] = useState<any[]>([]);
   const [myResults, setMyResults] = useState<any[]>([]);
   const [activeSession, setActiveSession] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [qotdQuestion, setQotdQuestion] = useState<any>(null);
+  const [qotdAttempt, setQotdAttempt] = useState<any>(null);
 
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showReview, setShowReview] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const fetchTask = Promise.all([
-          supabase.from('blocks').select('*').eq('is_archived', false),
+        const fetchTasks = [
+          supabase.from('blocks').select('*').eq('is_archived', false).eq('academic_year', selectedYear),
           supabase
             .from('results')
             .select('*')
+            .eq('academic_year', selectedYear)
             .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
             .order('created_at', { ascending: false }),
           supabase
@@ -74,17 +82,35 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
             .order('last_updated', { ascending: false })
             .limit(1)
             .maybeSingle(),
-          supabase.from('results').select('legacy_email, topic, total, academic_points'),
+          supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear),
           supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty'),
-        ]);
+        ];
 
+        const qotd = await getQotdQuestion();
+        let attemptPromise: PromiseLike<any> = Promise.resolve({ data: null });
+        if (qotd) {
+          attemptPromise = supabase
+            .from('question_attempts')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('question_id', qotd.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        }
+
+        const resultArgs = await withTimeout(Promise.all([...fetchTasks, attemptPromise] as any[])) as any[];
         const [
           { data: blockData },
           { data: resultsData },
           { data: sessionData },
           { data: allResults },
           { data: rosterData },
-        ] = await withTimeout(fetchTask);
+          { data: qotdAttemptData },
+        ] = resultArgs;
+
+        if (qotd) setQotdQuestion(qotd);
+        if (qotdAttemptData) setQotdAttempt(qotdAttemptData);
 
         if (blockData) {
           const sorted = [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b));
@@ -129,7 +155,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
       }
     }
     fetchData();
-  }, [user.id, user.email]);
+  }, [user.id, user.email, selectedYear]);
 
   // Best result per topic
   const bestResultByTopic = new Map<string, any>();
@@ -163,9 +189,20 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
         <div className="absolute -top-10 -left-10 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10">
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">FMC Board Review App</h2>
-          <p className="text-slate-500 font-bold text-xs tracking-wide mt-1 uppercase opacity-60">
-            Ascension St. Vincent's FM Residency · {formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : user.email}
-          </p>
+          <div className="flex items-center gap-4 mt-2">
+            <p className="text-slate-500 font-bold text-xs tracking-wide uppercase opacity-60">
+              Ascension St. Vincent's FM Residency · {formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : user.email}
+            </p>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+              className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+            >
+              {getAvailableAcademicYears().map(year => (
+                <option key={year} value={year}>{formatAcademicYear(year)}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="flex items-center gap-2 relative z-20">
           {isSuperAdmin && (
@@ -220,6 +257,43 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
 
         {/* LEFT SIDEBAR */}
         <div className="md:w-80 flex flex-col gap-4 shrink-0">
+          
+          {/* QOTD Card */}
+          {qotdQuestion && (
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in">
+               <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+               <div className="relative z-10">
+                 <h3 className="font-black text-lg flex items-center gap-2 mb-2">
+                   <Sparkles className="w-5 h-5 text-yellow-300" />
+                   Question of the Day
+                 </h3>
+                 {qotdAttempt ? (
+                   <div>
+                     <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">
+                       {isPastNoon() ? 'Results and stats are now available!' : 'Answer recorded. Come back at 12 PM for results!'}
+                     </p>
+                     <button
+                       onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day' })}
+                       className="w-full py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/20"
+                     >
+                       {isPastNoon() ? 'View Results & Stats' : 'Review Selection'}
+                     </button>
+                   </div>
+                 ) : (
+                   <div>
+                     <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">A new high-yield question is ready for you.</p>
+                     <button
+                       onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', count: 1 })}
+                       className="w-full py-3 bg-white text-indigo-600 rounded-xl font-black transition-all hover:scale-105 active:scale-95 shadow-md flex items-center justify-center gap-2"
+                     >
+                       Take QOTD <ChevronRight className="w-4 h-4" />
+                     </button>
+                   </div>
+                 )}
+               </div>
+            </div>
+          )}
+
           {/* My Performance — yellow gradient */}
           <button
             onClick={() => setShowMyStats(true)}
@@ -231,6 +305,20 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
             <div className="text-left">
               <p className="font-bold text-base">My Performance</p>
               <p className="text-xs text-yellow-600">Stats, badges &amp; history</p>
+            </div>
+          </button>
+
+          {/* Review Weak Areas */}
+          <button
+            onClick={() => setShowReview(true)}
+            className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 text-rose-800 rounded-3xl shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group"
+          >
+            <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 transition-transform">
+              <TargetIcon className="w-6 h-6 text-rose-500" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-base">Review Weak Areas</p>
+              <p className="text-xs text-rose-600">Revisit missed questions</p>
             </div>
           </button>
 
@@ -383,6 +471,13 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
             setShowSettings(false);
             window.location.reload();
           }}
+        />
+      )}
+
+      {showReview && (
+        <ResidentReview
+          user={user}
+          onClose={() => setShowReview(false)}
         />
       )}
 

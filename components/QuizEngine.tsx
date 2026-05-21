@@ -5,9 +5,13 @@ import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
 import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
+import { getCurrentAcademicYear } from '@/lib/academicYear';
+import { isPastNoon, getTodayDateString } from '@/lib/qotd';
 
 interface QuizEngineProps {
   user: any;
+  isQotd?: boolean;
+  qotdQuestion?: any;
   quizId?: string;
   topic?: string;
   /** Fixed list of question IDs (set on assigned blocks so every resident sees the same questions). Takes precedence over category/keyword filtering. */
@@ -27,7 +31,7 @@ interface QuizEngineProps {
 const FONT_SIZES = [14, 16, 18, 20, 22, 24];
 const DEFAULT_FONT_INDEX = 2; // 18px
 
-export default function QuizEngine({ user, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
+export default function QuizEngine({ user, isQotd, qotdQuestion, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -40,6 +44,10 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [resultData, setResultData] = useState<any>(null);
+  
+  // QOTD States
+  const [qotdReaction, setQotdReaction] = useState<string | null>(null);
+  const [qotdAggregates, setQotdAggregates] = useState<Record<string, number> | null>(null);
 
   // === Quiz Tools (Text Resize + Highlight/Strikethrough Persistence) ===
   // Font size loads from localStorage so the user's preference persists across all quizzes
@@ -67,6 +75,13 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
       try {
         setLoading(true);
         setError(null);
+
+        if (isQotd && qotdQuestion) {
+          setQuestions([qotdQuestion]);
+          setTimeLeft(90);
+          setLoading(false);
+          return; // Skip session logic for QOTD
+        }
 
         const topicLabel = topic || 'Mixed Review Block';
 
@@ -302,9 +317,10 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
       percentage: parseFloat(percentage.toFixed(2)),
       academic_points: points,
       timing_status: timingStatus,
+      academic_year: getCurrentAcademicYear(),
     };
 
-    if (!isDemo) {
+    if (!isDemo && !isQotd) {
       await supabase.from('results').insert(result);
 
       // Save individual question attempts
@@ -314,10 +330,51 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
         is_correct: answers[idx] === q.correct_index,
       }));
       await supabase.from('question_attempts').insert(attempts);
+
+      // Send completion email
+      fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: user.email,
+          subject: `FMC QBank: ${topicLabel} Completed`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h2 style="color: #1e293b;">Quiz Completed: ${topicLabel}</h2>
+              <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                <p style="margin: 0 0 10px 0; font-size: 16px;"><strong>Score:</strong> ${score} / ${questions.length} (${result.percentage}%)</p>
+                <p style="margin: 0; font-size: 16px;"><strong>Points Earned:</strong> ${points} (${timingStatus})</p>
+              </div>
+              <p style="color: #64748b;">Keep up the great work!</p>
+            </div>
+          `
+        })
+      }).catch(err => console.error('Failed to send email:', err));
+    } else if (isQotd) {
+      // For QOTD, only save the attempt, not a full block result
+      await supabase.from('question_attempts').insert({
+        user_id: user.id,
+        question_id: questions[0].id,
+        is_correct: answers[0] === questions[0].correct_index,
+      });
     }
 
     if (sessionId) {
       await supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId);
+    }
+
+    if (isQotd) {
+      // For QOTD, fetch existing reactions to show aggregates
+      const { data } = await supabase.from('qotd_reactions')
+        .select('reaction')
+        .eq('question_id', questions[0].id)
+        .eq('date', getTodayDateString());
+      
+      if (data) {
+        const aggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0 };
+        data.forEach(r => { if (aggs[r.reaction] !== undefined) aggs[r.reaction]++; });
+        setQotdAggregates(aggs);
+      }
     }
 
     setResultData({ ...result, missedQuestions, questions });
@@ -362,6 +419,76 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
   if (showResults && resultData) {
     const { score, total, percentage, academic_points, timing_status, missedQuestions } = resultData;
     const passed = percentage >= 70;
+
+    const handleReaction = async (emoji: string) => {
+      if (qotdReaction) return; // Already reacted
+      setQotdReaction(emoji);
+      
+      // Save reaction
+      await supabase.from('qotd_reactions').insert({
+        user_id: user.id,
+        question_id: resultData.questions[0].id,
+        date: getTodayDateString(),
+        reaction: emoji
+      });
+
+      // Update local aggregates
+      if (qotdAggregates) {
+        setQotdAggregates(prev => prev ? { ...prev, [emoji]: prev[emoji] + 1 } : null);
+      }
+    };
+
+    if (isQotd && !isPastNoon()) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+          <div className="bg-white p-10 rounded-[40px] shadow-2xl border border-slate-100 max-w-lg w-full text-center space-y-8 animate-in fade-in zoom-in duration-300">
+            <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Save className="w-10 h-10" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-black text-slate-800">Answer Recorded!</h2>
+              <p className="text-slate-500 mt-3 text-lg leading-relaxed">
+                The correct answer, explanation, and cohort statistics will be revealed at <strong>12:00 PM EST</strong>.
+              </p>
+            </div>
+            
+            <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">How did you feel about this question?</h3>
+              <div className="flex justify-center gap-4">
+                {[
+                  { e: '🤯', l: 'Hard' },
+                  { e: '🤨', l: 'Tricky' },
+                  { e: '👍', l: 'Fair' },
+                  { e: '🥱', l: 'Easy' }
+                ].map(({ e, l }) => (
+                  <button
+                    key={e}
+                    onClick={() => handleReaction(e)}
+                    disabled={!!qotdReaction}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all ${qotdReaction === e ? 'bg-indigo-100 scale-110 shadow-lg' : qotdReaction ? 'opacity-30 grayscale' : 'hover:bg-slate-200 hover:scale-105 active:scale-95'}`}
+                  >
+                    <span className="text-3xl">{e}</span>
+                    <span className={`text-xs font-bold ${qotdReaction === e ? 'text-indigo-700' : 'text-slate-500'}`}>{l}</span>
+                  </button>
+                ))}
+              </div>
+              {qotdReaction && (
+                <p className="text-sm font-bold text-indigo-600 mt-6 animate-fade-in">
+                  Thanks for voting! Check back at noon to see how everyone else did.
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={() => onComplete(resultData)}
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="min-h-screen bg-slate-50 pb-20">
@@ -412,6 +539,42 @@ export default function QuizEngine({ user, quizId, topic, questionIds, categorie
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* QOTD Noon Conference & Social Stats */}
+          {isQotd && (
+            <div className="space-y-6">
+              {/* Noon Conference Box */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-1 rounded-3xl shadow-lg">
+                <div className="bg-white rounded-[20px] p-6 text-center">
+                  <h3 className="text-xl font-black text-slate-800 mb-2">Noon Conference Topic</h3>
+                  <p className="text-slate-600 font-medium text-sm">
+                    We will discuss this question and its learning points at today's Noon Conference! Be ready to share your thoughts.
+                  </p>
+                </div>
+              </div>
+
+              {/* Social Aggregates */}
+              {qotdAggregates && (
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Cohort Reactions</h3>
+                  <div className="flex justify-center gap-6 md:gap-12">
+                    {[
+                      { e: '🤯', l: 'Hard' },
+                      { e: '🤨', l: 'Tricky' },
+                      { e: '👍', l: 'Fair' },
+                      { e: '🥱', l: 'Easy' }
+                    ].map(({ e, l }) => (
+                      <div key={e} className="flex flex-col items-center gap-2">
+                        <span className="text-4xl">{e}</span>
+                        <span className="text-xl font-black text-slate-700">{qotdAggregates[e] || 0}</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{l}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

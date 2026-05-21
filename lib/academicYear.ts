@@ -29,6 +29,19 @@ export function getCurrentAcademicYear(now: Date = new Date()): number {
   return month >= 6 ? year + 1 : year; // July onward belongs to the next ending-year
 }
 
+/** Formats an academic year integer into 'AY 25-26' format. */
+export function formatAcademicYear(year: number): string {
+  const start = (year - 1).toString().slice(-2);
+  const end = year.toString().slice(-2);
+  return `AY ${start}-${end}`;
+}
+
+/** Returns a list of recent academic years for filtering (current + 3 previous). */
+export function getAvailableAcademicYears(): number[] {
+  const current = getCurrentAcademicYear();
+  return [current, current - 1, current - 2, current - 3];
+}
+
 /** Derived PGY for a family-medicine resident (1-based). */
 export function derivePGY(cohortYear: number, academicYear: number = getCurrentAcademicYear()): number {
   return academicYear - cohortYear;

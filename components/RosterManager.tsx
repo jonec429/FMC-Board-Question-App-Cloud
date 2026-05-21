@@ -6,6 +6,7 @@ import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
 import { AdminData } from '@/hooks/useAdminData';
 import { deriveLabel, isGraduated, mapSelectionToFields, getRoleOptions } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
+import TransitionWizard from './TransitionWizard';
 
 interface RosterManagerProps {
   adminData?: AdminData;
@@ -20,9 +21,10 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
   const [showGraduates, setShowGraduates] = useState(false);
   const { sortKey, sortDir, toggle } = useSortState({ key: 'member', dir: 'asc' });
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newPerson, setNewPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
+  const [showWizard, setShowWizard] = useState(false);
+  const [newPerson, setNewPerson] = useState({ first_name: '', last_name: '', email: '', pgy: '', advisor: '' });
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingPerson, setEditingPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
+  const [editingPerson, setEditingPerson] = useState({ first_name: '', last_name: '', email: '', pgy: '', advisor: '' });
   const [submitting, setSubmitting] = useState(false);
 
   // useAdminData filters out Faculty for the global roster slice. RosterManager
@@ -58,7 +60,9 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
       const { error } = await supabase
         .from('authorized_roster')
         .insert([{
-          name: newPerson.name,
+          name: `${newPerson.first_name} ${newPerson.last_name}`.trim(),
+          first_name: newPerson.first_name,
+          last_name: newPerson.last_name,
           email: newPerson.email.toLowerCase().trim(),
           pgy: fields.pgy,
           cohort_year: fields.cohort_year,
@@ -70,7 +74,7 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
       if (error) throw error;
       
       setShowAddModal(false);
-      setNewPerson({ name: '', email: '', pgy: '', advisor: '' });
+      setNewPerson({ first_name: '', last_name: '', email: '', pgy: '', advisor: '' });
       if (onRefresh) await onRefresh();
     } catch (err: any) {
       alert(err.message || 'Error adding person');
@@ -87,7 +91,9 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
       const { error } = await supabase
         .from('authorized_roster')
         .update({
-          name: editingPerson.name,
+          name: `${editingPerson.first_name} ${editingPerson.last_name}`.trim(),
+          first_name: editingPerson.first_name,
+          last_name: editingPerson.last_name,
           pgy: fields.pgy,
           cohort_year: fields.cohort_year,
           track: fields.track,
@@ -98,7 +104,7 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
       if (error) throw error;
       
       setShowEditModal(false);
-      setEditingPerson({ name: '', email: '', pgy: '', advisor: '' });
+      setEditingPerson({ first_name: '', last_name: '', email: '', pgy: '', advisor: '' });
       if (onRefresh) await onRefresh();
     } catch (err: any) {
       alert(err.message || 'Error updating person');
@@ -132,7 +138,7 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
 
   const rosterAccessor = (m: any, key: string): string | number => {
     switch (key) {
-      case 'member': return lastName(m.full_name);
+      case 'member': return m.last_name || lastName(m.full_name);
       case 'class': return deriveLabel(m);
       case 'status': return m.has_account ? 0 : 1;
       default: return 0;
@@ -171,13 +177,20 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
           />
           Show graduates
         </label>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200"
-        >
-          <Plus className="w-5 h-5" />
-          Add Authorized Person
-        </button>
+        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+          <button
+            onClick={() => setShowWizard(true)}
+            className="w-full md:w-auto px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 active:scale-95 transition-all shadow-xl shadow-indigo-200"
+          >
+            Year Transition Wizard
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200"
+          >
+            <Plus className="w-5 h-5" /> Add Person
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
@@ -260,7 +273,8 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                     <button 
                       onClick={() => {
                         setEditingPerson({
-                          name: member.full_name || '',
+                          first_name: member.first_name || (member.full_name ? member.full_name.split(' ')[0] : ''),
+                          last_name: member.last_name || (member.full_name && member.full_name.includes(' ') ? member.full_name.substring(member.full_name.indexOf(' ') + 1) : ''),
                           email: member.email,
                           pgy: member.pgy || '',
                           advisor: member.advisor || ''
@@ -303,16 +317,29 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
               <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">Close</button>
             </div>
             <form onSubmit={handleAddPerson} className="p-8 space-y-4">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Full Name</label>
-                <input 
-                  type="text" 
-                  required
-                  value={newPerson.name}
-                  onChange={(e) => setNewPerson({...newPerson, name: e.target.value})}
-                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
-                  placeholder="e.g. Jonathan Carbungco"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">First Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newPerson.first_name}
+                    onChange={(e) => setNewPerson({...newPerson, first_name: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                    placeholder="e.g. Jonathan"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Last Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newPerson.last_name}
+                    onChange={(e) => setNewPerson({...newPerson, last_name: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                    placeholder="e.g. Carbungco"
+                  />
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Institutional Email</label>
@@ -372,15 +399,27 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
               <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 font-bold">Close</button>
             </div>
             <form onSubmit={handleEditPerson} className="p-8 space-y-4">
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Full Name</label>
-                <input 
-                  type="text" 
-                  required
-                  value={editingPerson.name}
-                  onChange={(e) => setEditingPerson({...editingPerson, name: e.target.value})}
-                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">First Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editingPerson.first_name}
+                    onChange={(e) => setEditingPerson({...editingPerson, first_name: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Last Name</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={editingPerson.last_name}
+                    onChange={(e) => setEditingPerson({...editingPerson, last_name: e.target.value})}
+                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                  />
+                </div>
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Institutional Email</label>
@@ -428,6 +467,14 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
             </form>
           </div>
         </div>
+      )}
+
+      {showWizard && (
+        <TransitionWizard
+          roster={roster}
+          onClose={() => setShowWizard(false)}
+          onRefresh={fetchRoster}
+        />
       )}
     </div>
   );

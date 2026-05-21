@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
-import { getCurrentAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
+import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight } from './AppIcons';
 
@@ -15,6 +15,7 @@ const CONCERN_ONTIME = 75;
 
 interface ResidentStat {
   name: string;
+  last_name: string;
   email: string;
   pgy: string;
   label: string;
@@ -61,12 +62,13 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultTab);
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
   const [showGraduates, setShowGraduates] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
 
   // Table sorting (shared across the resident tables; default = points desc)
   const { sortKey, sortDir, toggle } = useSortState({ key: 'points', dir: 'desc' });
   const residentAccessor = (r: ResidentStat, key: string): string | number => {
     switch (key) {
-      case 'name': return lastName(r.name);
+      case 'name': return r.last_name;
       case 'pgy': return r.label;
       case 'attempts': return r.attempts;
       case 'avg': return r.avgPct;
@@ -82,7 +84,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
   const residentStats = useMemo(() => {
     if (!adminData) return [];
     const { results: allResults, profiles, roster } = adminData;
-    const academicYear = getCurrentAcademicYear();
+    const academicYear = selectedYear;
 
     const profileMap = new Map<string, string>();
     profiles.forEach((p: any) => {
@@ -90,10 +92,13 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
       if (p?.id && email) profileMap.set(p.id, email);
     });
 
-    const enriched = allResults.map((r: any) => ({
-      ...r,
-      email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
-    })).filter((r: any) => r.email);
+    const enriched = allResults
+      .filter((r: any) => r.academic_year === selectedYear)
+      .map((r: any) => ({
+        ...r,
+        email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
+      }))
+      .filter((r: any) => r.email);
 
     // Only active FM residents are scored. Faculty and fellows are excluded;
     // graduates are hidden unless the toggle is on.
@@ -130,6 +135,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
 
       return {
         name: resident.name,
+        last_name: resident.last_name || lastName(resident.name),
         email: resident.email,
         pgy: resident.pgy,
         label: deriveLabel(resident, academicYear),
@@ -145,7 +151,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
     });
 
     return stats.sort((a, b) => b.totalPoints - a.totalPoints);
-  }, [adminData, showGraduates]);
+  }, [adminData, showGraduates, selectedYear]);
 
   // Residents this faculty advises — matched by `authorized_roster.advisor == profile.full_name`
   const myAdvisees = useMemo(() => {
@@ -268,8 +274,8 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
       </div>
 
       {/* Sub Tabs — faculty see a "My Advisees" tab unique to their account */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-      <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/50 w-full md:w-auto">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex bg-slate-100 p-1.5 rounded-xl w-full sm:w-auto sm:inline-flex shadow-inner border border-slate-200/50 overflow-x-auto">
         {(() => {
           const baseTabs: [SubTab, string][] = [
             ['overview', 'Program Overview'],
@@ -290,16 +296,28 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
             </button>
           ));
         })()}
-      </div>
-        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none px-1 shrink-0">
-          <input
-            type="checkbox"
-            checked={showGraduates}
-            onChange={(e) => setShowGraduates(e.target.checked)}
-            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-          />
-          Show graduated residents
-        </label>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-500 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showGraduates}
+              onChange={e => setShowGraduates(e.target.checked)}
+              className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+            />
+            Show Graduates
+          </label>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            {getAvailableAcademicYears().map(year => (
+              <option key={year} value={year}>{formatAcademicYear(year)}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* My Advisees Tab (faculty-focused view) */}

@@ -3,7 +3,10 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout } from '@/lib/utils';
-import { X, Loader2, CheckCircle, Lock, MailIcon } from './AppIcons';
+import { X, Loader2, CheckCircle, Lock, MailIcon, Sparkles } from './AppIcons';
+
+// Public VAPID key
+const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
 interface ProfileSettingsProps {
   user: any;
@@ -29,6 +32,65 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [error, setError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+
+  // Push notification states
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  React.useEffect(() => {
+    // Check if push is enabled
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        reg.pushManager.getSubscription().then(sub => {
+          setPushEnabled(!!sub);
+        });
+      });
+    }
+  }, []);
+
+  const handleTogglePush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Push notifications are not supported in your browser.');
+      return;
+    }
+
+    setPushLoading(true);
+    try {
+      const registration = await navigator.serviceWorker.ready;
+
+      if (pushEnabled) {
+        // Unsubscribe
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+          // Remove from backend
+          await supabase.from('web_push_subscriptions').delete().eq('endpoint', subscription.endpoint);
+        }
+        setPushEnabled(false);
+      } else {
+        // Subscribe
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: publicVapidKey,
+        });
+
+        // Save to backend
+        const subJson = subscription.toJSON();
+        await supabase.from('web_push_subscriptions').insert({
+          user_id: user.id,
+          endpoint: subJson.endpoint,
+          p256dh: subJson.keys?.p256dh,
+          auth: subJson.keys?.auth,
+        });
+        setPushEnabled(true);
+      }
+    } catch (err: any) {
+      console.error('Push error:', err);
+      alert('Failed to update push preferences. Make sure you have allowed notifications in your browser.');
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,6 +287,27 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : nameSuccess ? <><CheckCircle className="w-4 h-4" /> Saved!</> : 'Save Changes'}
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="border-t border-slate-100" />
+
+          {/* Notifications Section */}
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Notifications</h3>
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-800">Push Notifications</p>
+                <p className="text-xs font-medium text-slate-500 mt-0.5">Receive reminders for the Question of the Day</p>
+              </div>
+              <button
+                onClick={handleTogglePush}
+                disabled={pushLoading}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${pushEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+              >
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${pushEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+          </div>
 
           {/* Divider */}
           <div className="border-t border-slate-100" />

@@ -18,7 +18,7 @@ interface AdminConsoleProps {
   onExit: () => void;
 }
 
-type TabId = 'performance' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'advanced';
+type TabId = 'performance' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions';
 
 export default function AdminConsole({ user, profile, onExit }: AdminConsoleProps) {
   const role = getUserRole(user, profile);
@@ -54,12 +54,6 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
       items: [
         { id: 'questions', label: 'Questions', icon: Database, adminOnly: true, description: 'Browse bank or bulk import' },
         { id: 'builder', label: 'Curriculum Manager', icon: PlusCircle, adminOnly: true, description: 'Manage dates and questions' },
-      ],
-    },
-    {
-      heading: 'System',
-      items: [
-        { id: 'advanced', label: 'Advanced', icon: Settings, adminOnly: true, description: 'Reporting & integrations' },
       ],
     },
   ];
@@ -172,7 +166,6 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
                 {activeTab === 'attendance' && <AttendanceManager />}
                 {activeTab === 'questions' && <QuestionBankManager adminData={adminData} onRefresh={refetch} />}
                 {activeTab === 'builder' && <CurriculumManager adminData={adminData} onRefresh={refetch} />}
-                {activeTab === 'advanced' && <AdvancedTab adminData={adminData} onRefresh={refetch} />}
               </>
             )}
           </main>
@@ -182,98 +175,4 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
   );
 }
 
-// === STUBS ===
-
-function StubCard({
-  icon: Icon,
-  title,
-  description,
-  features,
-}: {
-  icon: any;
-  title: string;
-  description: string;
-  features: string[];
-}) {
-  return (
-    <div className="bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-sm text-center max-w-2xl mx-auto">
-      <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5 text-blue-600">
-        <Icon className="w-8 h-8" />
-      </div>
-      <h3 className="text-2xl font-black text-slate-800 mb-2">{title}</h3>
-      <p className="text-slate-500 mb-6 max-w-md mx-auto">{description}</p>
-
-      <div className="bg-slate-50 rounded-2xl p-5 text-left mb-6">
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Legacy features to port</p>
-        <ul className="space-y-2">
-          {features.map((f, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
-              <span className="text-blue-500 font-black mt-0.5">·</span>
-              <span>{f}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-200">
-        <Clock className="w-3.5 h-3.5" /> Coming Soon — Roadmap Item
-      </div>
-    </div>
-  );
-}
-
-function ContentStub() {
-  return (
-    <StubCard
-      icon={Database}
-      title="Content Management"
-      description="Manage the academic curriculum — quiz blocks, schedule, and program content."
-      features={[
-        'List, edit, delete, and reorder quiz blocks (drag-and-drop)',
-        'Edit block titles inline',
-        'Sync live schedule from external sheet',
-        'Email master performance reports to advisors',
-        'Push local changes to the cloud',
-      ]}
-    />
-  );
-}
-
-function AdvancedTab({ adminData, onRefresh }: { adminData?: any; onRefresh?: () => Promise<void> }) {
-  const [section, setSection] = useState<'roster' | 'reports'>('roster');
-
-  return (
-    <div className="space-y-4">
-      <div className="flex bg-slate-100 p-1.5 rounded-xl w-full sm:w-auto sm:inline-flex shadow-inner border border-slate-200/50">
-        <button
-          onClick={() => setSection('roster')}
-          className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 sm:flex-none flex items-center justify-center gap-2 ${section === 'roster' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
-        >
-          <Users className="w-4 h-4" /> Roster
-        </button>
-        <button
-          onClick={() => setSection('reports')}
-          className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 sm:flex-none flex items-center justify-center gap-2 ${section === 'reports' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}
-        >
-          <Sparkles className="w-4 h-4" /> Reports &amp; Emails
-        </button>
-      </div>
-
-      {section === 'roster' && <RosterManager adminData={adminData} onRefresh={onRefresh} />}
-      {section === 'reports' && (
-        <StubCard
-          icon={Sparkles}
-          title="Reports &amp; Emails"
-          description="Automated reporting and email workflows for residents and advisors."
-          features={[
-            'Generate multi-page master PDF report (all residents)',
-            'Send individual advisor reports filtered to their advisees',
-            'Export performance data to CSV',
-            'Schedule mid-block email reminders to incomplete residents',
-            'Send quiz result emails with missed-question summaries',
-          ]}
-        />
-      )}
-    </div>
-  );
-}
+// (End of file)
