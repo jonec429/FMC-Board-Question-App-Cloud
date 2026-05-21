@@ -12,18 +12,20 @@ import {
 import ProfileSettings from './ProfileSettings';
 import ResidentReview from './ResidentReview';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
+import { User, Profile, Block, Result, Question } from '@/lib/types';
 
 interface DashboardProps {
-  user: any;
-  profile: any;
-  currentBlock?: any;
-  onLogout: () => void;
-  onStartQuiz: (quiz: any) => void;
-  onOpenBuilder: () => void;
+  user: User;
+  profile: Profile;
   onOpenAdmin: () => void;
+  onLogout: () => void;
+  blocks: Block[];
+  myResults: Result[];
+  userStreak: any;
+  userBadges: any[];
 }
 
-function getBlockSortKey(block: any): number {
+function getBlockSortKey(block: Block | any): number {
   // Prefer explicit sort_order from DB, fall back to title parsing
   if (block.sort_order != null) return block.sort_order;
   const t = block.title || '';
@@ -50,12 +52,12 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
 
   // Data
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
-  const [blocks, setBlocks] = useState<any[]>([]);
-  const [myResults, setMyResults] = useState<any[]>([]);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [myResults, setMyResults] = useState<Result[]>([]);
   const [activeSession, setActiveSession] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [qotdQuestion, setQotdQuestion] = useState<any>(null);
-  const [qotdAttempt, setQotdAttempt] = useState<any>(null);
+  const [qotdQuestion, setQotdQuestion] = useState<Question | null>(null);
+  const [qotdAttempt, setQotdAttempt] = useState<Result | null>(null);
   const [userStreak, setUserStreak] = useState<any>(null);
   const [userBadges, setUserBadges] = useState<any[]>([]);
 

@@ -1,15 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { withTimeout } from '@/lib/utils';
-
-export interface AdminData {
-  questions: any[];
-  blocks: any[];
-  block_schedule: any[];
-  results: any[];
-  profiles: any[];
-  roster: any[];
-}
+import { AdminData } from '@/lib/types';
 
 type CoreData = Omit<AdminData, 'questions'>;
 
@@ -17,14 +9,14 @@ type CoreData = Omit<AdminData, 'questions'>;
 const PER_QUERY_TIMEOUT = 30000;
 const q = <T,>(p: PromiseLike<T>) => withTimeout(p, PER_QUERY_TIMEOUT);
 
-function unwrap(s: PromiseSettledResult<any>, name: string): { rows: any[]; failed: boolean } {
+function unwrap(s: PromiseSettledResult<any>, name: string): { rows: any[]; failed: boolean; errorMsg?: string } {
   if (s.status === 'rejected') {
     console.warn(`admin fetch: ${name} timed out / rejected:`, s.reason?.message);
-    return { rows: [], failed: true };
+    return { rows: [], failed: true, errorMsg: `${name} rejected` };
   }
   if (s.value?.error) {
     console.warn(`admin fetch: ${name} error:`, s.value.error.message);
-    return { rows: [], failed: true };
+    return { rows: [], failed: true, errorMsg: `${name}: ${s.value.error.message}` };
   }
   return { rows: s.value?.data || [], failed: false };
 }
@@ -50,8 +42,10 @@ async function fetchCore(): Promise<CoreData> {
   const profiles = unwrap(settled[3], 'profiles');
   const roster = unwrap(settled[4], 'authorized_roster');
 
-  if ([blocks, schedule, results, profiles, roster].every((r) => r.failed)) {
-    throw new Error('Failed to load admin data. Please retry.');
+  const failures = [blocks, schedule, results, profiles, roster].filter((r) => r.failed);
+  if (failures.length > 0) {
+    const errorMessages = failures.map(f => f.errorMsg).join(' | ');
+    throw new Error(`Failed to load admin data: ${errorMessages}`);
   }
 
   return {
@@ -105,7 +99,7 @@ export function useAdminData({ includeQuestions = false }: { includeQuestions?: 
   // Show the full-screen loader for the initial core load, and for the first
   // questions fetch when a questions-dependent tab is opened (cached after).
   const loading = coreQuery.isLoading || (includeQuestions && questionsQuery.isLoading);
-  const error = coreQuery.error ? (coreQuery.error as Error).message : null;
+  const error = coreQuery.error ? (coreQuery.error as Error).message : (questionsQuery.error ? (questionsQuery.error as Error).message : null);
 
   // Refetch everything admin-related; disabled (idle) queries refetch when next enabled.
   const refetch = async () => {

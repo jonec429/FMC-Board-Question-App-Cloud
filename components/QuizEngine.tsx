@@ -484,13 +484,15 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       setQotdReaction(emoji);
       
       try {
-        // Save reaction
-        await supabase.from('qotd_reactions').insert({
+        // Save reaction (upsert to prevent duplicates and allow vote changes)
+        const { error } = await supabase.from('qotd_reactions').upsert({
           user_id: user.id,
           question_id: questions[0].id,
           date: getTodayDateString(),
           reaction: emoji
-        });
+        }, { onConflict: 'user_id, question_id, date' });
+
+        if (error) throw error;
 
         // Update local aggregates
         if (qotdAggregates) {

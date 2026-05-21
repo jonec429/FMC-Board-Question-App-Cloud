@@ -7,28 +7,56 @@ export interface User {
 export interface Profile {
   id: string;
   email: string;
-  full_name?: string;
-  pgy?: string;
-  role?: 'resident' | 'faculty' | 'admin';
-  advisor?: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  streak_count: number;
+  streak_last_date?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface RosterEntry {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  pgy: string;
+  cohort_year?: number;
+  track?: string;
+  pgy_override?: number;
+  status?: string;
+  graduated_year?: number;
+  created_at?: string;
 }
 
 export interface Question {
   id: string;
   question_text: string;
-  answer_a?: string;
-  answer_b?: string;
-  answer_c?: string;
-  answer_d?: string;
-  answer_e?: string;
-  options?: string[]; // Sometimes options are an array
-  correct_index: number;
-  explanation?: string;
   category: string;
   year?: string;
-  keyword?: string;
+  options: string[];
+  correct_index: number;
+  explanation?: string;
+  resource_link?: string;
+}
+
+export interface Block {
+  id: string;
+  title: string;
+  curriculum_year?: string;
+  status?: string;
+  is_archived?: boolean;
+  question_ids?: string[];
+  created_at?: string;
+}
+
+export interface BlockSchedule {
+  id: string;
+  block_id: string;
+  resident_email: string;
+  start_date: string;
+  end_date: string;
 }
 
 export interface Result {
@@ -42,16 +70,16 @@ export interface Result {
   academic_points: number;
   timing_status?: string;
   created_at?: string;
+  missed_questions?: any[];
 }
 
-export interface Block {
-  id: string;
-  title: string;
-  start_date?: string;
-  end_date?: string;
-  is_active?: boolean;
-  block_type?: string;
-  question_ids?: string[];
+export interface AdminData {
+  questions: Question[];
+  blocks: Block[];
+  block_schedule: BlockSchedule[];
+  results: Result[];
+  profiles: Profile[];
+  roster: RosterEntry[];
 }
 
 export interface QuizSession {
