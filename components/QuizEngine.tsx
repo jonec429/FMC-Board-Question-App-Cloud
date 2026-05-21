@@ -477,17 +477,22 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       if (qotdReaction) return; // Already reacted
       setQotdReaction(emoji);
       
-      // Save reaction
-      await supabase.from('qotd_reactions').insert({
-        user_id: user.id,
-        question_id: resultData.questions[0].id,
-        date: getTodayDateString(),
-        reaction: emoji
-      });
+      try {
+        // Save reaction
+        await supabase.from('qotd_reactions').insert({
+          user_id: user.id,
+          question_id: questions[0].id,
+          date: getTodayDateString(),
+          reaction: emoji
+        });
 
-      // Update local aggregates
-      if (qotdAggregates) {
-        setQotdAggregates(prev => prev ? { ...prev, [emoji]: prev[emoji] + 1 } : null);
+        // Update local aggregates
+        if (qotdAggregates) {
+          setQotdAggregates(prev => prev ? { ...prev, [emoji]: (prev[emoji] || 0) + 1 } : null);
+        }
+      } catch (err) {
+        console.error('Error saving reaction:', err);
+        setQotdReaction(null); // revert on error
       }
     };
 
