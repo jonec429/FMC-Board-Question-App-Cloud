@@ -205,6 +205,13 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-05-20 — Admin Console Resilience: Per-Query Timeouts (Claude)
+*   **Symptom**: Entire Admin Console intermittently shows "Request timed out" — all tabs dead behind one error screen.
+*   **Root fragility**: `useAdminData` ran all 6 table queries under a single combined `withTimeout(Promise.all, 45s)`. If ANY one query hung (Supabase free-tier cold start, slow RLS eval), the whole batch timed out and the console died. This pattern bit us repeatedly this session.
+*   **Fix**: Switched to `Promise.allSettled` with a per-query 20s timeout. Each table now fails independently; the console loads with whatever succeeded. Still hard-fails only if BOTH questions and blocks are unavailable. Per-table console warnings (`admin fetch: <table> timed out`) now pinpoint exactly which query is slow.
+*   **Note**: If a specific table (e.g. `profiles` / `authorized_roster`) is *consistently* hanging rather than cold-starting, this fix lets the console load but that table shows empty — pointing to an RLS/perf issue on that table specifically. The console warnings will identify it.
+*   Files: `hooks/useAdminData.ts`. `tsc --noEmit` passes.
+
 ### 2026-05-20 — Year-over-Year Model: Foundation + Read Paths (Claude)
 *   **New schema** (`migrate_yoy_schema.sql`, run in Supabase): adds `cohort_year`, `track`, `pgy_override`, `status`, `graduated_year` to `authorized_roster`. Idempotent + non-destructive (legacy `pgy` column preserved). Backfilled existing roster: "Class of YYYY" → `cohort_year` + `track='family_medicine'`, "Faculty" → `track='faculty'`.
 *   **New helper** (`lib/academicYear.ts`): `getCurrentAcademicYear()` (July rollover, ending-year convention), `derivePGY()`, `deriveLabel()`, `isActiveResident()`, `isGraduated()`, `mapSelectionToFields()`, `getRoleOptions()` (dynamic class list so "(PGY3)" labels never go stale). **PGY is now derived from cohort_year — no more manual bumping every July 1.**
