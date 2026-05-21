@@ -35,6 +35,8 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🚦 Deployment Workflow
 
+**⚠️ AI Rule (MUST FOLLOW):** ALWAYS ask the user for permission before executing a `git push` to trigger a Vercel deployment. Do not push code autonomously to prevent miscommunications and confusion when testing.
+
 **Current (pre-launch):** Pushing directly to `main` is OK because no residents are using the app yet — fast iteration matters more than preview safety.
 
 **Once we roll out to users (REQUIRED — do not skip this transition):**

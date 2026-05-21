@@ -132,7 +132,11 @@ export default function CurriculumManager({ adminData, onRefresh }: CurriculumMa
     const action = isArchived ? 'Unarchive' : 'Archive';
     if (!window.confirm(`${action} '${block.title}'? ${isArchived ? 'It will be visible to residents again.' : 'It will be hidden from residents, but existing scores will be kept.'}`)) return;
     
-    await supabase.from('blocks').update({ is_archived: !isArchived }).eq('id', block.id);
+    const { error } = await supabase.from('blocks').update({ is_archived: !isArchived }).eq('id', block.id);
+    if (error) {
+      console.error('Archive error:', error);
+      alert('Error updating block: ' + error.message);
+    }
     await onRefresh();
   };
 
@@ -227,11 +231,11 @@ export default function CurriculumManager({ adminData, onRefresh }: CurriculumMa
                         onChange={e => setDateForm(f => ({ ...f, end: e.target.value }))}
                         className="text-xs font-bold px-2 py-1 rounded bg-white"
                       />
-                      <button onClick={() => handleSaveDates(block.id)} disabled={saving} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
-                        <Save className="w-4 h-4" />
+                      <button onClick={() => handleSaveDates(block.id)} disabled={saving} className="p-2 ml-1 bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-lg shadow-sm transition-all flex items-center justify-center">
+                        <Save className="w-5 h-5" />
                       </button>
-                      <button onClick={() => setEditingDates(null)} className="p-1 text-slate-400 hover:bg-slate-200 rounded">
-                        <X className="w-4 h-4" />
+                      <button onClick={() => setEditingDates(null)} className="p-2 bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-lg shadow-sm transition-all flex items-center justify-center">
+                        <X className="w-5 h-5" />
                       </button>
                     </div>
                   ) : (

@@ -525,6 +525,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
           totalPoints={totalPoints}
           myResults={myResults}
           leaderboard={leaderboard}
+          userBadges={userBadges}
         />
       )}
 
@@ -607,6 +608,7 @@ function MyStatsModal({
   totalPoints,
   myResults,
   leaderboard,
+  userBadges,
 }: {
   onClose: () => void;
   profile: any;
@@ -616,6 +618,7 @@ function MyStatsModal({
   totalPoints: number;
   myResults: any[];
   leaderboard: LeaderboardEntry[];
+  userBadges: any[];
 }) {
   const totalQs = myResults.reduce((a, r) => a + (r.total || 0), 0);
   const hasPerfect = myResults.some(r => (r.percentage || 0) >= 99.99);

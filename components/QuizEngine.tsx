@@ -99,13 +99,16 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
              
              // Fetch existing reactions silently
              supabase.from('qotd_reactions')
-              .select('reaction')
+              .select('reaction, user_id')
               .eq('question_id', qotdQuestion.id)
               .eq('date', getTodayDateString())
               .then(({ data }) => {
                 if (data) {
-                  const fetchedAggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0 };
-                  data.forEach((r: any) => { if (fetchedAggs[r.reaction] !== undefined) fetchedAggs[r.reaction]++; });
+                  const fetchedAggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0, '😴': 0 };
+                  data.forEach((r: any) => { 
+                    if (fetchedAggs[r.reaction] !== undefined) fetchedAggs[r.reaction]++; 
+                    if (r.user_id === user.id) setQotdReaction(r.reaction);
+                  });
                   setQotdAggregates(fetchedAggs);
                 }
               });
@@ -414,13 +417,16 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       if (isQotd) {
         // For QOTD, fetch existing reactions to show aggregates
         const { data } = await withTimeout(supabase.from('qotd_reactions')
-          .select('reaction')
+          .select('reaction, user_id')
           .eq('question_id', questions[0].id)
           .eq('date', getTodayDateString()), 30000);
         
         if (data) {
-          const aggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0 };
-          data.forEach((r: any) => { if (aggs[r.reaction] !== undefined) aggs[r.reaction]++; });
+          const aggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0, '😴': 0 };
+          data.forEach((r: any) => { 
+            if (aggs[r.reaction] !== undefined) aggs[r.reaction]++; 
+            if (r.user_id === user.id) setQotdReaction(r.reaction);
+          });
           setQotdAggregates(aggs);
         }
       }

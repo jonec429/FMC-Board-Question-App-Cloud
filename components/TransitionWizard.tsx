@@ -48,18 +48,25 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
     setSubmitting(true);
     try {
       const emails = graduatingResidents.map(r => r.email);
-      const { error } = await supabase
+      
+      const updatePromise = supabase
         .from('authorized_roster')
         .update({ 
           status: 'graduated', 
           graduated_year: academicYear 
         })
         .in('email', emails);
+        
+      const { error } = await Promise.race([
+        updatePromise,
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Database timeout. Please check your connection or database schema.')), 10000))
+      ]);
 
       if (error) throw error;
       await onRefresh();
       setStep(2);
     } catch (err: any) {
+      console.error('Transition error:', err);
       alert(err.message || 'Error graduating residents');
     } finally {
       setSubmitting(false);
