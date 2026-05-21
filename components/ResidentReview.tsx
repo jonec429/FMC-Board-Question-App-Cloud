@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout } from '@/lib/utils';
-import { X, ChevronLeft, ChevronRight, Loader2, Target } from './AppIcons';
+import { X, ChevronLeft, ChevronRight, Loader2, Target, ExternalLink } from './AppIcons';
 
 interface ResidentReviewProps {
   user: any;
@@ -158,9 +158,33 @@ export default function ResidentReview({ user, onClose }: ResidentReviewProps) {
               </div>
 
               {q.explanation && (
-                <div className="mt-8 p-6 bg-blue-50 rounded-2xl border border-blue-100">
-                  <h4 className="text-xs font-black text-blue-600 uppercase tracking-widest mb-2">Explanation</h4>
-                  <p className="text-sm font-medium text-blue-900 leading-relaxed whitespace-pre-wrap">{q.explanation}</p>
+                <div className="mt-8 bg-slate-900 text-slate-100 rounded-3xl p-8 shadow-2xl animate-in fade-in duration-500">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                      <ExternalLink className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-black text-lg">Board Prep Gem</h3>
+                      <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Logic & Evidence</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4 text-slate-300 leading-relaxed font-medium">
+                    <div dangerouslySetInnerHTML={{ __html: q.explanation }} />
+                  </div>
+                  <div className="mt-8 flex flex-wrap gap-4">
+                    <a href="https://www.openevidence.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500/10 hover:bg-blue-500/20 rounded-2xl text-blue-400 font-bold transition-all border border-blue-500/20">
+                      <ExternalLink className="w-4 h-4" />
+                      Open Evidence
+                    </a>
+                    <a href="https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X?usp=sharing" target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-2xl text-purple-300 font-bold transition-all border border-purple-500/20">
+                      <ExternalLink className="w-4 h-4" />
+                      Board Prep Gem
+                    </a>
+                    <a href={q.resource_link || `https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?q=${encodeURIComponent(q.category || '')}`} target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10">
+                      <ExternalLink className="w-4 h-4" />
+                      Review Topic Material
+                    </a>
+                  </div>
                 </div>
               )}
             </div>

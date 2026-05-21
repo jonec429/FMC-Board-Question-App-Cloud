@@ -89,12 +89,13 @@ async function fetchQuestions(): Promise<any[]> {
 export function useAdminData({ includeQuestions = false }: { includeQuestions?: boolean } = {}) {
   const queryClient = useQueryClient();
 
-  const coreQuery = useQuery({ queryKey: ['admin', 'core'], queryFn: fetchCore });
+  const coreQuery = useQuery({ queryKey: ['admin', 'core'], queryFn: fetchCore, retry: false });
 
   const questionsQuery = useQuery({
     queryKey: ['admin', 'questions'],
     queryFn: fetchQuestions,
     enabled: includeQuestions,
+    retry: false,
   });
 
   const data: AdminData | null = coreQuery.data

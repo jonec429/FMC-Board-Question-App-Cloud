@@ -100,7 +100,12 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
           supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', user.id)
         ];
 
-        const qotd = await getQotdQuestion();
+        let qotd = null;
+        try {
+          qotd = await getQotdQuestion();
+        } catch (e) {
+          console.warn('Dashboard QOTD fetch timed out or failed:', e);
+        }
         let attemptPromise: PromiseLike<any> = Promise.resolve({ data: null });
         if (qotd) {
           attemptPromise = supabase
@@ -550,7 +555,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
 // === LEADERBOARD WIDGET ===
 function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmail: string }) {
   const top = data.slice(0, 5);
-  const myEntry = data.find(d => d.email.toLowerCase() === myEmail.toLowerCase());
+  const myEntry = data.find(d => d.email.toLowerCase() === myEmail?.toLowerCase());
   const myRank = myEntry ? data.findIndex(d => d.email === myEntry.email) + 1 : null;
 
   return (
@@ -561,7 +566,7 @@ function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmai
       </div>
       <div className="space-y-1">
         {top.map((r, i) => {
-          const isMe = r.email.toLowerCase() === myEmail.toLowerCase();
+          const isMe = r.email.toLowerCase() === myEmail?.toLowerCase();
           const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
           return (
             <div
@@ -615,13 +620,13 @@ function MyStatsModal({
   const totalQs = myResults.reduce((a, r) => a + (r.total || 0), 0);
   const hasPerfect = myResults.some(r => (r.percentage || 0) >= 99.99);
   const assignedCount = myResults.filter(r => (r.academic_points || 0) > 0).length;
-  const myRankIdx = leaderboard.findIndex(l => l.email.toLowerCase() === userEmail.toLowerCase());
+  const myRankIdx = leaderboard.findIndex(l => Boolean(l.email && userEmail && l.email.toLowerCase() === userEmail.toLowerCase()));
   const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
 
   // Class leader: #1 within same PGY class
   const classmates = profile?.pgy ? leaderboard.filter(l => l.pgy === profile.pgy) : [];
   const classLeader = classmates.length > 0 ? classmates[0] : null;
-  const isClassLeader = classLeader?.email.toLowerCase() === userEmail.toLowerCase();
+  const isClassLeader = Boolean(classLeader?.email && userEmail && classLeader.email.toLowerCase() === userEmail.toLowerCase());
 
   // Topic / subject breakdown (group by topic, compute avg)
   const topicStats = new Map<string, { sum: number; count: number; qs: number }>();
