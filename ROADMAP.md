@@ -231,6 +231,15 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
+## 📍 Phase 5: Future Backlog & Ideas
+*Goal: Track potential long-term architectural upgrades and features.*
+
+### Infrastructure
+- [ ] Migrate study materials (PDFs, docs) from personal Google Drive to **Supabase Storage**.
+  - **Why:** Centralizes all app data in one ecosystem. Files can be made public or locked behind QBank authentication natively, removing the need for external SSO prompts or managing dual databases.
+
+---
+
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 

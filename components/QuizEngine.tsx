@@ -392,11 +392,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           user_id: user.id,
           question_id: questions[0].id,
           is_correct: answers[0] === questions[0].correct_index,
-        }), 10000);
+        }), 30000);
       }
 
       if (sessionId) {
-        await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 10000);
+        await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 30000);
       }
 
       if (isQotd) {
@@ -404,7 +404,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         const { data } = await withTimeout(supabase.from('qotd_reactions')
           .select('reaction')
           .eq('question_id', questions[0].id)
-          .eq('date', getTodayDateString()), 10000);
+          .eq('date', getTodayDateString()), 30000);
         
         if (data) {
           const aggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0 };
@@ -417,7 +417,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       setShowResults(true);
     } catch (err: any) {
       console.error('Submit Quiz Error:', err);
-      alert('There was a network error saving your block. Please try clicking Finish again.');
+      alert('Network error saving your block. Please try clicking Finish again. Error: ' + (err?.message || err?.toString() || 'Unknown Error'));
     } finally {
       setSubmitting(false);
     }

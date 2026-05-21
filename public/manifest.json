@@ -1,6 +1,6 @@
 {
-  "name": "FMC Board Question App",
-  "short_name": "FMC QBank",
+  "name": "FMC BRQ App",
+  "short_name": "FMC BRQ App",
   "description": "Advanced Resident Performance & Quiz System",
   "start_url": "/",
   "display": "standalone",
