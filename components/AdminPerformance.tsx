@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatDisplayName, withTimeout } from '@/lib/utils';
+import { formatDisplayName } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
+import { getCurrentAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight } from './AppIcons';
 
 const AT_RISK_AVG = 60;
@@ -15,6 +16,7 @@ interface ResidentStat {
   name: string;
   email: string;
   pgy: string;
+  label: string;
   advisor: string;
   attempts: number;
   avgPct: number;
@@ -57,10 +59,12 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultTab);
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
+  const [showGraduates, setShowGraduates] = useState(false);
 
   const residentStats = useMemo(() => {
     if (!adminData) return [];
     const { results: allResults, profiles, roster } = adminData;
+    const academicYear = getCurrentAcademicYear();
 
     const profileMap = new Map<string, string>();
     profiles.forEach((p: any) => {
@@ -73,7 +77,13 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
       email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
     })).filter((r: any) => r.email);
 
-    const stats: ResidentStat[] = roster.map((resident: any) => {
+    // Only active FM residents are scored. Faculty and fellows are excluded;
+    // graduates are hidden unless the toggle is on.
+    const scopedRoster = roster.filter((r: any) =>
+      isActiveResident(r) || (showGraduates && isGraduated(r))
+    );
+
+    const stats: ResidentStat[] = scopedRoster.map((resident: any) => {
       const resResults = enriched.filter(
         (r: any) => r.email?.toLowerCase() === resident.email?.toLowerCase()
       );
@@ -104,6 +114,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
         name: resident.name,
         email: resident.email,
         pgy: resident.pgy,
+        label: deriveLabel(resident, academicYear),
         advisor: resident.advisor,
         attempts: resResults.length,
         avgPct,
@@ -116,7 +127,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
     });
 
     return stats.sort((a, b) => b.totalPoints - a.totalPoints);
-  }, [adminData]);
+  }, [adminData, showGraduates]);
 
   // Residents this faculty advises — matched by `authorized_roster.advisor == profile.full_name`
   const myAdvisees = useMemo(() => {
@@ -137,10 +148,8 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
 
   const pgyGroups: Record<string, ResidentStat[]> = {};
   residentStats.forEach(r => {
-    const year = r.pgy.replace('Class of ', 'PGY (');
-    const label = r.pgy;
-    if (!pgyGroups[label]) pgyGroups[label] = [];
-    pgyGroups[label].push(r);
+    if (!pgyGroups[r.label]) pgyGroups[r.label] = [];
+    pgyGroups[r.label].push(r);
   });
 
   const ResidentTable = ({ residents }: { residents: ResidentStat[] }) => (
@@ -170,7 +179,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
                     <span className="font-bold text-slate-800 text-sm">{formatDisplayName(r.name)}</span>
                   </div>
                 </td>
-                <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.pgy.replace('Class of ', '')}</td>
+                <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.label}</td>
                 <td className="px-4 py-4 text-center font-bold text-slate-600 text-sm">{r.attempts}</td>
                 <td className="px-4 py-4 text-center">
                   {r.attempts > 0 ? (
@@ -241,6 +250,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
       </div>
 
       {/* Sub Tabs — faculty see a "My Advisees" tab unique to their account */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
       <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/50 w-full md:w-auto">
         {(() => {
           const baseTabs: [SubTab, string][] = [
@@ -262,6 +272,16 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
             </button>
           ));
         })()}
+      </div>
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none px-1 shrink-0">
+          <input
+            type="checkbox"
+            checked={showGraduates}
+            onChange={(e) => setShowGraduates(e.target.checked)}
+            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+          Show graduated residents
+        </label>
       </div>
 
       {/* My Advisees Tab (faculty-focused view) */}
@@ -371,7 +391,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
                   <div className={`w-3 h-3 rounded-full ${riskColors[selectedResident.risk].dot}`} />
                   <h2 className="text-2xl font-black text-slate-800">{formatDisplayName(selectedResident.name)}</h2>
                 </div>
-                <p className="text-sm font-bold text-slate-400">{selectedResident.pgy} · Advisor: {selectedResident.advisor || '—'}</p>
+                <p className="text-sm font-bold text-slate-400">{selectedResident.label} · Advisor: {selectedResident.advisor || '—'}</p>
                 <div className="flex gap-4 mt-4">
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800">{selectedResident.avgPct.toFixed(1)}%</div>

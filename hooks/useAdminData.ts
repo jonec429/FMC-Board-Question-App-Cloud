@@ -31,7 +31,9 @@ export function useAdminData(userIsAdmin: boolean) {
         supabase.from('block_schedule').select('*'),
         supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at'),
         supabase.from('profiles').select('*'),
-        supabase.from('authorized_roster').select('*').neq('pgy', 'Faculty'),
+        // Full roster (faculty included). Consumers filter by track/status as
+        // needed — e.g. AdminPerformance shows only active FM residents.
+        supabase.from('authorized_roster').select('*'),
       ]);
 
       const [

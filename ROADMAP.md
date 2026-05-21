@@ -205,6 +205,17 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-05-20 — Year-over-Year Model: Foundation + Read Paths (Claude)
+*   **New schema** (`migrate_yoy_schema.sql`, run in Supabase): adds `cohort_year`, `track`, `pgy_override`, `status`, `graduated_year` to `authorized_roster`. Idempotent + non-destructive (legacy `pgy` column preserved). Backfilled existing roster: "Class of YYYY" → `cohort_year` + `track='family_medicine'`, "Faculty" → `track='faculty'`.
+*   **New helper** (`lib/academicYear.ts`): `getCurrentAcademicYear()` (July rollover, ending-year convention), `derivePGY()`, `deriveLabel()`, `isActiveResident()`, `isGraduated()`, `mapSelectionToFields()`, `getRoleOptions()` (dynamic class list so "(PGY3)" labels never go stale). **PGY is now derived from cohort_year — no more manual bumping every July 1.**
+*   **`useAdminData`**: removed the `.neq('pgy','Faculty')` filter so the FULL roster (faculty included) loads. Consumers now filter by track/status. *(This also fixes a latent bug from the 2026-05-19 roster refactor where faculty silently vanished from the Roster tab.)*
+*   **AdminPerformance**: resident stats now scope to active FM residents only (faculty + fellows excluded); graduates hidden behind a new "Show graduated residents" toggle. PGY column, By-Class-Year grouping, and the drill-down modal all use the derived label.
+*   **RosterManager**: Class/Role column shows the derived label (PGY1-3 / OB Fellow / Academic Fellow / Faculty / Graduated YYYY) with track-aware coloring. New "Show graduates" toggle (default off). Add/Edit modals use the dynamic role list and now write `cohort_year` + `track` + `status` alongside legacy `pgy`.
+*   **Fellows**: OB Fellows and Academic Fellows are first-class tracks but not in the current roster — add them via the Roster UI (they're excluded from resident performance metrics; OB Fellows don't do questions, Academic Fellows participate irregularly).
+*   **Verified**: `npx tsc --noEmit` passes clean.
+*   **Still TODO** (next session): the "Start Year Transition" wizard (bulk graduate PGY3s + onboard new PGY1s in one flow); `academic_year` tagging on `results`/`blocks` for historical dashboard filtering.
+*   Files: `migrate_yoy_schema.sql` (new), `lib/academicYear.ts` (new), `hooks/useAdminData.ts`, `components/AdminPerformance.tsx`, `components/RosterManager.tsx`.
+
 ### 2026-05-19 — Roster Refactor: Eliminate Duplicate Fetch (Claude)
 *   **Symptom**: Clicking the Roster tab (or Advanced → Roster) showed "Connection Error — Request timed out" after 30s. Performance tab showed 0 residents.
 *   **Diagnosis**: `RosterManager` was doing its own `authorized_roster + profiles` fetch on mount via `useEffect` + `withTimeout(..., 30000)`, duplicating data that `useAdminData` already loads. This second fetch was hanging — possibly due to Supabase connection contention or a slow RLS evaluation on `profiles`/`authorized_roster` (no obvious schema mismatch found).

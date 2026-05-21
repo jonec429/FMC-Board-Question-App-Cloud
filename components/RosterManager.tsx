@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
 import { AdminData } from '@/hooks/useAdminData';
+import { deriveLabel, isGraduated, mapSelectionToFields, getRoleOptions } from '@/lib/academicYear';
 
 interface RosterManagerProps {
   adminData?: AdminData;
@@ -15,6 +16,7 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
   // duplicate fetches (the old standalone fetch was hitting a 30s timeout when
   // run alongside the parent's Promise.all).
   const [search, setSearch] = useState('');
+  const [showGraduates, setShowGraduates] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newPerson, setNewPerson] = useState({ name: '', email: '', pgy: '', advisor: '' });
   const [showEditModal, setShowEditModal] = useState(false);
@@ -50,12 +52,16 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
     e.preventDefault();
     setSubmitting(true);
     try {
+      const fields = mapSelectionToFields(newPerson.pgy);
       const { error } = await supabase
         .from('authorized_roster')
         .insert([{
           name: newPerson.name,
           email: newPerson.email.toLowerCase().trim(),
-          pgy: newPerson.pgy,
+          pgy: fields.pgy,
+          cohort_year: fields.cohort_year,
+          track: fields.track,
+          status: 'active',
           advisor: newPerson.advisor
         }]);
 
@@ -75,11 +81,14 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
     e.preventDefault();
     setSubmitting(true);
     try {
+      const fields = mapSelectionToFields(editingPerson.pgy);
       const { error } = await supabase
         .from('authorized_roster')
         .update({
           name: editingPerson.name,
-          pgy: editingPerson.pgy,
+          pgy: fields.pgy,
+          cohort_year: fields.cohort_year,
+          track: fields.track,
           advisor: editingPerson.advisor
         })
         .eq('email', editingPerson.email);
@@ -111,10 +120,13 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
     }
   };
 
-  const filtered = roster.filter(m => 
-    m.full_name?.toLowerCase().includes(search.toLowerCase()) || 
-    m.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = roster.filter(m => {
+    const matchesSearch =
+      m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      m.email?.toLowerCase().includes(search.toLowerCase());
+    const graduateOk = showGraduates || !isGraduated(m);
+    return matchesSearch && graduateOk;
+  });
 
   if (loading) {
     return (
@@ -138,7 +150,16 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
             className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm focus:ring-2 focus:ring-blue-600 outline-none transition-all font-medium text-slate-800"
           />
         </div>
-        <button 
+        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none shrink-0">
+          <input
+            type="checkbox"
+            checked={showGraduates}
+            onChange={(e) => setShowGraduates(e.target.checked)}
+            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+          Show graduates
+        </label>
+        <button
           onClick={() => setShowAddModal(true)}
           className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200"
         >
@@ -195,9 +216,18 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                 </td>
                 <td className="px-8 py-6">
                   <div className="flex flex-col gap-1">
-                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block w-fit ${member.role === 'admin' ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'}`}>
-                      {member.role === 'admin' ? 'Faculty' : member.pgy || 'Resident'}
-                    </span>
+                    {(() => {
+                      const label = deriveLabel(member);
+                      const isStaff = member.track === 'faculty' || member.track === 'ob_fellow' || member.track === 'academic_fellow';
+                      const grad = isGraduated(member);
+                      return (
+                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block w-fit ${
+                          grad ? 'bg-slate-100 text-slate-400' : isStaff ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {label}
+                        </span>
+                      );
+                    })()}
                     {member.advisor && (
                       <span className="text-[10px] font-bold text-slate-400 pl-1 italic">
                         Advisor: {member.advisor}
@@ -293,11 +323,9 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                     className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
                   >
                     <option value="">Select...</option>
-                    <option value="Class of 2025">Class of 2025 (PGY3)</option>
-                    <option value="Class of 2026">Class of 2026 (PGY2)</option>
-                    <option value="Class of 2027">Class of 2027 (PGY1)</option>
-                    <option value="Class of 2028">Class of 2028</option>
-                    <option value="Faculty">Faculty / Admin</option>
+                    {getRoleOptions().map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -362,11 +390,9 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                     className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
                   >
                     <option value="">Select...</option>
-                    <option value="Class of 2025">Class of 2025 (PGY3)</option>
-                    <option value="Class of 2026">Class of 2026 (PGY2)</option>
-                    <option value="Class of 2027">Class of 2027 (PGY1)</option>
-                    <option value="Class of 2028">Class of 2028</option>
-                    <option value="Faculty">Faculty / Admin</option>
+                    {getRoleOptions().map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
