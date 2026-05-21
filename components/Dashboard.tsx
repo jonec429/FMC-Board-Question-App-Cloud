@@ -273,7 +273,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
                        {isPastNoon() ? 'Results and stats are now available!' : 'Answer recorded. Come back at 12 PM for results!'}
                      </p>
                      <button
-                       onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day' })}
+                       onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', isQotdCompleted: true, qotdAttempt })}
                        className="w-full py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/20"
                      >
                        {isPastNoon() ? 'View Results & Stats' : 'Review Selection'}

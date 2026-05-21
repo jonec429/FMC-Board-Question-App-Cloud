@@ -13,6 +13,7 @@ interface ResidentReviewProps {
 export default function ResidentReview({ user, onClose }: ResidentReviewProps) {
   const [loading, setLoading] = useState(true);
   const [missedQuestions, setMissedQuestions] = useState<any[]>([]);
+  const [latestStatus, setLatestStatus] = useState<Map<string, boolean>>(new Map());
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
@@ -35,21 +36,23 @@ export default function ResidentReview({ user, onClose }: ResidentReviewProps) {
 
         // Dedupe by question_id (keep latest attempt)
         const latestAttempts = new Map<string, boolean>();
+        const everMissed = new Set<string>();
+
         attempts.forEach(a => {
           if (!latestAttempts.has(a.question_id)) {
             latestAttempts.set(a.question_id, a.is_correct);
           }
+          if (!a.is_correct) everMissed.add(a.question_id);
         });
 
-        // Filter to only those currently incorrect
-        const incorrectIds = Array.from(latestAttempts.entries())
-          .filter(([_, isCorrect]) => !isCorrect)
-          .map(([id]) => id);
+        const incorrectIds = Array.from(everMissed);
 
         if (incorrectIds.length === 0) {
           setMissedQuestions([]);
           return;
         }
+
+        setLatestStatus(latestAttempts);
 
         // Fetch question details
         // Chunk if needed, but for now just one query
@@ -118,11 +121,17 @@ export default function ResidentReview({ user, onClose }: ResidentReviewProps) {
             </div>
           ) : (
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 bg-rose-50 text-rose-600 font-black text-xs rounded-bl-3xl border-l border-b border-rose-100 uppercase tracking-widest">
-                Review Mode
-              </div>
+              {latestStatus.get(q.id) ? (
+                <div className="absolute top-0 right-0 left-0 p-3 bg-emerald-500 text-white font-black text-xs text-center uppercase tracking-widest shadow-md">
+                  ✓ Review Completed: You recently answered this correctly!
+                </div>
+              ) : (
+                <div className="absolute top-0 right-0 p-4 bg-rose-50 text-rose-600 font-black text-xs rounded-bl-3xl border-l border-b border-rose-100 uppercase tracking-widest">
+                  Review Mode
+                </div>
+              )}
 
-              <div className="flex items-center gap-4 text-xs font-black text-slate-400 uppercase tracking-widest">
+              <div className={`flex items-center gap-4 text-xs font-black text-slate-400 uppercase tracking-widest ${latestStatus.get(q.id) ? 'mt-8' : ''}`}>
                 <span>Question {currentIndex + 1} of {missedQuestions.length}</span>
                 <span className="opacity-30">·</span>
                 <span>{q.category}</span>

@@ -49,6 +49,8 @@ export async function getQotdQuestion() {
     .from('questions')
     .select('*')
     .neq('year', 'Demo')
+    .neq('category', 'Demo')
+    .not('id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
     .order('year', { ascending: false })
     .order('id', { ascending: true })
     .range(index, index)

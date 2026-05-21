@@ -78,9 +78,9 @@ export default function Home() {
         return;
       }
       // Tag timeout/network errors with which init step they belong to
-      const runStep = async <T,>(label: string, op: Promise<T>): Promise<T> => {
+      const runStep = async <T,>(label: string, op: Promise<T>, timeoutMs = 20000): Promise<T> => {
         try {
-          return await withTimeout(op, 15000);
+          return await withTimeout(op, timeoutMs);
         } catch (err: any) {
           throw new Error(`[${label}] ${err?.message || 'unknown error'}`);
         }
@@ -89,29 +89,22 @@ export default function Home() {
       try {
         const { data: { session } } = (await runStep(
           'getSession',
-          supabase.auth.getSession()
+          supabase.auth.getSession(),
+          10000 // 10s timeout for session check - if it takes longer, the refresh token request is hanging
         )) as any;
         if (session?.user) {
           setUser(session.user);
           // Run sequentially with step labels so a single hung query is identifiable
-          await runStep('loadProfile', loadProfile(session.user));
-          await runStep('loadCurrentBlock', loadCurrentBlock());
+          await runStep('loadProfile', loadProfile(session.user), 20000);
+          await runStep('loadCurrentBlock', loadCurrentBlock(), 20000);
         }
       } catch (err: any) {
         console.error('App init error:', err);
-        // [Self-heal] supabase-js sometimes corrupts its own localStorage
-        // (sb-*-auth-token) and then getSession hangs forever on the next
-        // mount trying to parse/refresh it. When that happens we have to
-        // wipe the state and start over. The first time we hit this we
-        // try the recovery automatically; if it loops we stop and surface
-        // the error so the user isn't stuck in a reload cycle.
         const isGetSessionHang = err?.message?.includes('[getSession]');
-        const alreadyTriedRecovery = typeof window !== 'undefined'
-          && window.sessionStorage.getItem('fmc-auth-recovery-attempted') === '1';
-        if (isGetSessionHang && !alreadyTriedRecovery && typeof window !== 'undefined') {
-          window.sessionStorage.setItem('fmc-auth-recovery-attempted', '1');
+        if (isGetSessionHang && typeof window !== 'undefined') {
+          // If the session refresh request hangs, the auth token is likely corrupted or the Supabase auth service is sluggish.
+          // Treat it as an expired session: clear the tokens and route them to the login screen.
           try {
-            // Clear all supabase auth keys from localStorage
             const keysToRemove: string[] = [];
             for (let i = 0; i < window.localStorage.length; i++) {
               const key = window.localStorage.key(i);
@@ -119,8 +112,8 @@ export default function Home() {
             }
             keysToRemove.forEach((k) => window.localStorage.removeItem(k));
           } catch {}
-          window.location.reload();
-          return;
+          setLoading(false);
+          return; // They will be routed to <Login /> because user is null
         }
         setInitError(err?.message || 'Failed to initialize the app. Check your network and Supabase project status.');
       } finally {
@@ -210,6 +203,10 @@ export default function Home() {
     return (
       <QuizEngine
         user={user}
+        isQotd={activeQuiz.isQotd}
+        qotdQuestion={activeQuiz.qotdQuestion}
+        isQotdCompleted={activeQuiz.isQotdCompleted}
+        qotdAttempt={activeQuiz.qotdAttempt}
         quizId={activeQuiz.quizId}
         topic={activeQuiz.topic}
         questionIds={activeQuiz.questionIds}

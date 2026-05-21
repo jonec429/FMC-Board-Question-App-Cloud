@@ -59,15 +59,15 @@ This file serves as the shared source of truth for development progress between 
 
 ### ⚠️ Action Required From Admin
 - [x] **Sprint 5 step 1**: SQL migration `migrate_blocks_question_ids.sql` run in Supabase ✅
-- [ ] **Sprint 5 step 2**: Open the app → Admin Console → **Curriculum** → click **"Initialize N Blocks"** to lock in question sets *(note: the old "Block Builder" tab was merged into the new Curriculum Manager on 2026-05-18)*
+- [x] **Sprint 5 step 2**: ~~Open the app → Admin Console → **Curriculum** → click **"Initialize N Blocks"** to lock in question sets~~ *(Deprecated: the old "Block Builder" tab was merged into the new Curriculum Manager on 2026-05-18 and fixed blocks are now automatically enforced).*
 - [x] **2026-05-14 — Profile Names Migration**: `migrate_profiles_split_names.sql` — adds `first_name`/`last_name` to `profiles`. ✅
 - [x] **2026-05-18 — Block Archiving Migration**: `migrate_blocks_archive.sql` — adds `is_archived` to `blocks`. ✅
 - [x] **2026-05-20 — YoY Schema Migration**: `migrate_yoy_schema.sql` — adds `cohort_year`/`track`/`pgy_override`/`status`/`graduated_year` to `authorized_roster`, backfilled. ✅
 - [x] **2026-05-20 — Roster RLS Fix**: `fix_roster_rls.sql` — roster had RLS enabled but no SELECT policy, silently hiding all rows. ✅
-- [ ] **NEXT — Roster Split-Names Migration**: `migrate_roster_split_names.sql` — Adds `first_name`/`last_name` to `authorized_roster` so tables sort by true last name. **Admin must run it in Supabase.**
-- [ ] **NEXT — Tighten RLS Policies**: `tighten_rls_policies.sql` — Secures write access to core tables, restricting it to admins and faculty. **Admin must run it in Supabase.**
-- [ ] **NEXT — Academic Year Tagging**: `migrate_academic_year.sql` — Adds `academic_year` to `results` and `blocks` for historical dashboard filtering. **Admin must run it in Supabase.**
-- [ ] **NEXT — Phase 3 QOTD & Push**: `migrate_qotd_reactions.sql` and `migrate_push_subscriptions.sql` — Adds the tables required for Web Push notifications and Question of the Day emoji reactions. **Admin must run it in Supabase.**
+- [x] **NEXT — Roster Split-Names Migration**: `migrate_roster_split_names.sql` — Adds `first_name`/`last_name` to `authorized_roster` so tables sort by true last name. **Admin must run it in Supabase.**
+- [x] **NEXT — Tighten RLS Policies**: `tighten_rls_policies.sql` — Secures write access to core tables, restricting it to admins and faculty. **Admin must run it in Supabase.**
+- [x] **NEXT — Academic Year Tagging**: `migrate_academic_year.sql` — Adds `academic_year` to `results` and `blocks` for historical dashboard filtering. **Admin must run it in Supabase.**
+- [x] **NEXT — Phase 3 QOTD & Push**: `migrate_qotd_reactions.sql` and `migrate_push_subscriptions.sql` — Adds the tables required for Web Push notifications and Question of the Day emoji reactions. **Admin must run it in Supabase.**
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Remaining in Phase 2
@@ -190,19 +190,19 @@ This file serves as the shared source of truth for development progress between 
 *Goal: Engagement and advanced analytics.*
 
 ### Email Integrations
-- [ ] Implement Email service provider (e.g. Resend or SendGrid) to restore the legacy functionality of emailing the resident the results of their quiz upon completion.
+- [x] Implement Email service provider (e.g. Resend or SendGrid) to restore the legacy functionality of emailing the resident the results of their quiz upon completion.
 
 ### Question of the Day (QOTD)
-- [ ] **[NEW]** **Full QOTD Ecosystem**:
-    - [ ] **Automated Selection**: Daily job to pick a high-yield question (ITE focus).
-    - [ ] **Push/Email Notifications**: Alert residents at a set time (e.g., 8:00 AM).
-    - [ ] **Dedicated QOTD UI**: Quick-access interface for the daily question (separate from full blocks).
-    - [ ] **Stat Tracking**: Track streak, daily participation rate, and cohort performance.
+- [x] **[NEW]** **Full QOTD Ecosystem**:
+    - [x] **Automated Selection**: Daily job to pick a high-yield question (ITE focus).
+    - [x] **Push/Email Notifications**: Alert residents at a set time (e.g., 8:00 AM).
+    - [x] **Dedicated QOTD UI**: Quick-access interface for the daily question (separate from full blocks).
+    - [x] **Stat Tracking**: Track streak, daily participation rate, and cohort performance.
 
 ### Push Notifications
-- [ ] Implement Web Push API (iOS 16.4+ compatible)
-- [ ] Add "Notification Settings" to User Profile
-- [ ] Implement Mid-block and End-block deadline alerts
+- [x] Implement Web Push API (iOS 16.4+ compatible)
+- [x] Add "Notification Settings" to User Profile
+- [x] Implement Mid-block and End-block deadline alerts
 
 ### AI & Analytics
 - [x] Question Analytics Heatmap: Identify "Trend" questions being missed by many.

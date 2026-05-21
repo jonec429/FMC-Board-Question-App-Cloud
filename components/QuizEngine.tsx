@@ -12,6 +12,8 @@ interface QuizEngineProps {
   user: any;
   isQotd?: boolean;
   qotdQuestion?: any;
+  isQotdCompleted?: boolean;
+  qotdAttempt?: any;
   quizId?: string;
   topic?: string;
   /** Fixed list of question IDs (set on assigned blocks so every resident sees the same questions). Takes precedence over category/keyword filtering. */
@@ -31,7 +33,7 @@ interface QuizEngineProps {
 const FONT_SIZES = [14, 16, 18, 20, 22, 24];
 const DEFAULT_FONT_INDEX = 2; // 18px
 
-export default function QuizEngine({ user, isQotd, qotdQuestion, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
+export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted, qotdAttempt, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -79,6 +81,35 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, quizId, topic, 
         if (isQotd && qotdQuestion) {
           setQuestions([qotdQuestion]);
           setTimeLeft(90);
+          
+          if (isQotdCompleted) {
+             const isCorrect = qotdAttempt?.is_correct || false;
+             setResultData({
+                topic: 'Question of the Day',
+                score: isCorrect ? 1 : 0,
+                total: 1,
+                percentage: isCorrect ? 100 : 0,
+                academic_points: 0,
+                timing_status: 'On Time',
+                questions: [qotdQuestion],
+                missedQuestions: isCorrect ? [] : [{ q: qotdQuestion, idx: 0, isCorrect: false }],
+             });
+             setShowResults(true);
+             
+             // Fetch existing reactions silently
+             supabase.from('qotd_reactions')
+              .select('reaction')
+              .eq('question_id', qotdQuestion.id)
+              .eq('date', getTodayDateString())
+              .then(({ data }) => {
+                if (data) {
+                  const fetchedAggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0 };
+                  data.forEach((r: any) => { if (fetchedAggs[r.reaction] !== undefined) fetchedAggs[r.reaction]++; });
+                  setQotdAggregates(fetchedAggs);
+                }
+              });
+          }
+          
           setLoading(false);
           return; // Skip session logic for QOTD
         }
@@ -192,7 +223,10 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, quizId, topic, 
             ? questionIds!.length
             : (pool === 'unused' ? count * 10 : count * 3);
         const { data: qData, error: qError } = (await withTimeout(
-          query.order('year', { ascending: false }).limit(fetchLimit)
+          query.neq('year', 'Demo')
+            .neq('category', 'Demo')
+            .not('id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
+            .order('year', { ascending: false }).limit(fetchLimit)
         )) as any;
 
         if (qError) throw qError;
@@ -281,105 +315,112 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, quizId, topic, 
     if (!autoSubmit && !window.confirm('Are you sure you want to finish this block?')) return;
 
     setSubmitting(true);
-    const score = questions.reduce((acc, q, idx) => acc + (answers[idx] === q.correct_index ? 1 : 0), 0);
-    const percentage = questions.length > 0 ? (score / questions.length) * 100 : 0;
-    const topicLabel = topic || 'Mixed Review Block';
+    
+    try {
+      const score = questions.reduce((acc, q, idx) => acc + (answers[idx] === q.correct_index ? 1 : 0), 0);
+      const percentage = questions.length > 0 ? (score / questions.length) * 100 : 0;
+      const topicLabel = topic || 'Mixed Review Block';
 
-    let points = 0;
-    let timingStatus = 'On Time';
+      let points = 0;
+      let timingStatus = 'On Time';
 
-    if (topicLabel === 'Mixed Review Block' || !topic) {
-      points = 0;
-    } else if (topicLabel.toLowerCase().includes('bonus')) {
-      points = 2;
-    } else {
-      if (currentBlock) {
+      if (topicLabel === 'Mixed Review Block' || !topic) {
+        points = 0;
+      } else if (topicLabel.toLowerCase().includes('bonus')) {
         points = 2;
-        timingStatus = 'On Time';
       } else {
-        points = 1;
-        timingStatus = 'Late';
+        if (currentBlock) {
+          points = 2;
+          timingStatus = 'On Time';
+        } else {
+          points = 1;
+          timingStatus = 'Late';
+        }
       }
-    }
 
-    const missedQuestions = questions
-      .map((q, idx) => ({ q, idx, isCorrect: answers[idx] === q.correct_index }))
-      .filter(({ isCorrect }) => !isCorrect);
+      const missedQuestions = questions
+        .map((q, idx) => ({ q, idx, isCorrect: answers[idx] === q.correct_index }))
+        .filter(({ isCorrect }) => !isCorrect);
 
-    const isDemo = currentBlock?.block_type === 'demo' || topicLabel.toLowerCase() === 'demo quiz';
+      const isDemo = currentBlock?.block_type === 'demo' || topicLabel.toLowerCase() === 'demo quiz';
 
-    const result = {
-      user_id: user.id,
-      legacy_email: user.email,
-      topic: topicLabel,
-      score,
-      total: questions.length,
-      percentage: parseFloat(percentage.toFixed(2)),
-      academic_points: points,
-      timing_status: timingStatus,
-      academic_year: getCurrentAcademicYear(),
-    };
-
-    if (!isDemo && !isQotd) {
-      await supabase.from('results').insert(result);
-
-      // Save individual question attempts
-      const attempts = questions.map((q, idx) => ({
+      const result = {
         user_id: user.id,
-        question_id: q.id,
-        is_correct: answers[idx] === q.correct_index,
-      }));
-      await supabase.from('question_attempts').insert(attempts);
+        legacy_email: user.email,
+        topic: topicLabel,
+        score,
+        total: questions.length,
+        percentage: parseFloat(percentage.toFixed(2)),
+        academic_points: points,
+        timing_status: timingStatus,
+        academic_year: getCurrentAcademicYear(),
+      };
 
-      // Send completion email
-      fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: user.email,
-          subject: `FMC QBank: ${topicLabel} Completed`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h2 style="color: #1e293b;">Quiz Completed: ${topicLabel}</h2>
-              <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0;">
-                <p style="margin: 0 0 10px 0; font-size: 16px;"><strong>Score:</strong> ${score} / ${questions.length} (${result.percentage}%)</p>
-                <p style="margin: 0; font-size: 16px;"><strong>Points Earned:</strong> ${points} (${timingStatus})</p>
+      if (!isDemo && !isQotd) {
+        await withTimeout(supabase.from('results').insert(result), 10000);
+
+        // Save individual question attempts
+        const attempts = questions.map((q, idx) => ({
+          user_id: user.id,
+          question_id: q.id,
+          is_correct: answers[idx] === q.correct_index,
+        }));
+        await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
+
+        // Send completion email (fire and forget)
+        fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: user.email,
+            subject: `FMC QBank: ${topicLabel} Completed`,
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #1e293b;">Quiz Completed: ${topicLabel}</h2>
+                <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                  <p style="margin: 0 0 10px 0; font-size: 16px;"><strong>Score:</strong> ${score} / ${questions.length} (${result.percentage}%)</p>
+                  <p style="margin: 0; font-size: 16px;"><strong>Points Earned:</strong> ${points} (${timingStatus})</p>
+                </div>
+                <p style="color: #64748b;">Keep up the great work!</p>
               </div>
-              <p style="color: #64748b;">Keep up the great work!</p>
-            </div>
-          `
-        })
-      }).catch(err => console.error('Failed to send email:', err));
-    } else if (isQotd) {
-      // For QOTD, only save the attempt, not a full block result
-      await supabase.from('question_attempts').insert({
-        user_id: user.id,
-        question_id: questions[0].id,
-        is_correct: answers[0] === questions[0].correct_index,
-      });
-    }
-
-    if (sessionId) {
-      await supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId);
-    }
-
-    if (isQotd) {
-      // For QOTD, fetch existing reactions to show aggregates
-      const { data } = await supabase.from('qotd_reactions')
-        .select('reaction')
-        .eq('question_id', questions[0].id)
-        .eq('date', getTodayDateString());
-      
-      if (data) {
-        const aggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0 };
-        data.forEach(r => { if (aggs[r.reaction] !== undefined) aggs[r.reaction]++; });
-        setQotdAggregates(aggs);
+            `
+          })
+        }).catch(err => console.error('Failed to send email:', err));
+      } else if (isQotd) {
+        // For QOTD, only save the attempt, not a full block result
+        await withTimeout(supabase.from('question_attempts').insert({
+          user_id: user.id,
+          question_id: questions[0].id,
+          is_correct: answers[0] === questions[0].correct_index,
+        }), 10000);
       }
-    }
 
-    setResultData({ ...result, missedQuestions, questions });
-    setShowResults(true);
-    setSubmitting(false);
+      if (sessionId) {
+        await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 10000);
+      }
+
+      if (isQotd) {
+        // For QOTD, fetch existing reactions to show aggregates
+        const { data } = await withTimeout(supabase.from('qotd_reactions')
+          .select('reaction')
+          .eq('question_id', questions[0].id)
+          .eq('date', getTodayDateString()), 10000);
+        
+        if (data) {
+          const aggs: Record<string, number> = { '🤯': 0, '🤨': 0, '👍': 0, '🥱': 0 };
+          data.forEach((r: any) => { if (aggs[r.reaction] !== undefined) aggs[r.reaction]++; });
+          setQotdAggregates(aggs);
+        }
+      }
+
+      setResultData({ ...result, missedQuestions, questions });
+      setShowResults(true);
+    } catch (err: any) {
+      console.error('Submit Quiz Error:', err);
+      alert('There was a network error saving your block. Please try clicking Finish again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleFinish = () => submitQuiz(false);
