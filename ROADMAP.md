@@ -67,6 +67,7 @@ This file serves as the shared source of truth for development progress between 
 - [ ] **NEXT — Roster Split-Names Migration**: `migrate_roster_split_names.sql` — Adds `first_name`/`last_name` to `authorized_roster` so tables sort by true last name. **Admin must run it in Supabase.**
 - [ ] **NEXT — Tighten RLS Policies**: `tighten_rls_policies.sql` — Secures write access to core tables, restricting it to admins and faculty. **Admin must run it in Supabase.**
 - [ ] **NEXT — Academic Year Tagging**: `migrate_academic_year.sql` — Adds `academic_year` to `results` and `blocks` for historical dashboard filtering. **Admin must run it in Supabase.**
+- [ ] **NEXT — Phase 3 QOTD & Push**: `migrate_qotd_reactions.sql` and `migrate_push_subscriptions.sql` — Adds the tables required for Web Push notifications and Question of the Day emoji reactions. **Admin must run it in Supabase.**
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Remaining in Phase 2
