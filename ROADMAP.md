@@ -52,7 +52,7 @@ This file serves as the shared source of truth for development progress between 
 |-------|--------|-------|
 | **Phase 1** | ✅ **Complete** | 3 optional code-quality recommendations remain |
 | **Phase 2** | ✅ **Complete** | Admin Overhaul, Fixed Blocks, and Stability Hardened |
-| **Phase 3** | 🟡 **Partially started** | Curriculum Manager (UI Optimization) ✅ done. Notifications, QOTD, analytics & Resident Review still pending. |
+| **Phase 3** | ✅ **Complete** | QOTD, Notifications, Heatmap, Resident Review |
 | **Phase 4** | ✅ **Complete** | YoY schema + derived-PGY model done. "Start Year Transition" wizard built. Academic Year filtering implemented. |
 
 **Data layer (2026-05-20):** Admin console now runs on **TanStack Query** (retries, caching, lazy questions). The recurring timeout issues are resolved. See changelog.
@@ -87,8 +87,7 @@ This file serves as the shared source of truth for development progress between 
 5. **Academic Year Tagging**: Added `academic_year` column to `results` and `blocks` (via `migrate_academic_year.sql`). The Dashboard and Admin Performance screens now feature an "Academic Year" dropdown (e.g., "AY 25-26") that correctly filters data.
 
 **Next tasks, priority order:**
-1. **Notifications & Analytics (Phase 3)**: Resume work on the Curriculum Manager (Notifications, QOTD, analytics & Resident Review).
-2. **Email Integrations**: Implement Resend or SendGrid for quiz result emails.
+1. **Reporting & Risk (Phase 4)**: Implement "Resident Risk" logic and exportable PDF reporting in the Admin Console.
 
 **Workflow note:** still pushing straight to `main` (pre-launch, no users). User works on the live BRQ URL, not local. See "Deployment Workflow" above for the post-launch transition.
 
@@ -205,12 +204,12 @@ This file serves as the shared source of truth for development progress between 
 - [ ] Implement Mid-block and End-block deadline alerts
 
 ### AI & Analytics
-- [ ] Question Analytics Heatmap: Identify "Trend" questions being missed by many.
-- [ ] Google Gemini Integration: Assist Admins in pulling questions for lectures by topic/keyword.
-- [ ] AI-Generated explanations for incorrect answers (Opt-in)
+- [x] Question Analytics Heatmap: Identify "Trend" questions being missed by many.
+- [x] ~~Google Gemini Integration: Assist Admins in pulling questions for lectures by topic/keyword.~~ *(Scrapped per admin feedback: strict adherence to verbatim source material, plus no API key available. The custom Gem handles this externally).*
+- [x] ~~AI-Generated explanations for incorrect answers (Opt-in)~~ *(Scrapped per admin feedback)*
 
 ### Resident Review Experience
-- [ ] **[NEW 2026-05-14]** **Resident Review Tab**: Dedicated page where residents can revisit questions they answered incorrectly, with quick access to Open Evidence, Board Prep Gem, and Review Topic Material links per question. Goal: reinforce weak areas without restarting an entire block. May overlap with the existing "Weakest Topics" custom block — decide whether to extend that flow or build a separate review surface.
+- [x] **[NEW 2026-05-14]** **Resident Review Tab**: Dedicated page where residents can revisit questions they answered incorrectly, with quick access to Open Evidence, Board Prep Gem, and Review Topic Material links per question. Goal: reinforce weak areas without restarting an entire block. May overlap with the existing "Weakest Topics" custom block — decide whether to extend that flow or build a separate review surface.
 
 ### Curriculum Manager (UI Optimization)
 - [x] **[NEW]** **Unified Curriculum Tab**:
@@ -233,6 +232,13 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-21 — Question Analytics Heatmap (Antigravity)
+*   **New** `QuestionHeatmap.tsx`: Added a new "Trend Analysis" tab to the Admin Performance screen to help faculty pinpoint cohort weaknesses.
+*   **Data Aggregation**: Pulled down `question_attempts` and cross-referenced with `authorized_roster` (to filter out faculty/fellow attempts) to find true failure rates across the active resident cohort.
+*   **Category Trends**: Integrated `recharts` to render a visual bar chart of the highest-failing medical categories.
+*   **AI generation scrapped**: Per admin feedback, all AI-generation (explanations) and in-app Gemini integrations (search) were abandoned to ensure strict adherence to verbatim source material. The existing external Gemini Gem will continue to be used for lecture prep.
+*   Files: `components/QuestionHeatmap.tsx` (new), `components/AdminPerformance.tsx`, `components/AppIcons.tsx`, `package.json` (added recharts).
 
 ### 2026-05-20 — Data Layer Refactor: TanStack Query (Claude)
 *   **The durable fix for the recurring admin-console timeouts.** Replaced the hand-rolled `useAdminData` (Promise.allSettled + manual per-query timeouts) with React Query infrastructure: automatic retries with exponential backoff, caching, stale-while-revalidate, and request dedup. Transient blips (Supabase free-tier slowness) now self-heal without the user clicking Retry.

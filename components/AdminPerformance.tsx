@@ -7,6 +7,7 @@ import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight } from './AppIcons';
+import QuestionHeatmap from './QuestionHeatmap';
 
 const AT_RISK_AVG = 60;
 const CONCERN_AVG = 70;
@@ -50,7 +51,7 @@ interface AdminPerformanceProps {
   adminData?: AdminData;
 }
 
-type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'my_advisees';
+type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'my_advisees' | 'heatmap';
 
 export default function AdminPerformance({ user, profile, adminData }: AdminPerformanceProps) {
   const userIsAdmin = isAdmin(user, profile);
@@ -281,6 +282,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
             ['overview', 'Program Overview'],
             ['at_risk', `At Risk (${redFlagged.length + yellowFlagged.length})`],
             ['by_pgy', 'By Class Year'],
+            ['heatmap', 'Trend Analysis'],
           ];
           // Faculty-only tab: appears first when user is faculty (admins can also pull it up if they have advisees)
           const tabs: [SubTab, string][] = userIsFaculty && facultyName
@@ -415,6 +417,11 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
             );
           })}
         </div>
+      )}
+
+      {/* Heatmap Tab */}
+      {activeSubTab === 'heatmap' && adminData && (
+        <QuestionHeatmap adminData={adminData} />
       )}
 
       {/* Individual Resident Modal */}
