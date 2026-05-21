@@ -28,7 +28,9 @@ export function useAdminData(userIsAdmin: boolean) {
       // Omits `explanation` and `resource_link` (multi-paragraph, lazy-fetched by
       // QuestionBankManager.openEditModal). Do NOT add columns without verifying
       // they exist in the DB — a missing column fails that query silently.
-      const PER_QUERY_TIMEOUT = 20000;
+      // 30s per query: forgiving enough for a sluggish/cold Supabase connection
+      // (free tier), while still isolating any single truly-hung query.
+      const PER_QUERY_TIMEOUT = 30000;
       const q = <T,>(p: PromiseLike<T>) => withTimeout(p, PER_QUERY_TIMEOUT);
 
       const settled = await Promise.allSettled([
