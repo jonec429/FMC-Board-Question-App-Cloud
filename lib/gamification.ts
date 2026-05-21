@@ -7,7 +7,9 @@ export async function processGamification(
   isCorrect: boolean,
   questionId?: string,
   totalQuestionsAnsweredInBlock?: number,
-  blockScorePercentage?: number
+  blockScorePercentage?: number,
+  timingStatus?: string,
+  topicCategory?: string
 ) {
   try {
     const todayStr = getTodayDateString();
@@ -95,6 +97,7 @@ export async function processGamification(
       // --- BADGE EVALUATION (QOTD) ---
       await evaluateBadge(userId, 'QOTD 5x Streak', current_qotd_streak >= 5);
       await evaluateBadge(userId, 'QOTD 10x Streak', current_qotd_streak >= 10);
+      await evaluateBadge(userId, 'QOTD 30x Streak', current_qotd_streak >= 30);
 
       // Check "Just in Time" (11:55am - 11:59am EST)
       if (estHour === 11 && estMinute >= 55 && estMinute <= 59) {
@@ -117,24 +120,103 @@ export async function processGamification(
       }
     }
 
-    // 3. Process Block Badges
+    // 3. Process Block Badges & Streaks
     if (!isQotd && totalQuestionsAnsweredInBlock) {
+      // 3a. Block Streak
+      let { current_block_streak, max_block_streak, last_block_date } = streakData;
+
+      if (timingStatus === 'On Time' || timingStatus === 'Early') {
+        current_block_streak = (current_block_streak || 0) + 1;
+        max_block_streak = Math.max(max_block_streak || 0, current_block_streak);
+      } else if (timingStatus === 'Late') {
+        current_block_streak = 0;
+      }
+
+      await supabase.from('user_streaks').update({
+        current_block_streak,
+        max_block_streak,
+        last_block_date: estNow.toISOString()
+      }).eq('user_id', userId);
+
+      // 3b. Badges
+      await evaluateBadge(userId, 'First Step', true); // Everyone who submits gets this if they don't have it
+
       if (blockScorePercentage === 100) {
-        await evaluateBadge(userId, 'Flawless Victory', true);
+        await evaluateBadge(userId, 'Perfect Block', true);
       }
 
       if (estHour >= 0 && estHour < 4) {
         await evaluateBadge(userId, 'Night Owl', true);
       }
 
-      // Check Marathoner (100 total questions answered)
-      const { count } = await supabase
+      // Check Clubs (100 - 1000 questions)
+      const { count: totalQCount } = await supabase
         .from('question_attempts')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId);
         
-      if (count && count >= 100) {
-        await evaluateBadge(userId, 'Marathoner', true);
+      if (totalQCount) {
+        if (totalQCount >= 100) await evaluateBadge(userId, '100 Club', true);
+        if (totalQCount >= 200) await evaluateBadge(userId, '200 Club', true);
+        if (totalQCount >= 300) await evaluateBadge(userId, '300 Club', true);
+        if (totalQCount >= 400) await evaluateBadge(userId, '400 Club', true);
+        if (totalQCount >= 500) await evaluateBadge(userId, '500 Club', true);
+        if (totalQCount >= 600) await evaluateBadge(userId, '600 Club', true);
+        if (totalQCount >= 700) await evaluateBadge(userId, '700 Club', true);
+        if (totalQCount >= 800) await evaluateBadge(userId, '800 Club', true);
+        if (totalQCount >= 900) await evaluateBadge(userId, '900 Club', true);
+        if (totalQCount >= 1000) await evaluateBadge(userId, '1k Club', true);
+      }
+
+      // 3c. Topic Master (100% completion of latest ITE for this category)
+      if (topicCategory && topicCategory !== 'Mixed Review Block' && topicCategory !== 'Demo Quiz') {
+        // Find max year for this category
+        const { data: maxYearData } = await supabase
+          .from('questions')
+          .select('year')
+          .eq('category', topicCategory)
+          .order('year', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (maxYearData && maxYearData.year) {
+          const targetYear = maxYearData.year;
+          
+          // Get total questions in that category & year
+          const { count: targetCount } = await supabase
+            .from('questions')
+            .select('*', { count: 'exact', head: true })
+            .eq('category', topicCategory)
+            .eq('year', targetYear);
+
+          if (targetCount && targetCount > 0) {
+            // Check how many of those specific questions the user has answered
+            // 1. Get IDs of target questions
+            const { data: targetQData } = await supabase
+              .from('questions')
+              .select('id')
+              .eq('category', topicCategory)
+              .eq('year', targetYear);
+              
+            if (targetQData) {
+              const targetIds = targetQData.map(q => q.id);
+              
+              // 2. Count distinct attempts by user for those IDs
+              const { data: attemptsData } = await supabase
+                .from('question_attempts')
+                .select('question_id')
+                .eq('user_id', userId)
+                .in('question_id', targetIds);
+                
+              if (attemptsData) {
+                const uniqueAttemptedIds = new Set(attemptsData.map(a => a.question_id));
+                if (uniqueAttemptedIds.size >= targetCount) {
+                  await evaluateBadge(userId, 'Topic Master', true);
+                }
+              }
+            }
+          }
+        }
       }
     }
 

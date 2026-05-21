@@ -314,16 +314,32 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
            )}
 
           {/* Streaks & Badges */}
-          {(userStreak?.current_qotd_streak > 0 || userBadges.length > 0) && (
+          {((userStreak?.current_qotd_streak > 0) || (userStreak?.current_block_streak > 0) || (userBadges.length > 0)) && (
             <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm animate-fade-in">
               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Achievements</h3>
               
               {userStreak?.current_qotd_streak > 0 && (
-                <div className="flex items-center gap-3 mb-4 p-3 bg-orange-50 text-orange-700 rounded-xl border border-orange-100">
+                <div 
+                  className="flex items-center gap-3 mb-4 p-3 bg-orange-50 text-orange-700 rounded-xl border border-orange-100 cursor-help transition-all hover:bg-orange-100"
+                  title={`You've answered the Question of the Day for ${userStreak.current_qotd_streak} consecutive weekdays!`}
+                >
                   <div className="text-2xl animate-pulse">🔥</div>
                   <div>
                     <div className="font-black text-lg">{userStreak.current_qotd_streak} Day Streak</div>
-                    <div className="text-xs font-bold opacity-80">QOTD</div>
+                    <div className="text-xs font-bold opacity-80">Question of the Day</div>
+                  </div>
+                </div>
+              )}
+
+              {userStreak?.current_block_streak > 0 && (
+                <div 
+                  className="flex items-center gap-3 mb-4 p-3 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-help transition-all hover:bg-blue-100"
+                  title={`You've submitted ${userStreak.current_block_streak} consecutive practice blocks On Time!`}
+                >
+                  <div className="text-2xl animate-pulse">⚡</div>
+                  <div>
+                    <div className="font-black text-lg">{userStreak.current_block_streak} Block Streak</div>
+                    <div className="text-xs font-bold opacity-80">On-Time Submissions</div>
                   </div>
                 </div>
               )}
