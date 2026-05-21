@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout } from '@/lib/utils';
-import { X, Loader2, CheckCircle, Lock, MailIcon, Sparkles } from './AppIcons';
+import { X, Loader2, CheckCircle, Lock, MailIcon, Sparkles, Eye, EyeOff } from './AppIcons';
 
 // Public VAPID key
 const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
@@ -16,9 +16,9 @@ interface ProfileSettingsProps {
 }
 
 export default function ProfileSettings({ user, profile, onClose, onProfileUpdate }: ProfileSettingsProps) {
-  // Name fields
   const [firstName, setFirstName] = useState(profile?.first_name || profile?.full_name?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(profile?.last_name || profile?.full_name?.split(' ').slice(1).join(' ') || '');
+  const [designation, setDesignation] = useState(profile?.pgy || '');
 
   // Password fields
   const [currentPassword, setCurrentPassword] = useState('');
@@ -32,6 +32,7 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [error, setError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Push notification states
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -128,6 +129,7 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
             full_name: fullName,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
+            pgy: designation.trim() || null,
           }),
         30000
       )) as any;
@@ -168,6 +170,7 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
         full_name: fullName,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
+        pgy: designation.trim() || null,
       });
 
       setNameSuccess(true);
@@ -259,6 +262,17 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
             </div>
 
             <div>
+              <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">Designation (PGY, Faculty, Fellow, etc.)</label>
+              <input
+                type="text"
+                value={designation}
+                onChange={(e) => setDesignation(e.target.value)}
+                placeholder="e.g. Faculty, Fellow, PGY-1, Class of 2026"
+                className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+              />
+            </div>
+
+            <div>
               <label className="text-xs font-bold text-slate-500 ml-1 mb-1 block">Email</label>
               <div className="relative">
                 <MailIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
@@ -317,27 +331,41 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Change Password</h3>
 
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="New Password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                className="w-full pl-10 pr-12 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
 
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="Confirm New Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                className="w-full pl-10 pr-12 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500 focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
 
             {passwordError && (

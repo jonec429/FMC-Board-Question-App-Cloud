@@ -21,11 +21,14 @@ export default function ResidentReview({ user, onClose }: ResidentReviewProps) {
       setLoading(true);
       try {
         // Fetch all attempts for the user
-        const { data: attempts, error: attError } = await supabase
-          .from('question_attempts')
-          .select('question_id, is_correct, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+        const { data: attempts, error: attError } = await withTimeout(
+          supabase
+            .from('question_attempts')
+            .select('question_id, is_correct, created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }),
+          10000
+        ) as any;
 
         if (attError) throw attError;
 

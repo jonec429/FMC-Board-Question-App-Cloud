@@ -45,9 +45,10 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
     async function fetchFilters() {
       setLoading(true);
       try {
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Request timed out while loading questions. Please check your connection.')), 10000)
-        );
+        let timeoutId: NodeJS.Timeout;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Request timed out while loading questions.')), 10000);
+        });
 
         const fetchTask = async () => {
           const { data: qData } = await supabase.from('questions').select('category, year');
@@ -78,6 +79,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
         };
 
         await Promise.race([fetchTask(), timeoutPromise]);
+        clearTimeout(timeoutId!);
 
       } catch (err) {
         console.error('Filter fetch error:', err);

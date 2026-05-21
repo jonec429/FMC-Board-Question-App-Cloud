@@ -19,11 +19,11 @@ export async function GET(request: Request) {
     );
   }
 
-  // Optional: Verify Vercel Cron Secret
-  // const authHeader = request.headers.get('authorization');
-  // if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-  //   return new Response('Unauthorized', { status: 401 });
-  // }
+  // Verify Vercel Cron Secret
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response('Unauthorized', { status: 401 });
+  }
 
   try {
     const { data: subs, error } = await supabase.from('web_push_subscriptions').select('*');

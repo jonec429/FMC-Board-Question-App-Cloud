@@ -623,17 +623,6 @@ function MyStatsModal({
   const classLeader = classmates.length > 0 ? classmates[0] : null;
   const isClassLeader = classLeader?.email.toLowerCase() === userEmail.toLowerCase();
 
-  // Badges (computed from existing data — no QOTD or block schedule yet)
-  const badges: { label: string; emoji: string; color: string }[] = [];
-  if (assignedCount > 0) badges.push({ label: 'First Steps', emoji: '🎯', color: 'bg-blue-50 text-blue-700 border-blue-200' });
-  if (totalQs >= 200) badges.push({ label: 'Scholar IV', emoji: '📚', color: 'bg-purple-50 text-purple-700 border-purple-200' });
-  else if (totalQs >= 120) badges.push({ label: 'Scholar III', emoji: '📖', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' });
-  else if (totalQs >= 80) badges.push({ label: 'Scholar II', emoji: '📔', color: 'bg-blue-50 text-blue-700 border-blue-200' });
-  else if (totalQs >= 40) badges.push({ label: 'Scholar I', emoji: '📕', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' });
-  if (hasPerfect) badges.push({ label: 'Perfect Block', emoji: '✨', color: 'bg-amber-50 text-amber-700 border-amber-200' });
-  if (myRank !== null && myRank >= 1 && myRank <= 3) badges.push({ label: `Top ${myRank}`, emoji: '🏆', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' });
-  if (isClassLeader && classmates.length > 1) badges.push({ label: 'Class Leader', emoji: '👑', color: 'bg-rose-50 text-rose-700 border-rose-200' });
-
   // Topic / subject breakdown (group by topic, compute avg)
   const topicStats = new Map<string, { sum: number; count: number; qs: number }>();
   myResults.forEach(r => {
@@ -659,7 +648,7 @@ function MyStatsModal({
             <div className="min-w-0">
               <h2 className="text-xl font-black text-slate-800 truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
               <p className="text-xs font-bold text-slate-400 mt-0.5 truncate">
-                {profile?.pgy || '—'}{profile?.advisor ? ` · Advisor: ${profile.advisor}` : ''}
+                {profile?.pgy || 'No Designation Set'}{profile?.advisor ? ` · Advisor: ${profile.advisor}` : ''}
               </p>
             </div>
           </div>
@@ -690,15 +679,23 @@ function MyStatsModal({
           </div>
 
           {/* Badges */}
-          {badges.length > 0 && (
+          {userBadges.length > 0 && (
             <div>
               <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Badges &amp; Milestones</h3>
               <div className="flex flex-wrap gap-2">
-                {badges.map((b, i) => (
-                  <span key={i} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${b.color}`}>
-                    <span>{b.emoji}</span>
-                    <span>{b.label}</span>
-                  </span>
+                {userBadges.map((b, i) => (
+                  <div key={i} className="relative group">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-indigo-50 text-indigo-700 border-indigo-200 cursor-help transition-transform hover:scale-105">
+                      <span>{b.icon}</span>
+                      <span>{b.name}</span>
+                    </span>
+                    {b.description && (
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl">
+                        {b.description}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BookOpen, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X } from './AppIcons';
+import { BookOpen, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 
 export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
@@ -17,6 +17,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [showAI, setShowAI] = useState(false);
   const [showNews, setShowNews] = useState(false);
   const [changelog, setChangelog] = useState<string[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const fetchChangelog = async () => {
@@ -209,28 +210,42 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
               <input
                 id="password"
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 placeholder="Password"
-                className="w-full pl-12 pr-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 ring-blue-500 transition-all text-base"
+                className="w-full pl-12 pr-12 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 ring-blue-500 transition-all text-base"
                 required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
 
             {mode === 'signup' && (
               <div className="relative animate-fade-in">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Confirm Password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
+                  className="w-full pl-12 pr-12 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
               </div>
             )}
 

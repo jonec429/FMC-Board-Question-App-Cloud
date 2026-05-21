@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getCurrentAcademicYear } from './academicYear';
+import { withTimeout } from './utils';
 
 /**
  * Helper to get the current date explicitly in EST
@@ -53,7 +54,7 @@ export async function getQotdQuestion() {
 
   // Fetch the Nth question, ordered by year DESC and id ASC
   // Excluding Demo questions
-  const { data, error } = await supabase
+  const { data, error } = await withTimeout(supabase
     .from('questions')
     .select('*')
     .neq('year', 'Demo')
@@ -62,7 +63,7 @@ export async function getQotdQuestion() {
     .order('year', { ascending: false })
     .order('id', { ascending: true })
     .range(index, index)
-    .single();
+    .single(), 5000).catch((e: any) => ({ data: null, error: e })) as any;
 
   if (error || !data) {
     console.error('Error fetching QOTD:', error);
