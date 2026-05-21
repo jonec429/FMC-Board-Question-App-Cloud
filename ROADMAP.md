@@ -155,7 +155,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[2026-05-14, fixed Claude]** **Resume Later — silent data loss**: Root cause was a 3s debounce on `syncProgress` whose pending timeout got cancelled on component unmount. Clicking Resume Later within 3s of an answer change discarded the latest state. Added `handleResumeLater` that flushes the current state to `quiz_sessions` immediately (with 8s timeout) before calling `onCancel`. Button now shows a "Saving…" state while flushing. Same handler wired to the top-left back-arrow (same exit intent).
 - [ ] **[Security 2026-05-19, flagged Claude] [MUST FIX BEFORE LAUNCH]** **Tighten RLS policies on `questions`, `blocks`, `block_schedule`**: Current policies (from `migrate_admin_fixes.sql`) grant `ALL` to any `authenticated` user via `USING (true)`. Any logged-in resident could write to the question bank, schedule, or block metadata via direct Supabase API calls — bypassing the UI's admin-only checks entirely. Low practical risk today (small trusted roster) but unacceptable for general rollout. Replace with role-based policies that check `auth.uid()` against an `admin`/`faculty` role in `profiles` for write operations.
 - [ ] **[Security 2026-05-19, flagged Claude]** **`migrate_admin_fixes.sql` is destructive if re-run**: First statement is `DROP TABLE IF EXISTS public.block_schedule CASCADE` with no guard. File now carries a "DO NOT RE-RUN" header, but the safer fix is to split it into idempotent steps (`CREATE TABLE IF NOT EXISTS …`, conditional ALTERs) before reusing any of it as a template for future migrations.
-- [ ] **[Perf 2026-05-19, follow-up after hotfix]** **`sessionStorage`-backed cache for `useAdminData`**: Currently the admin console refetches every table on every fresh entry (page reload or AdminConsole remount). A 5-min TTL cache for slowly-changing data (questions, blocks, block_schedule, profiles, roster) would make re-entry instant. `results` should stay always-fresh. Cache must be busted on mutation (roster edit → bust roster slice, block save → bust blocks slice, etc). ~30 lines, no external deps.
+- [x] **[Perf 2026-05-19 → done 2026-05-20]** ~~`sessionStorage`-backed cache for `useAdminData`~~ **Superseded by the TanStack Query refactor** (2026-05-20) — React Query provides caching, stale-while-revalidate, retries, and dedup, which covers this item and more.
 
 ## 📍 Phase 3: Notifications & Intelligence
 *Goal: Engagement and advanced analytics.*
@@ -204,6 +204,14 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-20 — Data Layer Refactor: TanStack Query (Claude)
+*   **The durable fix for the recurring admin-console timeouts.** Replaced the hand-rolled `useAdminData` (Promise.allSettled + manual per-query timeouts) with React Query infrastructure: automatic retries with exponential backoff, caching, stale-while-revalidate, and request dedup. Transient blips (Supabase free-tier slowness) now self-heal without the user clicking Retry.
+*   **New** `@tanstack/react-query` dependency + `app/providers.tsx` (client `QueryClientProvider` wired into `app/layout.tsx`). Defaults: retry 3 w/ backoff, 60s staleTime, 5min gcTime, no refetch-on-window-focus.
+*   **`useAdminData` rewritten** as two queries: a **core** query (blocks, schedule, results, profiles, roster — all small, always loaded) and a **lazy questions** query that only fires on the Questions/Curriculum tabs (`enabled: includeQuestions`). The heaviest table is no longer on the critical path for Performance/Roster/Attendance. Return shape (`{ data, loading, error, refetch }`) is unchanged, so AdminPerformance/RosterManager/CurriculumManager/QuestionBankManager need no changes. `refetch` invalidates `['admin']` query keys.
+*   **`AdminConsole`** computes `includeQuestions = activeTab === 'questions' || 'builder'` and passes it to the hook.
+*   **Verified**: `tsc --noEmit` clean + `next build` succeeds (all 7 routes, 196 kB first load on `/`).
+*   Files: `package.json`, `package-lock.json`, `app/providers.tsx` (new), `app/layout.tsx`, `hooks/useAdminData.ts`, `components/AdminConsole.tsx`.
 
 ### 2026-05-20 — Sortable Tables (Performance + Roster) (Claude)
 *   **New** `lib/sorting.tsx`: reusable `useSortState` hook, pure `sortItems()` sorter, `SortHeader` clickable-header component, and a `lastName()` helper (sorts "First Last" by final token). Numbers sort numerically; text via locale-aware compare.

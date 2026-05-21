@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { withTimeout } from '@/lib/utils';
 
@@ -11,83 +11,105 @@ export interface AdminData {
   roster: any[];
 }
 
-export function useAdminData(userIsAdmin: boolean) {
-  const [data, setData] = useState<AdminData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+type CoreData = Omit<AdminData, 'questions'>;
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Each query gets its OWN timeout and runs under Promise.allSettled so that
-      // one slow/hung table (e.g. a Supabase cold start) can't sink the entire
-      // console. We collect whatever succeeds and soft-fail the rest.
-      //
-      // Slim `questions` select: only columns confirmed in import_questions.sql.
-      // Omits `explanation` and `resource_link` (multi-paragraph, lazy-fetched by
-      // QuestionBankManager.openEditModal). Do NOT add columns without verifying
-      // they exist in the DB — a missing column fails that query silently.
-      // 30s per query: forgiving enough for a sluggish/cold Supabase connection
-      // (free tier), while still isolating any single truly-hung query.
-      const PER_QUERY_TIMEOUT = 30000;
-      const q = <T,>(p: PromiseLike<T>) => withTimeout(p, PER_QUERY_TIMEOUT);
+// Per-query timeout as defense-in-depth; React Query retries on top of this.
+const PER_QUERY_TIMEOUT = 30000;
+const q = <T,>(p: PromiseLike<T>) => withTimeout(p, PER_QUERY_TIMEOUT);
 
-      const settled = await Promise.allSettled([
-        q(supabase.from('questions').select('id, question_text, category, year, options, correct_index').order('year', { ascending: false })),
-        q(supabase.from('blocks').select('*')),
-        q(supabase.from('block_schedule').select('*')),
-        q(supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at')),
-        q(supabase.from('profiles').select('*')),
-        // Full roster (faculty included). Consumers filter by track/status.
-        q(supabase.from('authorized_roster').select('*')),
-      ]);
+function unwrap(s: PromiseSettledResult<any>, name: string): { rows: any[]; failed: boolean } {
+  if (s.status === 'rejected') {
+    console.warn(`admin fetch: ${name} timed out / rejected:`, s.reason?.message);
+    return { rows: [], failed: true };
+  }
+  if (s.value?.error) {
+    console.warn(`admin fetch: ${name} error:`, s.value.error.message);
+    return { rows: [], failed: true };
+  }
+  return { rows: s.value?.data || [], failed: false };
+}
 
-      // Unwrap a settled result into rows, soft-failing (logged) on timeout/error.
-      const unwrap = (s: PromiseSettledResult<any>, name: string): { rows: any[]; failed: boolean } => {
-        if (s.status === 'rejected') {
-          console.warn(`admin fetch: ${name} timed out / rejected:`, s.reason?.message);
-          return { rows: [], failed: true };
-        }
-        if (s.value?.error) {
-          console.warn(`admin fetch: ${name} error:`, s.value.error.message);
-          return { rows: [], failed: true };
-        }
-        return { rows: s.value?.data || [], failed: false };
-      };
+/**
+ * Core admin tables — all small (blocks, schedule, results, profiles, roster).
+ * Bundled in one query; individual table failures soft-fail to []. Throws only
+ * on a total outage so React Query retries and eventually surfaces the error UI.
+ */
+async function fetchCore(): Promise<CoreData> {
+  const settled = await Promise.allSettled([
+    q(supabase.from('blocks').select('*')),
+    q(supabase.from('block_schedule').select('*')),
+    q(supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at')),
+    q(supabase.from('profiles').select('*')),
+    // Full roster (faculty included). Consumers filter by track/status.
+    q(supabase.from('authorized_roster').select('*')),
+  ]);
 
-      const questions = unwrap(settled[0], 'questions');
-      const blocks = unwrap(settled[1], 'blocks');
-      const schedule = unwrap(settled[2], 'block_schedule');
-      const results = unwrap(settled[3], 'results');
-      const profiles = unwrap(settled[4], 'profiles');
-      const roster = unwrap(settled[5], 'authorized_roster');
+  const blocks = unwrap(settled[0], 'blocks');
+  const schedule = unwrap(settled[1], 'block_schedule');
+  const results = unwrap(settled[2], 'results');
+  const profiles = unwrap(settled[3], 'profiles');
+  const roster = unwrap(settled[4], 'authorized_roster');
 
-      // Only hard-fail if BOTH load-bearing tables fail — the console is still
-      // useful (Roster, Attendance) even if questions/blocks are unavailable.
-      if (questions.failed && blocks.failed) {
-        throw new Error('Failed to load core data (questions and blocks). Please retry.');
-      }
+  if ([blocks, schedule, results, profiles, roster].every((r) => r.failed)) {
+    throw new Error('Failed to load admin data. Please retry.');
+  }
 
-      setData({
-        questions: questions.rows,
-        blocks: blocks.rows,
-        block_schedule: schedule.rows,
-        results: results.rows,
-        profiles: profiles.rows,
-        roster: roster.rows,
-      });
-    } catch (err: any) {
-      console.error('Failed to fetch admin data:', err);
-      setError(err.message || 'Failed to load database. Please refresh the page.');
-    } finally {
-      setLoading(false);
-    }
+  return {
+    blocks: blocks.rows,
+    block_schedule: schedule.rows,
+    results: results.rows,
+    profiles: profiles.rows,
+    roster: roster.rows,
+  };
+}
+
+/**
+ * Questions is the heaviest table — fetched lazily, only when a tab needs it
+ * (Questions / Curriculum). Slim select omits `explanation`/`resource_link`
+ * (lazy-fetched in the question editor). Do NOT add columns without verifying
+ * they exist in the DB — a missing column fails the whole query.
+ */
+async function fetchQuestions(): Promise<any[]> {
+  const res: any = await q(
+    supabase
+      .from('questions')
+      .select('id, question_text, category, year, options, correct_index')
+      .order('year', { ascending: false })
+  );
+  if (res?.error) throw res.error;
+  return res?.data || [];
+}
+
+/**
+ * Admin data layer, powered by React Query (retries, caching, dedup,
+ * stale-while-revalidate). Core tables always load; `questions` is gated by
+ * `includeQuestions` so the heavy fetch only happens on the tabs that use it.
+ * Keeps the original return shape so consumers are unchanged.
+ */
+export function useAdminData({ includeQuestions = false }: { includeQuestions?: boolean } = {}) {
+  const queryClient = useQueryClient();
+
+  const coreQuery = useQuery({ queryKey: ['admin', 'core'], queryFn: fetchCore });
+
+  const questionsQuery = useQuery({
+    queryKey: ['admin', 'questions'],
+    queryFn: fetchQuestions,
+    enabled: includeQuestions,
+  });
+
+  const data: AdminData | null = coreQuery.data
+    ? { ...coreQuery.data, questions: questionsQuery.data ?? [] }
+    : null;
+
+  // Show the full-screen loader for the initial core load, and for the first
+  // questions fetch when a questions-dependent tab is opened (cached after).
+  const loading = coreQuery.isLoading || (includeQuestions && questionsQuery.isLoading);
+  const error = coreQuery.error ? (coreQuery.error as Error).message : null;
+
+  // Refetch everything admin-related; disabled (idle) queries refetch when next enabled.
+  const refetch = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['admin'] });
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  return { data, loading, error, refetch: fetchData };
+  return { data, loading, error, refetch };
 }

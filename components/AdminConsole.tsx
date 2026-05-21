@@ -27,7 +27,10 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
   const [activeTab, setActiveTab] = useState<TabId>('performance');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const { data: adminData, loading, error, refetch } = useAdminData(userIsAdmin);
+  // The heavy `questions` table is only needed by the Questions + Curriculum
+  // tabs — load it lazily so the rest of the console stays fast and reliable.
+  const includeQuestions = activeTab === 'questions' || activeTab === 'builder';
+  const { data: adminData, loading, error, refetch } = useAdminData({ includeQuestions });
 
   // Sidebar groups — ordered by likely-use frequency
   // `adminOnly: true` tabs are hidden from faculty users
