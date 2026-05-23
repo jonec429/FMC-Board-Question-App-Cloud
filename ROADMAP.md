@@ -80,17 +80,18 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
-## 🤝 Session Handoff — 2026-05-21 (Antigravity)
+## 🤝 Session Handoff — 2026-05-23 (Antigravity)
 
-**What shipped today (all live on `main`, verified by `tsc --noEmit`):**
-1. **Stability & Error Handling**: Patched the "My Performance" button crash caused by undefined email properties in the leaderboard logic. Disabled infinite automatic retries for Admin Console data, ensuring it fails fast with a manual "Retry" option instead of hanging. Isolated QOTD fetching on the dashboard into a fail-safe block so network drops don't break the entire view.
-2. **Resident Review Enhancements**: Upgraded the Resident Review modal to surface the same rich component used in the standard Quiz Engine. Residents can now see the detailed "Logic & Evidence" explanation breakdown, and have direct access to Open Evidence, the Board Prep Gem, and Review Topic Material right from the review screen.
-3. **Gamification & Badges**: Added a visual badge system (100 Club, 200 Club, etc.), streak tracking, and interactive icons in the `Dashboard` and `ProfileSettings`. Tooltips added on hover.
-4. **QOTD & Cron Stability**: Added reaction emojis to the Question of the Day, built caching for QOTD loads, wrapped all QOTD fetches in `withTimeout`, and locked down Vercel Cron routes with `CRON_SECRET` authorization.
-5. **QoL Enhancements**: Added an Eye/EyeOff toggle for password visibility in Login, Registration, and Profile Settings. Added user designation (PGY vs Faculty/Fellow) to the dashboard display.
+**What shipped today (all live on `main`):**
+1. **Architecture & Performance**: Refactored `page.tsx` to keep the Dashboard mounted in the background when navigating to the Quiz Builder or Admin Console. This completely fixed the disappearing Question of the Day (QOTD) bug and resolved the heavy database hangs that were crashing the Admin Console upon return.
+2. **Database Integrity**: Provided the raw SQL to enforce a `UNIQUE` constraint on `qotd_reactions`, fixing the duplicate QOTD emoji reaction bug and allowing `.upsert()` to work correctly.
+3. **TypeScript Migration (Phase 4)**: Built the core `lib/types.ts` infrastructure. Replaced all `any` typings in `Dashboard.tsx` and `useAdminData.ts` with strict Supabase interface types.
+4. **Enhanced Error Logging**: Added specific rejection-reason tracing to the Admin Console's network layer so we can instantly diagnose if a fetch fails due to a network drop, timeout, or RLS block.
 
 **Next tasks, priority order:**
-1. **Reporting & Risk (Phase 4)**: Implement "Resident Risk" logic and exportable PDF reporting in the Admin Console.
+1. **"Review Weak Areas" Refactor**: Re-evaluate and rebuild the logic for the "Review Weak Areas" button, as it is currently not working as the user imagined.
+2. **Supabase CLI Setup**: Integrate the Supabase CLI for local database migrations, local testing, and automated TypeScript interface generation (major Quality of Life upgrade).
+3. **Resume Phase 4**: Finish applying strict TypeScript definitions to `AdminConsole.tsx` and all Admin Tab Managers, then run `tsc --noEmit` to finalize.
 
 **Workflow note:** still pushing straight to `main` (pre-launch, no users). User works on the live BRQ URL, not local. See "Deployment Workflow" above for the post-launch transition.
 
