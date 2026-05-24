@@ -19,10 +19,8 @@ interface DashboardProps {
   profile: Profile;
   onOpenAdmin: () => void;
   onLogout: () => void;
-  blocks: Block[];
-  myResults: Result[];
-  userStreak: any;
-  userBadges: any[];
+  onStartQuiz: (quiz: any) => void;
+  onOpenBuilder: () => void;
   onProfileUpdate: (updatedProfile: any) => void;
 }
 
@@ -46,7 +44,7 @@ interface LeaderboardEntry {
 }
 
 export default function Dashboard({ 
-  user, profile, onOpenAdmin, onLogout, blocks, myResults, userStreak, userBadges, onProfileUpdate, onStartQuiz, onOpenBuilder
+  user, profile, onOpenAdmin, onLogout, onProfileUpdate, onStartQuiz, onOpenBuilder
 }: DashboardProps) {
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
