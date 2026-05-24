@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive } from './AppIcons';
+import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive, ArchiveRestore } from './AppIcons';
 import { AdminData } from '@/hooks/useAdminData';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW } from '@/lib/questionFilters';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
@@ -279,9 +279,10 @@ export default function CurriculumManager({ adminData, onRefresh }: CurriculumMa
                   {block.is_archived ? (
                     <button 
                       onClick={() => handleToggleArchive(block)}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                      title="Unarchive Block"
                     >
-                      Unarchive
+                      <ArchiveRestore className="w-4 h-4" />
                     </button>
                   ) : (
                     <button 

@@ -210,6 +210,7 @@ export default function Home() {
           onStartQuiz={(quiz: any) => setActiveQuiz(quiz)}
           onOpenBuilder={() => setShowBuilder(true)}
           onOpenAdmin={() => setShowAdmin(true)}
+          onProfileUpdate={(updatedProfile: any) => setProfile(updatedProfile)}
         />
       </div>
 

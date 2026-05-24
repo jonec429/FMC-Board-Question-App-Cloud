@@ -11,8 +11,9 @@ const q = <T,>(p: PromiseLike<T>) => withTimeout(p, PER_QUERY_TIMEOUT);
 
 function unwrap(s: PromiseSettledResult<any>, name: string): { rows: any[]; failed: boolean; errorMsg?: string } {
   if (s.status === 'rejected') {
-    console.warn(`admin fetch: ${name} timed out / rejected:`, s.reason?.message);
-    return { rows: [], failed: true, errorMsg: `${name} rejected` };
+    const reason = s.reason?.message || s.reason || 'Unknown rejection';
+    console.warn(`admin fetch: ${name} timed out / rejected:`, reason);
+    return { rows: [], failed: true, errorMsg: `${name} rejected: ${reason}` };
   }
   if (s.value?.error) {
     console.warn(`admin fetch: ${name} error:`, s.value.error.message);

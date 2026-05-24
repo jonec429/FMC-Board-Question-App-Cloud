@@ -10,7 +10,7 @@ import {
   PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon,
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
-import ResidentReview from './ResidentReview';
+import MyStatsModal from './MyStatsModal';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
 
@@ -23,6 +23,7 @@ interface DashboardProps {
   myResults: Result[];
   userStreak: any;
   userBadges: any[];
+  onProfileUpdate: (updatedProfile: any) => void;
 }
 
 function getBlockSortKey(block: Block | any): number {
@@ -44,7 +45,9 @@ interface LeaderboardEntry {
   totalQs: number;
 }
 
-export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpenBuilder, onOpenAdmin }: DashboardProps) {
+export default function Dashboard({ 
+  user, profile, onOpenAdmin, onLogout, blocks, myResults, userStreak, userBadges, onProfileUpdate, onStartQuiz, onOpenBuilder
+}: DashboardProps) {
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
 
@@ -64,7 +67,6 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showReview, setShowReview] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -377,19 +379,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
             </div>
           </button>
 
-          {/* Review Weak Areas */}
-          <button
-            onClick={() => setShowReview(true)}
-            className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 text-rose-800 rounded-3xl shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group"
-          >
-            <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 transition-transform">
-              <TargetIcon className="w-6 h-6 text-rose-500" />
-            </div>
-            <div className="text-left">
-              <p className="font-bold text-base">Review Weak Areas</p>
-              <p className="text-xs text-rose-600">Revisit missed questions</p>
-            </div>
-          </button>
+
 
           {/* Leaderboard */}
           {leaderboard.length > 0 && (
@@ -522,6 +512,7 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
           onClose={() => setShowMyStats(false)}
           profile={profile}
           userEmail={user.email}
+          userId={user.id}
           avgPct={avgPct}
           blocksCompleted={blocksCompleted}
           totalPoints={totalPoints}
@@ -537,17 +528,9 @@ export default function Dashboard({ user, profile, onLogout, onStartQuiz, onOpen
           profile={profile}
           onClose={() => setShowSettings(false)}
           onProfileUpdate={(updated) => {
-            // Propagate the updated profile back so the UI refreshes
             setShowSettings(false);
-            window.location.reload();
+            onProfileUpdate(updated);
           }}
-        />
-      )}
-
-      {showReview && (
-        <ResidentReview
-          user={user}
-          onClose={() => setShowReview(false)}
         />
       )}
 
@@ -600,181 +583,3 @@ function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmai
   );
 }
 
-// === MY STATS MODAL ===
-function MyStatsModal({
-  onClose,
-  profile,
-  userEmail,
-  avgPct,
-  blocksCompleted,
-  totalPoints,
-  myResults,
-  leaderboard,
-  userBadges,
-}: {
-  onClose: () => void;
-  profile: any;
-  userEmail: string;
-  avgPct: number | null;
-  blocksCompleted: number;
-  totalPoints: number;
-  myResults: any[];
-  leaderboard: LeaderboardEntry[];
-  userBadges: any[];
-}) {
-  const totalQs = myResults.reduce((a, r) => a + (r.total || 0), 0);
-  const hasPerfect = myResults.some(r => (r.percentage || 0) >= 99.99);
-  const assignedCount = myResults.filter(r => (r.academic_points || 0) > 0).length;
-  const myRankIdx = leaderboard.findIndex(l => Boolean(l.email && userEmail && l.email.toLowerCase() === userEmail.toLowerCase()));
-  const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
-
-  // Class leader: #1 within same PGY class
-  const classmates = profile?.pgy ? leaderboard.filter(l => l.pgy === profile.pgy) : [];
-  const classLeader = classmates.length > 0 ? classmates[0] : null;
-  const isClassLeader = Boolean(classLeader?.email && userEmail && classLeader.email.toLowerCase() === userEmail.toLowerCase());
-
-  // Topic / subject breakdown (group by topic, compute avg)
-  const topicStats = new Map<string, { sum: number; count: number; qs: number }>();
-  myResults.forEach(r => {
-    if (!r.topic) return;
-    if (!topicStats.has(r.topic)) topicStats.set(r.topic, { sum: 0, count: 0, qs: 0 });
-    const entry = topicStats.get(r.topic)!;
-    entry.sum += r.percentage || 0;
-    entry.count += 1;
-    entry.qs += r.total || 0;
-  });
-  const topicAverages = Array.from(topicStats.entries())
-    .map(([topic, { sum, count, qs }]) => ({ topic, avg: sum / count, attempts: count, qs }))
-    .sort((a, b) => b.avg - a.avg);
-
-  return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-start">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center shrink-0">
-              <Trophy className="w-5 h-5 text-yellow-500" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-xl font-black text-slate-800 truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
-              <p className="text-xs font-bold text-slate-400 mt-0.5 truncate">
-                {profile?.pgy || 'No Designation Set'}{profile?.advisor ? ` · Advisor: ${profile.advisor}` : ''}
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl shrink-0">
-            <X className="w-5 h-5 text-slate-400" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="text-center p-3 bg-slate-50 rounded-2xl">
-              <div className="text-xl font-black text-slate-800">{avgPct !== null ? `${avgPct.toFixed(1)}%` : '—'}</div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Avg Score</div>
-            </div>
-            <div className="text-center p-3 bg-slate-50 rounded-2xl">
-              <div className="text-xl font-black text-slate-800">{totalQs}</div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Questions Done</div>
-            </div>
-            <div className="text-center p-3 bg-slate-50 rounded-2xl">
-              <div className="text-xl font-black text-slate-800">{blocksCompleted}</div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Blocks Done</div>
-            </div>
-            <div className="text-center p-3 bg-slate-50 rounded-2xl">
-              <div className="text-xl font-black text-slate-800">{totalPoints}</div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Quiz Points</div>
-            </div>
-          </div>
-
-          {/* Badges */}
-          {userBadges.length > 0 && (
-            <div>
-              <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Badges &amp; Milestones</h3>
-              <div className="flex flex-wrap gap-2">
-                {userBadges.map((b, i) => (
-                  <div key={i} className="relative group">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-indigo-50 text-indigo-700 border-indigo-200 cursor-help transition-transform hover:scale-105">
-                      <span>{b.icon}</span>
-                      <span>{b.name}</span>
-                    </span>
-                    {b.description && (
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl">
-                        {b.description}
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Subject Breakdown */}
-          {topicAverages.length > 0 && (
-            <div>
-              <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Subject Breakdown</h3>
-              <div className="space-y-2">
-                {topicAverages.map(({ topic, avg, attempts, qs }) => (
-                  <div key={topic} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-xs text-slate-800 truncate">{topic}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
-                    </div>
-                    <div className="w-32 shrink-0">
-                      <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all ${avg >= 70 ? 'bg-emerald-500' : avg >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
-                          style={{ width: `${Math.max(0, Math.min(100, avg))}%` }}
-                        />
-                      </div>
-                    </div>
-                    <span className={`text-xs font-black shrink-0 w-12 text-right ${avg >= 70 ? 'text-emerald-700' : avg >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
-                      {avg.toFixed(1)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* History */}
-          <div>
-            <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Assessment History</h3>
-            {myResults.length > 0 ? (
-              <div className="space-y-2">
-                {myResults.map((r, i) => {
-                  const pts = r.academic_points || 0;
-                  const timingEmoji = pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'
-                    : pts === 1 ? '⏰'
-                    : pts >= 2 ? '⚡'
-                    : null;
-                  return (
-                    <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm text-slate-800 truncate">{r.topic}</p>
-                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                          {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
-                          {timingEmoji && <span className="ml-2">{timingEmoji}</span>}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                          {(r.percentage || 0).toFixed(1)}%
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400">{pts}pt</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-center py-8 text-slate-400 text-sm italic">No assessments completed yet.</p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
