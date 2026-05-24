@@ -300,16 +300,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
         })()}
         </div>
         
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 text-sm font-bold text-slate-500 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showGraduates}
-              onChange={e => setShowGraduates(e.target.checked)}
-              className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-            />
-            Show Graduates
-          </label>
+        <div className="flex flex-col items-end gap-2">
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
@@ -320,6 +311,15 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
               <option key={year} value={year}>{formatAcademicYear(year)}</option>
             ))}
           </select>
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showGraduates}
+              onChange={e => setShowGraduates(e.target.checked)}
+              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+            />
+            Show Graduates
+          </label>
         </div>
       </div>
 
