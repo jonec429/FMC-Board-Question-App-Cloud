@@ -185,7 +185,7 @@ export default function QuestionCard({
               <button
                 disabled={showExplanation}
                 onClick={() => !isStruck && !showExplanation && setSelectedOption(index)}
-                className={`w-full text-left p-5 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
+                className={`w-full text-left py-5 pl-5 pr-14 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
                 style={{ fontSize: `${optionFontSize}px` }}
               >
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
@@ -206,7 +206,7 @@ export default function QuestionCard({
               {!showExplanation && (
                 <button
                   onClick={(e) => toggleStrikethrough(e, index)}
-                  className={`absolute -right-12 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${isStruck ? 'text-slate-800 bg-slate-200' : 'text-slate-300 hover:text-slate-600 hover:bg-slate-100'}`}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 ${isStruck ? 'text-slate-800 bg-slate-200' : 'text-slate-300 hover:text-slate-600 hover:bg-slate-100'}`}
                   title="Strike-through"
                 >
                   <Strikethrough className="w-5 h-5" />

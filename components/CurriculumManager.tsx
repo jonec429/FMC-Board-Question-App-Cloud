@@ -211,7 +211,7 @@ export default function CurriculumManager({ adminData, onRefresh }: CurriculumMa
                   <div className={`w-2 h-2 rounded-full ${block.is_archived ? 'bg-slate-300' : isReady ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                   <div>
                     <h3 className={`font-bold ${block.is_archived ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{block.title}</h3>
-                    <p className="text-xs font-bold text-slate-400">{resultsCount.get(block.title) || 0} completions {block.is_archived && '· Archived'}</p>
+                    <p className="text-xs font-bold text-slate-400">{resultsCount.get(block.title) || 0} completions{block.is_archived && ' • Archived'}</p>
                   </div>
                 </div>
 
