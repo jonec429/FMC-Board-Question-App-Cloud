@@ -7,7 +7,7 @@ import { canAccessAdmin } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon,
+  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon, MessageSquare
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
@@ -248,6 +248,13 @@ export default function Dashboard({
           <button onClick={() => setShowSettings(true)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Profile Settings">
             <Settings className="w-5 h-5" />
           </button>
+          <a
+            href="mailto:jonathan.carbungco@ascension.org?subject=Feedback:%20FMC%20Board%20Review%20App"
+            className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+            title="Send Feedback"
+          >
+            <MessageSquare className="w-5 h-5" />
+          </a>
           <button onClick={onLogout} className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
             <LogOut className="w-5 h-5" />
           </button>

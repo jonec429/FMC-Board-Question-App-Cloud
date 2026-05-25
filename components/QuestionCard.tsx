@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle } from './AppIcons';
+import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle, MessageSquare } from './AppIcons';
 
 interface Question {
   id?: string;
@@ -279,6 +279,14 @@ export default function QuestionCard({
             >
               <ExternalLink className="w-4 h-4" />
               Review Topic Material
+            </a>
+            <a
+              href={`mailto:jonathan.carbungco@ascension.org?subject=Question%20Feedback:%20FMC%20Board%20Review%20App%20-%20ID:%20${question.id || 'Unknown'}`}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-slate-500/10 hover:bg-slate-500/20 rounded-2xl text-slate-300 font-bold transition-all border border-slate-500/20"
+              title="Report an issue or ask a question about this item"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Feedback / Questions?
             </a>
           </div>
         </div>
