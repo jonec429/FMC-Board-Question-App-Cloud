@@ -256,12 +256,19 @@ This file serves as the shared source of truth for development progress between 
 - [ ] **Migrate Study Materials**: Move PDFs and docs from personal Google Drive to **Supabase Storage** to centralize all app data in one ecosystem.
 
 ### Learning Features
-- [ ] **Spaced Repetition Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've recently missed to reinforce weak areas.
+- [ ] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
+- [ ] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
 
 ---
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-25 — Auth RLS Fix & Notifications Timing (Antigravity)
+*   **Registration Security API Bypass:** Fixed an issue where new residents could not register because the recent database lockdown prevented unauthenticated users from reading the `authorized_roster` table. Created a secure backend API (`/api/auth/verify-roster`) to perform the verification server-side without exposing the entire roster to the public internet.
+*   **QOTD Precision Timing:** Shifted the daily Question of the Day availability and push notifications from 12:00 PM EST to 12:25 PM EDT to perfectly synchronize with the residency's timed Slack notification workflow. Updated the `vercel.json` cron schedules to UTC equivalents.
+*   **Session Recovery Red Screen:** Resolved a silent hang condition on app startup caused by corrupted `localStorage` auth tokens from previous bugs. The app now intercepts the silent failure and explicitly displays a red "App Failed to Start" screen with a manual **Reset Session** button to clear the bad token and restore functionality.
+*   **Feedback Integration:** Added dedicated "Feedback" (mailto:) buttons to both the main dashboard header and the Quiz Engine's correct answer screen. The email dynamically pre-populates with the target address and subject line (including the Question ID/Block name if applicable).
 
 ### 2026-05-21 — Stability Hardening & Review Experience (Antigravity)
 *   **"My Performance" Button Crash**: Safely patched a hidden bug in the leaderboard rank calculation logic that caused the app to crash when a user on the leaderboard hadn't fully configured their email address.
