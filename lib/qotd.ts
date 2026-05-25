@@ -74,18 +74,27 @@ export async function getQotdQuestion() {
 }
 
 /**
- * Returns true if the current time is past 12:00 PM Eastern Time.
+ * Returns true if the current time is past 12:25 PM Eastern Time.
  */
 export function isPastNoon(date: Date = new Date()): boolean {
   // Get time in Eastern Time
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
     hour: 'numeric',
+    minute: 'numeric',
     hour12: false
   });
   
-  const currentHour = parseInt(formatter.format(date), 10);
-  return currentHour >= 12;
+  const parts = formatter.formatToParts(date);
+  const hourPart = parts.find(p => p.type === 'hour')?.value;
+  const minutePart = parts.find(p => p.type === 'minute')?.value;
+  
+  const currentHour = parseInt(hourPart || '0', 10);
+  const currentMinute = parseInt(minutePart || '0', 10);
+  
+  if (currentHour > 12) return true;
+  if (currentHour === 12 && currentMinute >= 25) return true;
+  return false;
 }
 
 /**
