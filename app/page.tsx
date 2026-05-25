@@ -27,11 +27,15 @@ export default function Home() {
 
   const loadProfile = async (sessionUser: any) => {
     // Try to find an existing profile row first
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', sessionUser.id)
       .maybeSingle();
+
+    if (profileError) {
+      throw new Error(`Profile fetch failed: ${profileError.message}`);
+    }
 
     if (profileData && (profileData.pgy || profileData.full_name)) {
       setProfile(profileData);
@@ -39,7 +43,7 @@ export default function Home() {
     }
 
     // Fallback: synthesize a profile from authorized_roster
-    const { data: rosterData } = await supabase
+    const { data: rosterData, error: rosterError } = await supabase
       .from('authorized_roster')
       .select('name, pgy, advisor')
       .eq('email', sessionUser.email)
@@ -61,12 +65,16 @@ export default function Home() {
 
   const loadCurrentBlock = async () => {
     const today = new Date().toISOString().split('T')[0];
-    const { data: bData } = await supabase
+    const { data: bData, error } = await supabase
       .from('block_schedule')
       .select('*')
       .lte('start_date', today)
       .gte('end_date', today)
       .maybeSingle();
+      
+    if (error) {
+      throw new Error(`Block fetch failed: ${error.message}`);
+    }
     setCurrentBlock(bData);
   };
 
