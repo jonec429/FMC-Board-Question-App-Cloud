@@ -38,8 +38,22 @@ export default function MyStatsModal({
   const [missedQuestions, setMissedQuestions] = useState<any[]>([]);
   const [latestStatus, setLatestStatus] = useState<Map<string, boolean>>(new Map());
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
 
-  const totalQs = myResults.reduce((a, r) => a + (r.total || 0), 0);
+  // Filter missed questions by the selected topic
+  const displayedMissedQuestions = selectedTopic 
+    ? missedQuestions.filter(q => q.category === selectedTopic)
+    : missedQuestions;
+
+  // Reset index when changing filter
+  useEffect(() => {
+    setCurrentIndex(0);
+  }, [selectedTopic]);
+
+  // Filter out demo quizzes from all stats
+  const profileResults = (myResults || []).filter((r: any) => !r.topic?.toLowerCase().includes('demo'));
+
+  const totalQs = profileResults.reduce((a, r) => a + (r.total || 0), 0);
   const myRankIdx = leaderboard.findIndex(l => Boolean(l.email && userEmail && l.email.toLowerCase() === userEmail.toLowerCase()));
   const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
 
@@ -50,7 +64,7 @@ export default function MyStatsModal({
 
   // Topic / subject breakdown (group by topic, compute avg)
   const topicStats = new Map<string, { sum: number; count: number; qs: number }>();
-  myResults.forEach(r => {
+  profileResults.forEach(r => {
     if (!r.topic) return;
     if (!topicStats.has(r.topic)) topicStats.set(r.topic, { sum: 0, count: 0, qs: 0 });
     const entry = topicStats.get(r.topic)!;
@@ -211,10 +225,10 @@ export default function MyStatsModal({
                 </div>
               )}
 
-              {/* Subject Breakdown */}
+              {/* Block Performance */}
               {topicAverages.length > 0 && (
                 <div>
-                  <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Subject Breakdown</h3>
+                  <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Block Performance</h3>
                   <div className="space-y-2">
                     {topicAverages.map(({ topic, avg, attempts, qs }) => (
                       <div key={topic} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
@@ -295,26 +309,39 @@ export default function MyStatsModal({
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col space-y-6">
-                  {/* Subject Breakdown of Missed Questions */}
-                  <div>
-                    <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Missed Topics</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.from(new Set(missedQuestions.map(q => q.category).filter(Boolean))).map((cat) => {
-                        const count = missedQuestions.filter(q => q.category === cat).length;
-                        return (
-                          <div key={cat} className="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-bold text-slate-600 border border-slate-200 flex gap-2">
-                            <span>{cat}</span>
-                            <span className="text-rose-500">{count}</span>
-                          </div>
-                        );
-                      })}
+                  {/* Category Grid or Question Viewer */}
+                  {!selectedTopic ? (
+                    <div className="space-y-4">
+                      <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Select a Category to Review</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {Array.from(new Set(missedQuestions.map(q => q.category).filter(Boolean))).map((cat) => {
+                          const count = missedQuestions.filter(q => q.category === cat).length;
+                          return (
+                            <button 
+                              key={cat} 
+                              onClick={() => setSelectedTopic(cat)}
+                              className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col items-center justify-center gap-3 hover:border-blue-300 hover:shadow-lg transition-all group w-full"
+                            >
+                              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center font-black text-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                {count}
+                              </div>
+                              <div className="font-bold text-slate-700 text-sm text-center">{cat}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Question Review Viewer */}
+                  ) : (
+                    <div className="flex-1 flex flex-col space-y-6">
+                      <div className="flex items-center justify-between">
+                        <button onClick={() => setSelectedTopic(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-800 hover:border-slate-300 hover:shadow-sm flex items-center gap-2 transition-all">
+                          <ChevronLeft className="w-4 h-4" /> Back to Categories
+                        </button>
+                        <h3 className="font-bold text-[10px] text-blue-500 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">{selectedTopic} ({displayedMissedQuestions.length} Missed)</h3>
+                      </div>
                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6 relative overflow-hidden flex-1">
                     {(() => {
-                      const q = missedQuestions[currentIndex];
+                      const q = displayedMissedQuestions[currentIndex];
                       if (!q) return null;
                       return (
                         <>
@@ -329,7 +356,7 @@ export default function MyStatsModal({
                           )}
 
                           <div className={`flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-widest ${latestStatus.get(q.id) ? 'mt-8' : ''}`}>
-                            <span>Question {currentIndex + 1} of {missedQuestions.length}</span>
+                            <span>Question {currentIndex + 1} of {displayedMissedQuestions.length}</span>
                             <span className="opacity-30">·</span>
                             <span>{q.category}</span>
                             {q.year && <span className="text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">ITE {q.year}</span>}
@@ -374,10 +401,17 @@ export default function MyStatsModal({
                                   <ExternalLink className="w-3 h-3" />
                                   Board Prep Gem
                                 </a>
-                                <a href={q.resource_link || `https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?q=${encodeURIComponent(q.category || '')}`} target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
-                                  <ExternalLink className="w-3 h-3" />
-                                  Review Topic Material
-                                </a>
+                                {q.resource_link && q.resource_link.startsWith('http') ? (
+                                  <a href={q.resource_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
+                                    <ExternalLink className="w-3 h-3" />
+                                    Review Topic Material
+                                  </a>
+                                ) : (
+                                  <a href={`https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?q=${encodeURIComponent(q.resource_link ? q.resource_link : q.category || '')}`} target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
+                                    <ExternalLink className="w-3 h-3" />
+                                    Search Drive for Topic
+                                  </a>
+                                )}
                               </div>
                             </div>
                           )}
@@ -395,13 +429,15 @@ export default function MyStatsModal({
                       <ChevronLeft className="w-4 h-4" /> Prev
                     </button>
                     <button
-                      onClick={() => setCurrentIndex(prev => Math.min(missedQuestions.length - 1, prev + 1))}
-                      disabled={currentIndex === missedQuestions.length - 1}
+                      onClick={() => setCurrentIndex(prev => Math.min(displayedMissedQuestions.length - 1, prev + 1))}
+                      disabled={currentIndex === displayedMissedQuestions.length - 1}
                       className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-lg shadow-slate-200"
                     >
                       Next <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

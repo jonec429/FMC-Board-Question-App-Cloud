@@ -3,28 +3,24 @@
 import React, { useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
-import { AdminData } from '@/hooks/useAdminData';
+import { AdminData } from '@/lib/types';
 import { deriveLabel, isGraduated, mapSelectionToFields, getRoleOptions } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import TransitionWizard from './TransitionWizard';
 
-interface RosterManagerProps {
-  adminData?: AdminData;
-  onRefresh?: () => Promise<void>;
-}
+import { useAdminData } from '@/hooks/useAdminData';
 
-export default function RosterManager({ adminData, onRefresh }: RosterManagerProps) {
-  // Roster + profiles are sourced from the parent useAdminData hook to avoid
-  // duplicate fetches (the old standalone fetch was hitting a 30s timeout when
-  // run alongside the parent's Promise.all).
+export default function RosterManager() {
+  const { data: adminData, loading, error, refetch } = useAdminData();
+
   const [search, setSearch] = useState('');
   const [showGraduates, setShowGraduates] = useState(false);
   const { sortKey, sortDir, toggle } = useSortState({ key: 'member', dir: 'asc' });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
-  const [newPerson, setNewPerson] = useState({ first_name: '', last_name: '', email: '', pgy: '', advisor: '' });
+  const [newPerson, setNewPerson] = useState({ first_name: '', last_name: '', email: '', pgy: '', advisor: '', role: 'resident' });
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingPerson, setEditingPerson] = useState({ first_name: '', last_name: '', email: '', pgy: '', advisor: '' });
+  const [editingPerson, setEditingPerson] = useState({ first_name: '', last_name: '', email: '', pgy: '', advisor: '', role: 'resident', has_account: false });
   const [submitting, setSubmitting] = useState(false);
 
   // useAdminData filters out Faculty for the global roster slice. RosterManager
@@ -45,11 +41,8 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
     });
   }, [adminData]);
 
-  const loading = !adminData;
-  const error: string | null = null;
-
   const fetchRoster = async () => {
-    if (onRefresh) await onRefresh();
+    await refetch();
   };
 
   const handleAddPerson = async (e: React.FormEvent) => {
@@ -68,13 +61,14 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
           cohort_year: fields.cohort_year,
           track: fields.track,
           status: 'active',
-          advisor: newPerson.advisor
+          advisor: newPerson.advisor,
+          role: newPerson.role
         }]);
 
       if (error) throw error;
       
       setShowAddModal(false);
-      setNewPerson({ first_name: '', last_name: '', email: '', pgy: '', advisor: '' });
+      setNewPerson({ first_name: '', last_name: '', email: '', pgy: '', advisor: '', role: 'resident' });
       if (onRefresh) await onRefresh();
     } catch (err: any) {
       alert(err.message || 'Error adding person');
@@ -97,14 +91,24 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
           pgy: fields.pgy,
           cohort_year: fields.cohort_year,
           track: fields.track,
-          advisor: editingPerson.advisor
+          advisor: editingPerson.advisor,
+          role: editingPerson.role
         })
         .eq('email', editingPerson.email);
 
       if (error) throw error;
+
+      if (editingPerson.has_account) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ role: editingPerson.role })
+          .eq('email', editingPerson.email);
+        
+        if (profileError) throw profileError;
+      }
       
       setShowEditModal(false);
-      setEditingPerson({ first_name: '', last_name: '', email: '', pgy: '', advisor: '' });
+      setEditingPerson({ first_name: '', last_name: '', email: '', pgy: '', advisor: '', role: 'resident', has_account: false });
       if (onRefresh) await onRefresh();
     } catch (err: any) {
       alert(err.message || 'Error updating person');
@@ -148,9 +152,18 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4">
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Program Roster...</p>
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Roster Data...</p>
+      </div>
+    );
+  }
+
+  if (error || !adminData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm">
+        <p className="text-red-500 font-bold">{error?.toString() || 'Failed to load data.'}</p>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
       </div>
     );
   }
@@ -246,18 +259,23 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                       const isStaff = member.track === 'faculty' || member.track === 'ob_fellow' || member.track === 'academic_fellow';
                       const grad = isGraduated(member);
                       return (
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block w-fit ${
-                          grad ? 'bg-slate-100 text-slate-400' : isStaff ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {label}
-                        </span>
-                      );
-                    })()}
-                    {member.advisor && (
-                      <span className="text-[10px] font-bold text-slate-400 pl-1 italic">
-                        Advisor: {member.advisor}
+                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block w-fit ${
+                        grad ? 'bg-slate-100 text-slate-400' : isStaff ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {label}
                       </span>
-                    )}
+                    );
+                  })()}
+                  {member.role === 'admin' && (
+                    <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block w-fit mt-1">
+                      Admin
+                    </span>
+                  )}
+                  {member.advisor && (
+                    <span className="text-[10px] font-bold text-slate-400 pl-1 italic mt-1">
+                      Advisor: {member.advisor}
+                    </span>
+                  )}
                   </div>
                 </td>
                 <td className="px-8 py-6">
@@ -277,7 +295,9 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                           last_name: member.last_name || (member.full_name && member.full_name.includes(' ') ? member.full_name.substring(member.full_name.indexOf(' ') + 1) : ''),
                           email: member.email,
                           pgy: member.pgy || '',
-                          advisor: member.advisor || ''
+                          advisor: member.advisor || '',
+                          role: member.role || 'resident',
+                          has_account: member.has_account
                         });
                         setShowEditModal(true);
                       }}
@@ -378,6 +398,19 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                   />
                 </div>
               </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">App Role</label>
+                <select 
+                  required
+                  value={newPerson.role}
+                  onChange={(e) => setNewPerson({...newPerson, role: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                >
+                  <option value="resident">Resident</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
               <button 
                 type="submit" 
                 disabled={submitting}
@@ -456,6 +489,19 @@ export default function RosterManager({ adminData, onRefresh }: RosterManagerPro
                     placeholder="Optional"
                   />
                 </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">App Role</label>
+                <select 
+                  required
+                  value={editingPerson.role}
+                  onChange={(e) => setEditingPerson({...editingPerson, role: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
+                >
+                  <option value="resident">Resident</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="admin">Administrator</option>
+                </select>
               </div>
               <button 
                 type="submit" 

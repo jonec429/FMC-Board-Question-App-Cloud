@@ -141,7 +141,7 @@ export default function Dashboard({
           const sorted = [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b));
           setBlocks(sorted);
         }
-        if (resultsData) setMyResults(resultsData);
+        if (resultsData) setMyResults(resultsData.filter((r: any) => !r.topic?.toLowerCase().includes('demo')));
         if (sessionData) setActiveSession(sessionData);
 
         // Build leaderboard
@@ -154,6 +154,7 @@ export default function Dashboard({
           // Group results by email, dedupe by topic (best points per topic)
           const byEmail = new Map<string, { topicBest: Map<string, number>; qs: number }>();
           allResults.forEach((r: any) => {
+            if (r.topic?.toLowerCase().includes('demo')) return;
             const email = r.legacy_email?.toLowerCase();
             if (!email) return;
             if (!byEmail.has(email)) byEmail.set(email, { topicBest: new Map(), qs: 0 });

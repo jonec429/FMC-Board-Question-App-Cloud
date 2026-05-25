@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { AdminData } from '@/hooks/useAdminData';
+import { AdminData } from '@/lib/types';
 import { isActiveResident } from '@/lib/academicYear';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Loader2, AlertCircle, TrendingDown } from './AppIcons';
@@ -34,7 +34,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
     );
     const activeUserIds = new Set(
       adminData.profiles
-        .filter((p) => activeEmails.has((p.email || p.user_email)?.toLowerCase()))
+        .filter((p) => activeEmails.has((p.email || '')?.toLowerCase()))
         .map((p) => p.id)
     );
 
@@ -177,7 +177,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
                   
                   {/* Options display */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {q.options.map((opt: string, i: number) => {
+                    {(q.options as string[]).map((opt: string, i: number) => {
                       const isCorrect = i === q.correct_index;
                       return (
                         <div key={i} className={`p-3 rounded-xl border text-xs font-bold flex gap-2 ${isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>

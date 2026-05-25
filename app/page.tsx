@@ -205,7 +205,6 @@ export default function Home() {
         <Dashboard
           user={user}
           profile={profile}
-          currentBlock={currentBlock}
           onLogout={handleLogout}
           onStartQuiz={(quiz: any) => setActiveQuiz(quiz)}
           onOpenBuilder={() => setShowBuilder(true)}

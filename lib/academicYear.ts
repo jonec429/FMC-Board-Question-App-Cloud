@@ -8,19 +8,12 @@
  * no manual bumping of every resident's record.
  */
 
+import { RosterEntry } from './types';
+
 export type Track = 'family_medicine' | 'ob_fellow' | 'academic_fellow' | 'faculty';
 
-export interface RosterRow {
-  name?: string;
-  email?: string;
-  pgy?: string; // legacy "Class of YYYY" / "Faculty" string
-  advisor?: string;
-  cohort_year?: number | null;
-  track?: Track | null;
-  pgy_override?: number | null;
-  status?: string | null; // 'active' | 'graduated' | 'on_leave'
-  graduated_year?: number | null;
-}
+// We use Partial<RosterEntry> here because some functions derive values from incomplete objects or manual overrides
+export type RosterRow = Partial<RosterEntry>;
 
 /** Academic year identified by its ending calendar year (July rollover). */
 export function getCurrentAcademicYear(now: Date = new Date()): number {
@@ -36,10 +29,10 @@ export function formatAcademicYear(year: number): string {
   return `AY ${start}-${end}`;
 }
 
-/** Returns a list of recent academic years for filtering (current + 3 previous). */
+/** Returns a list of recent academic years for filtering (next year + current + 3 previous). */
 export function getAvailableAcademicYears(): number[] {
   const current = getCurrentAcademicYear();
-  return [current, current - 1, current - 2, current - 3];
+  return [current + 1, current, current - 1, current - 2, current - 3];
 }
 
 /** Derived PGY for a family-medicine resident (1-based). */

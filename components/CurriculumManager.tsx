@@ -1,19 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive, ArchiveRestore } from './AppIcons';
-import { AdminData } from '@/hooks/useAdminData';
+import { AdminData } from '@/lib/types';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW } from '@/lib/questionFilters';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import BlockEditor from './BlockEditor'; // We will extract this or keep it here
+import { useAdminData } from '@/hooks/useAdminData';
 
-interface CurriculumManagerProps {
-  adminData: AdminData;
-  onRefresh: () => Promise<void>;
-}
+export default function CurriculumManager() {
+  const { data: adminData, loading, error, refetch } = useAdminData({ includeQuestions: true });
 
-export default function CurriculumManager({ adminData, onRefresh }: CurriculumManagerProps) {
-  const { blocks, block_schedule, questions, results } = adminData;
+  const { blocks, block_schedule, questions, results } = adminData || { blocks: [], block_schedule: [], questions: [], results: [] };
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+
+  const onRefresh = async () => {
+    await refetch();
+  };
 
   // Local state for inline edits
   const [editingDates, setEditingDates] = useState<string | null>(null);
@@ -141,6 +143,24 @@ export default function CurriculumManager({ adminData, onRefresh }: CurriculumMa
   };
 
   // If a block is selected for editing questions
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Curriculum Data...</p>
+      </div>
+    );
+  }
+
+  if (error || !adminData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm">
+        <p className="text-red-500 font-bold">{error?.toString() || 'Failed to load data.'}</p>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
+      </div>
+    );
+  }
+
   if (selectedBlockId) {
     const block = sortedBlocks.find(b => b.id === selectedBlockId);
     if (!block) return null;

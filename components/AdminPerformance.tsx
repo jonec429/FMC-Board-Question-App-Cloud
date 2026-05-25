@@ -43,24 +43,28 @@ const riskColors = {
   green: { row: '', badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
 };
 
-import { AdminData } from '@/hooks/useAdminData';
+import { AdminData } from '@/lib/types';
+import { useAdminData } from '@/hooks/useAdminData';
 
 interface AdminPerformanceProps {
   user?: any;
   profile?: any;
-  adminData?: AdminData;
 }
 
 type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'my_advisees' | 'heatmap';
 
-export default function AdminPerformance({ user, profile, adminData }: AdminPerformanceProps) {
+export default function AdminPerformance({ user, profile }: AdminPerformanceProps) {
   const userIsAdmin = isAdmin(user, profile);
   const userIsFaculty = isFaculty(user, profile);
   const facultyName = getFacultyAdviseeFilter(user, profile);
-  // Faculty-only users start on "My Advisees"; admins keep the overview default
-  const defaultTab: SubTab = userIsAdmin ? 'overview' : 'my_advisees';
+  
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(
+    !userIsAdmin && userIsFaculty && facultyName ? 'my_advisees' : 'overview'
+  );
 
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>(defaultTab);
+  const { data: adminData, loading, error } = useAdminData();
+  const { roster, profiles, results: allResults } = adminData || { roster: [], profiles: [], results: [] };
+
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
   const [showGraduates, setShowGraduates] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
@@ -94,7 +98,7 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
     });
 
     const enriched = allResults
-      .filter((r: any) => selectedYear === 0 || r.academic_year === selectedYear)
+      .filter((r: any) => (selectedYear === 0 || r.academic_year === selectedYear) && !r.topic?.toLowerCase().includes('demo'))
       .map((r: any) => ({
         ...r,
         email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
@@ -239,6 +243,24 @@ export default function AdminPerformance({ user, profile, adminData }: AdminPerf
       </table>
     </div>
   );
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Performance Data...</p>
+      </div>
+    );
+  }
+
+  if (error || !adminData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm">
+        <p className="text-red-500 font-bold">{error?.toString() || 'Failed to load data.'}</p>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

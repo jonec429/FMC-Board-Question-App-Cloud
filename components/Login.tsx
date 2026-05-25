@@ -80,7 +80,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
     const { data: authorized, error: authError } = await withTimeout(
       supabase
         .from('authorized_roster')
-        .select('name, pgy')
+        .select('name, pgy, role')
         .eq('email', cleanEmail)
         .single()
     );
@@ -117,7 +117,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           pgy: authorized.pgy,
-          role: authorized.pgy === 'Faculty' ? 'faculty' : 'resident'
+          role: authorized.role || (authorized.pgy === 'Faculty' ? 'faculty' : 'resident')
         })
       );
 

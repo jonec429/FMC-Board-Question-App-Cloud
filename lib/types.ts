@@ -1,76 +1,28 @@
+import { Database } from './database.types';
+
 export interface User {
   id: string;
   email?: string;
   user_metadata?: { full_name?: string };
 }
 
-export interface Profile {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  streak_count: number;
-  streak_last_date?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type RosterEntry = Database['public']['Tables']['authorized_roster']['Row'];
+export type Question = Omit<Database['public']['Tables']['questions']['Row'], 'options'> & { options: string[] };
+export type Block = Omit<Database['public']['Tables']['blocks']['Row'], 'question_ids' | 'category_filters' | 'keyword_filters'> & {
+  question_ids: string[] | null;
+  category_filters: string[] | null;
+  keyword_filters: string[] | null;
+};
+export type BlockSchedule = Database['public']['Tables']['block_schedule']['Row'];
+export type Result = Omit<Database['public']['Tables']['results']['Row'], 'missed_questions'> & { missed_questions: any[] | null };
 
-export interface RosterEntry {
-  id: string;
+export interface LeaderboardEntry {
   email: string;
-  first_name: string;
-  last_name: string;
+  name: string;
   pgy: string;
-  cohort_year?: number;
-  track?: string;
-  pgy_override?: number;
-  status?: string;
-  graduated_year?: number;
-  created_at?: string;
-}
-
-export interface Question {
-  id: string;
-  question_text: string;
-  category: string;
-  year?: string;
-  options: string[];
-  correct_index: number;
-  explanation?: string;
-  resource_link?: string;
-}
-
-export interface Block {
-  id: string;
-  title: string;
-  curriculum_year?: string;
-  status?: string;
-  is_archived?: boolean;
-  question_ids?: string[];
-  created_at?: string;
-}
-
-export interface BlockSchedule {
-  id: string;
-  block_id: string;
-  resident_email: string;
-  start_date: string;
-  end_date: string;
-}
-
-export interface Result {
-  id?: string;
-  user_id: string;
-  legacy_email?: string;
-  topic: string;
-  score: number;
-  total: number;
-  percentage: number;
-  academic_points: number;
-  timing_status?: string;
-  created_at?: string;
-  missed_questions?: any[];
+  totalPoints: number;
+  totalQs: number;
 }
 
 export interface AdminData {

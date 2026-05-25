@@ -76,7 +76,24 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Sprint 4B** — Browse + per-question Edit UI for the question bank ✅
 - [x] **Roster Edit/Archive** — finish the Roster CRUD ✅
 - [x] **Custom URL** — DNS/Vercel config only, no code change ✅
-- [ ] **Question-level Analytics** (Moved to Phase 3)
+- [x] **Question-level Analytics** (Moved to Phase 6 Wishlist)
+
+## 📅 Session Handoff – 2026-05-24 (Antigravity)
+
+**What shipped today (all live on `main`):**
+1. **MyStatsModal Refactor**: Rebuilt the "Review Weak Areas" logic. Combined "Stats & Badges" and "Review Weak Areas" into a single tabbed modal directly accessible from the Dashboard. Removed `ResidentReview.tsx` entirely.
+2. **QOTD Emoji Fix**: Resolved the bug where changing a reaction on a Question of the Day caused duplicate aggregates in the UI. Users can now actively change their vote, and the UI will properly decrement the old vote and increment the new one optimistically while syncing with Supabase.
+3. **Decentralized Admin Console**: Broke up the monolithic Admin Console data fetch. The shell now loads instantly, and each tab (Performance, Roster, Curriculum, Questions) independently fetches only the specific database tables it needs, completely resolving timeout issues and long loading screens.
+4. **Weak Areas Category Grid**: Replaced the initial question view with a Category Grid that displays topic buttons (e.g., "Cardiology - 3") for focused review sessions.
+5. **Dynamic Google Drive Integration**: The "Search Drive for Topic" button now pre-populates the search query using the question's `resource_link` (citation), falling back to the `category` if no citation exists.
+6. **Demo Quizzes Excluded**: Stripped Demo Quizzes out of all metrics. They no longer skew Block Performance stats or impact At-Risk algorithms.
+
+**Next tasks, priority order:**
+1. **Admin Designation UI**: Build the UI to allow existing admins to assign admin roles to users from the Roster Manager.
+2. [x] **Supabase CLI Setup**: Integrate the Supabase CLI for local database migrations, local testing, and automated TypeScript interface generation (major Quality of Life upgrade).
+3. **Resume Phase 4**: Finish applying strict TypeScript definitions to `AdminConsole.tsx` and all Admin Tab Managers, then run `tsc --noEmit` to finalize.
+
+**Workflow note:** still pushing straight to `main` (pre-launch, no users). User works on the live BRQ URL, not local. See "Deployment Workflow" above for the post-launch transition.
 
 ---
 
@@ -150,6 +167,7 @@ This file serves as the shared source of truth for development progress between 
 ### Permissions & Access Control
 - [x] **[Claude] [NEW]** Implement 3-Tier Role System: `Resident`, `Faculty`, `Admin` — centralized in `lib/roles.ts` (`getUserRole`, `isAdmin`, `isFaculty`, `canAccessAdmin`).
 - [x] **[Claude] [NEW]** Faculty View: Access to performance stats + "My Advisees" filter — faculty now see a filtered AdminConsole (Performance tab only) with a "My Advisees" sub-tab defaulted on entry.
+- [x] **[Antigravity] [NEW]** Admin Designation UI: Allow assigning admin roles directly from the Roster Manager dashboard.
 
 ### Admin Console Redesign
 - [x] **[Claude]** Implement Sidebar navigation for Admin Console — left rail with grouped sections (Reports / Program Management / Content / System), mobile-collapsible.
@@ -224,21 +242,18 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
-## 📍 Phase 4: Graduation & Rollover
-*Goal: Long-term maintenance and reporting.*
-
-### Transition Tools
-- [ ] "Academic Year Transition" Tool: Handle PGY bumps, archiving old data, and resetting for July 1st.
-- [ ] Build "Reporting" tab in Admin Console (PDF Generation)
-- [ ] Implement "Resident Risk" logic (On-time completion vs. score)
-
----
-## 📍 Phase 5: Future Backlog & Ideas
+## 📍 Phase 5: Feature Wishlist
 *Goal: Track potential long-term architectural upgrades and features.*
 
-### Infrastructure
-- [ ] Migrate study materials (PDFs, docs) from personal Google Drive to **Supabase Storage**.
-  - **Why:** Centralizes all app data in one ecosystem. Files can be made public or locked behind QBank authentication natively, removing the need for external SSO prompts or managing dual databases.
+### Analytics & Reporting
+- [ ] **Question-level Analytics**: More granular tracking of individual question performance.
+- [ ] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
+- [ ] **"Resident Risk" Logic**: Early warning metrics and alerts based on performance vs. on-time completion.
+- [ ] **Advisor Email Reports**: Automated email summaries sent to faculty advisors detailing their specific advisees' performance and completion rates.
+
+### Transition & Infrastructure
+- [ ] **"Academic Year Transition" Tool**: Handle PGY bumps, archiving old data, and resetting for July 1st.
+- [ ] **Migrate Study Materials**: Move PDFs and docs from personal Google Drive to **Supabase Storage** to centralize all app data in one ecosystem.
 
 ### Learning Features
 - [ ] **Spaced Repetition Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've recently missed to reinforce weak areas.

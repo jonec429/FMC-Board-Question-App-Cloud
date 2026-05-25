@@ -480,8 +480,22 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     const passed = percentage >= 70;
 
     const handleReaction = async (emoji: string) => {
-      if (qotdReaction) return; // Already reacted
+      const previousReaction = qotdReaction;
+      if (previousReaction === emoji) return; // Already reacted with this emoji
+
+      // Optimistic UI update
       setQotdReaction(emoji);
+      if (qotdAggregates) {
+        setQotdAggregates(prev => {
+          if (!prev) return null;
+          const next = { ...prev };
+          if (previousReaction && next[previousReaction] > 0) {
+            next[previousReaction]--;
+          }
+          next[emoji] = (next[emoji] || 0) + 1;
+          return next;
+        });
+      }
       
       try {
         // Save reaction (upsert to prevent duplicates and allow vote changes)
@@ -493,21 +507,28 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         }, { onConflict: 'user_id, question_id, date' });
 
         if (error) throw error;
-
-        // Update local aggregates
-        if (qotdAggregates) {
-          setQotdAggregates(prev => prev ? { ...prev, [emoji]: (prev[emoji] || 0) + 1 } : null);
-        }
       } catch (err) {
         console.error('Error saving reaction:', err);
-        setQotdReaction(null); // revert on error
+        // Revert optimistic update
+        setQotdReaction(previousReaction);
+        if (qotdAggregates) {
+          setQotdAggregates(prev => {
+            if (!prev) return null;
+            const reverted = { ...prev };
+            reverted[emoji] = Math.max(0, (reverted[emoji] || 0) - 1);
+            if (previousReaction) {
+              reverted[previousReaction] = (reverted[previousReaction] || 0) + 1;
+            }
+            return reverted;
+          });
+        }
       }
     };
 
     if (isQotd && !isPastNoon()) {
       return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-          <div className="bg-white p-10 rounded-[40px] shadow-2xl border border-slate-100 max-w-lg w-full text-center space-y-8 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white p-6 md:p-10 rounded-[40px] shadow-2xl border border-slate-100 max-w-lg w-full text-center space-y-8 animate-in fade-in zoom-in duration-300">
             <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Save className="w-10 h-10" />
             </div>
@@ -518,9 +539,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               </p>
             </div>
             
-            <div className="bg-slate-50 rounded-3xl p-6 border border-slate-100">
+            <div className="bg-slate-50 rounded-3xl p-4 md:p-6 border border-slate-100">
               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">How did you feel about this question?</h3>
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-2 sm:gap-4">
                 {[
                   { e: '🤯', l: 'Hard' },
                   { e: '🤨', l: 'Tricky' },
@@ -532,7 +553,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                     key={e}
                     onClick={() => handleReaction(e)}
                     disabled={!!qotdReaction}
-                    className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all ${qotdReaction === e ? 'bg-indigo-100 scale-110 shadow-lg' : qotdReaction ? 'opacity-30 grayscale' : 'hover:bg-slate-200 hover:scale-105 active:scale-95'}`}
+                    className={`flex flex-col items-center gap-2 p-2 sm:p-3 rounded-2xl transition-all ${qotdReaction === e ? 'bg-indigo-100 scale-110 shadow-lg' : qotdReaction ? 'opacity-30 grayscale' : 'hover:bg-slate-200 hover:scale-105 active:scale-95'}`}
                   >
                     <span className="text-3xl">{e}</span>
                     <span className={`text-xs font-bold ${qotdReaction === e ? 'text-indigo-700' : 'text-slate-500'}`}>{l}</span>
@@ -624,9 +645,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
               {/* Social Aggregates */}
               {qotdAggregates && (
-                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm text-center">
+                <div className="bg-white rounded-3xl p-4 md:p-6 border border-slate-100 shadow-sm text-center">
                   <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Co-Residents' Reactions</h3>
-                  <div className="flex justify-center gap-4 md:gap-8">
+                  <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-8">
                     {[
                       { e: '🤯', l: 'Hard' },
                       { e: '🤨', l: 'Tricky' },
@@ -637,8 +658,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                       <button 
                         key={e} 
                         onClick={() => handleReaction(e)}
-                        disabled={!!qotdReaction}
-                        className={`flex flex-col items-center gap-2 transition-all p-2 rounded-xl ${qotdReaction === e ? 'bg-indigo-50 scale-110' : qotdReaction ? 'opacity-50' : 'hover:bg-slate-100 hover:scale-105 active:scale-95'}`}
+                        className={`flex flex-col items-center gap-2 transition-all p-2 rounded-xl ${qotdReaction === e ? 'bg-indigo-50 scale-110' : 'hover:bg-slate-100 hover:scale-105 active:scale-95'}`}
                       >
                         <span className="text-3xl md:text-4xl">{e}</span>
                         <span className={`text-xl font-black ${qotdReaction === e ? 'text-indigo-600' : 'text-slate-700'}`}>{qotdAggregates[e] || 0}</span>

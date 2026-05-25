@@ -1,60 +1,36 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { withTimeout } from '@/lib/utils';
 import { AdminData } from '@/lib/types';
 
 type CoreData = Omit<AdminData, 'questions'>;
 
-// Per-query timeout as defense-in-depth; React Query retries on top of this.
-const PER_QUERY_TIMEOUT = 30000;
-const q = <T,>(p: PromiseLike<T>) => withTimeout(p, PER_QUERY_TIMEOUT);
-
-function unwrap(s: PromiseSettledResult<any>, name: string): { rows: any[]; failed: boolean; errorMsg?: string } {
-  if (s.status === 'rejected') {
-    const reason = s.reason?.message || s.reason || 'Unknown rejection';
-    console.warn(`admin fetch: ${name} timed out / rejected:`, reason);
-    return { rows: [], failed: true, errorMsg: `${name} rejected: ${reason}` };
-  }
-  if (s.value?.error) {
-    console.warn(`admin fetch: ${name} error:`, s.value.error.message);
-    return { rows: [], failed: true, errorMsg: `${name}: ${s.value.error.message}` };
-  }
-  return { rows: s.value?.data || [], failed: false };
-}
-
 /**
  * Core admin tables — all small (blocks, schedule, results, profiles, roster).
- * Bundled in one query; individual table failures soft-fail to []. Throws only
- * on a total outage so React Query retries and eventually surfaces the error UI.
+ * Bundled in one query via Promise.all. If the database connection drops or 
+ * throttles, this will throw an error and React Query will automatically retry 
+ * up to 3 times before displaying the error UI.
  */
 async function fetchCore(): Promise<CoreData> {
-  const settled = await Promise.allSettled([
-    q(supabase.from('blocks').select('*')),
-    q(supabase.from('block_schedule').select('*')),
-    q(supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at')),
-    q(supabase.from('profiles').select('*')),
-    // Full roster (faculty included). Consumers filter by track/status.
-    q(supabase.from('authorized_roster').select('*')),
+  const [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes] = await Promise.all([
+    supabase.from('blocks').select('*'),
+    supabase.from('block_schedule').select('*'),
+    supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at'),
+    supabase.from('profiles').select('*'),
+    supabase.from('authorized_roster').select('*'),
   ]);
 
-  const blocks = unwrap(settled[0], 'blocks');
-  const schedule = unwrap(settled[1], 'block_schedule');
-  const results = unwrap(settled[2], 'results');
-  const profiles = unwrap(settled[3], 'profiles');
-  const roster = unwrap(settled[4], 'authorized_roster');
-
-  const failures = [blocks, schedule, results, profiles, roster].filter((r) => r.failed);
+  const failures = [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes].filter((r) => r.error);
   if (failures.length > 0) {
-    const errorMessages = failures.map(f => f.errorMsg).join(' | ');
+    const errorMessages = failures.map(f => f.error?.message).join(' | ');
     throw new Error(`Failed to load admin data: ${errorMessages}`);
   }
 
   return {
-    blocks: blocks.rows,
-    block_schedule: schedule.rows,
-    results: results.rows,
-    profiles: profiles.rows,
-    roster: roster.rows,
+    blocks: blocksRes.data || [],
+    block_schedule: scheduleRes.data || [],
+    results: resultsRes.data || [],
+    profiles: profilesRes.data || [],
+    roster: rosterRes.data || [],
   };
 }
 
@@ -65,12 +41,11 @@ async function fetchCore(): Promise<CoreData> {
  * they exist in the DB — a missing column fails the whole query.
  */
 async function fetchQuestions(): Promise<any[]> {
-  const res: any = await q(
-    supabase
-      .from('questions')
-      .select('id, question_text, category, year, options, correct_index')
-      .order('year', { ascending: false })
-  );
+  const res: any = await supabase
+    .from('questions')
+    .select('id, question_text, category, year, options, correct_index')
+    .order('year', { ascending: false });
+
   if (res?.error) throw res.error;
   return res?.data || [];
 }
@@ -84,13 +59,16 @@ async function fetchQuestions(): Promise<any[]> {
 export function useAdminData({ includeQuestions = false }: { includeQuestions?: boolean } = {}) {
   const queryClient = useQueryClient();
 
-  const coreQuery = useQuery({ queryKey: ['admin', 'core'], queryFn: fetchCore, retry: false });
+  // Allow React Query to handle retries natively (defaults to 3 retries)
+  const coreQuery = useQuery({ 
+    queryKey: ['admin', 'core'], 
+    queryFn: fetchCore 
+  });
 
   const questionsQuery = useQuery({
     queryKey: ['admin', 'questions'],
     queryFn: fetchQuestions,
-    enabled: includeQuestions,
-    retry: false,
+    enabled: includeQuestions
   });
 
   const data: AdminData | null = coreQuery.data
@@ -98,11 +76,11 @@ export function useAdminData({ includeQuestions = false }: { includeQuestions?: 
     : null;
 
   // Show the full-screen loader for the initial core load, and for the first
-  // questions fetch when a questions-dependent tab is opened (cached after).
+  // lazy-load of questions. Subsequent cache-refetches happen invisibly.
   const loading = coreQuery.isLoading || (includeQuestions && questionsQuery.isLoading);
-  const error = coreQuery.error ? (coreQuery.error as Error).message : (questionsQuery.error ? (questionsQuery.error as Error).message : null);
+  
+  const error = coreQuery.error || questionsQuery.error;
 
-  // Refetch everything admin-related; disabled (idle) queries refetch when next enabled.
   const refetch = async () => {
     await queryClient.invalidateQueries({ queryKey: ['admin'] });
   };

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "supabase:types": "supabase gen types typescript --project-id oiwxghurohndfnakxsri --schema public > lib/database.types.ts"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
@@ -33,6 +34,7 @@
     "@types/react-dom": "^18",
     "@types/web-push": "^3.6.4",
     "dotenv": "^17.4.2",
+    "supabase": "^2.101.0",
     "typescript": "^5"
   }
 }

@@ -27,10 +27,8 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
   const [activeTab, setActiveTab] = useState<TabId>('performance');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // The heavy `questions` table is only needed by the Questions + Curriculum
-  // tabs — load it lazily so the rest of the console stays fast and reliable.
-  const includeQuestions = activeTab === 'questions' || activeTab === 'builder';
-  const { data: adminData, loading, error, refetch } = useAdminData({ includeQuestions });
+  // The data loading has been pushed down into the individual tabs so the console 
+  // shell loads instantly and tabs can be navigated without waiting on heavy queries.
 
   // Sidebar groups — ordered by likely-use frequency
   // `adminOnly: true` tabs are hidden from faculty users
@@ -149,25 +147,11 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
 
           {/* Main Content */}
           <main className="flex-1 min-w-0">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Downloading Database...</p>
-              </div>
-            ) : error || !adminData ? (
-              <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm">
-                <p className="text-red-500 font-bold">{error || 'Failed to load data.'}</p>
-                <button onClick={refetch} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
-              </div>
-            ) : (
-              <>
-                {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} adminData={adminData} />}
-                {activeTab === 'roster' && <RosterManager adminData={adminData} onRefresh={refetch} />}
-                {activeTab === 'attendance' && <AttendanceManager />}
-                {activeTab === 'questions' && <QuestionBankManager adminData={adminData} onRefresh={refetch} />}
-                {activeTab === 'builder' && <CurriculumManager adminData={adminData} onRefresh={refetch} />}
-              </>
-            )}
+            {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} />}
+            {activeTab === 'roster' && <RosterManager />}
+            {activeTab === 'attendance' && <AttendanceManager />}
+            {activeTab === 'questions' && <QuestionBankManager />}
+            {activeTab === 'builder' && <CurriculumManager />}
           </main>
         </div>
       </div>

@@ -8,17 +8,33 @@ import {
 import QuestionImporter from './QuestionImporter';
 import { CANONICAL_CATEGORIES } from '@/lib/csvImport';
 import { withTimeout } from '@/lib/utils';
-import { AdminData } from '@/hooks/useAdminData';
+import { AdminData } from '@/lib/types';
 
 type SubTab = 'browse' | 'import';
 
-interface QuestionBankManagerProps {
-  adminData?: AdminData;
-  onRefresh?: () => Promise<void>;
-}
+import { useAdminData } from '@/hooks/useAdminData';
 
-export default function QuestionBankManager({ adminData, onRefresh }: QuestionBankManagerProps) {
+export default function QuestionBankManager() {
+  const { data: adminData, loading, error, refetch } = useAdminData({ includeQuestions: true });
   const [activeTab, setActiveTab] = useState<SubTab>('browse');
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm animate-fade-in">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Question Bank...</p>
+      </div>
+    );
+  }
+
+  if (error || !adminData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm animate-fade-in">
+        <p className="text-red-500 font-bold">{error?.toString() || 'Failed to load data.'}</p>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -39,13 +55,13 @@ export default function QuestionBankManager({ adminData, onRefresh }: QuestionBa
       </div>
 
       {/* Main Content */}
-      {activeTab === 'browse' ? <QuestionBrowser adminData={adminData} onRefresh={onRefresh} /> : <QuestionImporter />}
+      {activeTab === 'browse' ? <QuestionBrowser adminData={adminData} onRefresh={refetch} /> : <QuestionImporter />}
     </div>
   );
 }
 
-function QuestionBrowser({ adminData, onRefresh }: QuestionBankManagerProps) {
-  const allQuestions = adminData?.questions || [];
+function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRefresh: () => Promise<void> }) {
+  const allQuestions = adminData.questions || [];
   
   // Filters
   const [search, setSearch] = useState('');

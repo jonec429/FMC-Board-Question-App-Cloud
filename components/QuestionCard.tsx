@@ -123,11 +123,11 @@ export default function QuestionCard({
   const optionFontSize = Math.max(14, fontSize - 2);
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Question Stem */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100 relative group">
-        <div className="flex justify-between items-start mb-4">
-          <span className="px-3 py-1 bg-slate-100 text-slate-500 text-xs font-black rounded-full uppercase tracking-widest">
+    <div className="w-full max-w-3xl mx-auto space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Stem */}
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-5 md:p-8 border border-slate-100 relative group">
+        <div className="flex flex-wrap justify-between items-start mb-4 gap-2">
+          <span className="px-3 py-1 bg-slate-100 text-slate-500 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
             {question.category || 'General Medicine'}
           </span>
           <div className="flex items-center gap-1">
@@ -191,7 +191,7 @@ export default function QuestionCard({
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
                   {String.fromCharCode(65 + index)}
                 </div>
-                <span className={`font-bold leading-snug ${isStruck ? 'line-through decoration-2' : ''}`}>
+                <span className={`font-bold leading-snug flex-1 min-w-0 break-words ${isStruck ? 'line-through decoration-2' : ''}`}>
                   {option}
                 </span>
                 

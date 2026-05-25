@@ -264,8 +264,12 @@ async function evaluateBadge(
   if (!badge) return;
 
   // Insert to user_badges (on conflict do nothing is handled by DB unique constraint)
-  await supabase.from('user_badges').insert({
-    user_id: userId,
-    badge_id: badge.id
-  }).catch(() => { /* Ignore duplicate key errors */ });
+  try {
+    await supabase.from('user_badges').insert({
+      user_id: userId,
+      badge_id: badge.id
+    });
+  } catch {
+    /* Ignore duplicate key errors */
+  }
 }
