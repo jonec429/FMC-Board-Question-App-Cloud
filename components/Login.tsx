@@ -77,15 +77,23 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
-    const { data: authorized, error: authError } = await withTimeout(
-      supabase
-        .from('authorized_roster')
-        .select('name, pgy, role')
-        .eq('email', cleanEmail)
-        .single()
-    );
+    // Securely check authorized roster via API
+    let authorized = null;
+    try {
+      const res = await fetch('/api/auth/verify-roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const data = await res.json();
+      if (res.ok && data.user) {
+        authorized = data.user;
+      }
+    } catch (err) {
+      console.error('Error verifying roster:', err);
+    }
 
-    if (authError || !authorized) {
+    if (!authorized) {
       setError('Email not found in the authorized program roster. Please contact Dr. Carbungco.');
       setLoading(false);
       return;
