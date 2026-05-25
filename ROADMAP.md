@@ -254,6 +254,7 @@ This file serves as the shared source of truth for development progress between 
 ### Transition & Infrastructure
 - [ ] **"Academic Year Transition" Tool**: Handle PGY bumps, archiving old data, and resetting for July 1st.
 - [ ] **Migrate Study Materials**: Move PDFs and docs from personal Google Drive to **Supabase Storage** to centralize all app data in one ecosystem.
+- [ ] **RFID Kiosk Attendance System:** Build a dedicated iPad kiosk mode (`/kiosk`) that uses a hidden input field to accept badge taps via a USB RFID keyboard-emulating reader. Admins can register badges and monitor a live attendance roster.
 
 ### Learning Features
 - [ ] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
