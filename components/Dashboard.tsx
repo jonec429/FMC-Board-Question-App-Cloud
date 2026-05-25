@@ -13,6 +13,7 @@ import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
+import { useDayChangeReload } from '@/hooks/useDayChangeReload';
 
 interface DashboardProps {
   user: User;
@@ -48,6 +49,9 @@ export default function Dashboard({
 }: DashboardProps) {
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
+
+  // Reload the PWA if it's brought to the foreground on a new day
+  useDayChangeReload();
 
   const [loading, setLoading] = useState(true);
 
@@ -209,20 +213,20 @@ export default function Dashboard({
 
   // === RESIDENT TOPIC-SELECT VIEW ===
   const renderTopicSelect = () => (
-    <main className="flex-1 max-w-7xl w-full mx-auto px-6 md:px-8 py-6 md:py-8">
+    <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
       {/* Header */}
-      <div className="mb-8 flex justify-between items-start relative">
+      <div className="mb-8 flex justify-between items-start gap-2 relative">
         <div className="absolute -top-10 -left-10 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10">
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">FMC Board Review App</h2>
-          <div className="flex items-center gap-4 mt-2">
-            <p className="text-slate-500 font-bold text-xs tracking-wide uppercase opacity-60">
+        <div className="relative z-10 flex-1 min-w-0 pr-2">
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight truncate">FMC Board Review App</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
+            <p className="text-slate-500 font-bold text-[10px] md:text-xs tracking-wide uppercase opacity-60 truncate">
               Ascension St. Vincent's FM Residency · {formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : user.email}
             </p>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-              className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 self-start sm:self-auto"
             >
               <option value={0}>All Time (YoY Trend)</option>
               {getAvailableAcademicYears().map(year => (
@@ -231,7 +235,7 @@ export default function Dashboard({
             </select>
           </div>
         </div>
-        <div className="flex items-center gap-2 relative z-20">
+        <div className="flex items-center gap-1 sm:gap-2 relative z-20 shrink-0">
           {isSuperAdmin && (
             <button
               onClick={onOpenAdmin}
