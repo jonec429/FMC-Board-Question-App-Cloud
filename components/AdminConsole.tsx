@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import {
-  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Loader2
+  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Loader2, Megaphone
 } from './AppIcons';
 import AdminPerformance from './AdminPerformance';
 import AttendanceManager from './AttendanceManager';
 import RosterManager from './RosterManager';
 import CurriculumManager from './CurriculumManager';
 import QuestionBankManager from './QuestionBankManager';
+import NotificationManager from './NotificationManager';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -18,7 +19,7 @@ interface AdminConsoleProps {
   onExit: () => void;
 }
 
-type TabId = 'performance' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions';
+type TabId = 'performance' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications';
 
 export default function AdminConsole({ user, profile, onExit }: AdminConsoleProps) {
   const role = getUserRole(user, profile);
@@ -45,6 +46,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
       items: [
         { id: 'roster', label: 'Roster', icon: Users, adminOnly: true, description: 'Add, edit, archive members' },
         { id: 'attendance', label: 'Attendance', icon: Clock, adminOnly: true, description: 'Bulk import from NI export' },
+        { id: 'notifications', label: 'Notifications', icon: Megaphone, adminOnly: true, description: 'Send broadcasts & tests' },
       ],
     },
     {
@@ -152,6 +154,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
             {activeTab === 'attendance' && <AttendanceManager />}
             {activeTab === 'questions' && <QuestionBankManager />}
             {activeTab === 'builder' && <CurriculumManager />}
+            {activeTab === 'notifications' && <NotificationManager user={user} profile={profile} />}
           </main>
         </div>
       </div>
