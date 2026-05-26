@@ -22,13 +22,25 @@ export function getQotdIndex(date: Date = new Date()): number | null {
   }
 
   const academicYear = getCurrentAcademicYear();
-  // July 1st of the starting year of the academic year
+  
+  // Base start date is July 1st of the starting year of the academic year
   // (e.g., if academicYear is 2026, the year started July 1, 2025)
-  const startDate = new Date(academicYear - 1, 6, 1); // Month is 0-indexed (6 = July)
+  let startDate = new Date(academicYear - 1, 6, 1); // Month is 0-indexed (6 = July)
+  
+  // QOTD feature was launched on May 21, 2026. For the 2026 academic year,
+  // we start the clock here so we don't "burn" questions prior to the app's release.
+  if (academicYear === 2026) {
+    startDate = new Date(2026, 4, 21); // Month 4 = May
+  }
   
   // Strip time for accurate day counting
   const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
   const current = new Date(estDate.getFullYear(), estDate.getMonth(), estDate.getDate());
+
+  // If current date is before the start date, the QOTD hasn't started yet
+  if (current < start) {
+    return null;
+  }
 
   let weekdays = 0;
   const tempDate = new Date(start);
@@ -111,7 +123,12 @@ export function getTodayDateString(date: Date = new Date()): string {
  */
 export function getDateForQotdIndex(targetIndex: number, academicYear?: number): Date {
   const year = academicYear ?? getCurrentAcademicYear();
-  const startDate = new Date(year - 1, 6, 1); // July 1
+  let startDate = new Date(year - 1, 6, 1); // July 1
+  
+  if (year === 2026) {
+    startDate = new Date(2026, 4, 21); // May 21
+  }
+
   const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
 
   let weekdays = 0;
