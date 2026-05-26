@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
+import QotdHistory from './QotdHistory';
 import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
@@ -51,6 +52,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // QOTD States
   const [qotdReaction, setQotdReaction] = useState<string | null>(null);
   const [qotdAggregates, setQotdAggregates] = useState<Record<string, number> | null>(null);
+  const [qotdTab, setQotdTab] = useState<'today' | 'history'>('today');
 
   // === Quiz Tools (Text Resize + Highlight/Strikethrough Persistence) ===
   // Font size loads from localStorage so the user's preference persists across all quizzes
@@ -535,7 +537,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             <div>
               <h2 className="text-3xl font-black text-slate-800">Answer Recorded!</h2>
               <p className="text-slate-500 mt-3 text-lg leading-relaxed">
-                The correct answer, explanation, and cohort statistics will be revealed at <strong>12:00 PM EST</strong>.
+                The correct answer, explanation, and cohort statistics will be revealed at <strong>12:25 PM EST</strong>.
               </p>
             </div>
             
@@ -562,7 +564,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               </div>
               {qotdReaction && (
                 <p className="text-sm font-bold text-indigo-600 mt-6 animate-fade-in">
-                  Thanks for voting! Check back at noon to see how everyone else did.
+                  Thanks for voting! Check back at 12:25 PM to see how everyone else did.
                 </p>
               )}
             </div>
@@ -581,6 +583,46 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     return (
       <div className="min-h-screen bg-slate-50 pb-20">
         <div className="max-w-3xl mx-auto pt-12 px-4 space-y-8">
+
+          {/* QOTD Tab Bar */}
+          {isQotd && (
+            <div className="flex bg-white rounded-2xl border border-slate-100 p-1 shadow-sm">
+              <button
+                onClick={() => setQotdTab('today')}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-black transition-all ${
+                  qotdTab === 'today'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                QOTD
+              </button>
+              <button
+                onClick={() => setQotdTab('history')}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-black transition-all ${
+                  qotdTab === 'history'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Past QOTDs
+              </button>
+            </div>
+          )}
+
+          {/* Past QOTDs Tab */}
+          {isQotd && qotdTab === 'history' ? (
+            <>
+              <QotdHistory onBack={() => setQotdTab('today')} />
+              <button
+                onClick={() => onComplete(resultData)}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+              >
+                Back to Dashboard
+              </button>
+            </>
+          ) : (
+          <>
           {/* Score Hero */}
           <div className={`rounded-[40px] p-10 text-center text-white ${passed ? 'bg-emerald-600' : 'bg-slate-700'}`}>
             <div className="text-6xl font-black mb-2">{percentage.toFixed(1)}%</div>
@@ -677,6 +719,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           >
             Back to Dashboard
           </button>
+          </>
+          )}
         </div>
       </div>
     );

@@ -4880,7 +4880,7 @@
                                     </div>
                                     <div className="flex items-center gap-2 sm:gap-3 relative z-20">
                                         <button onClick={() => setShowAdminModal(true)} className="p-2 rounded-xl transition-colors" title="Admin Panel">{isAdmin ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}</button>
-                                        <button onClick={() => setView('login')} className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
+                                        <button onClick={() => { setResidentName(''); setResidentEmail(''); setIsAdmin(false); setView('login'); }} className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
                                             <LogOut className="w-5 h-5" />
                                         </button>
                                     </div>

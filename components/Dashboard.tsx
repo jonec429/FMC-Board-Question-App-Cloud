@@ -308,7 +308,7 @@ export default function Dashboard({
                  {qotdAttempt ? (
                    <div>
                      <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">
-                       {isPastNoon() ? 'Results and stats are now available!' : 'Answer recorded. Come back at 12 PM for results!'}
+                       {isPastNoon() ? 'Results and stats are now available!' : 'Answer recorded. Come back at 12:25 PM for results!'}
                      </p>
                      <button
                        onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', isQotdCompleted: true, qotdAttempt })}

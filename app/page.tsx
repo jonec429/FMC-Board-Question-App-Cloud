@@ -146,12 +146,24 @@ export default function Home() {
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await withTimeout(supabase.auth.signOut(), 5000);
     } catch (e) {
-      console.error('Logout error:', e);
+      console.error('Logout error (signOut timed out or failed):', e);
+      // If signOut hangs or fails, force-clear auth tokens
+      // (same recovery pattern used in init() for getSession hangs)
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith('sb-')) keysToRemove.push(key);
+        }
+        keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+      } catch {}
     } finally {
       setUser(null);
       setProfile(null);
+      // Hard reload to ensure all auth state is fully cleared
+      window.location.reload();
     }
   };
 

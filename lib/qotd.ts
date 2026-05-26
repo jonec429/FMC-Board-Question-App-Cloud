@@ -104,3 +104,175 @@ export function getTodayDateString(date: Date = new Date()): string {
   const estDate = getESTDate(date);
   return `${estDate.getFullYear()}-${String(estDate.getMonth() + 1).padStart(2, '0')}-${String(estDate.getDate()).padStart(2, '0')}`;
 }
+
+/**
+ * Reverse-computes the calendar date for a given QOTD weekday index.
+ * Starting from July 1 of (academicYear-1), counts forward `targetIndex` weekdays.
+ */
+export function getDateForQotdIndex(targetIndex: number, academicYear?: number): Date {
+  const year = academicYear ?? getCurrentAcademicYear();
+  const startDate = new Date(year - 1, 6, 1); // July 1
+  const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+
+  let weekdays = 0;
+  while (weekdays <= targetIndex) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) {
+      if (weekdays === targetIndex) return new Date(d);
+      weekdays++;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+
+export interface QotdHistoryItem {
+  question: any;
+  date: string;       // YYYY-MM-DD
+  displayDate: string; // "Mon, May 19"
+  index: number;       // QOTD index
+  stats: { correct: number; incorrect: number; total: number } | null;
+  reactions: Record<string, number>;
+}
+
+/**
+ * Fetches past QOTD questions with stats and reactions.
+ * Returns `pageSize` items starting from offset, going backwards from yesterday.
+ * Limits to approximately 3 months (~65 weekdays).
+ */
+export async function getQotdHistory(
+  offset: number = 0,
+  pageSize: number = 20
+): Promise<{ items: QotdHistoryItem[]; hasMore: boolean }> {
+  const todayIndex = getQotdIndex();
+  if (todayIndex === null || todayIndex <= 0) {
+    return { items: [], hasMore: false };
+  }
+
+  // Cap at ~3 months of weekdays (~65 weekdays)
+  const maxLookback = Math.min(todayIndex, 65);
+
+  // Calculate the range of indices to fetch (going backwards from yesterday)
+  const startIdx = todayIndex - 1 - offset; // yesterday = todayIndex - 1
+  const endIdx = Math.max(todayIndex - maxLookback, startIdx - pageSize + 1);
+
+  if (startIdx < (todayIndex - maxLookback) || startIdx < 0) {
+    return { items: [], hasMore: false };
+  }
+
+  // Fetch questions for the range using the same deterministic ordering
+  const indices = [];
+  for (let i = startIdx; i >= endIdx && i >= 0; i--) {
+    indices.push(i);
+  }
+
+  if (indices.length === 0) {
+    return { items: [], hasMore: false };
+  }
+
+  // Fetch all questions using the same sort order as getQotdQuestion
+  // We need to get questions at specific positions in the ordered list
+  const firstIdx = Math.min(...indices);
+  const lastIdx = Math.max(...indices);
+
+  const { data: questionsData, error } = await withTimeout(supabase
+    .from('questions')
+    .select('*')
+    .neq('year', 'Demo')
+    .neq('category', 'Demo')
+    .not('id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
+    .order('year', { ascending: false })
+    .order('id', { ascending: true })
+    .range(firstIdx, lastIdx), 10000).catch((e: any) => ({ data: null, error: e })) as any;
+
+  if (error || !questionsData || questionsData.length === 0) {
+    console.error('Error fetching QOTD history:', error);
+    return { items: [], hasMore: false };
+  }
+
+  // Map each index to its question
+  const items: QotdHistoryItem[] = [];
+  const questionIds: string[] = [];
+  const academicYear = getCurrentAcademicYear();
+
+  for (const idx of indices) {
+    const arrayPos = idx - firstIdx;
+    const question = questionsData[arrayPos];
+    if (!question) continue;
+
+    const date = getDateForQotdIndex(idx, academicYear);
+    const displayDate = date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'America/New_York',
+    });
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    items.push({
+      question,
+      date: dateStr,
+      displayDate,
+      index: idx,
+      stats: null,
+      reactions: {},
+    });
+    questionIds.push(question.id);
+  }
+
+  if (questionIds.length === 0) {
+    return { items: [], hasMore: false };
+  }
+
+  // Batch-fetch stats from question_attempts (is_qotd = true)
+  const [attemptsResult, reactionsResult] = await Promise.all([
+    withTimeout(supabase
+      .from('question_attempts')
+      .select('question_id, is_correct')
+      .in('question_id', questionIds)
+      .eq('is_qotd', true), 10000).catch(() => ({ data: null })) as any,
+    withTimeout(supabase
+      .from('qotd_reactions')
+      .select('question_id, reaction')
+      .in('question_id', questionIds), 10000).catch(() => ({ data: null })) as any,
+  ]);
+
+  // Build stats map
+  const statsMap = new Map<string, { correct: number; incorrect: number }>();
+  if (attemptsResult.data) {
+    for (const a of attemptsResult.data) {
+      if (!statsMap.has(a.question_id)) {
+        statsMap.set(a.question_id, { correct: 0, incorrect: 0 });
+      }
+      const entry = statsMap.get(a.question_id)!;
+      if (a.is_correct) entry.correct++;
+      else entry.incorrect++;
+    }
+  }
+
+  // Build reactions map
+  const reactionsMap = new Map<string, Record<string, number>>();
+  if (reactionsResult.data) {
+    for (const r of reactionsResult.data) {
+      if (!reactionsMap.has(r.question_id)) {
+        reactionsMap.set(r.question_id, {});
+      }
+      const entry = reactionsMap.get(r.question_id)!;
+      entry[r.reaction] = (entry[r.reaction] || 0) + 1;
+    }
+  }
+
+  // Merge stats and reactions into items
+  for (const item of items) {
+    const qid = item.question.id;
+    const stats = statsMap.get(qid);
+    if (stats) {
+      item.stats = { correct: stats.correct, incorrect: stats.incorrect, total: stats.correct + stats.incorrect };
+    }
+    item.reactions = reactionsMap.get(qid) || {};
+  }
+
+  const hasMore = endIdx > (todayIndex - maxLookback) && endIdx > 0;
+  return { items, hasMore };
+}
+

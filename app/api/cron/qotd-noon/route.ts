@@ -8,37 +8,57 @@ const supabase = createClient(
 );
 
 export async function GET(request: Request) {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'dummy_public_key';
-  const privateKey = process.env.VAPID_PRIVATE_KEY || 'dummy_private_key';
-  
-  if (publicKey !== 'dummy_public_key' && privateKey !== 'dummy_private_key') {
-    webpush.setVapidDetails(
-      'mailto:jonathan.carbungco@ascension.org',
-      publicKey,
-      privateKey
-    );
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+  const privateKey = process.env.VAPID_PRIVATE_KEY || '';
+
+  // Validate VAPID keys are configured
+  if (!publicKey || !privateKey) {
+    console.error('[qotd-noon] VAPID keys not configured. NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set.');
+    return NextResponse.json({ success: false, error: 'VAPID keys not configured' }, { status: 500 });
   }
+
+  webpush.setVapidDetails(
+    'mailto:jonathan.carbungco@ascension.org',
+    publicKey,
+    privateKey
+  );
 
   // Verify Vercel Cron Secret
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    console.warn('[qotd-noon] Unauthorized request — CRON_SECRET mismatch or missing.');
     return new Response('Unauthorized', { status: 401 });
   }
 
   try {
     const { data: subs, error } = await supabase.from('web_push_subscriptions').select('*');
     if (error) throw error;
-    
+
     if (!subs || subs.length === 0) {
-      return NextResponse.json({ success: true, message: 'No subscriptions found.' });
+      console.log('[qotd-noon] No subscriptions found in web_push_subscriptions table.');
+      return NextResponse.json({ success: true, message: 'No subscriptions found.', counts: { total: 0 } });
     }
+
+    console.log(`[qotd-noon] Found ${subs.length} subscription(s). Sending notifications...`);
 
     const payload = JSON.stringify({
       title: 'QOTD Results Are In!',
       body: 'See how you did compared to the rest of the cohort and prep for Noon Conference.'
     });
 
-    const notifications = subs.map(sub => {
+    let sent = 0;
+    let failed = 0;
+    let expired = 0;
+    let skipped = 0;
+
+    const notifications = subs.map(async (sub) => {
+      // Validate required fields
+      if (!sub.p256dh || !sub.auth || !sub.endpoint) {
+        console.warn(`[qotd-noon] Skipping subscription ${sub.id}: missing p256dh, auth, or endpoint.`);
+        skipped++;
+        return;
+      }
+
       const pushSubscription = {
         endpoint: sub.endpoint,
         keys: {
@@ -46,22 +66,30 @@ export async function GET(request: Request) {
           p256dh: sub.p256dh
         }
       };
-      return webpush.sendNotification(pushSubscription, payload).catch(err => {
+
+      try {
+        await webpush.sendNotification(pushSubscription, payload);
+        sent++;
+      } catch (err: any) {
         if (err.statusCode === 404 || err.statusCode === 410) {
-          // Subscription expired or invalid
-          console.log('Subscription expired, deleting endpoint:', sub.endpoint);
-          return supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          console.log(`[qotd-noon] Subscription expired (${err.statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
+          await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          expired++;
         } else {
-          console.error('Error sending push:', err);
+          console.error(`[qotd-noon] Push failed for ${sub.endpoint.slice(0, 60)}...:`, err.statusCode, err.body || err.message);
+          failed++;
         }
-      });
+      }
     });
 
     await Promise.allSettled(notifications);
-    return NextResponse.json({ success: true, message: `Sent ${notifications.length} push notifications.` });
+
+    const summary = { total: subs.length, sent, failed, expired, skipped };
+    console.log('[qotd-noon] Complete:', JSON.stringify(summary));
+    return NextResponse.json({ success: true, message: `Noon QOTD notifications processed.`, counts: summary });
 
   } catch (err: any) {
-    console.error('Noon Cron Error:', err);
+    console.error('[qotd-noon] Fatal error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
