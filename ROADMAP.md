@@ -78,6 +78,24 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Custom URL** — DNS/Vercel config only, no code change ✅
 - [x] **Question-level Analytics** (Moved to Phase 6 Wishlist)
 
+## 📅 Session Handoff – 2026-05-26 (Antigravity)
+
+**What shipped today (all live on `main`):**
+1. **PWA App Badging API**: Integrated the Web App Badging API (`navigator.setAppBadge` / `navigator.clearAppBadge`) to show visual badges on installed PWA application icons when push notifications are received. The badge automatically clears when the app is opened by the user.
+2. **QOTD Dashboard Return & Navigation**: Replaced the plain tab switcher in QOTD view with a clean header including a circular "X" close button next to the tabs to quickly return to the dashboard. Removed redundant/duplicated "Back to Dashboard" buttons from the screens.
+3. **QOTD Starting Clock Reset**: Configured the academic year starting date for QOTD sequential question selection to set the start date to **May 21st, 2026** (the launch date) for the current academic year, preventing the app from burning through sequential questions for pre-launch dates.
+4. **Push Notification Security Bypass**: Implemented a backend security bypass to fetch the correct active push subscription count safely for admin dashboard views.
+5. **Logout Resiliency**: Added a 5-second timeout and local storage fallback clearing to the logout mechanism, ensuring stuck auth states can be recovered.
+6. **QOTD History & Admin Tuning**: Overhauled the notification cron routes to be robust against bad subscription payloads, aligned user-facing QOTD release text to "12:25 PM", and implemented a paginated "Past QOTDs" history rolling view.
+
+**Next tasks, priority order:**
+1. **Admin Designation UI**: Build the UI to allow existing admins to assign admin roles to users from the Roster Manager.
+2. **Resume Phase 4**: Finish applying strict TypeScript definitions to `AdminConsole.tsx` and all Admin Tab Managers, then run `tsc --noEmit` to finalize.
+
+**Workflow note:** still pushing straight to `main` (pre-launch, no users). User works on the live BRQ URL, not local. See "Deployment Workflow" above for the post-launch transition.
+
+---
+
 ## 📅 Session Handoff – 2026-05-24 (Antigravity)
 
 **What shipped today (all live on `main`):**
@@ -265,11 +283,15 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
-### 2026-05-26 — Logout Fix, Notification Logs, & QOTD History (Antigravity)
+### 2026-05-26 — Logout Fix, Notification Logs, QOTD History, App Badging, & UI Improvements (Antigravity)
 *   **Logout Button Fix:** Wrapped `supabase.auth.signOut()` in a 5-second timeout inside [page.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/app/page.tsx) and added a fallback `catch` block that clears all `sb-*` localStorage keys and reloads the page to ensure users can recover from stuck auth states.
 *   **QOTD Notification Cron Robustness:** Completely overhauled [qotd-morning/route.ts](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/app/api/cron/qotd-morning/route.ts) and [qotd-noon/route.ts](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/app/api/cron/qotd-noon/route.ts) to validate VAPID keys early, perform strict null checks on push subscription endpoints (to prevent crashes on bad payloads), and return detailed JSON summaries with `{ sent, failed, expired, skipped }` counts. Added `[qotd-morning]` and `[qotd-noon]` structured prefixes to all logs.
 *   **QOTD History Tab (New Feature):** Added a paginated "Past QOTDs" tab to the post-noon QOTD results view. It features a compact card-based history (up to a 3-month rolling window) displaying the question, the correct answer, cohort correctness stats, and resident reaction tallies. Implemented in [QotdHistory.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/components/QotdHistory.tsx) and wired in [QuizEngine.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/components/QuizEngine.tsx) using the data fetches in [qotd.ts](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/lib/qotd.ts).
 *   **Release Time Text Alignment:** Aligned all user-facing text from "12:00 PM" / "noon" to "12:25 PM" across [QuizEngine.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/components/QuizEngine.tsx) and [Dashboard.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/components/Dashboard.tsx) to match the actual timed results release schedule.
+*   **QOTD Clock Start Date Reset:** Adjusted the academic year QOTD starting logic in [qotd.ts](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/lib/qotd.ts) to set the start date to **May 21st, 2026** (the launch date) for the current academic year, preventing burning through sequential questions for pre-launch dates.
+*   **PWA App Badging API Integration:** Implemented the Web App Badging API (`navigator.setAppBadge(1)` / `navigator.clearAppBadge()`) inside [sw.js](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/public/sw.js) and [page.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/app/page.tsx) to support native app icon badge counts for push notifications, which automatically clear upon opening the app.
+*   **QOTD Return Button & UI Clean-up:** Added an "X" close button next to the QOTD tab bar for quick return to the dashboard, and removed redundant/duplicated "Back to Dashboard" buttons from the QOTD tabs in [QuizEngine.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/components/QuizEngine.tsx).
+*   **Security & RLS bypass for Push Count:** Implemented a backend security bypass to fetch the correct active push subscription count safely for admin dashboard views.
 
 ### 2026-05-25 — Auth RLS Fix & Notifications Timing (Antigravity)
 *   **Registration Security API Bypass:** Fixed an issue where new residents could not register because the recent database lockdown prevented unauthenticated users from reading the `authorized_roster` table. Created a secure backend API (`/api/auth/verify-roster`) to perform the verification server-side without exposing the entire roster to the public internet.
