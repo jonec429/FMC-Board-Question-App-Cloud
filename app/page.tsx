@@ -79,6 +79,11 @@ export default function Home() {
   };
 
   useEffect(() => {
+    // Clear any PWA notification badges when the app is opened
+    if (typeof navigator !== 'undefined' && 'clearAppBadge' in navigator) {
+      navigator.clearAppBadge().catch(console.error);
+    }
+
     const init = async () => {
       if (envMissing) {
         setInitError('Supabase environment variables are not configured. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel project settings, then redeploy.');

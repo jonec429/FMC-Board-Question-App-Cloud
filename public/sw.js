@@ -11,12 +11,26 @@ self.addEventListener('push', function (event) {
         primaryKey: '2'
       }
     };
-    event.waitUntil(self.registration.showNotification(data.title, options));
+    
+    const promises = [
+      self.registration.showNotification(data.title, options)
+    ];
+    
+    if ('setAppBadge' in navigator) {
+      promises.push(navigator.setAppBadge(1));
+    }
+    
+    event.waitUntil(Promise.all(promises));
   }
 });
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
+  
+  if ('clearAppBadge' in navigator) {
+    navigator.clearAppBadge();
+  }
+  
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then(windowClients => {
       // Check if there is already a window/tab open with the target URL
