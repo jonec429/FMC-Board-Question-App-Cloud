@@ -86,6 +86,14 @@ export async function GET(request: Request) {
 
     const summary = { total: subs.length, sent, failed, expired, skipped };
     console.log('[qotd-morning] Complete:', JSON.stringify(summary));
+    
+    // Log to Supabase
+    await supabase.from('cron_logs').insert({
+      cron_name: 'qotd-morning',
+      status: 'success',
+      details: summary
+    });
+
     return NextResponse.json({ success: true, message: `Morning QOTD notifications processed.`, counts: summary });
 
   } catch (err: any) {

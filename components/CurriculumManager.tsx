@@ -108,12 +108,16 @@ export default function CurriculumManager() {
   const handleCreateBlock = async () => {
     const title = window.prompt("Enter new block title (e.g., 'Block 15: Special'):");
     if (!title) return;
-    await supabase.from('blocks').insert({
+    const { error } = await supabase.from('blocks').insert({
       title,
-      block_type: 'standard',
+      block_type: 'assigned',
       question_count: 40,
       academic_year: getCurrentAcademicYear(),
     });
+    if (error) {
+      console.error("Failed to create block:", error);
+      alert("Error creating block: " + error.message);
+    }
     await onRefresh();
   };
 

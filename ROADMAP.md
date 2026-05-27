@@ -263,6 +263,10 @@ This file serves as the shared source of truth for development progress between 
 ## 📍 Phase 5: Feature Wishlist
 *Goal: Track potential long-term architectural upgrades and features.*
 
+### App Hardening / Reliability
+- [ ] **Platform Stability**: App hardening to minimize reloads, logouts/sign-ins, and silent failures. Focus on robust error boundaries, graceful fallbacks, and connection resiliency.
+
+
 ### Analytics & Reporting
 - [ ] **Question-level Analytics**: More granular tracking of individual question performance.
 - [ ] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
