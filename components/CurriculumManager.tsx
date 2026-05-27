@@ -87,17 +87,32 @@ export default function CurriculumManager() {
     setSaving(true);
     const existing = getSchedule(blockId);
     
+    if (!dateForm.start || !dateForm.end) {
+      alert("Both start and end dates are required.");
+      setSaving(false);
+      return;
+    }
+
+    let resultError = null;
+
     if (existing) {
-      await supabase.from('block_schedule').update({
+      const { error } = await supabase.from('block_schedule').update({
         start_date: dateForm.start,
         end_date: dateForm.end
       }).eq('id', existing.id);
+      resultError = error;
     } else {
-      await supabase.from('block_schedule').insert({
+      const { error } = await supabase.from('block_schedule').insert({
         block_id: blockId,
         start_date: dateForm.start,
         end_date: dateForm.end
       });
+      resultError = error;
+    }
+    
+    if (resultError) {
+      console.error("Failed to save dates:", resultError);
+      alert("Error saving dates: " + resultError.message);
     }
     
     await onRefresh();
