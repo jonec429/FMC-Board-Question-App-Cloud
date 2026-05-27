@@ -61,6 +61,7 @@ export default function Dashboard({
   const [myResults, setMyResults] = useState<Result[]>([]);
   const [activeSession, setActiveSession] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [hasTakenDemo, setHasTakenDemo] = useState(false);
   const [qotdQuestion, setQotdQuestion] = useState<Question | null>(null);
   const [qotdAttempt, setQotdAttempt] = useState<Result | null>(null);
   const [userStreak, setUserStreak] = useState<any>(null);
@@ -145,7 +146,10 @@ export default function Dashboard({
           const sorted = [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b));
           setBlocks(sorted);
         }
-        if (resultsData) setMyResults(resultsData.filter((r: any) => !r.topic?.toLowerCase().includes('demo')));
+        if (resultsData) {
+          setHasTakenDemo(resultsData.some((r: any) => r.topic?.toLowerCase().includes('demo')));
+          setMyResults(resultsData.filter((r: any) => !r.topic?.toLowerCase().includes('demo')));
+        }
         if (sessionData) setActiveSession(sessionData);
 
         // Build leaderboard
@@ -262,17 +266,20 @@ export default function Dashboard({
       </div>
 
       {/* Onboarding Banner for New Users */}
-      {myResults.length === 0 && !activeSession && !loading && (
-        <div className="mb-8 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 flex-1">
-            <h3 className="text-2xl font-black mb-2 flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-yellow-300" />
-              Welcome to the FMC QBank!
-            </h3>
-            <p className="text-blue-100 font-medium max-w-xl">
-              We recommend taking the Demo Quiz first to get familiar with the interface, tools, and question formats. It's only 3 questions and won't affect your stats.
-            </p>
+      {!hasTakenDemo && !activeSession && !loading && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden animate-fade-in">
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="p-2 bg-blue-100 rounded-xl shrink-0">
+              <Sparkles className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-blue-900 mb-0.5">
+                Welcome to the FMC QBank!
+              </h3>
+              <p className="text-blue-700 text-sm font-medium pr-2">
+                We recommend taking the Demo Quiz first to get familiar with the interface, tools, and question formats. It's only 3 questions and won't affect your stats.
+              </p>
+            </div>
           </div>
           <button
             onClick={() => {
@@ -283,9 +290,9 @@ export default function Dashboard({
                 onStartQuiz({ topic: 'Demo Quiz', count: 3 });
               }
             }}
-            className="relative z-10 whitespace-nowrap bg-white text-blue-600 hover:bg-blue-50 px-8 py-4 rounded-xl font-black shadow-sm transition-all hover:scale-105 active:scale-95"
+            className="shrink-0 whitespace-nowrap bg-blue-600 text-white hover:bg-blue-700 px-5 py-2.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-2 text-sm"
           >
-            Take Demo Quiz
+            Take Demo Quiz <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}
