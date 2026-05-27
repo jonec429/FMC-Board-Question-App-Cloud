@@ -109,6 +109,7 @@ export default function CurriculumManager() {
     const title = window.prompt("Enter new block title (e.g., 'Block 15: Special'):");
     if (!title) return;
     const { error } = await supabase.from('blocks').insert({
+      id: crypto.randomUUID(),
       title,
       block_type: 'assigned',
       question_count: 40,
