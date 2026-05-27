@@ -84,40 +84,49 @@ export default function CurriculumManager() {
 
   // Date Saving
   const handleSaveDates = async (blockId: string) => {
-    setSaving(true);
-    const existing = getSchedule(blockId);
-    
-    if (!dateForm.start || !dateForm.end) {
-      alert("Both start and end dates are required.");
+    try {
+      setSaving(true);
+      const existing = getSchedule(blockId);
+      
+      if (!dateForm.start || !dateForm.end) {
+        alert("Both start and end dates are required.");
+        setSaving(false);
+        return;
+      }
+
+      let resultError = null;
+
+      if (existing) {
+        const { error } = await supabase.from('block_schedule').update({
+          start_date: dateForm.start,
+          end_date: dateForm.end
+        }).eq('id', existing.id);
+        resultError = error;
+      } else {
+        const { error } = await supabase.from('block_schedule').insert({
+          id: crypto.randomUUID(), // Explicitly generate ID to bypass any DB default issues
+          block_id: blockId,
+          start_date: dateForm.start,
+          end_date: dateForm.end
+        });
+        resultError = error;
+      }
+      
+      if (resultError) {
+        console.error("Failed to save dates:", resultError);
+        alert("Database Error saving dates: " + resultError.message);
+      } else {
+        alert("Dates saved successfully!");
+      }
+      
+      await onRefresh();
+      setEditingDates(null);
+    } catch (err: any) {
+      console.error("App Crash during save:", err);
+      alert("App Crash saving dates: " + err.message);
+    } finally {
       setSaving(false);
-      return;
     }
-
-    let resultError = null;
-
-    if (existing) {
-      const { error } = await supabase.from('block_schedule').update({
-        start_date: dateForm.start,
-        end_date: dateForm.end
-      }).eq('id', existing.id);
-      resultError = error;
-    } else {
-      const { error } = await supabase.from('block_schedule').insert({
-        block_id: blockId,
-        start_date: dateForm.start,
-        end_date: dateForm.end
-      });
-      resultError = error;
-    }
-    
-    if (resultError) {
-      console.error("Failed to save dates:", resultError);
-      alert("Error saving dates: " + resultError.message);
-    }
-    
-    await onRefresh();
-    setEditingDates(null);
-    setSaving(false);
   };
 
   const handleCreateBlock = async () => {
