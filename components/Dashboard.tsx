@@ -70,6 +70,7 @@ export default function Dashboard({
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -182,8 +183,9 @@ export default function Dashboard({
           lb.sort((a, b) => b.totalPoints - a.totalPoints);
           setLeaderboard(lb);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Fetch error:', err);
+        setFetchError(err.message || 'Unknown fetch error');
       } finally {
         setLoading(false);
       }
@@ -442,12 +444,16 @@ export default function Dashboard({
             <div className="text-left">
               <p className="font-bold text-lg">Quiz Builder</p>
               <p className="text-xs text-indigo-500/80">Custom filters or quick mixed review</p>
-            </div>
-          </button>
 
           <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs mb-3">Board Review Blocks</h3>
 
-          {loading ? (
+          {fetchError ? (
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 my-4">
+              <p className="text-sm font-bold text-red-600 mb-1">Network Error</p>
+              <p className="text-xs text-red-500">{fetchError}</p>
+              <button onClick={() => window.location.reload()} className="mt-2 text-xs font-bold text-red-600 hover:underline">Retry</button>
+            </div>
+          ) : loading && blocks.length === 0 ? (
             <p className="text-center py-6 text-slate-400 text-sm italic">Loading Fixed Blocks...</p>
           ) : blocks.length === 0 ? (
             <p className="text-center py-6 text-slate-400 text-sm italic">No blocks available.</p>
