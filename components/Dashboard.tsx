@@ -444,6 +444,8 @@ export default function Dashboard({
             <div className="text-left">
               <p className="font-bold text-lg">Quiz Builder</p>
               <p className="text-xs text-indigo-500/80">Custom filters or quick mixed review</p>
+            </div>
+          </button>
 
           <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs mb-3">Board Review Blocks</h3>
 
