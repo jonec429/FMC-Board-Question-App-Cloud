@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive, ArchiveRestore } from './AppIcons';
 import { AdminData } from '@/lib/types';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW } from '@/lib/questionFilters';
-import { getCurrentAcademicYear } from '@/lib/academicYear';
+import { getCurrentAcademicYear, formatAcademicYear } from '@/lib/academicYear';
 import BlockEditor from './BlockEditor'; // We will extract this or keep it here
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -116,7 +116,13 @@ export default function CurriculumManager() {
         console.error("Failed to save dates:", resultError);
         alert("Database Error saving dates: " + resultError.message);
       } else {
-        alert("Dates saved successfully!");
+        // Automatically sync the block's Academic Year based on the Due Date (end_date)
+        const dueDateObj = new Date(dateForm.end + "T12:00:00Z");
+        const derivedAy = getCurrentAcademicYear(dueDateObj);
+        
+        await supabase.from('blocks').update({ academic_year: derivedAy }).eq('id', blockId);
+        
+        alert(`Dates saved successfully! Block assigned to ${formatAcademicYear(derivedAy)}.`);
       }
       
       await onRefresh();
