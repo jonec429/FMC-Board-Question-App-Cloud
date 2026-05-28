@@ -78,10 +78,10 @@ export default function Dashboard({
       try {
         // BATCH 1: Critical UI Data (5 concurrent requests)
         const [
-          { data: blockData },
-          { data: sessionData },
-          { data: streakData },
-          { data: badgesData },
+          { data: blockData, error: blockErr },
+          { data: sessionData, error: sessionErr },
+          { data: streakData, error: streakErr },
+          { data: badgesData, error: badgesErr },
           qotd
         ] = (await withTimeout(Promise.all([
           selectedYear === 0 
@@ -103,12 +103,15 @@ export default function Dashboard({
           })
         ]), 15000)) as any[];
 
+        const err1 = blockErr || sessionErr || streakErr || badgesErr;
+        if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
+
         // BATCH 2: Leaderboard & Heavy Data (4 concurrent requests)
         const [
-          { data: resultsData },
-          { data: allResults },
-          { data: rosterData },
-          { data: qotdAttemptData }
+          { data: resultsData, error: resultsErr },
+          { data: allResults, error: allResultsErr },
+          { data: rosterData, error: rosterErr },
+          { data: qotdAttemptData, error: qotdAttemptErr }
         ] = (await withTimeout(Promise.all([
           selectedYear === 0
             ? supabase
@@ -135,8 +138,11 @@ export default function Dashboard({
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle()
-            : Promise.resolve({ data: null })
+            : Promise.resolve({ data: null, error: null })
         ]), 15000)) as any[];
+
+        const err2 = resultsErr || allResultsErr || rosterErr || qotdAttemptErr;
+        if (err2) throw new Error(err2.message || 'Failed to fetch leaderboard data');
 
         if (qotd) setQotdQuestion(qotd);
         if (qotdAttemptData) setQotdAttempt(qotdAttemptData);
