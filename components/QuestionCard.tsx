@@ -238,7 +238,7 @@ export default function QuestionCard({
               <Gem className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="font-black text-lg">Board Prep Gem</h3>
+              <h3 className="font-black text-lg">Explanation</h3>
               <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Logic & Evidence</p>
             </div>
           </div>

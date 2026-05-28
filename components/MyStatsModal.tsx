@@ -385,7 +385,7 @@ export default function MyStatsModal({
                                   <ExternalLink className="w-4 h-4 text-white" />
                                 </div>
                                 <div>
-                                  <h3 className="font-black text-sm">Board Prep Gem</h3>
+                                  <h3 className="font-black text-sm">Explanation</h3>
                                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Logic & Evidence</p>
                                 </div>
                               </div>

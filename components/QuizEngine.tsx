@@ -328,7 +328,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       const topicLabel = topic || 'Mixed Review Block';
 
       let points = 0;
-      let timingStatus = 'On Time';
+      let timingStatus: string | null = null;
 
       if (topicLabel === 'Mixed Review Block' || !topic) {
         points = 0;
@@ -889,7 +889,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-green-200"
             >
               {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                <>Finish Block <ChevronRight className="w-5 h-5" /></>
+                <>{isQotd ? 'Close' : 'Finish Block'} <ChevronRight className="w-5 h-5" /></>
               )}
             </button>
           ) : (
