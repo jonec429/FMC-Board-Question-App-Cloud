@@ -138,12 +138,15 @@ export default function CurriculumManager() {
       block_type: 'assigned',
       question_count: 40,
       academic_year: getCurrentAcademicYear(),
+      is_archived: false,
     });
+    
     if (error) {
-      console.error("Failed to create block:", error);
+      console.error(error);
       alert("Error creating block: " + error.message);
+    } else {
+      await onRefresh();
     }
-    await onRefresh();
   };
 
   const handleDeleteBlock = async (blockId: string, title: string) => {
