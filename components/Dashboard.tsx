@@ -80,6 +80,9 @@ export default function Dashboard({
 
       while (attemptCount < maxAttempts) {
         try {
+          const ac = new AbortController();
+          const timeoutId = setTimeout(() => ac.abort(new Error('Request timed out. Please check your connection.')), 15000);
+
           // BATCH 1: Critical UI Data (5 concurrent requests)
           const [
             { data: blockData, error: blockErr },
@@ -87,10 +90,10 @@ export default function Dashboard({
             { data: streakData, error: streakErr },
             { data: badgesData, error: badgesErr },
             qotd
-          ] = (await withTimeout(Promise.all([
+          ] = (await Promise.all([
             selectedYear === 0 
-              ? supabase.from('blocks').select('*').eq('is_archived', false)
-              : supabase.from('blocks').select('*').eq('is_archived', false).eq('academic_year', selectedYear),
+              ? supabase.from('blocks').select('*').eq('is_archived', false).abortSignal(ac.signal)
+              : supabase.from('blocks').select('*').eq('is_archived', false).eq('academic_year', selectedYear).abortSignal(ac.signal),
             supabase
               .from('quiz_sessions')
               .select('id, topic, quiz_id, current_index, answers, last_updated')
@@ -98,17 +101,21 @@ export default function Dashboard({
               .eq('is_completed', false)
               .order('last_updated', { ascending: false })
               .limit(1)
+              .abortSignal(ac.signal)
               .maybeSingle(),
-            supabase.from('user_streaks').select('*').eq('user_id', user.id).maybeSingle(),
-            supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', user.id),
-            getQotdQuestion().catch(e => {
+            supabase.from('user_streaks').select('*').eq('user_id', user.id).abortSignal(ac.signal).maybeSingle(),
+            supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', user.id).abortSignal(ac.signal),
+            getQotdQuestion(ac.signal).catch(e => {
               console.warn('QOTD fetch failed:', e);
               return null;
             })
-          ]), 15000)) as any[];
+          ])) as any[];
 
           const err1 = blockErr || sessionErr || streakErr || badgesErr;
-          if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
+          if (err1) {
+            clearTimeout(timeoutId);
+            throw new Error(err1.message || 'Failed to fetch critical dashboard data');
+          }
 
           // BATCH 2: Leaderboard & Heavy Data (4 concurrent requests)
           const [
@@ -116,23 +123,25 @@ export default function Dashboard({
             { data: allResults, error: allResultsErr },
             { data: rosterData, error: rosterErr },
             { data: qotdAttemptData, error: qotdAttemptErr }
-          ] = (await withTimeout(Promise.all([
+          ] = (await Promise.all([
             selectedYear === 0
               ? supabase
                   .from('results')
                   .select('*')
                   .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
                   .order('created_at', { ascending: false })
+                  .abortSignal(ac.signal)
               : supabase
                   .from('results')
                   .select('*')
                   .eq('academic_year', selectedYear)
                   .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
-                  .order('created_at', { ascending: false }),
+                  .order('created_at', { ascending: false })
+                  .abortSignal(ac.signal),
             selectedYear === 0
-              ? supabase.from('results').select('legacy_email, topic, total, academic_points')
-              : supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear),
-            supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty'),
+              ? supabase.from('results').select('legacy_email, topic, total, academic_points').abortSignal(ac.signal)
+              : supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear).abortSignal(ac.signal),
+            supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty').abortSignal(ac.signal),
             qotd 
               ? supabase
                   .from('question_attempts')
@@ -141,9 +150,12 @@ export default function Dashboard({
                   .eq('question_id', qotd.id)
                   .order('created_at', { ascending: false })
                   .limit(1)
+                  .abortSignal(ac.signal)
                   .maybeSingle()
               : Promise.resolve({ data: null, error: null })
-          ]), 15000)) as any[];
+          ])) as any[];
+
+          clearTimeout(timeoutId);
 
           const err2 = resultsErr || allResultsErr || rosterErr || qotdAttemptErr;
           if (err2) throw new Error(err2.message || 'Failed to fetch leaderboard data');

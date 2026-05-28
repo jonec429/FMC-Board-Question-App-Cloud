@@ -60,13 +60,13 @@ export function getQotdIndex(date: Date = new Date()): number | null {
 /**
  * Fetches the specific question for the day directly from Supabase.
  */
-export async function getQotdQuestion() {
+export async function getQotdQuestion(signal?: AbortSignal) {
   const index = getQotdIndex();
   if (index === null) return null; // Weekend
 
   // Fetch the Nth question, ordered by year DESC and id ASC
   // Excluding Demo questions
-  const { data, error } = await withTimeout(supabase
+  let query = supabase
     .from('questions')
     .select('*')
     .neq('year', 'Demo')
@@ -74,8 +74,11 @@ export async function getQotdQuestion() {
     .not('id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
     .order('year', { ascending: false })
     .order('id', { ascending: true })
-    .range(index, index)
-    .single(), 5000).catch((e: any) => ({ data: null, error: e })) as any;
+    .range(index, index);
+
+  if (signal) query = query.abortSignal(signal);
+
+  const { data, error } = await query.single();
 
   if (error || !data) {
     console.error('Error fetching QOTD:', error);

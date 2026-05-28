@@ -244,9 +244,9 @@ export default function QuestionCard({
           </div>
           
           <div className="space-y-4 text-slate-300 leading-relaxed font-medium">
-            <p className="text-lg text-white">
-              {isCorrect ? 'Correct!' : 'Actually...'}
-            </p>
+            <div className={`inline-block px-4 py-1.5 rounded-lg text-sm font-black uppercase tracking-widest mb-4 ${isCorrect ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+              {isCorrect ? 'Correct' : 'Incorrect'}
+            </div>
             <div dangerouslySetInnerHTML={{ __html: question.explanation || 'No explanation provided.' }} />
           </div>
 
