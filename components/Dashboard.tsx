@@ -75,126 +75,141 @@ export default function Dashboard({
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      try {
-        // BATCH 1: Critical UI Data (5 concurrent requests)
-        const [
-          { data: blockData, error: blockErr },
-          { data: sessionData, error: sessionErr },
-          { data: streakData, error: streakErr },
-          { data: badgesData, error: badgesErr },
-          qotd
-        ] = (await withTimeout(Promise.all([
-          selectedYear === 0 
-            ? supabase.from('blocks').select('*').eq('is_archived', false)
-            : supabase.from('blocks').select('*').eq('is_archived', false).eq('academic_year', selectedYear),
-          supabase
-            .from('quiz_sessions')
-            .select('id, topic, quiz_id, current_index, answers, last_updated')
-            .eq('user_id', user.id)
-            .eq('is_completed', false)
-            .order('last_updated', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          supabase.from('user_streaks').select('*').eq('user_id', user.id).maybeSingle(),
-          supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', user.id),
-          getQotdQuestion().catch(e => {
-            console.warn('QOTD fetch failed:', e);
-            return null;
-          })
-        ]), 15000)) as any[];
+      let attemptCount = 0;
+      const maxAttempts = 3;
 
-        const err1 = blockErr || sessionErr || streakErr || badgesErr;
-        if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
+      while (attemptCount < maxAttempts) {
+        try {
+          // BATCH 1: Critical UI Data (5 concurrent requests)
+          const [
+            { data: blockData, error: blockErr },
+            { data: sessionData, error: sessionErr },
+            { data: streakData, error: streakErr },
+            { data: badgesData, error: badgesErr },
+            qotd
+          ] = (await withTimeout(Promise.all([
+            selectedYear === 0 
+              ? supabase.from('blocks').select('*').eq('is_archived', false)
+              : supabase.from('blocks').select('*').eq('is_archived', false).eq('academic_year', selectedYear),
+            supabase
+              .from('quiz_sessions')
+              .select('id, topic, quiz_id, current_index, answers, last_updated')
+              .eq('user_id', user.id)
+              .eq('is_completed', false)
+              .order('last_updated', { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            supabase.from('user_streaks').select('*').eq('user_id', user.id).maybeSingle(),
+            supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', user.id),
+            getQotdQuestion().catch(e => {
+              console.warn('QOTD fetch failed:', e);
+              return null;
+            })
+          ]), 15000)) as any[];
 
-        // BATCH 2: Leaderboard & Heavy Data (4 concurrent requests)
-        const [
-          { data: resultsData, error: resultsErr },
-          { data: allResults, error: allResultsErr },
-          { data: rosterData, error: rosterErr },
-          { data: qotdAttemptData, error: qotdAttemptErr }
-        ] = (await withTimeout(Promise.all([
-          selectedYear === 0
-            ? supabase
-                .from('results')
-                .select('*')
-                .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
-                .order('created_at', { ascending: false })
-            : supabase
-                .from('results')
-                .select('*')
-                .eq('academic_year', selectedYear)
-                .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
-                .order('created_at', { ascending: false }),
-          selectedYear === 0
-            ? supabase.from('results').select('legacy_email, topic, total, academic_points')
-            : supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear),
-          supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty'),
-          qotd 
-            ? supabase
-                .from('question_attempts')
-                .select('*')
-                .eq('user_id', user.id)
-                .eq('question_id', qotd.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle()
-            : Promise.resolve({ data: null, error: null })
-        ]), 15000)) as any[];
+          const err1 = blockErr || sessionErr || streakErr || badgesErr;
+          if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
 
-        const err2 = resultsErr || allResultsErr || rosterErr || qotdAttemptErr;
-        if (err2) throw new Error(err2.message || 'Failed to fetch leaderboard data');
+          // BATCH 2: Leaderboard & Heavy Data (4 concurrent requests)
+          const [
+            { data: resultsData, error: resultsErr },
+            { data: allResults, error: allResultsErr },
+            { data: rosterData, error: rosterErr },
+            { data: qotdAttemptData, error: qotdAttemptErr }
+          ] = (await withTimeout(Promise.all([
+            selectedYear === 0
+              ? supabase
+                  .from('results')
+                  .select('*')
+                  .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
+                  .order('created_at', { ascending: false })
+              : supabase
+                  .from('results')
+                  .select('*')
+                  .eq('academic_year', selectedYear)
+                  .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
+                  .order('created_at', { ascending: false }),
+            selectedYear === 0
+              ? supabase.from('results').select('legacy_email, topic, total, academic_points')
+              : supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear),
+            supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty'),
+            qotd 
+              ? supabase
+                  .from('question_attempts')
+                  .select('*')
+                  .eq('user_id', user.id)
+                  .eq('question_id', qotd.id)
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle()
+              : Promise.resolve({ data: null, error: null })
+          ]), 15000)) as any[];
+
+          const err2 = resultsErr || allResultsErr || rosterErr || qotdAttemptErr;
+          if (err2) throw new Error(err2.message || 'Failed to fetch leaderboard data');
 
         if (qotd) setQotdQuestion(qotd);
-        if (qotdAttemptData) setQotdAttempt(qotdAttemptData);
-        if (streakData) setUserStreak(streakData);
-        if (badgesData) setUserBadges(badgesData.map((b: any) => ({ ...b.badges, earned_at: b.earned_at })));
+          if (qotd) setQotdQuestion(qotd);
+          if (qotdAttemptData) setQotdAttempt(qotdAttemptData);
+          if (streakData) setUserStreak(streakData);
+          if (badgesData) setUserBadges(badgesData.map((b: any) => ({ ...b.badges, earned_at: b.earned_at })));
 
-        if (blockData) {
-          const sorted = [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b));
-          setBlocks(sorted);
+          if (blockData) {
+            const sorted = [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b));
+            setBlocks(sorted);
+          }
+          if (resultsData) {
+            setHasTakenDemo(resultsData.some((r: any) => r.topic?.toLowerCase().includes('demo')));
+            setMyResults(resultsData.filter((r: any) => !r.topic?.toLowerCase().includes('demo')));
+          }
+          if (sessionData) setActiveSession(sessionData);
+
+          // Build leaderboard
+          if (allResults && rosterData) {
+            const rosterByEmail = new Map<string, { name: string; pgy: string }>();
+            rosterData.forEach((r: any) => {
+              if (r.email) rosterByEmail.set(r.email.toLowerCase(), { name: r.name, pgy: r.pgy });
+            });
+
+            // Group results by email, dedupe by topic (best points per topic)
+            const byEmail = new Map<string, { topicBest: Map<string, number>; qs: number }>();
+            allResults.forEach((r: any) => {
+              if (r.topic?.toLowerCase().includes('demo')) return;
+              const email = r.legacy_email?.toLowerCase();
+              if (!email) return;
+              if (!byEmail.has(email)) byEmail.set(email, { topicBest: new Map(), qs: 0 });
+              const entry = byEmail.get(email)!;
+              const cur = entry.topicBest.get(r.topic) || 0;
+              entry.topicBest.set(r.topic, Math.max(cur, r.academic_points || 0));
+              entry.qs += r.total || 0;
+            });
+
+            const lb: LeaderboardEntry[] = [];
+            rosterByEmail.forEach(({ name, pgy }, email) => {
+              const entry = byEmail.get(email);
+              const totalPoints = entry ? Array.from(entry.topicBest.values()).reduce((a, b) => a + b, 0) : 0;
+              const totalQs = entry?.qs || 0;
+              lb.push({ email, name, pgy, totalPoints, totalQs });
+            });
+            lb.sort((a, b) => b.totalPoints - a.totalPoints);
+            setLeaderboard(lb);
+          }
+
+          // If we reach here, everything succeeded, clear errors and exit loop
+          setFetchError(null);
+          break;
+        } catch (err: any) {
+          console.error(`Fetch attempt ${attemptCount + 1} failed:`, err);
+          attemptCount++;
+          if (attemptCount >= maxAttempts) {
+            setFetchError(err.message || 'Unknown fetch error');
+          } else {
+            // Wait 1 second before retrying to give Supabase auth token refresh time to finish
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
-        if (resultsData) {
-          setHasTakenDemo(resultsData.some((r: any) => r.topic?.toLowerCase().includes('demo')));
-          setMyResults(resultsData.filter((r: any) => !r.topic?.toLowerCase().includes('demo')));
-        }
-        if (sessionData) setActiveSession(sessionData);
-
-        // Build leaderboard
-        if (allResults && rosterData) {
-          const rosterByEmail = new Map<string, { name: string; pgy: string }>();
-          rosterData.forEach((r: any) => {
-            if (r.email) rosterByEmail.set(r.email.toLowerCase(), { name: r.name, pgy: r.pgy });
-          });
-
-          // Group results by email, dedupe by topic (best points per topic)
-          const byEmail = new Map<string, { topicBest: Map<string, number>; qs: number }>();
-          allResults.forEach((r: any) => {
-            if (r.topic?.toLowerCase().includes('demo')) return;
-            const email = r.legacy_email?.toLowerCase();
-            if (!email) return;
-            if (!byEmail.has(email)) byEmail.set(email, { topicBest: new Map(), qs: 0 });
-            const entry = byEmail.get(email)!;
-            const cur = entry.topicBest.get(r.topic) || 0;
-            entry.topicBest.set(r.topic, Math.max(cur, r.academic_points || 0));
-            entry.qs += r.total || 0;
-          });
-
-          const lb: LeaderboardEntry[] = [];
-          rosterByEmail.forEach(({ name, pgy }, email) => {
-            const entry = byEmail.get(email);
-            const totalPoints = entry ? Array.from(entry.topicBest.values()).reduce((a, b) => a + b, 0) : 0;
-            const totalQs = entry?.qs || 0;
-            lb.push({ email, name, pgy, totalPoints, totalQs });
-          });
-          lb.sort((a, b) => b.totalPoints - a.totalPoints);
-          setLeaderboard(lb);
-        }
-      } catch (err: any) {
-        console.error('Fetch error:', err);
-        setFetchError(err.message || 'Unknown fetch error');
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     }
     fetchData();
   }, [user.id, user.email, selectedYear]);
