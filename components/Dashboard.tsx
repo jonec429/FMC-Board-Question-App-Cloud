@@ -7,7 +7,7 @@ import { canAccessAdmin } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon, MessageSquare
+  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon, MessageSquare, Loader2
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
@@ -477,7 +477,10 @@ export default function Dashboard({
               <button onClick={() => window.location.reload()} className="mt-2 text-xs font-bold text-red-600 hover:underline">Retry</button>
             </div>
           ) : loading && blocks.length === 0 ? (
-            <p className="text-center py-6 text-slate-400 text-sm italic">Loading Fixed Blocks...</p>
+            <div className="flex flex-col items-center justify-center py-12 opacity-50">
+              <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" />
+              <p className="text-slate-500 text-sm font-medium tracking-wide uppercase">Syncing Dashboard...</p>
+            </div>
           ) : blocks.length === 0 ? (
             <p className="text-center py-6 text-slate-400 text-sm italic">No blocks available.</p>
           ) : (
