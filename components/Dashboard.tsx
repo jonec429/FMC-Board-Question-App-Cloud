@@ -75,10 +75,40 @@ export default function Dashboard({
     async function fetchData() {
       setLoading(true);
       try {
-        const fetchTasks = [
+        // BATCH 1: Critical UI Data (5 concurrent requests)
+        const [
+          { data: blockData },
+          { data: sessionData },
+          { data: streakData },
+          { data: badgesData },
+          qotd
+        ] = (await withTimeout(Promise.all([
           selectedYear === 0 
             ? supabase.from('blocks').select('*').eq('is_archived', false)
             : supabase.from('blocks').select('*').eq('is_archived', false).eq('academic_year', selectedYear),
+          supabase
+            .from('quiz_sessions')
+            .select('id, topic, quiz_id, current_index, answers, last_updated')
+            .eq('user_id', user.id)
+            .eq('is_completed', false)
+            .order('last_updated', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase.from('user_streaks').select('*').eq('user_id', user.id).maybeSingle(),
+          supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', user.id),
+          getQotdQuestion().catch(e => {
+            console.warn('QOTD fetch failed:', e);
+            return null;
+          })
+        ]), 15000)) as any[];
+
+        // BATCH 2: Leaderboard & Heavy Data (4 concurrent requests)
+        const [
+          { data: resultsData },
+          { data: allResults },
+          { data: rosterData },
+          { data: qotdAttemptData }
+        ] = (await withTimeout(Promise.all([
           selectedYear === 0
             ? supabase
                 .from('results')
@@ -91,51 +121,21 @@ export default function Dashboard({
                 .eq('academic_year', selectedYear)
                 .or(`user_id.eq.${user.id},legacy_email.eq.${user.email}`)
                 .order('created_at', { ascending: false }),
-          supabase
-            .from('quiz_sessions')
-            .select('id, topic, quiz_id, current_index, answers, last_updated')
-            .eq('user_id', user.id)
-            .eq('is_completed', false)
-            .order('last_updated', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
           selectedYear === 0
             ? supabase.from('results').select('legacy_email, topic, total, academic_points')
             : supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear),
           supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty'),
-          supabase.from('user_streaks').select('*').eq('user_id', user.id).maybeSingle(),
-          supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', user.id)
-        ];
-
-        let qotd = null;
-        try {
-          qotd = await getQotdQuestion();
-        } catch (e) {
-          console.warn('Dashboard QOTD fetch timed out or failed:', e);
-        }
-        let attemptPromise: PromiseLike<any> = Promise.resolve({ data: null });
-        if (qotd) {
-          attemptPromise = supabase
-            .from('question_attempts')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('question_id', qotd.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-        }
-
-        const resultArgs = await withTimeout(Promise.all([...fetchTasks, attemptPromise] as any[])) as any[];
-        const [
-          { data: blockData },
-          { data: resultsData },
-          { data: sessionData },
-          { data: allResults },
-          { data: rosterData },
-          { data: streakData },
-          { data: badgesData },
-          { data: qotdAttemptData },
-        ] = resultArgs;
+          qotd 
+            ? supabase
+                .from('question_attempts')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('question_id', qotd.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+            : Promise.resolve({ data: null })
+        ]), 15000)) as any[];
 
         if (qotd) setQotdQuestion(qotd);
         if (qotdAttemptData) setQotdAttempt(qotdAttemptData);
