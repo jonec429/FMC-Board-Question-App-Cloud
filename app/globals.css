@@ -110,3 +110,18 @@ body {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+
+@media print {
+  body {
+    background-color: white !important;
+  }
+  .print-hidden {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-avoid-break {
+    page-break-inside: avoid;
+  }
+}

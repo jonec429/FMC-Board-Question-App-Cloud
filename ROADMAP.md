@@ -264,29 +264,43 @@ This file serves as the shared source of truth for development progress between 
 *Goal: Track potential long-term architectural upgrades and features.*
 
 ### App Hardening / Reliability
-- [ ] **Platform Stability**: App hardening to minimize reloads, logouts/sign-ins, and silent failures. Focus on robust error boundaries, graceful fallbacks, and connection resiliency.
+- [x] **Platform Stability**: App hardening to minimize reloads, logouts/sign-ins, and silent failures. Focus on robust error boundaries, graceful fallbacks, and connection resiliency.
 - [ ] **Caching Balance**: Ensure we strike the right balance between aggressive client-side caching (React Query / Next.js) and data freshness, so users don't have to force-reload (ctrl+F5) to see new blocks or QOTD results.
 
 
 ### Analytics & Reporting
-- [ ] **Question-level Analytics**: More granular tracking of individual question performance.
-- [ ] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
-- [ ] **"Resident Risk" Logic**: Early warning metrics and alerts based on performance vs. on-time completion.
-- [ ] **Advisor Email Reports**: Automated email summaries sent to faculty advisors detailing their specific advisees' performance and completion rates.
+- [x] **Question-level Analytics**: More granular tracking of individual question performance (distractor analysis heatmap).
+- [x] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
+- [ ] **"Resident Risk" Logic**: Early warning metrics and alerts based on performance vs. on-time completion (Foundational implementation done, refinements pending).
+- [x] **Advisor Email Reports**: Automated email summaries sent to faculty advisors detailing their specific advisees' performance and completion rates.
 
 ### Transition & Infrastructure
-- [ ] **"Academic Year Transition" Tool**: Handle PGY bumps, archiving old data, and resetting for July 1st.
+- [x] **"Academic Year Transition" Tool**: Handle PGY bumps, archiving old data, and resetting for July 1st (Completed in Phase 4).
 - [ ] **Migrate Study Materials**: Move PDFs and docs from personal Google Drive to **Supabase Storage** to centralize all app data in one ecosystem.
 - [ ] **RFID Kiosk Attendance System:** Build a dedicated iPad kiosk mode (`/kiosk`) that uses a hidden input field to accept badge taps via a USB RFID keyboard-emulating reader. Admins can register badges and monitor a live attendance roster.
 
 ### Learning Features
-- [ ] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
-- [ ] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
+- [x] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
+- [x] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
 
 ---
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-05-29 — Spaced Repetition & Live Capacity Filters (Antigravity)
+*   **Live Capacity Filter:** The Custom Block builder now displays exactly how many questions match your filters in real-time. If you request more questions than are available in your pool, the "Generate Block" button safely disables to prevent errors.
+*   **Incorrects Only (Spaced Repetition):** Residents can now easily create targeted review blocks out of their previously missed questions, with full visibility into how many incorrect questions they have accumulated.
+*   **Notification Reliability:** Shifted the Vercel cron schedules earlier (7:30 AM and 12:00 PM) to account for queueing delays, ensuring push notifications arrive closer to the intended 8:00 AM and 12:25 PM marks.
+*   **Release Time Text Alignment:** Aligned all user-facing text from "12:25 PM" to "12:30 PM" across `QuizEngine.tsx` and `Dashboard.tsx` to set correct expectations for push notification delays.
+*   **QOTD Inline Explanation Fix:** Disabled the immediate "study mode" inline explanations specifically for the daily QOTD so that residents don't accidentally reveal the correct answer and explanation right after selecting their choice.
+
+### 2026-05-28 — Phase 5: Advanced Analytics & Reporting (Antigravity)
+*   **Question-Level Analytics:** Added `selected_index` tracking to `question_attempts` to record exactly which distractor options residents are choosing. The Trend Analysis Heatmap in the Admin Console now visualizes this data, highlighting common "trap" options (over 20% selection rate).
+*   **Admin Reporting Tab:** Created a new "Export & PDF" tab within the Admin Console. Admins can now download a CSV spreadsheet containing the performance and on-time rates of all active residents, or generate a clean, printable PDF report summarizing cohort performance.
+*   **Advisor Email Summaries:** Added an "Email Advisors" button on the All Residents view that aggregates performance data grouped by assigned advisor and generates a pre-filled `mailto:` link. Also added a localized "Email Report" button for faculty under the "My Advisees" tab.
+*   **System Stability:** Prevented socket leakage and hanging loading states by introducing `AbortController` cancellation for unmounted components in `Dashboard.tsx` and background data fetches.
+*   **QOTD Clean-up:** Removed the confusing "Finish Block" button from QOTD result screens, replacing it with a simple "Close" button. QOTDs no longer show misleading "On-Time" checkmarks since they are not assigned blocks.
 
 ### 2026-05-26 — Logout Fix, Notification Logs, QOTD History, App Badging, & UI Improvements (Antigravity)
 *   **Logout Button Fix:** Wrapped `supabase.auth.signOut()` in a 5-second timeout inside [page.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/app/page.tsx) and added a fallback `catch` block that clears all `sb-*` localStorage keys and reloads the page to ensure users can recover from stuck auth states.

@@ -32,6 +32,7 @@ export default function MyStatsModal({
   userBadges,
 }: MyStatsModalProps) {
   const [activeTab, setActiveTab] = useState<'stats' | 'weakAreas'>('stats');
+  const [qotdStats, setQotdStats] = useState<{ correct: number; incorrect: number } | null>(null);
 
   // Weak Areas State
   const [loadingWeakAreas, setLoadingWeakAreas] = useState(false);
@@ -75,6 +76,31 @@ export default function MyStatsModal({
   const topicAverages = Array.from(topicStats.entries())
     .map(([topic, { sum, count, qs }]) => ({ topic, avg: sum / count, attempts: count, qs }))
     .sort((a, b) => b.avg - a.avg);
+
+  useEffect(() => {
+    async function loadQotdStats() {
+      try {
+        const { data, error } = await withTimeout(
+          supabase
+            .from('question_attempts')
+            .select('is_correct')
+            .eq('user_id', userId)
+            .eq('is_qotd', true),
+          10000
+        ) as any;
+
+        if (error) throw error;
+        if (data) {
+          const correct = data.filter((a: any) => a.is_correct).length;
+          const incorrect = data.length - correct;
+          setQotdStats({ correct, incorrect });
+        }
+      } catch (err) {
+        console.error('Failed to load QOTD stats:', err);
+      }
+    }
+    loadQotdStats();
+  }, [userId]);
 
   useEffect(() => {
     async function loadMissedQuestions() {
@@ -249,6 +275,30 @@ export default function MyStatsModal({
                         </span>
                       </div>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* QOTD Performance */}
+              {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (
+                <div>
+                  <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">QOTD Performance</h3>
+                  <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between text-xs font-bold mb-2">
+                        <span className="text-emerald-600">{qotdStats.correct} Correct</span>
+                        <span className="text-red-600">{qotdStats.incorrect} Incorrect</span>
+                      </div>
+                      <div className="h-2 bg-red-100 rounded-full overflow-hidden flex">
+                        <div 
+                          className="h-full bg-emerald-500 transition-all" 
+                          style={{ width: `${(qotdStats.correct / (qotdStats.correct + qotdStats.incorrect)) * 100}%` }} 
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-2 text-center uppercase tracking-widest font-bold">
+                        {qotdStats.correct + qotdStats.incorrect} Total Attempts
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

@@ -20,7 +20,10 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
   const [loading, setLoading] = useState(true);
   const [years, setYears] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
-  const [totalQuestions, setTotalQuestions] = useState(0);
+  
+  // Data for live capacity calculation
+  const [allQuestions, setAllQuestions] = useState<any[]>([]);
+  const [userAttempts, setUserAttempts] = useState<any[]>([]);
 
   const [mode, setMode] = useState<'random' | 'custom'>('custom');
   const [pool, setPool] = useState<'all' | 'unused' | 'incorrect'>('all');
@@ -51,13 +54,29 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
         });
 
         const fetchTask = async () => {
-          const { data: qData } = await supabase.from('questions').select('category, year');
+          const { data: qData } = await supabase
+            .from('questions')
+            .select('id, category, year')
+            .neq('category', 'Demo')
+            .neq('year', 'Demo');
+            
           if (qData) {
             const yearSet = Array.from(new Set(qData.map((q: any) => q.year))).filter(Boolean).sort().reverse() as string[];
             const catSet = Array.from(new Set(qData.map((q: any) => q.category))).filter(Boolean).sort() as string[];
             setYears(yearSet);
             setCategories(catSet);
-            setTotalQuestions(qData.length);
+            setAllQuestions(qData);
+          }
+
+          // Fetch user attempts to compute unused/incorrect
+          if (user?.id) {
+            const { data: aData } = await supabase
+              .from('question_attempts')
+              .select('question_id, is_correct')
+              .eq('user_id', user.id);
+            if (aData) {
+              setUserAttempts(aData);
+            }
           }
 
           // Fetch user results for weakest topics
@@ -158,6 +177,43 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
     });
   };
 
+  const availableCount = useMemo(() => {
+    let qList = allQuestions;
+
+    // 1. Filter by Pool
+    if (pool === 'unused') {
+      const attemptedIds = new Set(userAttempts.map(a => a.question_id));
+      qList = qList.filter(q => !attemptedIds.has(q.id));
+    } else if (pool === 'incorrect') {
+      // Find questions where the most recent attempt (or any attempt in this logic) was incorrect
+      const incorrectIds = new Set(userAttempts.filter(a => !a.is_correct).map(a => a.question_id));
+      qList = qList.filter(q => incorrectIds.has(q.id));
+    }
+
+    // 2. Filter by Years and Categories (Only if mode is custom)
+    if (mode === 'custom') {
+      if (selectedYears.length > 0) {
+        const ySet = new Set(selectedYears);
+        qList = qList.filter(q => ySet.has(q.year));
+      } else {
+        return 0;
+      }
+      
+      if (selectedCategories.length > 0) {
+        const cSet = new Set(selectedCategories);
+        qList = qList.filter(q => cSet.has(q.category));
+      } else {
+        return 0;
+      }
+    } else {
+      // Random Mode uses recentYears
+      const ySet = new Set(recentYears);
+      qList = qList.filter(q => ySet.has(q.year));
+    }
+
+    return qList.length;
+  }, [allQuestions, userAttempts, pool, mode, selectedYears, selectedCategories, recentYears]);
+
   return (
     <div className="min-h-[100dvh] bg-slate-50 flex items-stretch sm:items-center justify-center sm:p-6 font-sans text-slate-800">
       <div className="bg-white w-full max-h-[100dvh] shadow-2xl border border-slate-200 flex flex-col rounded-none sm:rounded-3xl sm:max-w-3xl min-h-[600px]">
@@ -176,7 +232,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
             </div>
-          ) : totalQuestions === 0 ? (
+          ) : allQuestions.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
               <Database className="w-12 h-12 mb-4 opacity-50" />
               <p>Master Question Bank is empty.</p>
@@ -385,10 +441,19 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
           )}
 
           {/* Generate Button */}
-          <div className="mt-4 pt-4 border-t border-slate-100">
+          <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
+            {!loading && allQuestions.length > 0 && (
+              <div className="flex items-center justify-between px-2">
+                <span className="text-sm font-bold text-slate-500">Live Capacity:</span>
+                <span className={`text-sm font-black ${availableCount >= qCount ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {availableCount} matching {availableCount === 1 ? 'question' : 'questions'}
+                </span>
+              </div>
+            )}
+            
             <button
               onClick={handleGenerate}
-              disabled={loading || totalQuestions === 0}
+              disabled={loading || allQuestions.length === 0 || availableCount < qCount}
               className={`w-full py-4 text-white font-black rounded-2xl shadow-xl transition-all text-lg disabled:opacity-50 flex items-center justify-center gap-2 ${mode === 'random' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
             >
               {mode === 'random' ? (
@@ -403,6 +468,12 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
                 </>
               )}
             </button>
+            
+            {availableCount < qCount && availableCount > 0 && !loading && (
+              <p className="text-xs text-red-500 font-bold text-center">
+                Only {availableCount} matching questions available. Reduce your requested number or broaden your filters.
+              </p>
+            )}
           </div>
         </div>
       </div>

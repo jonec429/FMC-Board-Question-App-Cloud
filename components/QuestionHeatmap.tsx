@@ -19,7 +19,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('question_attempts')
-        .select('user_id, question_id, is_correct, created_at');
+        .select('user_id, question_id, is_correct, selected_index, created_at');
       if (error) throw error;
       return data || [];
     },
@@ -42,11 +42,14 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
     const validAttempts = attempts.filter((a) => activeUserIds.has(a.user_id));
 
     // 3. Aggregate by Question
-    const questionStats = new Map<string, { total: number; wrong: number }>();
+    const questionStats = new Map<string, { total: number; wrong: number; optionCounts: Record<number, number> }>();
     validAttempts.forEach((a) => {
-      const current = questionStats.get(a.question_id) || { total: 0, wrong: 0 };
+      const current = questionStats.get(a.question_id) || { total: 0, wrong: 0, optionCounts: {} };
       current.total += 1;
       if (!a.is_correct) current.wrong += 1;
+      if (a.selected_index != null) {
+        current.optionCounts[a.selected_index] = (current.optionCounts[a.selected_index] || 0) + 1;
+      }
       questionStats.set(a.question_id, current);
     });
 
@@ -66,6 +69,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
           wrongPct,
           options: q?.options || [],
           correct_index: q?.correct_index ?? -1,
+          optionCounts: stats.optionCounts,
         };
       })
       .filter((q) => q.total >= 3) // Need at least 3 attempts to be statistically interesting
@@ -179,11 +183,25 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {(q.options as string[]).map((opt: string, i: number) => {
                       const isCorrect = i === q.correct_index;
+                      const count = q.optionCounts[i] || 0;
+                      const pct = q.total > 0 ? (count / q.total) * 100 : 0;
+                      const isCommonTrap = !isCorrect && pct >= 20;
+
                       return (
-                        <div key={i} className={`p-3 rounded-xl border text-xs font-bold flex gap-2 ${isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                          <span className="shrink-0">{String.fromCharCode(65 + i)}.</span>
-                          <span className="line-clamp-2">{opt}</span>
-                          {isCorrect && <span className="ml-auto shrink-0">✅</span>}
+                        <div key={i} className={`p-3 rounded-xl border text-xs font-bold flex flex-col gap-1.5 ${isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : isCommonTrap ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                          <div className="flex gap-2 justify-between">
+                            <div className="flex gap-2">
+                              <span className="shrink-0">{String.fromCharCode(65 + i)}.</span>
+                              <span className="line-clamp-2">{opt}</span>
+                            </div>
+                            {isCorrect && <span className="ml-auto shrink-0">✅</span>}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="h-1.5 flex-1 bg-slate-200 rounded-full overflow-hidden">
+                              <div className={`h-full ${isCorrect ? 'bg-emerald-500' : isCommonTrap ? 'bg-amber-500' : 'bg-slate-400'}`} style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className={`text-[10px] shrink-0 w-8 text-right ${pct > 0 ? 'opacity-100' : 'opacity-40'}`}>{pct.toFixed(0)}%</span>
+                          </div>
                         </div>
                       );
                     })}

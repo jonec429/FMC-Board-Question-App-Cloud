@@ -277,6 +277,7 @@ export type Database = {
           is_correct: boolean
           is_qotd: boolean | null
           question_id: string
+          selected_index: number | null
           user_id: string | null
         }
         Insert: {
@@ -285,6 +286,7 @@ export type Database = {
           is_correct: boolean
           is_qotd?: boolean | null
           question_id: string
+          selected_index?: number | null
           user_id?: string | null
         }
         Update: {
@@ -293,6 +295,7 @@ export type Database = {
           is_correct?: boolean
           is_qotd?: boolean | null
           question_id?: string
+          selected_index?: number | null
           user_id?: string | null
         }
         Relationships: []

@@ -52,6 +52,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // QOTD States
   const [qotdReaction, setQotdReaction] = useState<string | null>(null);
   const [qotdAggregates, setQotdAggregates] = useState<Record<string, number> | null>(null);
+  const [qotdStats, setQotdStats] = useState<{correct: number, incorrect: number, total: number} | null>(null);
   const [qotdTab, setQotdTab] = useState<'today' | 'history'>('today');
 
   // === Quiz Tools (Text Resize + Highlight/Strikethrough Persistence) ===
@@ -112,6 +113,19 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                     if (r.user_id === user.id) setQotdReaction(r.reaction);
                   });
                   setQotdAggregates(fetchedAggs);
+                }
+              });
+
+             // Fetch cohort stats silently
+             supabase.from('question_attempts')
+              .select('is_correct')
+              .eq('question_id', qotdQuestion.id)
+              .eq('is_qotd', true)
+              .then(({ data: attemptsData }) => {
+                if (attemptsData) {
+                  const correct = attemptsData.filter((a: any) => a.is_correct).length;
+                  const incorrect = attemptsData.length - correct;
+                  setQotdStats({ correct, incorrect, total: attemptsData.length });
                 }
               });
           }
@@ -330,12 +344,17 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       let points = 0;
       let timingStatus: string | null = null;
 
-      if (topicLabel === 'Mixed Review Block' || !topic) {
+      const isDemo = currentBlock?.block_type === 'demo' || topicLabel.toLowerCase() === 'demo quiz';
+      const isCustomOrMixed = topicLabel === 'Mixed Review Block' || !topic || topicLabel.toLowerCase().includes('weakest topics');
+
+      if (isCustomOrMixed || isQotd || isDemo) {
         points = 0;
+        timingStatus = null;
       } else if (topicLabel.toLowerCase().includes('bonus')) {
         points = 2;
+        timingStatus = null;
       } else {
-        if (currentBlock) {
+        if (currentBlock && currentBlock.topic === topicLabel) {
           points = 2;
           timingStatus = 'On Time';
         } else {
@@ -370,6 +389,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           user_id: user.id,
           question_id: q.id,
           is_correct: answers[idx] === q.correct_index,
+          selected_index: answers[idx] ?? null,
         }));
         await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
 
@@ -398,6 +418,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           user_id: user.id,
           question_id: questions[0].id,
           is_correct: answers[0] === questions[0].correct_index,
+          selected_index: answers[0] ?? null,
           is_qotd: true
         }), 30000);
       }
@@ -430,6 +451,17 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             if (r.user_id === user.id) setQotdReaction(r.reaction);
           });
           setQotdAggregates(aggs);
+        }
+
+        const { data: attemptsData } = await withTimeout(supabase.from('question_attempts')
+          .select('is_correct')
+          .eq('question_id', questions[0].id)
+          .eq('is_qotd', true), 30000).catch(() => ({ data: null })) as any;
+          
+        if (attemptsData) {
+          const correct = attemptsData.filter((a: any) => a.is_correct).length;
+          const incorrect = attemptsData.length - correct;
+          setQotdStats({ correct, incorrect, total: attemptsData.length });
         }
       }
 
@@ -537,7 +569,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             <div>
               <h2 className="text-3xl font-black text-slate-800">Answer Recorded!</h2>
               <p className="text-slate-500 mt-3 text-lg leading-relaxed">
-                The correct answer, explanation, and cohort statistics will be revealed at <strong>12:25 PM EST</strong>.
+                The correct answer, explanation, and cohort statistics will be revealed at <strong>12:30 PM EST</strong>.
               </p>
             </div>
             
@@ -564,7 +596,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               </div>
               {qotdReaction && (
                 <p className="text-sm font-bold text-indigo-600 mt-6 animate-fade-in">
-                  Thanks for voting! Check back at 12:25 PM to see how everyone else did.
+                  Thanks for voting! Check back at 12:30 PM to see how everyone else did.
                 </p>
               )}
             </div>
@@ -633,24 +665,46 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           ) : (
           <>
           {/* Score Hero */}
-          <div className={`rounded-[40px] p-10 text-center text-white ${passed ? 'bg-emerald-600' : 'bg-slate-700'}`}>
-            <div className="text-6xl font-black mb-2">{percentage.toFixed(1)}%</div>
-            <div className="text-lg font-bold opacity-80">{score} / {total} correct</div>
-            <div className="mt-6 flex justify-center gap-8">
-              <div>
-                <div className="text-2xl font-black">{academic_points}</div>
-                <div className="text-xs font-black uppercase tracking-widest opacity-70">Academic Points</div>
-              </div>
-              {timing_status && (
-                <div>
-                  <div className="text-2xl font-black">
-                    {timing_status === 'On Time' ? '✅' : timing_status === 'Late' ? '⏰' : '—'}
+          {isQotd ? (
+            <div className={`rounded-[40px] p-10 text-center text-white ${score === 1 ? 'bg-emerald-600' : 'bg-red-500'}`}>
+              <div className="text-6xl font-black mb-2">{score === 1 ? 'Correct' : 'Incorrect'}</div>
+              {qotdStats && qotdStats.total > 0 && (
+                <div className="mt-8 flex flex-col items-center gap-2">
+                  <div className="text-sm font-bold opacity-80 uppercase tracking-widest">Cohort Performance</div>
+                  <div className="flex items-center justify-center gap-4 w-full max-w-sm mt-1">
+                    <div className="text-xl font-black w-12 text-right">{Math.round((qotdStats.correct / qotdStats.total) * 100)}%</div>
+                    <div className="flex-1 h-3 bg-black/20 rounded-full overflow-hidden">
+                      <div className="h-full bg-white transition-all" style={{ width: `${Math.round((qotdStats.correct / qotdStats.total) * 100)}%` }} />
+                    </div>
                   </div>
-                  <div className="text-xs font-black uppercase tracking-widest opacity-70">{timing_status}</div>
+                  <div className="text-xs font-bold opacity-90 mt-2">{qotdStats.correct} correct · {qotdStats.incorrect} incorrect · {qotdStats.total} responses</div>
                 </div>
               )}
             </div>
-          </div>
+          ) : (
+            <div className={`rounded-[40px] p-10 text-center text-white ${passed ? 'bg-emerald-600' : 'bg-slate-700'}`}>
+              <div className="text-6xl font-black mb-2">{percentage.toFixed(1)}%</div>
+              <div className="text-lg font-bold opacity-80">{score} / {total} correct</div>
+              {(academic_points > 0 || timing_status) && (
+                <div className="mt-6 flex justify-center gap-8">
+                  {academic_points > 0 && (
+                    <div>
+                      <div className="text-2xl font-black">{academic_points}</div>
+                      <div className="text-xs font-black uppercase tracking-widest opacity-70">Academic Points</div>
+                    </div>
+                  )}
+                  {timing_status && (
+                    <div>
+                      <div className="text-2xl font-black">
+                        {timing_status === 'On Time' ? '✅' : timing_status === 'Late' ? '⏰' : '—'}
+                      </div>
+                      <div className="text-xs font-black uppercase tracking-widest opacity-70">{timing_status}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Missed Questions */}
           {missedQuestions.length > 0 && (
@@ -858,7 +912,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             question={currentQuestion}
             userAnswer={answers[currentIndex]}
             onAnswer={(idx) => setAnswers(prev => ({ ...prev, [currentIndex]: idx }))}
-            showExplanation={answers[currentIndex] !== undefined}
+            showExplanation={!isQotd && answers[currentIndex] !== undefined}
             fontSize={fontSize}
             initialHighlights={questionTools[currentQuestion.id]?.highlights || []}
             initialStrikethroughs={questionTools[currentQuestion.id]?.strikethroughs || []}

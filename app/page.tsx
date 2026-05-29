@@ -8,7 +8,8 @@ import QuizEngine from '@/components/QuizEngine';
 import CustomBuilderScreen from '@/components/CustomBuilderScreen';
 import AdminConsole from '@/components/AdminConsole';
 import { Loader2 } from '@/components/AppIcons';
-import { withTimeout } from '@/lib/utils';
+import { withTimeout, withRetry } from '@/lib/utils';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -84,6 +85,20 @@ export default function Home() {
       navigator.clearAppBadge().catch(console.error);
     }
 
+    // Stale Tab Detector: Hard reload if the tab is inactive for > 4 hours
+    let lastHiddenTime = 0;
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        lastHiddenTime = Date.now();
+      } else {
+        // 4 hours = 14,400,000 ms
+        if (lastHiddenTime > 0 && Date.now() - lastHiddenTime > 14400000) {
+          window.location.reload();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const init = async () => {
       if (envMissing) {
         setInitError('Supabase environment variables are not configured. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel project settings, then redeploy.');
@@ -91,9 +106,9 @@ export default function Home() {
         return;
       }
       // Tag timeout/network errors with which init step they belong to
-      const runStep = async <T,>(label: string, op: Promise<T>, timeoutMs = 20000): Promise<T> => {
+      const runStep = async <T,>(label: string, op: () => Promise<T>): Promise<T> => {
         try {
-          return await withTimeout(op, timeoutMs);
+          return await withRetry(op, 3, 1000);
         } catch (err: any) {
           throw new Error(`[${label}] ${err?.message || 'unknown error'}`);
         }
@@ -102,32 +117,16 @@ export default function Home() {
       try {
         const { data: { session } } = (await runStep(
           'getSession',
-          supabase.auth.getSession(),
-          10000 // 10s timeout for session check - if it takes longer, the refresh token request is hanging
+          () => supabase.auth.getSession()
         )) as any;
         if (session?.user) {
           setUser(session.user);
           // Run sequentially with step labels so a single hung query is identifiable
-          await runStep('loadProfile', loadProfile(session.user), 20000);
-          await runStep('loadCurrentBlock', loadCurrentBlock(), 20000);
+          await runStep('loadProfile', () => loadProfile(session.user));
+          await runStep('loadCurrentBlock', () => loadCurrentBlock());
         }
       } catch (err: any) {
         console.error('App init error:', err);
-        const isGetSessionHang = err?.message?.includes('[getSession]');
-        if (isGetSessionHang && typeof window !== 'undefined') {
-          // If the session refresh request hangs, the auth token is likely corrupted or the Supabase auth service is sluggish.
-          // Treat it as an expired session: clear the tokens and route them to the login screen.
-          try {
-            const keysToRemove: string[] = [];
-            for (let i = 0; i < window.localStorage.length; i++) {
-              const key = window.localStorage.key(i);
-              if (key && key.startsWith('sb-')) keysToRemove.push(key);
-            }
-            keysToRemove.forEach((k) => window.localStorage.removeItem(k));
-          } catch {}
-          setLoading(false);
-          return; // They will be routed to <Login /> because user is null
-        }
         setInitError(err?.message || 'Failed to initialize the app. Check your network and Supabase project status.');
       } finally {
         setLoading(false);
@@ -146,7 +145,10 @@ export default function Home() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -197,13 +199,14 @@ export default function Home() {
               <li>Network connectivity issue</li>
             </ul>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3">
             <button
               onClick={() => window.location.reload()}
-              className="flex-1 px-5 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg active:scale-95"
+              className="w-full px-5 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg active:scale-95"
             >
-              Retry
+              Reload App
             </button>
+            <p className="text-[10px] text-center text-slate-400 font-medium">Warning: Any unsaved quiz progress from the last few seconds may be lost.</p>
             <button
               onClick={() => {
                 window.localStorage.clear();
@@ -227,59 +230,67 @@ export default function Home() {
   return (
     <>
       <div style={{ display: (showBuilder || showAdmin || activeQuiz) ? 'none' : 'block' }}>
-        <Dashboard
-          user={user}
-          profile={profile}
-          onLogout={handleLogout}
-          onStartQuiz={(quiz: any) => setActiveQuiz(quiz)}
-          onOpenBuilder={() => setShowBuilder(true)}
-          onOpenAdmin={() => setShowAdmin(true)}
-          onProfileUpdate={(updatedProfile: any) => setProfile(updatedProfile)}
-        />
+        <ErrorBoundary fallbackMessage="The dashboard encountered an error.">
+          <Dashboard
+            user={user}
+            profile={profile}
+            onLogout={handleLogout}
+            onStartQuiz={(quiz: any) => setActiveQuiz(quiz)}
+            onOpenBuilder={() => setShowBuilder(true)}
+            onOpenAdmin={() => setShowAdmin(true)}
+            onProfileUpdate={(updatedProfile: any) => setProfile(updatedProfile)}
+          />
+        </ErrorBoundary>
       </div>
 
       {activeQuiz && (
-        <QuizEngine
-          user={user}
-          isQotd={activeQuiz.isQotd}
-          qotdQuestion={activeQuiz.qotdQuestion}
-          isQotdCompleted={activeQuiz.isQotdCompleted}
-          qotdAttempt={activeQuiz.qotdAttempt}
-          quizId={activeQuiz.quizId}
-          topic={activeQuiz.topic}
-          questionIds={activeQuiz.questionIds}
-          categories={activeQuiz.categories}
-          keywords={activeQuiz.keywords}
-          years={activeQuiz.years}
-          pool={activeQuiz.pool}
-          count={activeQuiz.count || 40}
-          timerEnabled={activeQuiz.timerEnabled}
-          currentBlock={currentBlock}
-          onComplete={() => setActiveQuiz(null)}
-          onCancel={() => setActiveQuiz(null)}
-        />
+        <ErrorBoundary fallbackMessage="The quiz engine encountered an error.">
+          <QuizEngine
+            user={user}
+            isQotd={activeQuiz.isQotd}
+            qotdQuestion={activeQuiz.qotdQuestion}
+            isQotdCompleted={activeQuiz.isQotdCompleted}
+            qotdAttempt={activeQuiz.qotdAttempt}
+            quizId={activeQuiz.quizId}
+            topic={activeQuiz.topic}
+            questionIds={activeQuiz.questionIds}
+            categories={activeQuiz.categories}
+            keywords={activeQuiz.keywords}
+            years={activeQuiz.years}
+            pool={activeQuiz.pool}
+            count={activeQuiz.count || 40}
+            timerEnabled={activeQuiz.timerEnabled}
+            currentBlock={currentBlock}
+            onComplete={() => setActiveQuiz(null)}
+            onCancel={() => setActiveQuiz(null)}
+          />
+        </ErrorBoundary>
       )}
 
       {showBuilder && (
-        <CustomBuilderScreen
-          user={user}
-          onStart={(config) => {
-            setShowBuilder(false);
-            setActiveQuiz({
-              topic: 'Mixed Review Block',
-              categories: config.categories.length > 0 ? config.categories : undefined,
-              years: config.years.length > 0 ? config.years : undefined,
-              count: config.count,
-              pool: config.pool,
-              timerEnabled: config.timerEnabled,
-            });
-          }}
-          onCancel={() => setShowBuilder(false)}
-        />
+        <ErrorBoundary fallbackMessage="The custom quiz builder encountered an error.">
+          <CustomBuilderScreen
+            user={user}
+            onStart={(config) => {
+              setShowBuilder(false);
+              setActiveQuiz({
+                topic: 'Mixed Review Block',
+                categories: config.categories.length > 0 ? config.categories : undefined,
+                years: config.years.length > 0 ? config.years : undefined,
+                count: config.count,
+                pool: config.pool,
+                timerEnabled: config.timerEnabled,
+              });
+            }}
+            onCancel={() => setShowBuilder(false)}
+          />
+        </ErrorBoundary>
       )}
 
       {showAdmin && (
-        <AdminConsole user={user} profile={profile} onExit={() => setShowAdmin(false)} />
+        <ErrorBoundary fallbackMessage="The admin console encountered an error.">
+          <AdminConsole user={user} profile={profile} onExit={() => setShowAdmin(false)} />
+        </ErrorBoundary>
       )}
     </>
   );

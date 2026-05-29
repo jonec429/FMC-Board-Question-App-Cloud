@@ -350,7 +350,7 @@ export default function Dashboard({
                  {qotdAttempt ? (
                    <div>
                      <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">
-                       {isPastNoon() ? 'Results and stats are now available!' : 'Answer recorded. Come back at 12:25 PM for results!'}
+                       {isPastNoon() ? 'Results and stats are now available!' : 'Answer recorded. Come back at 12:30 PM for results!'}
                      </p>
                      <button
                        onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', isQotdCompleted: true, qotdAttempt })}
@@ -438,7 +438,7 @@ export default function Dashboard({
             <LeaderboardWidget data={leaderboard} myEmail={user.email} />
           )}
 
-          {/* Resume Saved Review */}
+          {/* Resume Saved Block */}
           {activeSession && (
             <button
               onClick={() => {
@@ -453,7 +453,7 @@ export default function Dashboard({
             >
               <PlayCircle className="w-6 h-6 shrink-0" />
               <div className="text-left flex-1 min-w-0">
-                <p className="font-bold">Resume Saved Review</p>
+                <p className="font-bold">Resume Saved Block</p>
                 <p className="text-xs text-amber-600 opacity-80 truncate">
                   {activeSession.topic} · Q{(activeSession.current_index || 0) + 1}
                 </p>

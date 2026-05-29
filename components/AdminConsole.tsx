@@ -10,6 +10,7 @@ import RosterManager from './RosterManager';
 import CurriculumManager from './CurriculumManager';
 import QuestionBankManager from './QuestionBankManager';
 import NotificationManager from './NotificationManager';
+import AdminReporting from './AdminReporting';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -19,7 +20,7 @@ interface AdminConsoleProps {
   onExit: () => void;
 }
 
-type TabId = 'performance' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications';
+type TabId = 'performance' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications';
 
 export default function AdminConsole({ user, profile, onExit }: AdminConsoleProps) {
   const role = getUserRole(user, profile);
@@ -39,6 +40,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
       heading: 'Reports',
       items: [
         { id: 'performance', label: 'Performance', icon: BarChartIcon, description: 'Resident progress & risk flags' },
+        { id: 'reporting', label: 'Export & PDF', icon: Database, adminOnly: true, description: 'Download CSVs and PDFs' },
       ],
     },
     {
@@ -150,6 +152,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
           {/* Main Content */}
           <main className="flex-1 min-w-0">
             {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} />}
+            {activeTab === 'reporting' && <AdminReporting adminData={useAdminData().data!} />}
             {activeTab === 'roster' && <RosterManager />}
             {activeTab === 'attendance' && <AttendanceManager />}
             {activeTab === 'questions' && <QuestionBankManager />}

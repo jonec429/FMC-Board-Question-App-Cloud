@@ -6,7 +6,7 @@ import { formatDisplayName } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
-import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight } from './AppIcons';
+import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, Mail } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
 
 const AT_RISK_AVG = 60;
@@ -355,9 +355,27 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 Residents assigned to {formatDisplayName(facultyName || '')} — click any row to view block history
               </p>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-black text-emerald-700">{myAdvisees.length}</div>
-              <div className="text-[10px] font-black text-emerald-600/70 uppercase tracking-widest">Advisees</div>
+            <div className="flex items-center gap-6">
+              {myAdvisees.length > 0 && (
+                <button 
+                  onClick={() => {
+                    const subject = encodeURIComponent("FMC QBank: Advisee Performance Update");
+                    const body = encodeURIComponent(
+                      "Hello,\n\nHere is a summary of your advisees' current performance in the FMC QBank:\n\n" + 
+                      myAdvisees.map(r => `- ${r.name}: ${r.avgPct.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${r.risk === 'red' ? 'AT RISK' : r.risk === 'yellow' ? 'NEEDS ATTENTION' : 'ON TRACK'}`).join('\n') +
+                      "\n\nPlease reach out if you have any questions.\n\nThank you!"
+                    );
+                    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                  }}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm"
+                >
+                  <Mail className="w-4 h-4" /> Email Report
+                </button>
+              )}
+              <div className="text-right hidden sm:block">
+                <div className="text-2xl font-black text-emerald-700">{myAdvisees.length}</div>
+                <div className="text-[10px] font-black text-emerald-600/70 uppercase tracking-widest">Advisees</div>
+              </div>
             </div>
           </div>
           {myAdvisees.length > 0 ? (
@@ -377,9 +395,37 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {/* Overview Tab */}
       {activeSubTab === 'overview' && (
         <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-50 bg-slate-50/50">
-            <h3 className="font-black text-slate-800">All Residents</h3>
-            <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+            <div>
+              <h3 className="font-black text-slate-800">All Residents</h3>
+              <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
+            </div>
+            <button 
+              onClick={() => {
+                // Group all residents by advisor
+                const groups: Record<string, ResidentStat[]> = {};
+                residentStats.forEach(r => {
+                  const adv = r.advisor || 'Unassigned';
+                  if (!groups[adv]) groups[adv] = [];
+                  groups[adv].push(r);
+                });
+                
+                let bodyStr = "Hello Faculty,\n\nHere is a summary of resident performance in the FMC QBank grouped by advisor:\n\n";
+                Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).forEach(([adv, resList]) => {
+                  bodyStr += `\n=== ${adv} ===\n`;
+                  resList.forEach(r => {
+                    bodyStr += `- ${r.name}: ${r.avgPct.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${r.risk === 'red' ? 'AT RISK' : r.risk === 'yellow' ? 'NEEDS ATTENTION' : 'ON TRACK'}\n`;
+                  });
+                });
+                bodyStr += "\n\nLog in to the Admin Console for more details.\n\nThank you!";
+                
+                const subject = encodeURIComponent("FMC QBank: Program Performance Update");
+                window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyStr)}`;
+              }}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm"
+            >
+              <Mail className="w-4 h-4" /> Email Advisors
+            </button>
           </div>
           <ResidentTable residents={sortRes(residentStats)} />
         </div>

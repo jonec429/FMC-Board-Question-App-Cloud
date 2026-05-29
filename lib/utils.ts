@@ -27,3 +27,32 @@ export function withTimeout<T>(promise: Promise<T> | PromiseLike<T>, ms: number 
   );
   return Promise.race([promise as Promise<T>, timeout]);
 }
+
+/**
+ * Retries a promise-returning function with exponential backoff.
+ * Useful for handling transient network errors or Supabase downtime.
+ *
+ * @param operation - The async function to retry
+ * @param maxRetries - Maximum number of retry attempts (default: 3)
+ * @param baseDelayMs - Base delay in milliseconds (default: 1000)
+ */
+export async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      attempt++;
+      if (attempt > maxRetries) {
+        throw error;
+      }
+      const delay = baseDelayMs * Math.pow(2, attempt - 1);
+      console.warn(`[withRetry] Attempt ${attempt} failed. Retrying in ${delay}ms...`, error);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
