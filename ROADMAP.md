@@ -265,7 +265,7 @@ This file serves as the shared source of truth for development progress between 
 
 ### App Hardening / Reliability
 - [x] **Platform Stability**: App hardening to minimize reloads, logouts/sign-ins, and silent failures. Focus on robust error boundaries, graceful fallbacks, and connection resiliency.
-- [ ] **Caching Balance**: Ensure we strike the right balance between aggressive client-side caching (React Query / Next.js) and data freshness, so users don't have to force-reload (ctrl+F5) to see new blocks or QOTD results.
+- [x] **Caching Balance**: Ensure we strike the right balance between aggressive client-side caching (React Query / Next.js) and data freshness, so users don't have to force-reload (ctrl+F5) to see new blocks or QOTD results.
 
 
 ### Analytics & Reporting
