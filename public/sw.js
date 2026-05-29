@@ -20,6 +20,25 @@ self.addEventListener('push', function (event) {
       promises.push(navigator.setAppBadge(1));
     }
     
+    // Delivery Receipt Logic
+    if (data.data && data.data.run_id) {
+      promises.push(
+        self.registration.pushManager.getSubscription().then(function(subscription) {
+          if (subscription) {
+            return fetch('/api/web-push/receipt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                run_id: data.data.run_id,
+                endpoint: subscription.endpoint,
+                title: data.title
+              })
+            }).catch(err => console.error('[SW] Failed to send push receipt:', err));
+          }
+        })
+      );
+    }
+
     event.waitUntil(Promise.all(promises));
   }
 });

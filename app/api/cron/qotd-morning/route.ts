@@ -39,11 +39,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, message: 'No subscriptions found.', counts: { total: 0 } });
     }
 
-    console.log(`[qotd-morning] Found ${subs.length} subscription(s). Sending notifications...`);
+    const run_id = crypto.randomUUID();
+    console.log(`[qotd-morning] Found ${subs.length} subscription(s). Sending notifications... (Run ID: ${run_id})`);
 
     const payload = JSON.stringify({
       title: 'Question of the Day',
-      body: 'A new high-yield question is ready! Review it before Noon Conference.'
+      body: 'A new high-yield question is ready! Review it before Noon Conference.',
+      data: { run_id }
     });
 
     let sent = 0;
@@ -91,8 +93,20 @@ export async function GET(request: Request) {
     await supabase.from('cron_logs').insert({
       cron_name: 'qotd-morning',
       status: 'success',
-      details: summary
+      details: { ...summary, run_id }
     });
+
+    // Cleanup receipts older than 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const { error: cleanupError } = await supabase
+      .from('push_receipts')
+      .delete()
+      .lt('delivered_at', thirtyDaysAgo.toISOString());
+    
+    if (cleanupError) {
+      console.error('[qotd-morning] Failed to prune old push receipts:', cleanupError);
+    }
 
     return NextResponse.json({ success: true, message: `Morning QOTD notifications processed.`, counts: summary });
 

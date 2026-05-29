@@ -97,9 +97,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: 'No subscriptions found to notify.', counts: { total: 0, sent: 0 } });
     }
 
-    console.log(`[web-push/send] Dispatching notifications to ${subs.length} devices (Requested by: ${callerEmail})...`);
+    const run_id = crypto.randomUUID();
+    console.log(`[web-push/send] Dispatching notifications to ${subs.length} devices (Requested by: ${callerEmail})... (Run ID: ${run_id})`);
 
-    const payload = JSON.stringify({ title, body });
+    const payload = JSON.stringify({
+      title,
+      body,
+      data: { run_id }
+    });
     let sent = 0;
     let failed = 0;
     let expired = 0;
@@ -139,6 +144,19 @@ export async function POST(request: Request) {
 
     const summary = { total: subs.length, sent, failed, expired, skipped };
     console.log('[web-push/send] Dispatch complete:', JSON.stringify(summary));
+    
+    // Log the manual broadcast
+    await supabase.from('cron_logs').insert({
+      cron_name: 'manual_broadcast',
+      status: 'success',
+      details: { ...summary, run_id, title, body, sent_by: callerEmail }
+    });
+
+    // Cleanup receipts older than 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    await supabase.from('push_receipts').delete().lt('delivered_at', thirtyDaysAgo.toISOString());
+
     return NextResponse.json({
       success: true,
       message: `Notification dispatch complete.`,

@@ -3,18 +3,20 @@
  *
  * 3-Tier Role System:
  *   - resident: Standard user — takes quizzes, sees own performance + leaderboard
- *   - faculty:  Reviews resident performance — limited to their own advisees in admin views
+ *   - faculty:  Reviews resident performance — limited to their own advisees in admin views (can view all residents if needed)
+ *   - gme_staff: Has the exact same privileges as faculty
  *   - admin:    Full access to all admin features and program-wide data
  *
  * Role resolution priority (highest first):
  *   1. Hard-coded SUPER_ADMIN_EMAILS  → 'admin'
  *   2. profile.role === 'admin'        → 'admin'
  *   3. profile.role === 'faculty'      → 'faculty'
- *   4. profile.pgy === 'Faculty'       → 'faculty' (legacy roster convention)
- *   5. otherwise                       → 'resident'
+ *   4. profile.role === 'gme_staff'    → 'gme_staff'
+ *   5. profile.pgy === 'Faculty'       → 'faculty' (legacy roster convention)
+ *   6. otherwise                       → 'resident'
  */
 
-export type UserRole = 'resident' | 'faculty' | 'admin';
+export type UserRole = 'resident' | 'faculty' | 'gme_staff' | 'admin';
 
 /**
  * Emails that always resolve to 'admin' regardless of profile data.
@@ -36,6 +38,7 @@ export function getUserRole(user?: any, profile?: any): UserRole {
   }
   if (profile?.role === 'admin') return 'admin';
   if (profile?.role === 'faculty') return 'faculty';
+  if (profile?.role === 'gme_staff') return 'gme_staff';
   if (profile?.pgy === 'Faculty') return 'faculty';
   return 'resident';
 }
@@ -45,10 +48,10 @@ export function isAdmin(user?: any, profile?: any): boolean {
   return getUserRole(user, profile) === 'admin';
 }
 
-/** Returns true for faculty AND admins (admins inherit all faculty privileges). */
+/** Returns true for faculty, gme_staff, AND admins (admins inherit all faculty privileges). */
 export function isFaculty(user?: any, profile?: any): boolean {
   const role = getUserRole(user, profile);
-  return role === 'faculty' || role === 'admin';
+  return role === 'faculty' || role === 'gme_staff' || role === 'admin';
 }
 
 /** Gate for opening the Admin Console — currently faculty and admins. */
@@ -64,12 +67,13 @@ export function canAccessAdmin(user?: any, profile?: any): boolean {
  */
 export function getFacultyAdviseeFilter(user?: any, profile?: any): string | null {
   const role = getUserRole(user, profile);
-  if (role !== 'faculty') return null; // admins see everyone, residents have no admin
+  if (role !== 'faculty' && role !== 'gme_staff') return null; // admins see everyone, residents have no admin
   return profile?.full_name || null;
 }
 
 /** Human-friendly label for the resolved role — used in UI badges. */
 export function getRoleLabel(user?: any, profile?: any): string {
   const role = getUserRole(user, profile);
+  if (role === 'gme_staff') return 'GME Staff';
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
