@@ -366,9 +366,6 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       const missedQuestions = questions
         .map((q, idx) => ({ q, idx, isCorrect: answers[idx] === q.correct_index }))
         .filter(({ isCorrect }) => !isCorrect);
-
-      const isDemo = currentBlock?.block_type === 'demo' || topicLabel.toLowerCase() === 'demo quiz';
-
       const result = {
         user_id: user.id,
         legacy_email: user.email,
