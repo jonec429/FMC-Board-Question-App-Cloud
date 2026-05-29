@@ -182,6 +182,29 @@ export default function MyStatsModal({
           </button>
         </div>
 
+        {/* QOTD Performance (Permanent Fixture at Top) */}
+        {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (
+          <div className="px-6 py-4 border-b border-slate-100 bg-white">
+            <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-2">QOTD Performance</h3>
+            <div className="flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between text-xs font-bold mb-1.5">
+                  <span className="text-emerald-600">{qotdStats.correct} Correct</span>
+                  <span className="text-red-600">{qotdStats.incorrect} Incorrect</span>
+                </div>
+                <div className="h-2 bg-red-100 rounded-full overflow-hidden flex">
+                  <div 
+                    className="h-full bg-emerald-500 transition-all" 
+                    style={{ width: `${(qotdStats.correct / (qotdStats.correct + qotdStats.incorrect)) * 100}%` }} 
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1.5 text-center uppercase tracking-widest font-bold">
+                  {qotdStats.correct + qotdStats.incorrect} Total Attempts
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex border-b border-slate-100 bg-slate-50/50">
           <button
             onClick={() => setActiveTab('stats')}
@@ -279,29 +302,7 @@ export default function MyStatsModal({
                 </div>
               )}
 
-              {/* QOTD Performance */}
-              {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (
-                <div>
-                  <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">QOTD Performance</h3>
-                  <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between text-xs font-bold mb-2">
-                        <span className="text-emerald-600">{qotdStats.correct} Correct</span>
-                        <span className="text-red-600">{qotdStats.incorrect} Incorrect</span>
-                      </div>
-                      <div className="h-2 bg-red-100 rounded-full overflow-hidden flex">
-                        <div 
-                          className="h-full bg-emerald-500 transition-all" 
-                          style={{ width: `${(qotdStats.correct / (qotdStats.correct + qotdStats.incorrect)) * 100}%` }} 
-                        />
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-2 text-center uppercase tracking-widest font-bold">
-                        {qotdStats.correct + qotdStats.incorrect} Total Attempts
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+
 
               {/* History */}
               <div>
