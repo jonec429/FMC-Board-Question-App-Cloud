@@ -9,10 +9,7 @@ import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, Mail } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
 
-const AT_RISK_AVG = 60;
-const CONCERN_AVG = 70;
-const AT_RISK_ONTIME = 50;
-const CONCERN_ONTIME = 75;
+type RiskLevel = 'red' | 'yellow' | 'green' | 'gray';
 
 interface ResidentStat {
   name: string;
@@ -21,26 +18,37 @@ interface ResidentStat {
   pgy: string;
   label: string;
   advisor: string;
-  attempts: number;
-  avgPct: number;
+  
+  curriculumAttempts: number;
+  independentAttempts: number;
+  totalAttempts: number;
+
+  curriculumAvg: number;
+  independentAvg: number | null;
+  overallAvg: number;
+
   blocksCompleted: number;
   onTimePct: number;
   totalPoints: number;
-  risk: 'red' | 'yellow' | 'green';
+
+  academicRisk: RiskLevel;
+  complianceRisk: RiskLevel;
+  
   results: any[];
 }
 
-function getRisk(avgPct: number, onTimePct: number, attempts: number): 'red' | 'yellow' | 'green' {
-  if (attempts === 0) return 'green';
-  if (avgPct < AT_RISK_AVG || onTimePct < AT_RISK_ONTIME) return 'red';
-  if (avgPct < CONCERN_AVG || onTimePct < CONCERN_ONTIME) return 'yellow';
+function getRiskLevel(pct: number, attempts: number): RiskLevel {
+  if (attempts < 3) return 'gray';
+  if (pct <= 50) return 'red';
+  if (pct <= 65) return 'yellow';
   return 'green';
 }
 
-const riskColors = {
+const riskColors: Record<RiskLevel, { row: string; badge: string; dot: string }> = {
   red: { row: 'bg-red-50/60', badge: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
   yellow: { row: 'bg-amber-50/40', badge: 'bg-amber-100 text-amber-700', dot: 'bg-amber-400' },
   green: { row: '', badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
+  gray: { row: 'bg-slate-50/40', badge: 'bg-slate-100 text-slate-500', dot: 'bg-slate-300' },
 };
 
 import { AdminData } from '@/lib/types';
@@ -75,12 +83,15 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     switch (key) {
       case 'name': return r.last_name;
       case 'pgy': return r.label;
-      case 'attempts': return r.attempts;
-      case 'avg': return r.avgPct;
+      case 'attempts': return r.totalAttempts;
+      case 'avg': return r.overallAvg;
+      case 'curriculumAvg': return r.curriculumAvg;
+      case 'independentAvg': return r.independentAvg || 0;
       case 'blocks': return r.blocksCompleted;
       case 'ontime': return r.onTimePct;
       case 'points': return r.totalPoints;
-      case 'status': return r.risk === 'red' ? 0 : r.risk === 'yellow' ? 1 : 2;
+      case 'academicRisk': return r.academicRisk === 'red' ? 0 : r.academicRisk === 'yellow' ? 1 : r.academicRisk === 'green' ? 2 : 3;
+      case 'complianceRisk': return r.complianceRisk === 'red' ? 0 : r.complianceRisk === 'yellow' ? 1 : r.complianceRisk === 'green' ? 2 : 3;
       default: return 0;
     }
   };
@@ -117,6 +128,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       );
 
       const assignedResults = resResults.filter((r: any) => (r.academic_points || 0) > 0);
+      const independentResults = resResults.filter((r: any) => !r.academic_points || r.academic_points === 0);
 
       // Dedupe by topic — for each block, keep best timing (highest points)
       const topicBestPts = new Map<string, number>();
@@ -132,7 +144,15 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         ? (onTimeBlocks.length / nonBonusBlocks.length) * 100
         : 100;
 
-      const avgPct = resResults.length > 0
+      const curriculumAvg = assignedResults.length > 0
+        ? assignedResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / assignedResults.length
+        : 0;
+
+      const independentAvg = independentResults.length > 0
+        ? independentResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / independentResults.length
+        : null;
+
+      const overallAvg = resResults.length > 0
         ? resResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / resResults.length
         : 0;
 
@@ -145,12 +165,21 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         pgy: resident.pgy,
         label: deriveLabel(resident, academicYear),
         advisor: resident.advisor,
-        attempts: resResults.length,
-        avgPct,
+        
+        curriculumAttempts: assignedResults.length,
+        independentAttempts: independentResults.length,
+        totalAttempts: resResults.length,
+
+        curriculumAvg,
+        independentAvg,
+        overallAvg,
+
         blocksCompleted,
         onTimePct,
         totalPoints,
-        risk: getRisk(avgPct, onTimePct, resResults.length),
+        
+        academicRisk: getRiskLevel(curriculumAvg, assignedResults.length),
+        complianceRisk: getRiskLevel(onTimePct, blocksCompleted),
         results: resResults.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
       };
     });
@@ -165,12 +194,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     return residentStats.filter(r => (r.advisor || '').toLowerCase().trim() === needle);
   }, [residentStats, facultyName]);
 
-  const redFlagged = residentStats.filter(r => r.risk === 'red');
-  const yellowFlagged = residentStats.filter(r => r.risk === 'yellow');
+  const redFlagged = residentStats.filter(r => r.academicRisk === 'red' || r.complianceRisk === 'red');
+  const yellowFlagged = residentStats.filter(r => r.academicRisk === 'yellow' || r.complianceRisk === 'yellow');
   const programAvg = residentStats.length > 0
-    ? residentStats.filter(r => r.attempts > 0).reduce((a, r) => a + r.avgPct, 0) / (residentStats.filter(r => r.attempts > 0).length || 1)
+    ? residentStats.filter(r => r.totalAttempts > 0).reduce((a, r) => a + r.overallAvg, 0) / (residentStats.filter(r => r.totalAttempts > 0).length || 1)
     : 0;
-  const boardReadiness = Math.round(residentStats.filter(r => r.attempts > 0 && r.avgPct >= 70).length / (residentStats.filter(r => r.attempts > 0).length || 1) * 100);
+  const boardReadiness = Math.round(residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 65).length / (residentStats.filter(r => r.curriculumAttempts > 0).length || 1) * 100);
   const onTimeProgramAvg = residentStats.length > 0
     ? residentStats.filter(r => r.blocksCompleted > 0).reduce((a, r) => a + r.onTimePct, 0) / (residentStats.filter(r => r.blocksCompleted > 0).length || 1)
     : 0;
@@ -188,50 +217,70 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
             <SortHeader label="Resident" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-left px-6 py-3" />
             <SortHeader label="PGY" sortKey="pgy" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Attempts" sortKey="attempts" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Avg %" sortKey="avg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Blocks Done" sortKey="blocks" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="On-Time %" sortKey="ontime" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Points" sortKey="points" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Pts" sortKey="points" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Curr Avg" sortKey="curriculumAvg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Indep Avg" sortKey="independentAvg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Total Avg" sortKey="avg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="On-Time" sortKey="ontime" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Academic" sortKey="academicRisk" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Compliance" sortKey="complianceRisk" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <th className="px-4 py-3" />
           </tr>
         </thead>
         <tbody>
           {residents.map((r, i) => {
-            const colors = riskColors[r.risk];
+            // Overall row color uses the worse of the two risks
+            let rowColor = riskColors.green.row;
+            if (r.academicRisk === 'red' || r.complianceRisk === 'red') rowColor = riskColors.red.row;
+            else if (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow') rowColor = riskColors.yellow.row;
+            else if (r.academicRisk === 'gray' || r.complianceRisk === 'gray') rowColor = riskColors.gray.row;
+
             return (
-              <tr key={i} className={`border-b border-slate-50 transition-all hover:brightness-95 cursor-pointer ${colors.row}`} onClick={() => setSelectedResident(r)}>
+              <tr key={i} className={`border-b border-slate-50 transition-all hover:brightness-95 cursor-pointer ${rowColor}`} onClick={() => setSelectedResident(r)}>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
                     <span className="font-bold text-slate-800 text-sm">{formatDisplayName(r.name)}</span>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.label}</td>
-                <td className="px-4 py-4 text-center font-bold text-slate-600 text-sm">{r.attempts}</td>
+                <td className="px-4 py-4 text-center font-black text-slate-700 text-sm">{r.totalPoints}</td>
                 <td className="px-4 py-4 text-center">
-                  {r.attempts > 0 ? (
-                    <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.avgPct >= 70 ? 'text-emerald-700' : r.avgPct >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
-                      {r.avgPct.toFixed(1)}%
+                  {r.curriculumAttempts > 0 ? (
+                    <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.curriculumAvg > 65 ? 'text-emerald-700' : r.curriculumAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {r.curriculumAvg.toFixed(1)}%
                     </span>
                   ) : <span className="text-slate-300 font-bold">—</span>}
                 </td>
-                <td className="px-4 py-4 text-center font-bold text-slate-600 text-sm">{r.blocksCompleted}</td>
+                <td className="px-4 py-4 text-center">
+                  {r.independentAttempts > 0 && r.independentAvg !== null ? (
+                    <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.independentAvg > 65 ? 'text-emerald-700' : r.independentAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {r.independentAvg.toFixed(1)}%
+                    </span>
+                  ) : <span className="text-slate-300 font-bold">—</span>}
+                </td>
+                <td className="px-4 py-4 text-center">
+                  {r.totalAttempts > 0 ? (
+                    <span className="text-sm font-black text-slate-600">
+                      {r.overallAvg.toFixed(1)}%
+                    </span>
+                  ) : <span className="text-slate-300 font-bold">—</span>}
+                </td>
                 <td className="px-4 py-4 text-center">
                   {r.blocksCompleted > 0 ? (
-                    <span className={`text-sm font-bold ${r.onTimePct >= 75 ? 'text-emerald-600' : r.onTimePct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                    <span className={`text-sm font-bold ${r.onTimePct > 65 ? 'text-emerald-600' : r.onTimePct > 50 ? 'text-amber-600' : 'text-red-600'}`}>
                       {r.onTimePct.toFixed(0)}%
                     </span>
                   ) : <span className="text-slate-300 font-bold">—</span>}
                 </td>
-                <td className="px-4 py-4 text-center font-black text-slate-700 text-sm">{r.totalPoints}</td>
                 <td className="px-4 py-4 text-center">
-                  {r.attempts > 0 ? (
-                    <span className={`text-xs font-black px-2 py-1 rounded-full ${colors.badge}`}>
-                      {r.risk === 'red' ? 'At Risk' : r.risk === 'yellow' ? 'Needs Attention' : 'On Track'}
-                    </span>
-                  ) : <span className="text-slate-300 text-xs font-bold">No Data</span>}
+                  <span className={`text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full ${riskColors[r.academicRisk].badge}`}>
+                    {r.academicRisk === 'red' ? 'At Risk' : r.academicRisk === 'yellow' ? 'Attention' : r.academicRisk === 'green' ? 'On Track' : 'Evaluating'}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <span className={`text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full ${riskColors[r.complianceRisk].badge}`}>
+                    {r.complianceRisk === 'red' ? 'At Risk' : r.complianceRisk === 'yellow' ? 'Attention' : r.complianceRisk === 'green' ? 'On Track' : 'Evaluating'}
+                  </span>
                 </td>
                 <td className="px-4 py-4">
                   <ChevronRight className="w-4 h-4 text-slate-300" />
@@ -498,67 +547,118 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white rounded-[40px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-8 border-b border-slate-100 flex justify-between items-start">
-              <div>
+              <div className="w-full">
                 <div className="flex items-center gap-3 mb-1">
-                  <div className={`w-3 h-3 rounded-full ${riskColors[selectedResident.risk].dot}`} />
                   <h2 className="text-2xl font-black text-slate-800">{formatDisplayName(selectedResident.name)}</h2>
                 </div>
-                <p className="text-sm font-bold text-slate-400">{selectedResident.label} · Advisor: {selectedResident.advisor || '—'}</p>
-                <div className="flex gap-4 mt-4">
+                <p className="text-sm font-bold text-slate-400 mb-6">{selectedResident.label} · Advisor: {selectedResident.advisor || '—'}</p>
+                <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.avgPct.toFixed(1)}%</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Score</div>
+                    <div className="text-xl font-black text-slate-800">{selectedResident.curriculumAttempts > 0 ? `${selectedResident.curriculumAvg.toFixed(1)}%` : '—'}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Curr Avg</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-slate-800">{selectedResident.independentAttempts > 0 && selectedResident.independentAvg !== null ? `${selectedResident.independentAvg.toFixed(1)}%` : '—'}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Indep Avg</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-slate-800">{selectedResident.totalAttempts > 0 ? `${selectedResident.overallAvg.toFixed(1)}%` : '—'}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Avg</div>
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800">{selectedResident.blocksCompleted}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Blocks Done</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Blocks Done</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.onTimePct.toFixed(0)}%</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">On-Time</div>
+                    <div className="text-xl font-black text-slate-800">{selectedResident.blocksCompleted > 0 ? `${selectedResident.onTimePct.toFixed(0)}%` : '—'}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">On-Time</div>
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800">{selectedResident.totalPoints}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Points</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Points</div>
                   </div>
                 </div>
+                <div className="flex gap-2 mt-6">
+                  <span className={`text-xs font-black px-3 py-1.5 uppercase tracking-widest rounded-full ${riskColors[selectedResident.academicRisk].badge}`}>
+                    Academic: {selectedResident.academicRisk === 'red' ? 'At Risk' : selectedResident.academicRisk === 'yellow' ? 'Attention' : selectedResident.academicRisk === 'green' ? 'On Track' : 'Evaluating'}
+                  </span>
+                  <span className={`text-xs font-black px-3 py-1.5 uppercase tracking-widest rounded-full ${riskColors[selectedResident.complianceRisk].badge}`}>
+                    Compliance: {selectedResident.complianceRisk === 'red' ? 'At Risk' : selectedResident.complianceRisk === 'yellow' ? 'Attention' : selectedResident.complianceRisk === 'green' ? 'On Track' : 'Evaluating'}
+                  </span>
+                </div>
               </div>
-              <button onClick={() => setSelectedResident(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
+              <button onClick={() => setSelectedResident(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-all ml-4 shrink-0">
                 <X className="w-6 h-6 text-slate-400" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Assessment History</h3>
-              {selectedResident.results.length > 0 ? (
-                <div className="space-y-3">
-                  {selectedResident.results.map((r: any, i: number) => {
-                    const pts = r.academic_points || 0;
-                    const timingLabel = pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
-                      : pts === 1 ? '⏰ Late'
-                      : pts >= 2 ? '⚡ Bonus'
-                      : '—';
-                    return (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all">
-                        <div className="flex-1">
-                          <p className="font-bold text-slate-800 text-sm">{r.topic}</p>
-                          <p className="text-xs font-bold text-slate-400 mt-0.5">
-                            {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
-                          </p>
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
+              {(() => {
+                const assigned = selectedResident.results.filter(r => (r.academic_points || 0) > 0);
+                const custom = selectedResident.results.filter(r => !r.academic_points || r.academic_points === 0);
+
+                return (
+                  <>
+                    <div>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Core Curriculum ({assigned.length})</h3>
+                      {assigned.length > 0 ? (
+                        <div className="space-y-3">
+                          {assigned.map((r: any, i: number) => {
+                            const pts = r.academic_points || 0;
+                            const timingLabel = pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
+                              : pts === 1 ? '⏰ Late'
+                              : pts >= 2 ? '⚡ Bonus'
+                              : '—';
+                            return (
+                              <div key={`curr-${i}`} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50">
+                                <div className="flex-1">
+                                  <p className="font-bold text-slate-800 text-sm">{r.topic}</p>
+                                  <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                    {(r.percentage || 0).toFixed(1)}%
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-400 w-12 text-right">{pts} pt{pts !== 1 ? 's' : ''}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                            {(r.percentage || 0).toFixed(1)}%
-                          </span>
-                          <span className="text-xs font-bold text-slate-400">{pts} pt{pts !== 1 ? 's' : ''}</span>
+                      ) : (
+                        <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No curriculum blocks completed.</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Independent Study ({custom.length})</h3>
+                      {custom.length > 0 ? (
+                        <div className="space-y-3">
+                          {custom.map((r: any, i: number) => (
+                            <div key={`ind-${i}`} className="flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 transition-all border border-indigo-50/50">
+                              <div className="flex-1">
+                                <p className="font-bold text-slate-800 text-sm">{r.topic}</p>
+                                <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                  {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                  {(r.percentage || 0).toFixed(1)}%
+                                </span>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-center text-slate-400 py-12 font-bold">No assessments recorded yet.</p>
-              )}
+                      ) : (
+                        <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No independent study recorded.</p>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
