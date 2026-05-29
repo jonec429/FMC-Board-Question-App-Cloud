@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName, withTimeout } from '@/lib/utils';
 import { canAccessAdmin } from '@/lib/roles';
@@ -18,6 +18,7 @@ import { useDayChangeReload } from '@/hooks/useDayChangeReload';
 interface DashboardProps {
   user: User;
   profile: Profile;
+  isActive?: boolean;
   onOpenAdmin: () => void;
   onLogout: () => void;
   onStartQuiz: (quiz: any) => void;
@@ -44,9 +45,7 @@ interface LeaderboardEntry {
   totalQs: number;
 }
 
-export default function Dashboard({ 
-  user, profile, onOpenAdmin, onLogout, onProfileUpdate, onStartQuiz, onOpenBuilder
-}: DashboardProps) {
+export default function Dashboard({ user, profile, isActive = true, onOpenAdmin, onLogout, onStartQuiz, onOpenBuilder, onProfileUpdate }: DashboardProps) {
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
 
@@ -71,6 +70,31 @@ export default function Dashboard({
   const [showMyStats, setShowMyStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const lastFetchTime = useRef<number>(0);
+
+  // Smart background refetching (60s stale time)
+  useEffect(() => {
+    const handleActiveRefetch = () => {
+      // Refetch if data is older than 60 seconds
+      if (Date.now() - lastFetchTime.current > 60000) {
+        setRefreshTrigger(prev => prev + 1);
+      }
+    };
+
+    if (isActive) {
+      handleActiveRefetch();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isActive) {
+        handleActiveRefetch();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isActive]);
 
   useEffect(() => {
     async function fetchData() {
@@ -208,6 +232,7 @@ export default function Dashboard({
           }
 
           // If we reach here, everything succeeded, clear errors and exit loop
+          lastFetchTime.current = Date.now();
           setFetchError(null);
           break;
         } catch (err: any) {
@@ -224,7 +249,7 @@ export default function Dashboard({
       setLoading(false);
     }
     fetchData();
-  }, [user.id, user.email, selectedYear]);
+  }, [user.id, user.email, selectedYear, refreshTrigger]);
 
   // Best result per topic
   const bestResultByTopic = new Map<string, any>();

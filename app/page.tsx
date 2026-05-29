@@ -234,6 +234,7 @@ export default function Home() {
           <Dashboard
             user={user}
             profile={profile}
+            isActive={!(showBuilder || showAdmin || activeQuiz)}
             onLogout={handleLogout}
             onStartQuiz={(quiz: any) => setActiveQuiz(quiz)}
             onOpenBuilder={() => setShowBuilder(true)}

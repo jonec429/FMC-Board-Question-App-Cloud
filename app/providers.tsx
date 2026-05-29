@@ -24,8 +24,6 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             staleTime: 60_000,
             // Keep unused data cached for 5 min so re-entry is instant.
             gcTime: 5 * 60_000,
-            // Admins don't expect a refetch every time they alt-tab back.
-            refetchOnWindowFocus: false,
           },
         },
       })
