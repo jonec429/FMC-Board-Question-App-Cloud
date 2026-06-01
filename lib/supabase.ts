@@ -10,5 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     // @ts-ignore: Disable multiTab to prevent navigator.locks infinite hangs on iOS / PWAs
     multiTab: false,
+    // @ts-ignore: Override lock with no-op to completely bypass Web Locks API hanging
+    lock: async (name: string, callback: () => Promise<any>) => callback(),
   }
 });
