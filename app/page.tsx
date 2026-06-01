@@ -106,9 +106,10 @@ export default function Home() {
         return;
       }
       // Tag timeout/network errors with which init step they belong to
+      // Wrapped in withTimeout so that a hanging request triggers a retry/failure instead of an infinite spinner
       const runStep = async <T,>(label: string, op: () => Promise<T>): Promise<T> => {
         try {
-          return await withRetry(op, 3, 1000);
+          return await withRetry(() => withTimeout(op(), 8000), 3, 1000);
         } catch (err: any) {
           throw new Error(`[${label}] ${err?.message || 'unknown error'}`);
         }
