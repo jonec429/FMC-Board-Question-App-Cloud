@@ -288,6 +288,12 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-01 — Year-over-Year Curriculum Manager (Antigravity)
+*   **Academic Year Filtering:** The Curriculum Manager now groups blocks by Academic Year with a tabbed interface.
+*   **Block Duplication:** Admins can duplicate blocks from one year to another using the new "Copy" action, carrying over title, filters, and question counts while clearing scheduled dates.
+*   **Infrastructure:** Push notifications scheduling was fully migrated to GitHub Actions for exact-minute reliability, bypassing Vercel Hobby limits.
+*   **Stability:** Disabled Supabase `multiTab` auth sync to completely resolve PWA navigator lock freezes.
+
 ### 2026-05-29 — Spaced Repetition & Live Capacity Filters (Antigravity)
 *   **Live Capacity Filter:** The Custom Block builder now displays exactly how many questions match your filters in real-time. If you request more questions than are available in your pool, the "Generate Block" button safely disables to prevent errors.
 *   **Incorrects Only (Spaced Repetition):** Residents can now easily create targeted review blocks out of their previously missed questions, with full visibility into how many incorrect questions they have accumulated.

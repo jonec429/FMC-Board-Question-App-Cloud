@@ -28,7 +28,7 @@ async function fetchCore(): Promise<CoreData> {
   return {
     blocks: blocksRes.data || [],
     block_schedule: scheduleRes.data || [],
-    results: resultsRes.data || [],
+    results: (resultsRes.data as any) || [],
     profiles: profilesRes.data || [],
     roster: rosterRes.data || [],
   };

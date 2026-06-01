@@ -8,7 +8,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    // Disable multiTab to prevent navigator.locks infinite hangs on iOS / PWAs
+    // @ts-ignore: Disable multiTab to prevent navigator.locks infinite hangs on iOS / PWAs
     multiTab: false,
   }
 });

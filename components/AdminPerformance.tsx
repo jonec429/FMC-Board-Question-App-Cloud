@@ -411,7 +411,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     const subject = encodeURIComponent("FMC QBank: Advisee Performance Update");
                     const body = encodeURIComponent(
                       "Hello,\n\nHere is a summary of your advisees' current performance in the FMC QBank:\n\n" + 
-                      myAdvisees.map(r => `- ${r.name}: ${r.avgPct.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${r.risk === 'red' ? 'AT RISK' : r.risk === 'yellow' ? 'NEEDS ATTENTION' : 'ON TRACK'}`).join('\n') +
+                      myAdvisees.map(r => {
+                        const risk = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'red' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow') ? 'yellow' : 'green';
+                        return `- ${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${risk === 'red' ? 'AT RISK' : risk === 'yellow' ? 'NEEDS ATTENTION' : 'ON TRACK'}`;
+                      }).join('\n') +
                       "\n\nPlease reach out if you have any questions.\n\nThank you!"
                     );
                     window.location.href = `mailto:?subject=${subject}&body=${body}`;
@@ -463,7 +466,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).forEach(([adv, resList]) => {
                   bodyStr += `\n=== ${adv} ===\n`;
                   resList.forEach(r => {
-                    bodyStr += `- ${r.name}: ${r.avgPct.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${r.risk === 'red' ? 'AT RISK' : r.risk === 'yellow' ? 'NEEDS ATTENTION' : 'ON TRACK'}\n`;
+                    const risk = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'red' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow') ? 'yellow' : 'green';
+                    bodyStr += `- ${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${risk === 'red' ? 'AT RISK' : risk === 'yellow' ? 'NEEDS ATTENTION' : 'ON TRACK'}\n`;
                   });
                 });
                 bodyStr += "\n\nLog in to the Admin Console for more details.\n\nThank you!";
@@ -513,7 +517,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {activeSubTab === 'by_pgy' && (
         <div className="space-y-6">
           {Object.entries(pgyGroups).sort(([a], [b]) => a.localeCompare(b)).map(([pgy, residents]) => {
-            const groupAvg = residents.filter(r => r.attempts > 0).reduce((a, r) => a + r.avgPct, 0) / (residents.filter(r => r.attempts > 0).length || 1);
+            const groupAvg = residents.filter(r => r.totalAttempts > 0).reduce((a, r) => a + r.overallAvg, 0) / (residents.filter(r => r.totalAttempts > 0).length || 1);
             const groupPts = residents.reduce((a, r) => a + r.totalPoints, 0);
             return (
               <div key={pgy} className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">

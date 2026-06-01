@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive, ArchiveRestore } from './AppIcons';
+import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive, ArchiveRestore, Copy } from './AppIcons';
 import { AdminData } from '@/lib/types';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW } from '@/lib/questionFilters';
 import { getCurrentAcademicYear, formatAcademicYear } from '@/lib/academicYear';
@@ -42,7 +42,20 @@ export default function CurriculumManager() {
     return 1000;
   };
 
-  const sortedBlocks = useMemo(() => [...blocks].sort((a, b) => blockSortKey(a) - blockSortKey(b)), [blocks]);
+  const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
+
+  const allAcademicYears = useMemo(() => {
+    const years = new Set<number>();
+    blocks.forEach(b => years.add(b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear()));
+    years.add(selectedYear);
+    return Array.from(years).sort().reverse();
+  }, [blocks, selectedYear]);
+
+  const sortedBlocks = useMemo(() => {
+    return [...blocks]
+      .filter(b => (b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear()) === selectedYear)
+      .sort((a, b) => blockSortKey(a) - blockSortKey(b));
+  }, [blocks, selectedYear]);
 
   const getSchedule = (blockId: string) => block_schedule.find(s => s.block_id === blockId);
 
@@ -135,6 +148,33 @@ export default function CurriculumManager() {
     }
   };
 
+  const handleDuplicateBlock = async (block: any) => {
+    const targetYearStr = window.prompt(`Copy '${block.title}' to which Academic Year? (Enter the ending year, e.g. 2025 for 2024-2025)`, String(selectedYear));
+    if (!targetYearStr || isNaN(Number(targetYearStr))) return;
+    const targetYear = Number(targetYearStr);
+    
+    const { error } = await supabase.from('blocks').insert({
+      id: crypto.randomUUID(),
+      title: `${block.title} (Copy)`,
+      block_type: block.block_type,
+      question_count: block.question_count,
+      academic_year: targetYear,
+      is_archived: false,
+      category_filters: block.category_filters,
+      keyword_filters: block.keyword_filters,
+      question_ids: block.question_ids,
+      sort_order: block.sort_order,
+    });
+    
+    if (error) {
+      console.error(error);
+      alert("Error duplicating block: " + error.message);
+    } else {
+      await onRefresh();
+      setSelectedYear(targetYear);
+    }
+  };
+
   const handleCreateBlock = async () => {
     const title = window.prompt("Enter new block title (e.g., 'Block 15: Special'):");
     if (!title) return;
@@ -143,7 +183,7 @@ export default function CurriculumManager() {
       title,
       block_type: 'assigned',
       question_count: 40,
-      academic_year: getCurrentAcademicYear(),
+      academic_year: selectedYear,
       is_archived: false,
     });
     
@@ -247,6 +287,28 @@ export default function CurriculumManager() {
         </div>
       </div>
 
+      {/* Year Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {allAcademicYears.map(year => (
+          <button
+            key={year}
+            onClick={() => setSelectedYear(year)}
+            className={`px-4 py-2 font-bold rounded-xl whitespace-nowrap transition-colors ${selectedYear === year ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+          >
+            {formatAcademicYear(year)}
+          </button>
+        ))}
+        <button
+          onClick={() => {
+            const newYearStr = window.prompt("Enter new Academic Year ending year (e.g. 2026 for 2025-2026):");
+            if (newYearStr && !isNaN(Number(newYearStr))) setSelectedYear(Number(newYearStr));
+          }}
+          className="px-4 py-2 font-bold rounded-xl whitespace-nowrap transition-colors bg-white text-slate-500 hover:bg-slate-50 border border-slate-200 flex items-center gap-2"
+        >
+          <PlusCircle className="w-4 h-4" /> Add Year
+        </button>
+      </div>
+
       {/* List */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="grid grid-cols-12 gap-4 p-4 border-b border-slate-100 bg-slate-50/50 text-xs font-black text-slate-400 uppercase tracking-widest">
@@ -333,6 +395,13 @@ export default function CurriculumManager() {
                     className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-lg transition-colors"
                   >
                     Builder
+                  </button>
+                  <button 
+                    onClick={() => handleDuplicateBlock(block)}
+                    className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Duplicate Block"
+                  >
+                    <Copy className="w-4 h-4" />
                   </button>
                   {block.is_archived ? (
                     <button 

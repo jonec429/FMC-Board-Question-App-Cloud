@@ -69,7 +69,7 @@ export default function RosterManager() {
       
       setShowAddModal(false);
       setNewPerson({ first_name: '', last_name: '', email: '', pgy: '', advisor: '', role: 'resident' });
-      if (onRefresh) await onRefresh();
+      await fetchRoster();
     } catch (err: any) {
       alert(err.message || 'Error adding person');
     } finally {
@@ -109,7 +109,7 @@ export default function RosterManager() {
       
       setShowEditModal(false);
       setEditingPerson({ first_name: '', last_name: '', email: '', pgy: '', advisor: '', role: 'resident', has_account: false });
-      if (onRefresh) await onRefresh();
+      await fetchRoster();
     } catch (err: any) {
       alert(err.message || 'Error updating person');
     } finally {
@@ -126,7 +126,7 @@ export default function RosterManager() {
         .eq('email', email);
       
       if (error) throw error;
-      if (onRefresh) await onRefresh();
+      await fetchRoster();
     } catch (err: any) {
       alert(err.message || 'Error removing person');
     }
@@ -229,7 +229,7 @@ export default function RosterManager() {
                 <td colSpan={4} className="px-8 py-20 text-center">
                   <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 max-w-sm mx-auto shadow-sm text-center">
                     <h3 className="text-sm font-black mb-1 text-center">Connection Error</h3>
-                    <p className="font-medium text-red-500 mb-4 text-xs text-center">{error}</p>
+                    <p className="font-medium text-red-500 mb-4 text-xs text-center">{error instanceof Error ? error.message : String(error)}</p>
                     <button 
                       onClick={() => fetchRoster()}
                       className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all text-xs"
