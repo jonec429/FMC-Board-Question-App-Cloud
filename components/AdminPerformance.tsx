@@ -373,7 +373,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           return tabs.map(([id, label]) => (
             <button
               key={id}
-              onClick={() => setActiveSubTab(id)}
+              onClick={() => {
+                setActiveSubTab(id);
+                setSearchQuery('');
+              }}
               className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
             >
               {label}
@@ -383,16 +386,6 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         </div>
         
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search residents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 sm:w-56"
-            />
-          </div>
           <div className="flex flex-col items-end gap-2">
             <select
               value={selectedYear}
@@ -475,7 +468,18 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               <h3 className="font-black text-slate-800">All Residents</h3>
               <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
             </div>
-            <button 
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Search residents..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 sm:w-56"
+                />
+              </div>
+              <button 
               onClick={() => {
                 // Group all residents by advisor
                 const groups: Record<string, ResidentStat[]> = {};
@@ -502,6 +506,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             >
               <Mail className="w-4 h-4" /> Email Advisors
             </button>
+            </div>
           </div>
           <ResidentTable residents={sortRes(residentStats)} />
         </div>
