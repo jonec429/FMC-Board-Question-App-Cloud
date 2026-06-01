@@ -98,6 +98,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 questions: [qotdQuestion],
                 missedQuestions: isCorrect ? [] : [{ q: qotdQuestion, idx: 0, isCorrect: false }],
              });
+             if (qotdAttempt?.selected_index !== undefined && qotdAttempt?.selected_index !== null) {
+               setAnswers({ 0: qotdAttempt.selected_index });
+             }
              setShowResults(true);
              
              // Fetch existing reactions silently

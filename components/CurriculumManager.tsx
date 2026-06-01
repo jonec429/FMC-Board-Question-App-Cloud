@@ -342,7 +342,7 @@ export default function CurriculumManager() {
                   </div>
                 </div>
 
-                <div className="col-span-4 flex items-center justify-center">
+                <div className={`flex items-center justify-center ${isEditingDates ? 'col-span-8 justify-start' : 'col-span-4'}`}>
                   {isEditingDates ? (
                     <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-xl">
                       <input 
@@ -384,25 +384,12 @@ export default function CurriculumManager() {
                   )}
                 </div>
 
-                <div className="col-span-2 flex justify-center">
+                {!isEditingDates && (
+                  <>
+                    <div className="col-span-2 flex justify-center">
                   {qCount > 0 ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">
                       <CheckCircle className="w-3.5 h-3.5" /> {qCount} Qs
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
-                      <Sparkles className="w-3.5 h-3.5" /> Needs Qs
-                    </span>
-                  )}
-                </div>
-
-                <div className="col-span-2 flex items-center justify-end pr-4 gap-2">
-                  <button 
-                    onClick={() => setSelectedBlockId(block.id)}
-                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-lg transition-colors"
-                  >
-                    Builder
-                  </button>
                   <button 
                     onClick={() => handleDuplicateBlock(block)}
                     className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
