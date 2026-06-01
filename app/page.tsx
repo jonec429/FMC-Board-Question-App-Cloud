@@ -107,10 +107,11 @@ export default function Home() {
         return;
       }
       // Tag timeout/network errors with which init step they belong to
-      // Wrapped in withTimeout so that a hanging request triggers a retry/failure instead of an infinite spinner
+      // Wrapped in withTimeout so that a hanging request triggers a retry/failure instead of an infinite spinner.
+      // 30 second timeout allows free-tier Supabase projects to wake up from paused state.
       const runStep = async <T,>(label: string, op: () => Promise<T>): Promise<T> => {
         try {
-          return await withRetry(() => withTimeout(op(), 8000), 3, 1000);
+          return await withRetry(() => withTimeout(op(), 30000), 1, 1000);
         } catch (err: any) {
           throw new Error(`[${label}] ${err?.message || 'unknown error'}`);
         }
@@ -193,15 +194,18 @@ export default function Home() {
           <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing FMC BRQ App...</p>
           
           {showReset && (
-            <div className="mt-8 flex flex-col items-center gap-2 animate-in fade-in duration-500">
-              <p className="text-slate-500 text-sm">Taking too long?</p>
+            <div className="mt-8 flex flex-col items-center gap-2 animate-in fade-in duration-500 text-center max-w-xs">
+              <p className="text-amber-600 font-bold text-sm bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100">
+                Waking up database server...<br/>This can take up to 30 seconds.
+              </p>
+              <p className="text-slate-400 text-xs mt-2">If it seems permanently stuck:</p>
               <button 
                 onClick={() => {
                   window.localStorage.clear();
                   window.sessionStorage.clear();
                   window.location.reload();
                 }}
-                className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-lg border border-red-100 hover:bg-red-100 transition-colors"
+                className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-200 transition-colors text-xs"
               >
                 Reset Session & Reload
               </button>
