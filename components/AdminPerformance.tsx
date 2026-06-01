@@ -6,7 +6,7 @@ import { formatDisplayName } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
-import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, Mail } from './AppIcons';
+import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, Mail, Search } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
 
 type RiskLevel = 'red' | 'yellow' | 'green' | 'gray';
@@ -97,7 +97,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   };
   const sortRes = (list: ResidentStat[]) => sortItems(list, residentAccessor, sortKey, sortDir);
 
-  const residentStats = useMemo(() => {
+  const rawResidentStats = useMemo(() => {
     if (!adminData) return [];
     const { results: allResults, profiles, roster } = adminData;
     const academicYear = selectedYear;
@@ -186,6 +186,17 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
     return stats.sort((a, b) => b.totalPoints - a.totalPoints);
   }, [adminData, showGraduates, selectedYear]);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const residentStats = useMemo(() => {
+    if (!searchQuery.trim()) return rawResidentStats;
+    const lower = searchQuery.toLowerCase();
+    return rawResidentStats.filter(r => 
+      r.name.toLowerCase().includes(lower) || 
+      (r.email && r.email.toLowerCase().includes(lower)) ||
+      (r.pgy && r.pgy.toLowerCase().includes(lower))
+    );
+  }, [rawResidentStats, searchQuery]);
 
   // Residents this faculty advises — matched by `authorized_roster.advisor == profile.full_name`
   const myAdvisees = useMemo(() => {
@@ -371,26 +382,38 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         })()}
         </div>
         
-        <div className="flex flex-col items-end gap-2">
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
-          >
-            <option value={0}>All Time (YoY Trend)</option>
-            {getAvailableAcademicYears().map(year => (
-              <option key={year} value={year}>{formatAcademicYear(year)}</option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showGraduates}
-              onChange={e => setShowGraduates(e.target.checked)}
-              className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search residents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 sm:w-56"
             />
-            Show Graduates
-          </label>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
+              className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value={0}>All Time (YoY Trend)</option>
+              {getAvailableAcademicYears().map(year => (
+                <option key={year} value={year}>{formatAcademicYear(year)}</option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showGraduates}
+                onChange={e => setShowGraduates(e.target.checked)}
+                className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+              />
+              Show Graduates
+            </label>
+          </div>
         </div>
       </div>
 
