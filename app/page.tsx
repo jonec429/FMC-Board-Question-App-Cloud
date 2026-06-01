@@ -20,6 +20,7 @@ export default function Home() {
   const [currentBlock, setCurrentBlock] = useState<any>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showReset, setShowReset] = useState(false);
 
   // Sanity check: warn loudly if Supabase env vars never got wired up
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -175,12 +176,37 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    let timer: any;
+    if (loading && !showReset) {
+      timer = setTimeout(() => setShowReset(true), 5000);
+    }
+    return () => clearTimeout(timer);
+  }, [loading, showReset]);
+
   if (loading) {
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
           <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing FMC BRQ App...</p>
+          
+          {showReset && (
+            <div className="mt-8 flex flex-col items-center gap-2 animate-in fade-in duration-500">
+              <p className="text-slate-500 text-sm">Taking too long?</p>
+              <button 
+                onClick={() => {
+                  window.localStorage.clear();
+                  window.sessionStorage.clear();
+                  window.location.reload();
+                }}
+                className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-lg border border-red-100 hover:bg-red-100 transition-colors"
+              >
+                Reset Session & Reload
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
