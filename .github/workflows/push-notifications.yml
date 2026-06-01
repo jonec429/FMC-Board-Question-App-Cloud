@@ -1,0 +1,23 @@
+name: QOTD Push Notifications
+
+on:
+  schedule:
+    # 8:00 AM EDT / 7:00 AM EST (12:00 UTC)
+    - cron: '0 12 * * 1-5'
+    # 12:30 PM EDT / 11:30 AM EST (16:30 UTC)
+    - cron: '30 16 * * 1-5'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  ping_endpoints:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Morning Endpoint (8:00 AM)
+        if: github.event.schedule == '0 12 * * 1-5' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -sS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" ${{ secrets.APP_URL }}/api/cron/qotd-morning
+          
+      - name: Ping Noon Endpoint (12:30 PM)
+        if: github.event.schedule == '30 16 * * 1-5' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -sS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" ${{ secrets.APP_URL }}/api/cron/qotd-noon
