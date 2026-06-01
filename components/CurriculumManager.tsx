@@ -338,11 +338,11 @@ export default function CurriculumManager() {
                   <div className={`w-2 h-2 rounded-full ${block.is_archived ? 'bg-slate-300' : isReady ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                   <div>
                     <h3 className={`font-bold ${block.is_archived ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{block.title}</h3>
-                    <p className="text-xs font-bold text-slate-400">{resultsCount.get(block.title) || 0} completions{block.is_archived && ' • Archived'}</p>
+                    <p className="text-xs font-bold text-slate-400">{resultsCount.get(block.title) || 0} completions{block.is_archived && ' ΓÇó Archived'}</p>
                   </div>
                 </div>
 
-                <div className={`flex items-center justify-center ${isEditingDates ? 'col-span-8 justify-start' : 'col-span-4'}`}>
+                <div className={isEditingDates ? "col-span-8 flex items-center pl-4" : "col-span-4 flex items-center justify-center"}>
                   {isEditingDates ? (
                     <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-xl">
                       <input 
@@ -384,12 +384,25 @@ export default function CurriculumManager() {
                   )}
                 </div>
 
-                {!isEditingDates && (
-                  <>
-                    <div className="col-span-2 flex justify-center">
+                <div className={`col-span-2 flex justify-center ${isEditingDates ? 'hidden' : ''}`}>
                   {qCount > 0 ? (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">
                       <CheckCircle className="w-3.5 h-3.5" /> {qCount} Qs
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
+                      <Sparkles className="w-3.5 h-3.5" /> Needs Qs
+                    </span>
+                  )}
+                </div>
+
+                <div className={`col-span-2 flex items-center justify-end pr-4 gap-2 ${isEditingDates ? 'hidden' : ''}`}>
+                  <button 
+                    onClick={() => setSelectedBlockId(block.id)}
+                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-lg transition-colors"
+                  >
+                    Builder
+                  </button>
                   <button 
                     onClick={() => handleDuplicateBlock(block)}
                     className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
