@@ -46,14 +46,21 @@ export default function CurriculumManager() {
 
   const allAcademicYears = useMemo(() => {
     const years = new Set<number>();
-    blocks.forEach(b => years.add(b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear()));
-    years.add(selectedYear);
+    blocks.forEach(b => {
+      const val = b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear();
+      if (!isNaN(val) && val > 0) years.add(val);
+    });
+    if (!isNaN(selectedYear) && selectedYear > 0) years.add(selectedYear);
     return Array.from(years).sort().reverse();
   }, [blocks, selectedYear]);
 
   const sortedBlocks = useMemo(() => {
     return [...blocks]
-      .filter(b => (b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear()) === selectedYear)
+      .filter(b => {
+        const val = b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear();
+        const year = !isNaN(val) && val > 0 ? val : getCurrentAcademicYear();
+        return year === selectedYear;
+      })
       .sort((a, b) => blockSortKey(a) - blockSortKey(b));
   }, [blocks, selectedYear]);
 
