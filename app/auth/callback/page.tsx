@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Lock, Loader2, CheckCircle, XCircle, BookOpen } from '@/components/AppIcons';
+import { Lock, Loader2, CheckCircle, XCircle, AbfmShield } from '@/components/AppIcons';
 
 export default function AuthCallback() {
   const [password, setPassword] = useState('');
@@ -103,7 +103,7 @@ export default function AuthCallback() {
       <div className="bg-white p-10 rounded-[40px] shadow-2xl border border-slate-100 max-w-md w-full relative">
         <div className="flex flex-col items-center text-center mb-8">
           <div className="bg-blue-600 p-4 rounded-2xl shadow-xl text-white mb-4">
-            <BookOpen className="w-8 h-8" />
+            <AbfmShield className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-black text-slate-900 leading-tight">Reset Password</h1>
           <p className="text-slate-400 text-xs mt-1 font-bold">Set a new secure password for your account.</p>

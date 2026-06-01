@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BookOpen, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff } from './AppIcons';
+import { AbfmShield, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 
 export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
@@ -160,7 +160,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
           {/* Branding */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="bg-blue-600 p-5 rounded-3xl shadow-xl text-white mb-5">
-              <BookOpen className="w-12 h-12" />
+              <AbfmShield className="w-12 h-12" />
             </div>
             <h1 className="text-3xl font-black text-slate-900 leading-tight">FMC Board Question App</h1>
             <p className="text-slate-400 text-xs mt-2 leading-snug">
