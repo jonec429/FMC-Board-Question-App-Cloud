@@ -8,5 +8,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // @ts-ignore
+    lock: (...args: any[]) => {
+      console.log('LOCK OVERRIDE CALLED WITH ARGS:', args);
+      const cb = args[args.length - 1];
+      if (typeof cb === 'function') {
+        return cb();
+      }
+      return Promise.resolve();
+    }
   }
 });
