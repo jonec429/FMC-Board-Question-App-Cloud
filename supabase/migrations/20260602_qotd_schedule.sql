@@ -29,7 +29,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.qotd_schedule) THEN
         FOR q_record IN 
             SELECT id FROM public.questions 
-            WHERE year >= (EXTRACT(YEAR FROM CURRENT_DATE) - 3)
+            WHERE year != 'Demo' AND category != 'Demo' AND year >= ((EXTRACT(YEAR FROM CURRENT_DATE) - 3)::text)
             ORDER BY year DESC, id ASC -- Newest first, deterministic order
         LOOP
             INSERT INTO public.qotd_schedule (schedule_date, question_id)
