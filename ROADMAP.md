@@ -288,6 +288,11 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-02 — App Loading Stability & QOTD Refinements (Antigravity)
+*   **App Loading Issue Fixed:** Removed a custom `lock` override in `lib/supabase.ts` that was improperly interfering with Supabase GoTrue's native `navigator.locks` token refresh mechanism. This was the root cause of the persistent `[getSession] Request timed out` / "App Failed to Start" errors.
+*   **QOTD Auto-Submit:** Updated `QuizEngine.tsx` so that selecting an answer for the Question of the Day instantly triggers the quiz submission and transitions to the completion screen, removing the need for users to manually click "Submit Answer" (which appeared broken since explanations are hidden for QOTDs) and then "Close".
+*   **QOTD Duplicate Prevention:** Updated `Dashboard.tsx` to force an immediate background data refresh whenever the user returns to the dashboard from the Quiz Engine. This immediately updates the "Take QOTD" card to the "Review Selection" card, preventing users from retaking the QOTD and accidentally submitting duplicate attempts.
+
 ### 2026-06-01 — Year-over-Year Curriculum Manager (Antigravity)
 *   **Academic Year Filtering:** The Curriculum Manager now groups blocks by Academic Year with a tabbed interface.
 *   **Block Duplication:** Admins can duplicate blocks from one year to another using the new "Copy" action, carrying over title, filters, and question counts while clearing scheduled dates.
