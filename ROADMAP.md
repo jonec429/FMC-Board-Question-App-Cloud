@@ -288,8 +288,12 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-02 — Refresh-Hang Root Cause Fixed (Claude)
+*   **Infinite spinner on refresh — actual root cause fixed:** Logged-in users could get stuck on "Initializing FMC BRQ App..." after a page refresh. Root cause was in `app/page.tsx`: the `onAuthStateChange` callback `await`ed a Supabase query (`loadProfile`) *inside* the callback. Supabase's own docs (auth-js v2.105.4, `GoTrueClient.js`) explicitly warn this deadlocks the auth lock and stalls `getSession()` on load — which matches the earlier "zero requests firing / never reached the wire" observation.
+*   **Fix:** Made the callback non-async, skip the redundant `INITIAL_SESSION` event (already handled by `init()`), and defer `loadProfile` via `setTimeout(0)` per Supabase guidance. No `lock` overrides involved — this deliberately avoids the prior add/remove churn on `lib/supabase.ts`.
+
 ### 2026-06-02 — App Loading Stability & QOTD Refinements (Antigravity)
-*   **App Loading Issue Fixed:** Removed a custom `lock` override in `lib/supabase.ts` that was improperly interfering with Supabase GoTrue's native `navigator.locks` token refresh mechanism. This was the root cause of the persistent `[getSession] Request timed out` / "App Failed to Start" errors.
+*   **App Loading — `lock` override removed (did NOT fully resolve the hang):** Removed a custom `lock` override in `lib/supabase.ts` that interfered with Supabase GoTrue's native `navigator.locks` mechanism. *NOTE (Claude, same day): this alone did not fix the infinite-spinner-on-refresh; the real cause was the `onAuthStateChange` deadlock in `app/page.tsx` — see the Claude entry above.*
 *   **QOTD Auto-Submit:** Updated `QuizEngine.tsx` so that selecting an answer for the Question of the Day instantly triggers the quiz submission and transitions to the completion screen, removing the need for users to manually click "Submit Answer" (which appeared broken since explanations are hidden for QOTDs) and then "Close".
 *   **QOTD Duplicate Prevention:** Updated `Dashboard.tsx` to force an immediate background data refresh whenever the user returns to the dashboard from the Quiz Engine. This immediately updates the "Take QOTD" card to the "Review Selection" card, preventing users from retaking the QOTD and accidentally submitting duplicate attempts.
 

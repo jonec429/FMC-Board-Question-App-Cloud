@@ -138,10 +138,17 @@ export default function Home() {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+      // init() above already loads the initial session, profile, and block.
+      // Per Supabase's docs, never `await` a Supabase call inside this callback —
+      // it holds the auth lock and deadlocks getSession on the next refresh (the
+      // infinite spinner). Skip the redundant initial event and defer any DB work.
+      if (event === 'INITIAL_SESSION') return;
       if (session?.user) {
         setUser(session.user);
-        await loadProfile(session.user);
+        setTimeout(() => {
+          loadProfile(session.user).catch((e) => console.error('Profile reload failed:', e));
+        }, 0);
       } else {
         setUser(null);
         setProfile(null);
