@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive, ArchiveRestore, Copy } from './AppIcons';
 import { AdminData } from '@/lib/types';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW } from '@/lib/questionFilters';
-import { getCurrentAcademicYear, formatAcademicYear } from '@/lib/academicYear';
+import { getCurrentAcademicYear, formatAcademicYear, getAvailableAcademicYears } from '@/lib/academicYear';
 import BlockEditor from './BlockEditor'; // We will extract this or keep it here
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -46,6 +46,7 @@ export default function CurriculumManager() {
 
   const allAcademicYears = useMemo(() => {
     const years = new Set<number>();
+    getAvailableAcademicYears().forEach(y => years.add(y));
     blocks.forEach(b => {
       const val = b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear();
       if (!isNaN(val) && val > 0) years.add(val);
@@ -358,11 +359,11 @@ export default function CurriculumManager() {
                         onChange={e => setDateForm(f => ({ ...f, end: e.target.value }))}
                         className="text-xs font-bold px-2 py-1 rounded bg-white"
                       />
-                      <button onClick={() => handleSaveDates(block.id)} disabled={saving} className="p-2 ml-1 bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-lg shadow-sm transition-all flex items-center justify-center">
-                        <Save className="w-5 h-5" />
+                      <button onClick={() => handleSaveDates(block.id)} disabled={saving} className="p-2 ml-1 cursor-pointer bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-lg shadow-sm transition-all flex items-center justify-center">
+                        <Save className="w-5 h-5 pointer-events-none" />
                       </button>
-                      <button onClick={() => setEditingDates(null)} className="p-2 bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-lg shadow-sm transition-all flex items-center justify-center">
-                        <X className="w-5 h-5" />
+                      <button onClick={() => setEditingDates(null)} className="p-2 cursor-pointer bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-lg shadow-sm transition-all flex items-center justify-center">
+                        <X className="w-5 h-5 pointer-events-none" />
                       </button>
                     </div>
                   ) : (
