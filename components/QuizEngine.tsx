@@ -931,29 +931,29 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           <button
             onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
             disabled={currentIndex === 0}
-            className="flex-1 py-4 rounded-2xl font-black text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+            className="flex-1 py-4 rounded-2xl font-black text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-30 flex items-center justify-center gap-2 cursor-pointer"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-5 h-5 pointer-events-none" />
             Prev
           </button>
           {currentIndex === questions.length - 1 ? (
             <button
               onClick={handleFinish}
               disabled={submitting}
-              className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-green-200"
+              className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-green-200 cursor-pointer"
             >
-              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
-                <>{isQotd ? 'Close' : 'Finish Block'} <ChevronRight className="w-5 h-5" /></>
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin pointer-events-none" /> : (
+                <>{isQotd ? 'Close' : 'Finish Block'} <ChevronRight className="w-5 h-5 pointer-events-none" /></>
               )}
             </button>
           ) : (
             <button
               onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
               disabled={currentIndex === questions.length - 1}
-              className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-xl shadow-slate-200"
+              className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-xl shadow-slate-200 cursor-pointer"
             >
               Next
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-5 h-5 pointer-events-none" />
             </button>
           )}
         </div>
