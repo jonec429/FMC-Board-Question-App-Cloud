@@ -55,7 +55,8 @@ self.addEventListener('notificationclick', function (event) {
       // Check if there is already a window/tab open with the target URL
       for (var i = 0; i < windowClients.length; i++) {
         var client = windowClients[i];
-        if (client.url === '/' && 'focus' in client) {
+        var url = new URL(client.url);
+        if ((url.pathname === '/' || client.url === self.registration.scope) && 'focus' in client) {
           return client.focus();
         }
       }

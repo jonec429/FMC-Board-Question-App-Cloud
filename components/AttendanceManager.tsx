@@ -15,8 +15,10 @@ export default function AttendanceManager() {
   useEffect(() => {
     async function fetchRoster() {
       try {
-        const { data } = await withTimeout(supabase.from('profiles').select('email, full_name'));
-        if (data) setRoster(data);
+        const { data } = await withTimeout(supabase.from('authorized_roster').select('email, name'));
+        if (data) {
+          setRoster(data.map((r: any) => ({ email: r.email, full_name: r.name })));
+        }
       } catch (err) {
         console.error('Attendance fetch error:', err);
       }

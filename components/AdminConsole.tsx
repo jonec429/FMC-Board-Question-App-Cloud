@@ -29,6 +29,12 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
   const [activeTab, setActiveTab] = useState<TabId>('performance');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
+  // Hoist the hook call to the top level to avoid React Rules of Hooks violations.
+  // Questions are lazily fetched only on tabs that require them.
+  const adminDataResult = useAdminData({ 
+    includeQuestions: activeTab === 'questions' || activeTab === 'builder' 
+  });
+
   // The data loading has been pushed down into the individual tabs so the console 
   // shell loads instantly and tabs can be navigated without waiting on heavy queries.
 
@@ -152,7 +158,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
           {/* Main Content */}
           <main className="flex-1 min-w-0">
             {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} />}
-            {activeTab === 'reporting' && <AdminReporting adminData={useAdminData().data!} />}
+            {activeTab === 'reporting' && adminDataResult.data && <AdminReporting adminData={adminDataResult.data} />}
             {activeTab === 'roster' && <RosterManager />}
             {activeTab === 'attendance' && <AttendanceManager />}
             {activeTab === 'questions' && <QuestionBankManager />}

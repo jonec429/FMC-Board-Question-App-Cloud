@@ -35,6 +35,10 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const isEmailValid = email.toLowerCase().endsWith('@ascension.org');
   const showEmailError = email.length > 5 && !isEmailValid;
 
+  const passwordsMatch = password === confirmPassword;
+  const isSignupValid = isEmailValid && password.length >= 6 && passwordsMatch && firstName.trim() !== '' && lastName.trim() !== '';
+  const isSigninValid = isEmailValid && password.length > 0;
+
   const handleSignIn = async (e?: React.SyntheticEvent) => {
     if (e) e.preventDefault();
     setLoading(true);
@@ -256,6 +260,16 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                 </button>
               </div>
             )}
+            {mode === 'signup' && password.length > 0 && password.length < 6 && (
+              <div className="flex items-center gap-1 text-amber-600 text-xs font-bold animate-fade-in pl-2">
+                <Info className="w-4 h-4" /> Password must be at least 6 characters
+              </div>
+            )}
+            {mode === 'signup' && confirmPassword.length > 0 && !passwordsMatch && (
+              <div className="flex items-center gap-1 text-amber-600 text-xs font-bold animate-fade-in pl-2">
+                <Info className="w-4 h-4" /> Passwords do not match
+              </div>
+            )}
 
             {mode === 'signin' && (
               <button
@@ -276,7 +290,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
 
             <button
               type="submit"
-              disabled={loading || !isEmailValid || password.length === 0}
+              disabled={loading || (mode === 'signin' ? !isSigninValid : !isSignupValid)}
               className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-base mt-1 flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : mode === 'signin' ? 'Sign In' : 'Register'}

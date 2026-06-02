@@ -78,6 +78,11 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
 
   const [error, setError] = useState<string | null>(null);
 
+  const availableYears = React.useMemo(() => {
+    const years = new Set<string>(allQuestions.map(q => q.year).filter(Boolean));
+    return Array.from(years).sort((a: string, b: string) => b.localeCompare(a));
+  }, [allQuestions]);
+
   const displayQuestions = React.useMemo(() => {
     let filtered = allQuestions;
     if (categoryFilter) filtered = filtered.filter(q => q.category === categoryFilter);
@@ -183,7 +188,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
           className="w-full md:w-32 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700"
         >
           <option value="">All Years</option>
-          {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+          {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
 
