@@ -836,7 +836,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               className="p-2 text-slate-400 hover:text-slate-800 rounded-lg disabled:opacity-50"
               title="Save progress and return to dashboard"
             >
-              {resumingLater ? <Loader2 className="w-6 h-6 animate-spin" /> : <ChevronLeft className="w-6 h-6" />}
+              {resumingLater ? <Loader2 className="w-6 h-6 animate-spin pointer-events-none" /> : <ChevronLeft className="w-6 h-6 pointer-events-none" />}
             </button>
             <div>
               <h2 className="font-black text-slate-800 leading-tight truncate max-w-[200px] md:max-w-none">{topic || 'FMC Board Review'}</h2>
