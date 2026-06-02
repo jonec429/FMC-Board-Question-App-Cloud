@@ -1,7 +1,7 @@
 -- Create the QOTD Schedule table
 CREATE TABLE IF NOT EXISTS public.qotd_schedule (
     schedule_date DATE PRIMARY KEY,
-    question_id BIGINT NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
+    question_id UUID NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
