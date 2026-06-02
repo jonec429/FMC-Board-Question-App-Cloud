@@ -334,13 +334,14 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const submitQuiz = async (autoSubmit = false) => {
+  const submitQuiz = async (autoSubmit = false, overrideAnswers?: Record<number, number>) => {
     if (!autoSubmit && !window.confirm('Are you sure you want to finish this block?')) return;
 
     setSubmitting(true);
+    const finalAnswers = overrideAnswers || answers;
     
     try {
-      const score = questions.reduce((acc, q, idx) => acc + (answers[idx] === q.correct_index ? 1 : 0), 0);
+      const score = questions.reduce((acc, q, idx) => acc + (finalAnswers[idx] === q.correct_index ? 1 : 0), 0);
       const percentage = questions.length > 0 ? (score / questions.length) * 100 : 0;
       const topicLabel = topic || 'Mixed Review Block';
 
@@ -388,8 +389,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         const attempts = questions.map((q, idx) => ({
           user_id: user.id,
           question_id: q.id,
-          is_correct: answers[idx] === q.correct_index,
-          selected_index: answers[idx] ?? null,
+          is_correct: finalAnswers[idx] === q.correct_index,
+          selected_index: finalAnswers[idx] ?? null,
         }));
         await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
 
@@ -417,8 +418,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         await withTimeout(supabase.from('question_attempts').insert({
           user_id: user.id,
           question_id: questions[0].id,
-          is_correct: answers[0] === questions[0].correct_index,
-          selected_index: answers[0] ?? null,
+          is_correct: finalAnswers[0] === questions[0].correct_index,
+          selected_index: finalAnswers[0] ?? null,
           is_qotd: true
         }), 30000);
       }
@@ -427,7 +428,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       processGamification(
         user.id,
         !!isQotd,
-        answers[0] === questions[0].correct_index,
+        finalAnswers[0] === questions[0].correct_index,
         questions[0].id,
         questions.length,
         result.percentage
@@ -911,7 +912,13 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           <QuestionCard
             question={currentQuestion}
             userAnswer={answers[currentIndex]}
-            onAnswer={(idx) => setAnswers(prev => ({ ...prev, [currentIndex]: idx }))}
+            onAnswer={(idx) => {
+              const newAnswers = { ...answers, [currentIndex]: idx };
+              setAnswers(newAnswers);
+              if (isQotd) {
+                submitQuiz(true, newAnswers);
+              }
+            }}
             showExplanation={!isQotd && answers[currentIndex] !== undefined}
             fontSize={fontSize}
             initialHighlights={questionTools[currentQuestion.id]?.highlights || []}
