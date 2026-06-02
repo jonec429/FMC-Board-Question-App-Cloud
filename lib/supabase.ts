@@ -8,7 +8,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    lock: (name: string, acquireCallback: () => Promise<any>) => {
+    // @ts-ignore
+    lock: (name: string, acquireTimeout: number, acquireCallback: () => Promise<any>) => {
       // Bypass navigator.locks entirely to prevent infinite hangs if another background tab has a stale lock
       return acquireCallback();
     },
