@@ -73,22 +73,19 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const lastFetchTime = useRef<number>(0);
 
-  // Smart background refetching (60s stale time)
+  // Smart background refetching (60s stale time for visibility, immediate for returning to dashboard)
   useEffect(() => {
-    const handleActiveRefetch = () => {
-      // Refetch if data is older than 60 seconds
-      if (Date.now() - lastFetchTime.current > 60000) {
-        setRefreshTrigger(prev => prev + 1);
-      }
-    };
-
     if (isActive) {
-      handleActiveRefetch();
+      // Always refetch immediately when returning to the dashboard (e.g. from Quiz Engine)
+      setRefreshTrigger(prev => prev + 1);
     }
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isActive) {
-        handleActiveRefetch();
+        // Refetch if data is older than 60 seconds when just tab-switching
+        if (Date.now() - lastFetchTime.current > 60000) {
+          setRefreshTrigger(prev => prev + 1);
+        }
       }
     };
 
