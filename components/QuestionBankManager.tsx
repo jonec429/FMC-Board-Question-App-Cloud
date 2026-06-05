@@ -144,7 +144,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
     let full = q;
     try {
       const { data, error } = await withTimeout(
-        supabase.from('questions').select('explanation, resource_link').eq('id', q.id).single(),
+        supabase.from('questions').select('explanation, resource_link').eq('id', q.id).maybeSingle(),
         5000
       );
       if (!error && data) full = { ...q, ...data };

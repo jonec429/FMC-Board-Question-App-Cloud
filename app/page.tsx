@@ -10,6 +10,7 @@ import AdminConsole from '@/components/AdminConsole';
 import { Loader2 } from '@/components/AppIcons';
 import { withTimeout, withRetry } from '@/lib/utils';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { useDayChangeReload } from '@/hooks/useDayChangeReload';
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -21,6 +22,9 @@ export default function Home() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showReset, setShowReset] = useState(false);
+
+  // Reload the app when it returns to the foreground stale (new day or hidden > 4h)
+  useDayChangeReload();
 
   // Sanity check: warn loudly if Supabase env vars never got wired up
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -86,20 +90,6 @@ export default function Home() {
       navigator.clearAppBadge().catch(console.error);
     }
 
-    // Stale Tab Detector: Hard reload if the tab is inactive for > 4 hours
-    let lastHiddenTime = 0;
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        lastHiddenTime = Date.now();
-      } else {
-        // 4 hours = 14,400,000 ms
-        if (lastHiddenTime > 0 && Date.now() - lastHiddenTime > 14400000) {
-          window.location.reload();
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
     const init = async () => {
       if (envMissing) {
         setInitError('Supabase environment variables are not configured. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel project settings, then redeploy.');
@@ -157,7 +147,6 @@ export default function Home() {
 
     return () => {
       subscription.unsubscribe();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       .from('authorized_roster')
       .select('name, pgy, role')
       .eq('email', cleanEmail)
-      .single();
+      .maybeSingle();
 
     if (error || !authorized) {
       return NextResponse.json({ error: 'Email not found in authorized roster' }, { status: 404 });

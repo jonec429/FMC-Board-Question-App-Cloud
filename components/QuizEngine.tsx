@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
 import QotdHistory from './QotdHistory';
@@ -48,7 +48,16 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [resultData, setResultData] = useState<any>(null);
-  
+
+  // Idempotency guards for submit. submittingRef blocks re-entrant calls
+  // (double-tap, timer auto-submit racing a manual Finish) synchronously, since
+  // the `submitting` state updates too late to stop a second invocation. The
+  // *SavedRef flags persist across retries so a click-Finish-again after a
+  // partial failure never re-inserts rows that already landed.
+  const submittingRef = useRef(false);
+  const resultSavedRef = useRef(false);
+  const attemptsSavedRef = useRef(false);
+
   // QOTD States
   const [qotdReaction, setQotdReaction] = useState<string | null>(null);
   const [qotdAggregates, setQotdAggregates] = useState<Record<string, number> | null>(null);
@@ -335,7 +344,15 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   };
 
   const submitQuiz = async (autoSubmit = false, overrideAnswers?: Record<number, number>) => {
-    if (!autoSubmit && !window.confirm('Are you sure you want to finish this block?')) return;
+    // Re-entrancy guard: claim synchronously so a second trigger (double-tap, or
+    // the timer auto-submit racing a manual Finish) can't slip through before the
+    // `submitting` state updates. Release the claim if the user cancels the confirm.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    if (!autoSubmit && !window.confirm('Are you sure you want to finish this block?')) {
+      submittingRef.current = false;
+      return;
+    }
 
     setSubmitting(true);
     const finalAnswers = overrideAnswers || answers;
@@ -368,7 +385,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       }
 
       const missedQuestions = questions
-        .map((q, idx) => ({ q, idx, isCorrect: answers[idx] === q.correct_index }))
+        .map((q, idx) => ({ q, idx, isCorrect: finalAnswers[idx] === q.correct_index }))
         .filter(({ isCorrect }) => !isCorrect);
       const result = {
         user_id: user.id,
@@ -383,16 +400,21 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       };
 
       if (!isDemo && !isQotd) {
-        await withTimeout(supabase.from('results').insert(result), 10000);
+        if (!resultSavedRef.current) {
+          await withTimeout(supabase.from('results').insert(result), 10000);
+          resultSavedRef.current = true;
+        }
 
-        // Save individual question attempts
-        const attempts = questions.map((q, idx) => ({
-          user_id: user.id,
-          question_id: q.id,
-          is_correct: finalAnswers[idx] === q.correct_index,
-          selected_index: finalAnswers[idx] ?? null,
-        }));
-        await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
+        if (!attemptsSavedRef.current) {
+          // Save individual question attempts
+          const attempts = questions.map((q, idx) => ({
+            user_id: user.id,
+            question_id: q.id,
+            is_correct: finalAnswers[idx] === q.correct_index,
+            selected_index: finalAnswers[idx] ?? null,
+          }));
+          await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
+          attemptsSavedRef.current = true;
 
         // Send completion email (fire and forget)
         fetch('/api/email', {
@@ -413,26 +435,37 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             `
           })
         }).catch(err => console.error('Failed to send email:', err));
+        }
       } else if (isQotd) {
         // For QOTD, only save the attempt, not a full block result
-        await withTimeout(supabase.from('question_attempts').insert({
-          user_id: user.id,
-          question_id: questions[0].id,
-          is_correct: finalAnswers[0] === questions[0].correct_index,
-          selected_index: finalAnswers[0] ?? null,
-          is_qotd: true
-        }), 30000);
+        if (!attemptsSavedRef.current) {
+          await withTimeout(supabase.from('question_attempts').insert({
+            user_id: user.id,
+            question_id: questions[0].id,
+            is_correct: finalAnswers[0] === questions[0].correct_index,
+            selected_index: finalAnswers[0] ?? null,
+            is_qotd: true
+          }), 30000);
+          attemptsSavedRef.current = true;
+        }
       }
 
-      // Process Gamification (Streaks & Badges) asynchronously
-      processGamification(
-        user.id,
-        !!isQotd,
-        finalAnswers[0] === questions[0].correct_index,
-        questions[0].id,
-        questions.length,
-        result.percentage
-      );
+      // Process Gamification (Streaks & Badges) — best-effort and detached so it
+      // never blocks the results screen. Bounded by withTimeout so a hung query
+      // can't leave a dangling promise, and .catch swallows any failure.
+      withTimeout(
+        processGamification(
+          user.id,
+          !!isQotd,
+          finalAnswers[0] === questions[0].correct_index,
+          questions[0].id,
+          questions.length,
+          result.percentage,
+          timingStatus ?? undefined,
+          topicLabel
+        ),
+        30000
+      ).catch((e) => console.warn('Gamification processing skipped:', e));
 
       if (sessionId) {
         await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 30000);
@@ -473,6 +506,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       alert('Network error saving your block. Please try clicking Finish again. Error: ' + (err?.message || err?.toString() || 'Unknown Error'));
     } finally {
       setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 

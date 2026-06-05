@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       .from('web_push_subscriptions')
       .select('email')
       .eq('endpoint', endpoint)
-      .single();
+      .maybeSingle();
 
     const email = sub?.email || 'unknown';
 

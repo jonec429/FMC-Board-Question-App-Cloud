@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         .from('profiles')
         .select('role')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       const isAdmin =
         SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(callerEmail.toLowerCase()) ||
@@ -189,7 +189,7 @@ export async function GET(request: Request) {
       .from('profiles')
       .select('role')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     const isAdmin =
       SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(callerEmail.toLowerCase()) ||

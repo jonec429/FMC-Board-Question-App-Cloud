@@ -22,7 +22,7 @@ export async function processGamification(
       .from('user_streaks')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (!streakData) {
       // Initialize if missing
@@ -43,7 +43,12 @@ export async function processGamification(
       // Check if they missed a weekday
       let streakBroken = false;
       if (last_qotd_date && last_qotd_date !== todayStr) {
-        const lastDate = new Date(last_qotd_date);
+        // Parse YYYY-MM-DD as a LOCAL date. `new Date('2026-06-04')` parses as
+        // UTC midnight, which in Eastern time is the evening before — shifting the
+        // day back one and fabricating a "missed weekday" every single day, which
+        // reset the streak to 1. Mirrors the safe parse used in getQotdHistory.
+        const [ly, lm, ld] = last_qotd_date.split('-').map(Number);
+        const lastDate = new Date(ly, lm - 1, ld);
         const todayDate = getESTDate();
         todayDate.setHours(0, 0, 0, 0);
         lastDate.setHours(0, 0, 0, 0);
@@ -243,7 +248,7 @@ async function evaluateBadge(
     .from('badges')
     .select('id')
     .eq('name', badgeName)
-    .single();
+    .maybeSingle();
 
   if (!badge && createIfNotExists) {
     // Create the badge dynamically
@@ -263,13 +268,15 @@ async function evaluateBadge(
 
   if (!badge) return;
 
-  // Insert to user_badges (on conflict do nothing is handled by DB unique constraint)
-  try {
-    await supabase.from('user_badges').insert({
-      user_id: userId,
-      badge_id: badge.id
-    });
-  } catch {
-    /* Ignore duplicate key errors */
+  // Insert to user_badges. A duplicate (the user already earned this badge) is
+  // expected and harmless. supabase-js returns errors as values rather than
+  // throwing, so inspect the result instead of relying on try/catch — 23505 is
+  // the unique-violation code we intentionally ignore; anything else we log.
+  const { error: insertError } = await supabase.from('user_badges').insert({
+    user_id: userId,
+    badge_id: badge.id
+  });
+  if (insertError && insertError.code !== '23505') {
+    console.warn(`Failed to award badge "${badgeName}":`, insertError.message);
   }
 }

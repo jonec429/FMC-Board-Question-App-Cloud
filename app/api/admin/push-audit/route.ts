@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const callerEmail = user.email || '';
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
 
     const isAdmin = SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(callerEmail.toLowerCase()) || profile?.role === 'admin';
     if (isAdmin) isAuthorized = true;

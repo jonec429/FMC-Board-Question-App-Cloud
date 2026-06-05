@@ -13,7 +13,6 @@ import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
-import { useDayChangeReload } from '@/hooks/useDayChangeReload';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
 interface DashboardProps {
@@ -38,9 +37,6 @@ export interface LeaderboardEntry {
 export default function Dashboard({ user, profile, isActive = true, onOpenAdmin, onLogout, onStartQuiz, onOpenBuilder, onProfileUpdate }: DashboardProps) {
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
-
-  // Reload the PWA if it's brought to the foreground on a new day
-  useDayChangeReload();
 
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
   

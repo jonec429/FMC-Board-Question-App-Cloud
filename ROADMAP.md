@@ -70,6 +70,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **NEXT — Tighten RLS Policies**: `tighten_rls_policies.sql` — Secures write access to core tables, restricting it to admins and faculty. **Admin must run it in Supabase.**
 - [x] **NEXT — Academic Year Tagging**: `migrate_academic_year.sql` — Adds `academic_year` to `results` and `blocks` for historical dashboard filtering. **Admin must run it in Supabase.**
 - [x] **NEXT — Phase 3 QOTD & Push**: `migrate_qotd_reactions.sql` and `migrate_push_subscriptions.sql` — Adds the tables required for Web Push notifications and Question of the Day emoji reactions. **Admin must run it in Supabase.**
+- [x] **Punctual QOTD Notifications (pg_cron)** ✅ *(2026-06-05)*: `migrate_qotd_pgcron.sql` run + verified in Supabase (`pg_cron` + `pg_net` enabled; test push returned `200 "Morning QOTD notifications processed."`). The redundant Vercel cron (`vercel.json`) and GitHub Actions workflow were removed in the same deploy — **pg_cron is now the single scheduler.** Note: `CRON_SECRET` was rotated to a new value on this date.
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Remaining in Phase 2
@@ -287,6 +288,17 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-05 — QOTD Fixes: Streak, "Already Answered", & Punctual Notifications (Claude)
+*   **QOTD streak no longer stuck at 1:** Fixed a timezone bug in `lib/gamification.ts` where the "last answered" date was parsed as UTC — which in Eastern time lands on the *evening before*, making the streak logic think a weekday was missed every single day and resetting the count to 1. Streaks now increment correctly across consecutive weekdays (and still forgive weekends).
+*   **Daily question no longer shows as "already answered":** The dashboard's QOTD completion check (`hooks/useDashboardData.ts`) matched only on the question ID, so if today's daily question had been seen before inside a normal practice block, it skipped straight to the reactions screen. It now requires the attempt to have been logged *as the QOTD* (`is_qotd = true`).
+*   **Build fix:** Reordered `.abortSignal()` before `.maybeSingle()` in `lib/qotd.ts` so the project type-checks and deploys cleanly (a leftover from the June 3 hardening pass that was blocking a clean build).
+*   **Punctual notifications via Supabase pg_cron:** Replaced the late-firing free crons with a Supabase `pg_cron` schedule (`migrate_qotd_pgcron.sql`) that fires the 8:00 AM and 12:30 PM QOTD pushes on time — the old GitHub Actions / Vercel crons were "best effort" and routinely ran 5-20+ minutes late. Verified live (test push returned 200 "...notifications processed"). The two redundant schedulers (`.github/workflows/push-notifications.yml` + the `crons` block in `vercel.json`) were **removed** so pg_cron is the single source of truth. `CRON_SECRET` was rotated as part of this.
+
+### 2026-06-03 — PWA Icon Updated to Shield Logo (Claude)
+*   **Home-screen icon now matches the in-app shield:** Replaced the old open-book PWA icon with the `AbfmShield` crest (the same logo shown on the Login and Dashboard headers). Rewrote the source art in [pwa-icon.svg](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/public/icons/pwa-icon.svg) and regenerated `icon-192x192.png` and `icon-512x512.png`.
+*   **iPhone "Add to Home Screen" icon added:** Generated a flattened `public/icons/apple-touch-icon.png` (180×180, no transparency) and wired an `icons` block into [layout.tsx](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/app/layout.tsx) plus an SVG entry in [manifest.json](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/public/manifest.json), so iOS shows the shield instead of a page screenshot.
+*   **Reusable generator:** Added `sharp` (devDependency) and [generate-icons.mjs](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20QBank%20Cloud/scripts/generate-icons.mjs), runnable via `npm run icons`, to regenerate every PNG from the SVG whenever the logo changes.
 
 ### 2026-06-02 — Refresh-Hang Root Cause Fixed (Claude)
 *   **Infinite spinner on refresh — actual root cause fixed:** Logged-in users could get stuck on "Initializing FMC BRQ App..." after a page refresh. Root cause was in `app/page.tsx`: the `onAuthStateChange` callback `await`ed a Supabase query (`loadProfile`) *inside* the callback. Supabase's own docs (auth-js v2.105.4, `GoTrueClient.js`) explicitly warn this deadlocks the auth lock and stalls `getSession()` on load — which matches the earlier "zero requests firing / never reached the wire" observation.

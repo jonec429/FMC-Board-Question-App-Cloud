@@ -50,10 +50,15 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
-    const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email, password }));
-    if (error) setError(error.message);
-    else onLogin(data.user);
-    setLoading(false);
+    try {
+      const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email, password }));
+      if (error) setError(error.message);
+      else onLogin(data.user);
+    } catch (err: any) {
+      setError(err?.message || 'Sign in failed. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignUp = async (e?: React.SyntheticEvent) => {
@@ -103,41 +108,46 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
 
-    const { data: signUpData, error: signUpError } = await withTimeout(
-      supabase.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: { 
-          data: { 
-            full_name: `${firstName.trim()} ${lastName.trim()}`,
-            first_name: firstName.trim(),
-            last_name: lastName.trim()
-          } 
-        },
-      })
-    );
-
-    if (signUpError) {
-      setError(signUpError.message);
-    } else {
-      // Create/Update profile explicitly to be sure
-      await withTimeout(
-        supabase.from('profiles').upsert({
-          id: signUpData.user?.id,
+    try {
+      const { data: signUpData, error: signUpError } = await withTimeout(
+        supabase.auth.signUp({
           email: cleanEmail,
-          full_name: `${firstName.trim()} ${lastName.trim()}`,
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-          pgy: authorized.pgy,
-          role: authorized.role || (authorized.pgy === 'Faculty' ? 'faculty' : 'resident')
+          password,
+          options: {
+            data: {
+              full_name: `${firstName.trim()} ${lastName.trim()}`,
+              first_name: firstName.trim(),
+              last_name: lastName.trim()
+            }
+          },
         })
       );
 
-      setError('');
-      alert('Registration successful! You can now sign in.');
-      setMode('signin');
+      if (signUpError) {
+        setError(signUpError.message);
+      } else {
+        // Create/Update profile explicitly to be sure
+        await withTimeout(
+          supabase.from('profiles').upsert({
+            id: signUpData.user?.id,
+            email: cleanEmail,
+            full_name: `${firstName.trim()} ${lastName.trim()}`,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            pgy: authorized.pgy,
+            role: authorized.role || (authorized.pgy === 'Faculty' ? 'faculty' : 'resident')
+          })
+        );
+
+        setError('');
+        alert('Registration successful! You can now sign in.');
+        setMode('signin');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Registration failed. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleForgotPassword = async () => {
@@ -146,14 +156,20 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       return;
     }
     setLoading(true);
-    const { error } = await withTimeout(
-      supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      })
-    );
-    if (error) setError(error.message);
-    else alert('Password reset link sent to your email.');
-    setLoading(false);
+    setError('');
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        })
+      );
+      if (error) setError(error.message);
+      else alert('Password reset link sent to your email.');
+    } catch (err: any) {
+      setError(err?.message || 'Could not send reset link. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

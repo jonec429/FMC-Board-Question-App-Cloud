@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "icons": "node scripts/generate-icons.mjs",
     "supabase:types": "supabase gen types typescript --project-id oiwxghurohndfnakxsri --schema public > lib/database.types.ts"
   },
   "dependencies": {
@@ -34,6 +35,7 @@
     "@types/react-dom": "^18",
     "@types/web-push": "^3.6.4",
     "dotenv": "^17.4.2",
+    "sharp": "^0.34.5",
     "supabase": "^2.101.0",
     "typescript": "^5"
   }

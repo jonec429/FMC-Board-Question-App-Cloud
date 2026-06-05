@@ -13,13 +13,18 @@ export async function GET() {
       return NextResponse.json({ updates: [] });
     }
 
-    const sectionContent = content.substring(sectionStart);
-    const lines = sectionContent.split('\n');
-    
-    // Look for lines starting with "- " after the header
-    const updates = lines
-      .filter(line => line.trim().startsWith('- '))
-      .map(line => line.trim().substring(2));
+    // Bound to the changelog section: from its header to the next top-level (## )
+    // heading, so we don't scoop bullets from unrelated sections below it.
+    const afterHeader = content.substring(sectionStart);
+    const nextSection = afterHeader.indexOf('\n## ', 1);
+    const sectionContent = nextSection === -1 ? afterHeader : afterHeader.substring(0, nextSection);
+
+    // Capture bullet lines (both "-" and "*" styles, any indentation) and strip the marker.
+    const updates = sectionContent
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => /^[-*]\s+/.test(line))
+      .map(line => line.replace(/^[-*]\s+/, ''));
 
     return NextResponse.json({ updates });
   } catch (error) {

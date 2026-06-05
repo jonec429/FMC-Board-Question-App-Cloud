@@ -49,12 +49,13 @@ export async function getQotdQuestion(signal?: AbortSignal) {
   let query = supabase
     .from('qotd_schedule')
     .select('question:questions(*)')
-    .eq('schedule_date', todayStr)
-    .single();
+    .eq('schedule_date', todayStr);
 
   if (signal) query = query.abortSignal(signal);
 
-  const { data, error } = await query;
+  // .maybeSingle() must be the terminal call: it returns a builder that no longer
+  // exposes .abortSignal(), so the abort signal has to be attached before it.
+  const { data, error } = await query.maybeSingle();
 
   if (error || !data || !data.question) {
     // Graceful fallback for weekends or if the schedule table hasn't been populated

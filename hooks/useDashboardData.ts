@@ -101,6 +101,10 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
               .select('*')
               .eq('user_id', userId)
               .eq('question_id', qotd.id)
+              // Only count it "answered" if it was answered AS the QOTD — without
+              // this, a prior attempt at the same question inside a normal block
+              // would wrongly mark today's QOTD complete and skip to the reactions.
+              .eq('is_qotd', true)
               .order('created_at', { ascending: false })
               .limit(1)
               .abortSignal(signal)
