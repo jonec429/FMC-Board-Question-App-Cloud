@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatDisplayName } from '@/lib/utils';
+import { formatDisplayName, formatLastNameFirst } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
@@ -250,7 +250,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               <tr key={i} className={`border-b border-slate-50 transition-all hover:brightness-95 cursor-pointer ${rowColor}`} onClick={() => setSelectedResident(r)}>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800 text-sm">{formatDisplayName(r.name)}</span>
+                    <span className="font-bold text-slate-800 text-sm">{formatLastNameFirst(r.name, r.last_name)}</span>
                   </div>
                 </td>
                 <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.label}</td>

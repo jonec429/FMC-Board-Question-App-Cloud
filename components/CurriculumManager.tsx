@@ -321,9 +321,9 @@ export default function CurriculumManager() {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
         <div className="grid grid-cols-12 gap-4 p-4 border-b border-slate-100 bg-slate-50/50 text-xs font-black text-slate-400 uppercase tracking-widest">
           <div className="col-span-4 pl-4">Block Title</div>
-          <div className="col-span-4 text-center">Schedule Dates</div>
+          <div className="col-span-3 text-center">Schedule Dates</div>
           <div className="col-span-2 text-center">Questions</div>
-          <div className="col-span-2 text-right pr-4">Actions</div>
+          <div className="col-span-3 text-center">Actions</div>
         </div>
         
         <div className="divide-y divide-slate-50">
@@ -343,7 +343,7 @@ export default function CurriculumManager() {
                   </div>
                 </div>
 
-                <div className={isEditingDates ? "col-span-8 flex items-center pl-4" : "col-span-4 flex items-center justify-center"}>
+                <div className={isEditingDates ? "col-span-8 flex items-center pl-4" : "col-span-3 flex items-center justify-center"}>
                   {isEditingDates ? (
                     <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-xl">
                       <input 
@@ -385,25 +385,32 @@ export default function CurriculumManager() {
                   )}
                 </div>
 
-                <div className={`col-span-2 flex justify-center ${isEditingDates ? 'hidden' : ''}`}>
+                <div className={`col-span-2 flex flex-col items-center justify-center gap-1 ${isEditingDates ? 'hidden' : ''}`}>
                   {qCount > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">
-                      <CheckCircle className="w-3.5 h-3.5" /> {qCount} Qs
-                    </span>
+                    <>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">
+                        <CheckCircle className="w-3.5 h-3.5" /> {qCount}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Questions</span>
+                    </>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
-                      <Sparkles className="w-3.5 h-3.5" /> Needs Qs
-                    </span>
+                    <>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
+                        <Sparkles className="w-3.5 h-3.5" /> 0
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Needs Qs</span>
+                    </>
                   )}
                 </div>
 
-                <div className={`col-span-2 flex items-center justify-end pr-4 gap-2 ${isEditingDates ? 'hidden' : ''}`}>
+                <div className={`col-span-3 flex flex-col items-center justify-center gap-2 pr-4 ${isEditingDates ? 'hidden' : ''}`}>
                   <button 
                     onClick={() => setSelectedBlockId(block.id)}
-                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-lg transition-colors"
+                    className="w-24 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-lg transition-colors"
                   >
                     Builder
                   </button>
+                  <div className="flex items-center justify-center gap-3">
                   <button 
                     onClick={() => handleDuplicateBlock(block)}
                     className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -435,6 +442,7 @@ export default function CurriculumManager() {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                  </div>
                 </div>
               </div>
             );

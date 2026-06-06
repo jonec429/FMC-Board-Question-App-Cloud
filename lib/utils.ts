@@ -17,6 +17,32 @@ export function formatDisplayName(fullName?: string | null): string {
 }
 
 /**
+ * Formats a name as "Last, First" for sortable admin tables, so that a sort by
+ * last name reads correctly at a glance. Prefers the explicit last-name field
+ * when given (handles two-part surnames like "Dela Cruz"); otherwise falls back
+ * to treating the final token of the full name as the last name.
+ *
+ * @param fullName - Full name (e.g., "Angela Nguyen")
+ * @param lastNameField - The known last name, if available (e.g., "Nguyen")
+ * @returns "Nguyen, Angela", or "Unknown" if no name provided.
+ */
+export function formatLastNameFirst(fullName?: string | null, lastNameField?: string | null): string {
+  const full = (fullName || '').trim().replace(/\s+/g, ' ');
+  if (!full) return 'Unknown';
+  let last = (lastNameField || '').trim();
+  let first = '';
+  if (last && full.toLowerCase().endsWith(last.toLowerCase())) {
+    first = full.slice(0, full.length - last.length).trim();
+  } else {
+    const parts = full.split(' ');
+    if (parts.length < 2) return full;
+    last = parts[parts.length - 1];
+    first = parts.slice(0, -1).join(' ');
+  }
+  return first ? `${last}, ${first}` : last;
+}
+
+/**
  * Wraps a promise with a timeout. If the promise does not resolve within
  * the specified milliseconds, it rejects with a timeout error.
  * Used to prevent infinite spinners when Supabase or network requests hang.

@@ -6,6 +6,7 @@ import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
 import { AdminData } from '@/lib/types';
 import { deriveLabel, isGraduated, mapSelectionToFields, getRoleOptions } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
+import { formatLastNameFirst } from '@/lib/utils';
 import TransitionWizard from './TransitionWizard';
 
 import { useAdminData } from '@/hooks/useAdminData';
@@ -247,7 +248,7 @@ export default function RosterManager() {
                       {member.full_name?.charAt(0) || 'U'}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-800">{member.full_name || 'Incomplete Profile'}</p>
+                      <p className="font-bold text-slate-800">{member.full_name ? formatLastNameFirst(member.full_name, member.last_name) : 'Incomplete Profile'}</p>
                       <p className="text-xs font-medium text-slate-400">{member.email}</p>
                     </div>
                   </div>

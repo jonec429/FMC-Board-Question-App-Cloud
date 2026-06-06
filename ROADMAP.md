@@ -304,6 +304,10 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-05 — Admin Tables: Last-Name Display & Curriculum Layout (Claude)
+*   **Admin tables now read by last name:** The Performance resident tables and the Roster "Member" column display residents as **"Lastname, Firstname"** (e.g. *Nguyen, Angela*) via a new `formatLastNameFirst` helper, so sorting by last name is obvious at a glance. (Resident-facing screens still show "Dr. First Last".) The underlying sort already used last name — this fixes the *display* that made it look first-name-sorted.
+*   **Curriculum Manager row layout:** Rebalanced the block-row columns and restructured the last two cells — the Questions cell now stacks vertically (count over label) and the actions sit as **Builder on top with Duplicate / Archive / Delete evenly spaced beneath**, fixing the cramped collision between the "Needs Qs" badge and the Builder button.
+
 ### 2026-06-05 — Program Logo & Branding (Claude)
 *   **Ascension St. Vincent's Family Medicine Residency logo** now appears across the app, replacing the generic shield: the **full logo** anchors the Login and password-reset screens, and the **triquetra mark** sits in the Dashboard header and is the new **home-screen / PWA app icon** (regenerated at every size on a clean white tile).
 *   Source art lives in `public/brand/` — `program-logo.png` (full lockup) + `program-mark.png` (cropped mark), both derived from the high-res transparent original. The icon pipeline (`npm run icons` → `scripts/generate-icons.mjs`) now regenerates from the mark; the old shield SVGs (`pwa-icon.svg`, `app/icon.svg`) were retired and dropped from `manifest.json` + `layout.tsx`.
