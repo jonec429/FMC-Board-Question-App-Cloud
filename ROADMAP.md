@@ -286,8 +286,27 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
+## 💡 Parked Ideas & Future Considerations
+*Captured 2026-06-05 — agreed as future work, not yet built.*
+
+- **Block rename in Curriculum Manager**: Inline-edit a block's title. Intended for *planning* (before residents start a block) and to fix accidental "(Copy)" names — explicitly **not** for renaming blocks already in use. ⚠️ If a block with completions is ever renamed, the change must cascade to `results.topic` and `quiz_sessions.topic` (the title is the foreign key) to avoid orphaning scores — best done via a secure admin-only server route.
+- **Per-user quiz sorting**: Let every user sort their own quiz/block list however they want — independently on the resident side and the admin side (it does **not** need to be the same order for everyone). Supersedes the earlier "global admin-set block order via `sort_order`" idea.
+- **Pause the question timer during review**: When the explanation is revealed, pause the 90-second per-question timer so reading/reviewing the explanation doesn't count against the resident's time.
+- **Review prior quizzes**: Let users revisit their past quizzes — both assigned blocks and custom builds — so they can review them later (questions, their answers, explanations).
+- **Quiz Mode vs Practice Mode (Quiz Builder)**: Add a mode toggle in the builder. *Quiz mode* hides answers/explanations until the entire quiz is submitted; *Practice mode* reveals the answer + explanation right after each question (the current behavior).
+- **Assigned-block submission email (failsafe)**: Keep the email confirmation that fires when an assigned block is submitted, as a safety net. *(Currently implemented in `QuizEngine.tsx` — retain and verify it keeps working.)*
+
+### 🔒 Security / Maintenance Notes
+- **2026-06-05 — dotenv ad / agent-bait silenced & pinned (Claude)**: `dotenv@17.4.2` (genuine npm package; used only in `scripts/*.ts` dev tooling, **never** in the production bundle) prints rotating console "tips," one of which — `⌁ auth for agents [www.vestauth.com]` — is third-party bait aimed at AI agents. Confirmed it's only a console string: no network calls, no install/postinstall hooks, no exfiltration. Mitigation: added `quiet: true` to all 15 `dotenv.config()` calls in `scripts/`, and pinned `dotenv` to exact `17.4.2` (dropped the `^`) so `npm update` can't silently pull a more aggressive ad build. The domain was not visited. (Note: affects any project using this dotenv version.)
+
+---
+
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-05 — Program Logo & Branding (Claude)
+*   **Ascension St. Vincent's Family Medicine Residency logo** now appears across the app, replacing the generic shield: the **full logo** anchors the Login and password-reset screens, and the **triquetra mark** sits in the Dashboard header and is the new **home-screen / PWA app icon** (regenerated at every size on a clean white tile).
+*   Source art lives in `public/brand/` — `program-logo.png` (full lockup) + `program-mark.png` (cropped mark), both derived from the high-res transparent original. The icon pipeline (`npm run icons` → `scripts/generate-icons.mjs`) now regenerates from the mark; the old shield SVGs (`pwa-icon.svg`, `app/icon.svg`) were retired and dropped from `manifest.json` + `layout.tsx`.
 
 ### 2026-06-05 — QOTD Fixes: Streak, "Already Answered", & Punctual Notifications (Claude)
 *   **QOTD streak no longer stuck at 1:** Fixed a timezone bug in `lib/gamification.ts` where the "last answered" date was parsed as UTC — which in Eastern time lands on the *evening before*, making the streak logic think a weekday was missed every single day and resetting the count to 1. Streaks now increment correctly across consecutive weekdays (and still forgive weekends).

@@ -1,44 +1,37 @@
-// Generates the PWA raster icons from the shield source art.
+// Generates the PWA raster icons from the program mark.
 //
-//   1. Edit the artwork in  public/icons/pwa-icon.svg
-//   2. Run  npm run icons   to regenerate every PNG below.
+//   1. The source mark lives at  public/brand/program-mark.png
+//      (the triquetra mark, cropped from public/brand/program-logo.png).
+//   2. Run  npm run icons  to regenerate every PNG below.
 //
-// Keeps the home-screen icons in sync with the in-app shield logo
-// (components/AppIcons.tsx -> AbfmShield).
+// Keeps the home-screen icons in sync with the program logo shown in the app
+// headers. Each icon is the mark centered on a white tile with padding.
 
 import sharp from 'sharp';
-import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-const iconsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'icons');
-const source = join(iconsDir, 'pwa-icon.svg');
-const BRAND_BLUE = '#1e3a8a';
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const mark = join(root, 'public', 'brand', 'program-mark.png');
+const iconsDir = join(root, 'public', 'icons');
 
-const svg = await readFile(source);
+const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
+const PAD = 0.16; // fraction of the tile kept as margin around the mark
 
-// Manifest icons keep the rounded-corner transparency so launchers and the
-// browser can apply their own masking. Rendered at high density for crisp edges.
-const manifestIcons = [
-  { size: 192, file: 'icon-192x192.png' },
-  { size: 512, file: 'icon-512x512.png' },
-];
-
-for (const { size, file } of manifestIcons) {
-  await sharp(svg, { density: 384 })
-    .resize(size, size)
+async function makeIcon(size, file) {
+  const inner = Math.round(size * (1 - 2 * PAD));
+  const centered = await sharp(mark)
+    .resize({ width: inner, height: inner, fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .toBuffer();
+  await sharp({ create: { width: size, height: size, channels: 4, background: WHITE } })
+    .composite([{ input: centered, gravity: 'center' }])
     .png()
     .toFile(join(iconsDir, file));
   console.log(`✓ ${file} (${size}×${size})`);
 }
 
-// iOS dislikes transparency and rounds the corners itself, so flatten the
-// apple-touch icon onto solid brand blue to get a clean square.
-await sharp(svg, { density: 384 })
-  .resize(180, 180)
-  .flatten({ background: BRAND_BLUE })
-  .png()
-  .toFile(join(iconsDir, 'apple-touch-icon.png'));
-console.log('✓ apple-touch-icon.png (180×180)');
+await makeIcon(192, 'icon-192x192.png');
+await makeIcon(512, 'icon-512x512.png');
+await makeIcon(180, 'apple-touch-icon.png');
 
 console.log('Done. Icons written to public/icons/');

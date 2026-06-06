@@ -34,7 +34,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/web-push": "^3.6.4",
-    "dotenv": "^17.4.2",
+    "dotenv": "17.4.2",
     "sharp": "^0.34.5",
     "supabase": "^2.101.0",
     "typescript": "^5"
