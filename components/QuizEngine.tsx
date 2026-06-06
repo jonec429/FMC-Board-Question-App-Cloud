@@ -328,14 +328,20 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     return () => clearTimeout(t);
   }, [currentIndex, answers, syncProgress]);
 
-  // Timer countdown — stops at 0, turns red as warning
+  // True while the current question's explanation is showing — i.e. the resident
+  // already answered it and is reviewing. (No explanation shows for QOTD, or in
+  // Quiz mode where answers are hidden until the end, so the timer runs normally.)
+  const reviewingExplanation = !isQotd && answers[currentIndex] !== undefined;
+
+  // Timer countdown — stops at 0, turns red as warning. Pauses while reviewing an
+  // explanation so reading it never counts against the resident's time.
   useEffect(() => {
-    if (showResults || !timerEnabled) return;
+    if (showResults || !timerEnabled || reviewingExplanation) return;
     const interval = setInterval(() => {
       setTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [showResults, timerEnabled]);
+  }, [showResults, timerEnabled, reviewingExplanation]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -878,14 +884,14 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
                 {timerEnabled && (
                   <>
-                    <Clock className={`w-3 h-3 ${isTimeLow ? 'text-red-500' : ''}`} />
-                    <span 
-                      className={isTimeLow ? 'text-red-500 font-black' : ''}
+                    <Clock className={`w-3 h-3 ${reviewingExplanation ? 'text-amber-500' : isTimeLow ? 'text-red-500' : ''}`} />
+                    <span
+                      className={reviewingExplanation ? 'text-amber-600 font-black' : isTimeLow ? 'text-red-500 font-black' : ''}
                       role="timer"
                       aria-live="polite"
-                      aria-label={`${formatTime(timeLeft)} remaining`}
+                      aria-label={reviewingExplanation ? `Timer paused while reviewing — ${formatTime(timeLeft)} remaining` : `${formatTime(timeLeft)} remaining`}
                     >
-                      {formatTime(timeLeft)}
+                      {formatTime(timeLeft)}{reviewingExplanation ? ' (paused)' : ''}
                     </span>
                     <span className="opacity-30">·</span>
                   </>

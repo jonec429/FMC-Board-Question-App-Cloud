@@ -304,6 +304,9 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-05 — Timed Quizzes: Timer Pauses While Reviewing (Claude)
+*   On timed quizzes, the countdown now **pauses while you review a question's explanation** (any question you've already answered) and resumes when you move to a question you haven't answered yet — so reading explanations never counts against your time. The timer shows **"(paused)"** in amber while it's held. *(Parked idea #3 — shipped.)*
+
 ### 2026-06-05 — Admin Tables: Last-Name Display & Curriculum Layout (Claude)
 *   **Admin tables now read by last name:** The Performance resident tables and the Roster "Member" column display residents as **"Lastname, Firstname"** (e.g. *Nguyen, Angela*) via a new `formatLastNameFirst` helper, so sorting by last name is obvious at a glance. (Resident-facing screens still show "Dr. First Last".) The underlying sort already used last name — this fixes the *display* that made it look first-name-sorted.
 *   **Curriculum Manager row layout:** Rebalanced the block-row columns and restructured the last two cells — the Questions cell now stacks vertically (count over label) and the actions sit as **Builder on top with Duplicate / Archive / Delete evenly spaced beneath**, fixing the cramped collision between the "Needs Qs" badge and the Builder button.
