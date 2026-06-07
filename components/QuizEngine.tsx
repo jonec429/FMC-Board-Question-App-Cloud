@@ -403,6 +403,10 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         academic_points: points,
         timing_status: timingStatus,
         academic_year: getCurrentAcademicYear(),
+        // Snapshot for reviewing this quiz later (My Performance): the questions in
+        // the order taken + the resident's answer. Correct answer + explanation are
+        // read live from the questions table at review time.
+        review_data: questions.map((q, idx) => ({ q: q.id, a: finalAnswers[idx] ?? null })),
       };
 
       if (!isDemo && !isQotd) {
@@ -421,26 +425,6 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           }));
           await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
           attemptsSavedRef.current = true;
-
-        // Send completion email (fire and forget)
-        fetch('/api/email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: user.email,
-            subject: `FMC QBank: ${topicLabel} Completed`,
-            html: `
-              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #1e293b;">Quiz Completed: ${topicLabel}</h2>
-                <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; margin: 20px 0;">
-                  <p style="margin: 0 0 10px 0; font-size: 16px;"><strong>Score:</strong> ${score} / ${questions.length} (${result.percentage}%)</p>
-                  <p style="margin: 0; font-size: 16px;"><strong>Points Earned:</strong> ${points} (${timingStatus})</p>
-                </div>
-                <p style="color: #64748b;">Keep up the great work!</p>
-              </div>
-            `
-          })
-        }).catch(err => console.error('Failed to send email:', err));
         }
       } else if (isQotd) {
         // For QOTD, only save the attempt, not a full block result
