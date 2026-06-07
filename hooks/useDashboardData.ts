@@ -24,7 +24,7 @@ interface DashboardData {
 }
 
 function getBlockSortKey(block: any): number {
-  if (block.sort_order != null) return block.sort_order;
+  if (block.sort_order) return block.sort_order; // 0 or null = unset → fall through to title-based order
   const t = block.title || '';
   if (/^demo/i.test(t)) return 9999;
   const m = t.match(/Block\s+(\d+)/i);

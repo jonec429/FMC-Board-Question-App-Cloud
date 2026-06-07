@@ -304,6 +304,9 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-05 — Curriculum Order Fix (Claude)
+*   **Blocks now sort in true curriculum order.** Previously every block carried a leftover `sort_order = 0`, which the sorter treated as "explicitly ordered" — so all blocks tied at 0 and just appeared in creation order (e.g., the Demo Quiz landing in the middle). Now `0` is treated as "unset," so the intended order applies — **Block 1 → Block 2 → … → bonus → other → Demo last** — on both the admin Curriculum list and residents' dashboards. (`blockSortKey` in `CurriculumManager.tsx` + `getBlockSortKey` in `useDashboardData.ts`.)
+
 ### 2026-06-05 — Practice vs Quiz Mode + End-of-Quiz Review (Claude)
 *   **Pick your mode before any block** (assigned or custom; not QOTD): a quick start screen lets you choose **Practice** (answer + explanation reveal after each question — the original behavior) or **Quiz** (answers stay hidden until you submit the whole thing).
 *   **Quiz mode ends with a full review** — every question, your answer, the correct answer, and the explanation on one screen (new reusable `QuizReview` component).

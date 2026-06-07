@@ -44,7 +44,7 @@ export default function CurriculumManager() {
   }, [results]);
 
   const blockSortKey = (b: any): number => {
-    if (b.sort_order != null) return b.sort_order;
+    if (b.sort_order) return b.sort_order; // 0 or null = unset → fall through to title-based order
     const t = b.title || '';
     if (/^demo/i.test(t)) return 9999;
     const m = t.match(/Block\s+(\d+)/i);
