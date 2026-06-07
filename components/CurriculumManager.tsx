@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive, ArchiveRestore, Copy } from './AppIcons';
 import { AdminData } from '@/lib/types';
@@ -22,6 +22,15 @@ export default function CurriculumManager() {
   const [dateForm, setDateForm] = useState({ start: '', end: '' });
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [titleForm, setTitleForm] = useState('');
+  // Per-admin block sort preference (independent of residents; saved locally)
+  const [adminBlockSort, setAdminBlockSort] = useState<'curriculum' | 'name' | 'date'>('curriculum');
+  useEffect(() => {
+    try { const s = localStorage.getItem('fmc_admin_block_sort'); if (s === 'name' || s === 'date') setAdminBlockSort(s); } catch {}
+  }, []);
+  const changeAdminBlockSort = (m: 'curriculum' | 'name' | 'date') => {
+    setAdminBlockSort(m);
+    try { localStorage.setItem('fmc_admin_block_sort', m); } catch {}
+  };
   const [saving, setSaving] = useState(false);
   const [initializing, setInitializing] = useState(false);
 
@@ -58,14 +67,26 @@ export default function CurriculumManager() {
   }, [blocks, selectedYear]);
 
   const sortedBlocks = useMemo(() => {
-    return [...blocks]
-      .filter(b => {
-        const val = b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear();
-        const year = !isNaN(val) && val > 0 ? val : getCurrentAcademicYear();
-        return year === selectedYear;
-      })
-      .sort((a, b) => blockSortKey(a) - blockSortKey(b));
-  }, [blocks, selectedYear]);
+    const filtered = [...blocks].filter(b => {
+      const val = b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear();
+      const year = !isNaN(val) && val > 0 ? val : getCurrentAcademicYear();
+      return year === selectedYear;
+    });
+    if (adminBlockSort === 'name') {
+      return filtered.sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
+    }
+    if (adminBlockSort === 'date') {
+      return filtered.sort((a, b) => {
+        const da = block_schedule.find(s => s.block_id === a.id)?.end_date || '';
+        const db = block_schedule.find(s => s.block_id === b.id)?.end_date || '';
+        if (!da && !db) return blockSortKey(a) - blockSortKey(b);
+        if (!da) return 1;
+        if (!db) return -1;
+        return da.localeCompare(db);
+      });
+    }
+    return filtered.sort((a, b) => blockSortKey(a) - blockSortKey(b));
+  }, [blocks, selectedYear, adminBlockSort, block_schedule]);
 
   const getSchedule = (blockId: string) => block_schedule.find(s => s.block_id === blockId);
 
@@ -337,6 +358,20 @@ export default function CurriculumManager() {
         >
           <PlusCircle className="w-4 h-4" /> Add Year
         </button>
+      </div>
+
+      {/* Sort control */}
+      <div className="flex justify-end">
+        <select
+          value={adminBlockSort}
+          onChange={e => changeAdminBlockSort(e.target.value as 'curriculum' | 'name' | 'date')}
+          className="text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-sm"
+          title="Sort blocks"
+        >
+          <option value="curriculum">Sort: Curriculum order</option>
+          <option value="name">Sort: Name (A–Z)</option>
+          <option value="date">Sort: Due date</option>
+        </select>
       </div>
 
       {/* List */}
