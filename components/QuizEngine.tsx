@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
 import QotdHistory from './QotdHistory';
+import QuizReview from './QuizReview';
 import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
@@ -48,6 +49,14 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [resultData, setResultData] = useState<any>(null);
+  // Practice (reveal after each Q) vs Quiz (answers hidden until the end), chosen
+  // on the pre-start screen for non-QOTD quizzes. `started` gates that screen; a
+  // resumed session (existing progress) skips it.
+  const [mode, setMode] = useState<'practice' | 'quiz'>('practice');
+  const [started, setStarted] = useState(false);
+  useEffect(() => {
+    if (currentIndex > 0 || Object.keys(answers).length > 0) setStarted(true);
+  }, [currentIndex, answers]);
 
   // Idempotency guards for submit. submittingRef blocks re-entrant calls
   // (double-tap, timer auto-submit racing a manual Finish) synchronously, since
@@ -331,7 +340,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // True while the current question's explanation is showing — i.e. the resident
   // already answered it and is reviewing. (No explanation shows for QOTD, or in
   // Quiz mode where answers are hidden until the end, so the timer runs normally.)
-  const reviewingExplanation = !isQotd && answers[currentIndex] !== undefined;
+  const reviewingExplanation = !isQotd && mode === 'practice' && answers[currentIndex] !== undefined;
 
   // Timer countdown — stops at 0, turns red as warning. Pauses while reviewing an
   // explanation so reading it never counts against the resident's time.
@@ -731,8 +740,18 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             </div>
           )}
 
-          {/* Missed Questions */}
-          {missedQuestions.length > 0 && (
+          {/* Quiz mode: full review of every question (answers were hidden until now) */}
+          {!isQotd && mode === 'quiz' && (
+            <div>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">
+                Review All Questions
+              </h3>
+              <QuizReview items={questions.map((q, i) => ({ question: q, selected: answers[i] }))} />
+            </div>
+          )}
+
+          {/* Missed Questions (practice mode + QOTD) */}
+          {(isQotd || mode === 'practice') && missedQuestions.length > 0 && (
             <div>
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">
                 Missed Questions ({missedQuestions.length})
@@ -850,6 +869,54 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const answeredCount = Object.keys(answers).length;
   const isTimeLow = timeLeft > 0 && timeLeft < 300;
 
+  // Pre-start screen: choose Practice vs Quiz before a non-QOTD, non-demo quiz begins.
+  if (!isQotd && !((topic || '').toLowerCase().includes('demo')) && !started && currentQuestion) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 max-w-md w-full space-y-6 animate-fade-in">
+          <div className="text-center">
+            <h2 className="text-2xl font-black text-slate-800 leading-tight">{topic || 'Quiz'}</h2>
+            <p className="text-slate-500 font-medium mt-2">{questions.length} question{questions.length === 1 ? '' : 's'}{timerEnabled ? ' · timed' : ''}</p>
+          </div>
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Choose mode</p>
+            <div className="flex bg-white rounded-xl border border-slate-200 p-1">
+              <button
+                onClick={() => setMode('practice')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'practice' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Practice
+              </button>
+              <button
+                onClick={() => setMode('quiz')}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'quiz' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Quiz
+              </button>
+            </div>
+            <p className="text-xs text-slate-500 mt-3 text-center leading-relaxed">
+              {mode === 'practice'
+                ? 'The correct answer and explanation appear right after each question.'
+                : 'Answers stay hidden until you finish — then you get a full review.'}
+            </p>
+          </div>
+          <button
+            onClick={() => setStarted(true)}
+            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl"
+          >
+            Start
+          </button>
+          <button
+            onClick={onCancel}
+            className="w-full py-2 text-slate-400 font-bold text-sm hover:text-slate-600 transition-all"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-4">
@@ -943,7 +1010,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 submitQuiz(true, newAnswers);
               }
             }}
-            showExplanation={!isQotd && answers[currentIndex] !== undefined}
+            showExplanation={!isQotd && mode === 'practice' && answers[currentIndex] !== undefined}
             fontSize={fontSize}
             initialHighlights={questionTools[currentQuestion.id]?.highlights || []}
             initialStrikethroughs={questionTools[currentQuestion.id]?.strikethroughs || []}

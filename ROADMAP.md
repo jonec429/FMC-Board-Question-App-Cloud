@@ -304,6 +304,11 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-05 — Practice vs Quiz Mode + End-of-Quiz Review (Claude)
+*   **Pick your mode before any block** (assigned or custom; not QOTD): a quick start screen lets you choose **Practice** (answer + explanation reveal after each question — the original behavior) or **Quiz** (answers stay hidden until you submit the whole thing).
+*   **Quiz mode ends with a full review** — every question, your answer, the correct answer, and the explanation on one screen (new reusable `QuizReview` component).
+*   The "timer pauses while reviewing" behavior now applies only in Practice mode (Quiz mode has nothing to reveal mid-quiz). *(Parked idea #5 — shipped. Reviewing *past* quizzes under My Performance is the final piece, coming next.)*
+
 ### 2026-06-05 — Sort Your Board Review Blocks (Claude)
 *   Residents can now **sort their block list** — *Curriculum order* (default), *Name (A–Z)*, or *Unfinished first* — from a dropdown above "Board Review Blocks." The choice is **saved per person** on their own device, so everyone can order their list however they like.
 *   Admins get the same per-user sort in the **Curriculum Manager** (*Curriculum order / Name (A–Z) / Due date*). *(Parked idea #2 — shipped, both sides.)*
