@@ -304,6 +304,9 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-05 — Review Any Past Quiz (My Performance) (Claude)
+*   **New "Past Quizzes" tab under My Performance.** Residents can reopen any completed quiz — assigned blocks *and* custom builds — and review every question with their own answer, the correct answer, and the explanation (powered by the saved `review_data` snapshot + the shared `QuizReview` component). This is the permanent record that **replaces the old completion email**. *(Parked idea #4 — shipped. Quizzes taken before the 2026-06-05 "review foundation" update show as "review unavailable.")*
+
 ### 2026-06-05 — Curriculum Order Fix (Claude)
 *   **Blocks now sort in true curriculum order.** Previously every block carried a leftover `sort_order = 0`, which the sorter treated as "explicitly ordered" — so all blocks tied at 0 and just appeared in creation order (e.g., the Demo Quiz landing in the middle). Now `0` is treated as "unset," so the intended order applies — **Block 1 → Block 2 → … → bonus → other → Demo last** — on both the admin Curriculum list and residents' dashboards. (`blockSortKey` in `CurriculumManager.tsx` + `getBlockSortKey` in `useDashboardData.ts`.)
 

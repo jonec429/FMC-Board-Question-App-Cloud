@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName } from '@/lib/utils';
 import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight } from './AppIcons';
 import { LeaderboardEntry } from '@/lib/types';
+import QuizReview from './QuizReview';
 
 interface MyStatsModalProps {
   onClose: () => void;
@@ -31,7 +32,10 @@ export default function MyStatsModal({
   leaderboard,
   userBadges,
 }: MyStatsModalProps) {
-  const [activeTab, setActiveTab] = useState<'stats' | 'weakAreas'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'weakAreas' | 'pastQuizzes'>('stats');
+  const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
+  const [reviewItems, setReviewItems] = useState<any[] | null>(null);
+  const [loadingReview, setLoadingReview] = useState(false);
   const [qotdStats, setQotdStats] = useState<{ correct: number; incorrect: number } | null>(null);
 
   // Weak Areas State
@@ -50,6 +54,30 @@ export default function MyStatsModal({
   useEffect(() => {
     setCurrentIndex(0);
   }, [selectedTopic]);
+
+  // Past Quizzes: the resident's completed blocks/customs (newest first). Excludes
+  // QOTD and the demo. New quizzes carry a `review_data` snapshot for full review.
+  const pastQuizzes = [...(myResults || [])]
+    .filter((r: any) => r.topic && !/question of the day|^demo/i.test(r.topic))
+    .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+  const openReview = async (r: any) => {
+    setSelectedQuiz(r);
+    setReviewItems(null);
+    const rd = Array.isArray(r.review_data) ? r.review_data : null;
+    if (!rd || rd.length === 0) return; // taken before review snapshots were saved
+    setLoadingReview(true);
+    try {
+      const ids = rd.map((x: any) => x.q).filter(Boolean);
+      const { data } = await withTimeout(supabase.from('questions').select('*').in('id', ids), 10000) as any;
+      const byId = new Map((data || []).map((q: any) => [q.id, q]));
+      setReviewItems(rd.map((x: any) => ({ question: byId.get(x.q), selected: x.a })));
+    } catch {
+      setReviewItems([]);
+    } finally {
+      setLoadingReview(false);
+    }
+  };
 
   // Filter out demo quizzes from all stats
   const profileResults = (myResults || []).filter((r: any) => !r.topic?.toLowerCase().includes('demo'));
@@ -226,6 +254,16 @@ export default function MyStatsModal({
           >
             Review Weak Areas
           </button>
+          <button
+            onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
+            className={`flex-1 py-4 text-sm font-black uppercase tracking-widest transition-colors ${
+              activeTab === 'pastQuizzes'
+                ? 'text-blue-600 border-b-2 border-blue-500 bg-blue-50/50'
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            Past Quizzes
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -338,6 +376,59 @@ export default function MyStatsModal({
                   <p className="text-center py-8 text-slate-400 text-sm italic">No assessments completed yet.</p>
                 )}
               </div>
+            </div>
+          )}
+
+          {activeTab === 'pastQuizzes' && (
+            <div className="animate-fade-in">
+              {selectedQuiz ? (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => { setSelectedQuiz(null); setReviewItems(null); }}
+                    className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700"
+                  >
+                    <ChevronLeft className="w-4 h-4" /> All quizzes
+                  </button>
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                    <h3 className="font-black text-slate-800">{selectedQuiz.topic}</h3>
+                    <p className="text-xs font-bold text-slate-400 mt-1">
+                      {selectedQuiz.created_at ? new Date(selectedQuiz.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
+                      {selectedQuiz.percentage != null ? ` · ${Number(selectedQuiz.percentage).toFixed(1)}%` : ''}
+                    </p>
+                  </div>
+                  {loadingReview ? (
+                    <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-blue-500 animate-spin" /></div>
+                  ) : reviewItems && reviewItems.length > 0 ? (
+                    <QuizReview items={reviewItems} />
+                  ) : (
+                    <p className="text-center text-slate-400 text-sm italic py-10">
+                      A reviewable copy of this quiz wasn't saved — it was taken before review was added.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {pastQuizzes.length === 0 ? (
+                    <p className="text-center text-slate-400 text-sm italic py-10">No completed quizzes yet.</p>
+                  ) : pastQuizzes.map((r: any) => (
+                    <button
+                      key={r.id}
+                      onClick={() => openReview(r)}
+                      className="w-full text-left p-4 bg-white border border-slate-100 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-300 hover:shadow-sm transition-all"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 truncate">{r.topic}</p>
+                        <p className="text-xs font-bold text-slate-400 mt-0.5">
+                          {r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                          {r.percentage != null ? ` · ${Number(r.percentage).toFixed(1)}%` : ''}
+                          {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
