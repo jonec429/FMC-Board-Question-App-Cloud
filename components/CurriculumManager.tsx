@@ -20,6 +20,8 @@ export default function CurriculumManager() {
   // Local state for inline edits
   const [editingDates, setEditingDates] = useState<string | null>(null);
   const [dateForm, setDateForm] = useState({ start: '', end: '' });
+  const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const [titleForm, setTitleForm] = useState('');
   const [saving, setSaving] = useState(false);
   const [initializing, setInitializing] = useState(false);
 
@@ -215,6 +217,26 @@ export default function CurriculumManager() {
     await onRefresh();
   };
 
+  const handleRenameBlock = async (blockId: string, oldTitle: string) => {
+    const newTitle = titleForm.trim();
+    if (!newTitle) { alert('Block title cannot be empty.'); return; }
+    if (newTitle === oldTitle) { setEditingTitle(null); return; }
+    // A block's title is the key that links completions + in-progress sessions to it,
+    // so renaming is only safe before anyone has taken it. (For planning + fixing
+    // accidental "(Copy)" names.)
+    const usageCount = resultsCount.get(oldTitle) || 0;
+    if (usageCount > 0) {
+      alert(`Cannot rename: ${usageCount} resident(s) already have completions recorded under "${oldTitle}". Renaming would orphan their scores. Renaming is meant for planning before a block is used — duplicate or archive it instead.`);
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase.from('blocks').update({ title: newTitle }).eq('id', blockId);
+    setSaving(false);
+    if (error) { alert('Error renaming block: ' + error.message); return; }
+    setEditingTitle(null);
+    await onRefresh();
+  };
+
   const handleToggleArchive = async (block: any) => {
     const isArchived = block.is_archived;
     const action = isArchived ? 'Unarchive' : 'Archive';
@@ -338,7 +360,34 @@ export default function CurriculumManager() {
                 <div className="col-span-4 pl-4 flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${block.is_archived ? 'bg-slate-300' : isReady ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                   <div>
-                    <h3 className={`font-bold ${block.is_archived ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{block.title}</h3>
+                    {editingTitle === block.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          value={titleForm}
+                          onChange={e => setTitleForm(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleRenameBlock(block.id, block.title); if (e.key === 'Escape') setEditingTitle(null); }}
+                          className="text-sm font-bold px-2 py-1 rounded bg-white border border-blue-200 w-full max-w-[220px] outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
+                        <button onClick={() => handleRenameBlock(block.id, block.title)} disabled={saving} className="p-1.5 bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-lg shrink-0" title="Save name">
+                          <Save className="w-4 h-4 pointer-events-none" />
+                        </button>
+                        <button onClick={() => setEditingTitle(null)} className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-lg shrink-0" title="Cancel">
+                          <X className="w-4 h-4 pointer-events-none" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="group/title flex items-center gap-2">
+                        <h3 className={`font-bold ${block.is_archived ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{block.title}</h3>
+                        <button
+                          onClick={() => { setEditingTitle(block.id); setTitleForm(block.title); }}
+                          className="text-slate-300 hover:text-blue-500 opacity-0 group-hover/title:opacity-100 transition-all shrink-0"
+                          title="Rename block"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                     <p className="text-xs font-bold text-slate-400">{resultsCount.get(block.title) || 0} completions{block.is_archived && ' ΓÇó Archived'}</p>
                   </div>
                 </div>
