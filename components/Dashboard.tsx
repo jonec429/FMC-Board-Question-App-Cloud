@@ -57,6 +57,19 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
   const [showMyStats, setShowMyStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Per-user block sort preference (each resident sorts their own list; saved locally)
+  const [blockSort, setBlockSort] = useState<'curriculum' | 'name' | 'status'>('curriculum');
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('fmc_resident_block_sort');
+      if (s === 'name' || s === 'status') setBlockSort(s);
+    } catch {}
+  }, []);
+  const changeBlockSort = (m: 'curriculum' | 'name' | 'status') => {
+    setBlockSort(m);
+    try { localStorage.setItem('fmc_resident_block_sort', m); } catch {}
+  };
+
   // Smart background refetching
   useEffect(() => {
     if (isActive) {
@@ -329,7 +342,21 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
             </div>
           </button>
 
-          <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs mb-3">Board Review Blocks</h3>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs">Board Review Blocks</h3>
+            {blocks.length > 1 && (
+              <select
+                value={blockSort}
+                onChange={e => changeBlockSort(e.target.value as 'curriculum' | 'name' | 'status')}
+                className="text-[11px] font-bold text-slate-500 bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                title="Sort blocks"
+              >
+                <option value="curriculum">Curriculum order</option>
+                <option value="name">Name (A–Z)</option>
+                <option value="status">Unfinished first</option>
+              </select>
+            )}
+          </div>
 
           {fetchError ? (
             <div className="bg-red-50 border border-red-100 rounded-xl p-4 my-4">
@@ -346,7 +373,16 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
             <p className="text-center py-6 text-slate-400 text-sm italic">No blocks available.</p>
           ) : (
             <div className="flex flex-col gap-2.5">
-              {blocks.map(block => {
+              {[...blocks].sort((a, b) => {
+                if (blockSort === 'name') return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+                if (blockSort === 'status') {
+                  const rA = bestResultByTopic.get(a.title); const rB = bestResultByTopic.get(b.title);
+                  const doneA = !!rA && (rA.academic_points || 0) > 0;
+                  const doneB = !!rB && (rB.academic_points || 0) > 0;
+                  return Number(doneA) - Number(doneB);
+                }
+                return 0; // 'curriculum' — keep server order (by sort_order)
+              }).map(block => {
                 const result = bestResultByTopic.get(block.title);
                 const isCompleted = !!result && (result.academic_points || 0) > 0;
                 const hasResume = activeSession && activeSession.topic === block.title;
