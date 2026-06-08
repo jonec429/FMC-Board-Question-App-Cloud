@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { getQotdQuestion } from '@/lib/qotd';
+import { getQotdQuestion, getTodayDateString } from '@/lib/qotd';
 import { Block, Result, Question } from '@/lib/types';
 
 interface LeaderboardEntry {
@@ -161,7 +161,15 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         leaderboard,
         hasTakenDemo,
         qotdQuestion: qotd || null,
-        qotdAttempt: qotdAttemptData || null,
+        // Only treat the QOTD as "answered" if the attempt was logged TODAY (Eastern).
+        // The schedule clock has been reset before, which can re-serve a question the
+        // user already answered as a QOTD on an earlier day — without this date check
+        // that stale attempt wrongly flips today's card to "Answer recorded."
+        qotdAttempt:
+          qotdAttemptData?.created_at &&
+          getTodayDateString(new Date(qotdAttemptData.created_at)) === getTodayDateString()
+            ? qotdAttemptData
+            : null,
         userStreak: streakData || null,
         userBadges,
       };

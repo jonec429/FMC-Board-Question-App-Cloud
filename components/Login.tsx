@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff } from './AppIcons';
+import { AbfmShield, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 
 export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
@@ -179,13 +179,13 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
 
           {/* Branding */}
           <div className="flex flex-col items-center text-center mb-8">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/program-logo.png"
-              alt="Ascension St. Vincent's Family Medicine Residency"
-              className="w-72 max-w-full h-auto mb-5"
-            />
+            <div className="bg-blue-600 p-5 rounded-3xl shadow-xl text-white mb-5">
+              <AbfmShield className="w-12 h-12" />
+            </div>
             <h1 className="text-3xl font-black text-slate-900 leading-tight">FMC Board Question App</h1>
+            <p className="text-slate-400 text-xs mt-2 leading-snug">
+              Ascension St. Vincent's Family Medicine Residency Program Jacksonville
+            </p>
           </div>
 
           {/* Form */}
@@ -329,6 +329,16 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
             <button onClick={() => setShowNews(true)} className="flex items-center gap-1.5 text-slate-400 hover:text-blue-500 transition-colors text-xs font-bold py-1">
               <HelpCircle className="w-3.5 h-3.5" /> What's New
             </button>
+          </div>
+
+          {/* Program logo — small, below the form & links for brand continuity */}
+          <div className="mt-6 pt-6 border-t border-slate-100 flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/program-logo.png"
+              alt="Ascension St. Vincent's Family Medicine Residency"
+              className="w-44 max-w-full h-auto opacity-70"
+            />
           </div>
         </div>
       </div>

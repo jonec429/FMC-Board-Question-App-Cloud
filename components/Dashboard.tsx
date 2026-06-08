@@ -7,7 +7,7 @@ import { canAccessAdmin } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon, MessageSquare, Loader2
+  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
@@ -115,8 +115,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
       <div className="mb-8 flex justify-between items-start gap-2 relative">
         <div className="absolute -top-10 -left-10 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex-1 min-w-0 pr-2 flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/program-mark.png" alt="Ascension St. Vincent's FM Residency" className="w-10 h-10 object-contain hidden sm:block shrink-0" />
+          <AbfmShield className="w-10 h-10 text-blue-600 hidden sm:block shrink-0" />
           <div className="min-w-0">
             <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight truncate">FMC Board Review App</h2>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
