@@ -287,7 +287,7 @@ This file serves as the shared source of truth for development progress between 
 ---
 
 ## 💡 Parked Ideas & Future Considerations
-*Captured 2026-06-05 — agreed as future work, not yet built.*
+*Captured 2026-06-05. **✅ All shipped the same day** — #1–#5 built; #6 dropped → replaced by #4 (review). See the changelog above for each. Kept here for provenance.*
 
 - **Block rename in Curriculum Manager**: Inline-edit a block's title. Intended for *planning* (before residents start a block) and to fix accidental "(Copy)" names — explicitly **not** for renaming blocks already in use. ⚠️ If a block with completions is ever renamed, the change must cascade to `results.topic` and `quiz_sessions.topic` (the title is the foreign key) to avoid orphaning scores — best done via a secure admin-only server route.
 - **Per-user quiz sorting**: Let every user sort their own quiz/block list however they want — independently on the resident side and the admin side (it does **not** need to be the same order for everyone). Supersedes the earlier "global admin-set block order via `sort_order`" idea.
