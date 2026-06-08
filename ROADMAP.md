@@ -273,7 +273,7 @@ This file serves as the shared source of truth for development progress between 
 ### Analytics & Reporting
 - [x] **Question-level Analytics**: More granular tracking of individual question performance (distractor analysis heatmap).
 - [x] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
-- [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Alerts:** ✅ in-app "needs attention" banner (Tier 1). **Remaining:** scheduled Web-Push digest (Tier 2).
+- [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Alerts:** ✅ in-app "needs attention" banner (Tier 1) + ✅ manual advisor-email digest now carries the overdue/trend/why-flagged reasons. **Remaining (parked):** scheduled Web-Push digest (Tier 2).
 - [x] **Advisor Email Reports**: Automated email summaries sent to faculty advisors detailing their specific advisees' performance and completion rates.
 
 ### Transition & Infrastructure
@@ -304,6 +304,10 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-08 — Advisor Emails Now Include the "Why" (Claude)
+*(Faculty/admin Performance view.)*
+*   **The "Email Advisors" and "Email Report" drafts carry the risk reasons.** Each resident line gains a **Flags** field — e.g. *"2 blocks overdue, Trending down 14%"* — and a ⚠ marker for anyone At Risk / Needs Attention (declining included). So when you manually send an advisor a ping, it shows *who* needs attention and *why*, not just a score. (Still `mailto:` drafts you send from your own mailbox — all advisees included since lists are short.)
 
 ### 2026-06-08 — Resident Risk: "Needs Attention" Banner (Claude)
 *(Faculty/admin Performance view.)*

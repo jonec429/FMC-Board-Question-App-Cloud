@@ -490,8 +490,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     const body = encodeURIComponent(
                       "Hello,\n\nHere is a summary of your advisees' current performance in the FMC QBank:\n\n" + 
                       myAdvisees.map(r => {
-                        const risk = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'red' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow') ? 'yellow' : 'green';
-                        return `- ${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${risk === 'red' ? 'AT RISK' : risk === 'yellow' ? 'NEEDS ATTENTION' : 'ON TRACK'}`;
+                        const status = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'AT RISK' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) ? 'NEEDS ATTENTION' : 'ON TRACK';
+                        const flags = r.riskReasons.length > 0 ? ` | Flags: ${r.riskReasons.join(', ')}` : '';
+                        const mark = status !== 'ON TRACK' ? '⚠ ' : '';
+                        return `- ${mark}${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${status}${flags}`;
                       }).join('\n') +
                       "\n\nPlease reach out if you have any questions.\n\nThank you!"
                     );
@@ -555,8 +557,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).forEach(([adv, resList]) => {
                   bodyStr += `\n=== ${adv} ===\n`;
                   resList.forEach(r => {
-                    const risk = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'red' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow') ? 'yellow' : 'green';
-                    bodyStr += `- ${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${risk === 'red' ? 'AT RISK' : risk === 'yellow' ? 'NEEDS ATTENTION' : 'ON TRACK'}\n`;
+                    const status = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'AT RISK' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) ? 'NEEDS ATTENTION' : 'ON TRACK';
+                    const flags = r.riskReasons.length > 0 ? ` | Flags: ${r.riskReasons.join(', ')}` : '';
+                    const mark = status !== 'ON TRACK' ? '⚠ ' : '';
+                    bodyStr += `- ${mark}${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${status}${flags}\n`;
                   });
                 });
                 bodyStr += "\n\nLog in to the Admin Console for more details.\n\nThank you!";
