@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { getQotdQuestion, getTodayDateString } from '@/lib/qotd';
+import { computeQotdStreak } from '@/lib/streaks';
 import { Block, Result, Question } from '@/lib/types';
 
 interface LeaderboardEntry {
@@ -75,7 +76,8 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         { data: resultsData, error: resultsErr },
         { data: allResults, error: allResultsErr },
         { data: rosterData, error: rosterErr },
-        { data: qotdAttemptData, error: qotdAttemptErr }
+        { data: qotdAttemptData, error: qotdAttemptErr },
+        { data: qotdHistoryData }
       ] = (await Promise.all([
         selectedYear === 0
           ? supabase
@@ -109,7 +111,14 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
               .limit(1)
               .abortSignal(signal)
               .maybeSingle()
-          : Promise.resolve({ data: null, error: null })
+          : Promise.resolve({ data: null, error: null }),
+        // QOTD answer history (timestamps) — feeds the self-healing streak below.
+        supabase
+          .from('question_attempts')
+          .select('created_at')
+          .eq('user_id', userId)
+          .eq('is_qotd', true)
+          .abortSignal(signal)
       ])) as any[];
 
       const err2 = resultsErr || allResultsErr || rosterErr || qotdAttemptErr;
@@ -154,6 +163,23 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         leaderboard.sort((a, b) => b.totalPoints - a.totalPoints);
       }
 
+      // Self-healing QOTD streak — derived from the user's real answer history
+      // (EST dates), so a failed/late gamification write or a schedule reset can't
+      // silently break it. Overrides the stored counter for display.
+      const qotdAnsweredDates = (qotdHistoryData || [])
+        .map((r: any) => (r.created_at ? getTodayDateString(new Date(r.created_at)) : null))
+        .filter(Boolean) as string[];
+      const computedQotdStreak = computeQotdStreak(qotdAnsweredDates, getTodayDateString());
+      const mergedStreak = streakData
+        ? {
+            ...streakData,
+            current_qotd_streak: computedQotdStreak,
+            max_qotd_streak: Math.max(streakData.max_qotd_streak || 0, computedQotdStreak),
+          }
+        : computedQotdStreak > 0
+          ? { current_qotd_streak: computedQotdStreak, max_qotd_streak: computedQotdStreak }
+          : null;
+
       return {
         blocks: sortedBlocks,
         myResults,
@@ -170,7 +196,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           getTodayDateString(new Date(qotdAttemptData.created_at)) === getTodayDateString()
             ? qotdAttemptData
             : null,
-        userStreak: streakData || null,
+        userStreak: mergedStreak,
         userBadges,
       };
     },

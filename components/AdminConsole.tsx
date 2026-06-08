@@ -11,6 +11,7 @@ import CurriculumManager from './CurriculumManager';
 import QuestionBankManager from './QuestionBankManager';
 import NotificationManager from './NotificationManager';
 import AdminReporting from './AdminReporting';
+import AnnualRollover from './AnnualRollover';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -20,7 +21,7 @@ interface AdminConsoleProps {
   onExit: () => void;
 }
 
-type TabId = 'performance' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications';
+type TabId = 'performance' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications' | 'rollover';
 
 export default function AdminConsole({ user, profile, onExit }: AdminConsoleProps) {
   const role = getUserRole(user, profile);
@@ -62,6 +63,12 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
       items: [
         { id: 'questions', label: 'Questions', icon: Database, adminOnly: true, description: 'Browse bank or bulk import' },
         { id: 'builder', label: 'Curriculum Manager', icon: PlusCircle, adminOnly: true, description: 'Manage dates and questions' },
+      ],
+    },
+    {
+      heading: 'System',
+      items: [
+        { id: 'rollover', label: 'Annual Rollover', icon: Settings, adminOnly: true, description: 'Year-over-year question integration' },
       ],
     },
   ];
@@ -164,6 +171,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
             {activeTab === 'questions' && <QuestionBankManager />}
             {activeTab === 'builder' && <CurriculumManager />}
             {activeTab === 'notifications' && <NotificationManager user={user} profile={profile} />}
+            {activeTab === 'rollover' && <AnnualRollover user={user} onNavigate={(t) => setActiveTab(t as TabId)} />}
           </main>
         </div>
       </div>

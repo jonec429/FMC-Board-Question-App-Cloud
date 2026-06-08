@@ -7,10 +7,11 @@ import { canAccessAdmin } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield
+  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
+import AchievementsModal from './AchievementsModal';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -55,6 +56,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
 
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   // Per-user block sort preference (each resident sorts their own list; saved locally)
@@ -235,10 +237,17 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
             </div>
            )}
 
-          {/* Streaks & Badges */}
-          {((userStreak?.current_qotd_streak > 0) || (userStreak?.current_block_streak > 0) || (userBadges.length > 0)) && (
+          {/* Achievements */}
             <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm animate-fade-in">
-              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Achievements</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Achievements</h3>
+                <button
+                  onClick={() => setShowAchievements(true)}
+                  className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  <Info className="w-3.5 h-3.5" /> View all
+                </button>
+              </div>
               
               {userStreak?.current_qotd_streak > 0 && (
                 <div 
@@ -275,8 +284,16 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                   ))}
                 </div>
               )}
+
+              {!(userStreak?.current_qotd_streak > 0) && !(userStreak?.current_block_streak > 0) && userBadges.length === 0 && (
+                <button
+                  onClick={() => setShowAchievements(true)}
+                  className="w-full text-left text-xs font-medium text-slate-400 hover:text-blue-600 transition-colors"
+                >
+                  No badges yet — tap &ldquo;View all&rdquo; to see what you can earn.
+                </button>
+              )}
             </div>
-          )}
 
           {/* My Performance — yellow gradient */}
           <button
@@ -464,6 +481,13 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           myResults={myResults}
           leaderboard={leaderboard}
           userBadges={userBadges}
+        />
+      )}
+
+      {showAchievements && (
+        <AchievementsModal
+          userBadges={userBadges}
+          onClose={() => setShowAchievements(false)}
         />
       )}
 

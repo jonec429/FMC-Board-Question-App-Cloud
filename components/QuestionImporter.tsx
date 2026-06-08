@@ -21,6 +21,7 @@ export default function QuestionImporter() {
   const [importing, setImporting] = useState(false);
   const [insertedCount, setInsertedCount] = useState(0);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [batchYear, setBatchYear] = useState('');
 
   // === File upload handler ===
   const handleFile = async (file: File) => {
@@ -76,7 +77,7 @@ export default function QuestionImporter() {
       const isDupe = existingTexts.has(r.question.question_text);
       if (isDupe && !allowDuplicates) return;
       toInsert.push({
-        year: r.question.year,
+        year: batchYear.trim() || r.question.year,
         category: r.question.category,
         system: r.question.system,
         abfm_category: '', // legacy column, kept empty
@@ -115,6 +116,7 @@ export default function QuestionImporter() {
     setExistingTexts(new Set());
     setInsertedCount(0);
     setServerError(null);
+    setBatchYear('');
   };
 
   // === Render: Input Phase ===
@@ -210,6 +212,21 @@ export default function QuestionImporter() {
             placeholder="Paste your CSV here…"
             className="w-full h-64 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:ring-0 transition-all font-mono text-sm leading-relaxed"
           />
+
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-4">
+            <label htmlFor="batch-year" className="text-sm font-black text-slate-700 shrink-0">Tag all rows as ITE year</label>
+            <input
+              id="batch-year"
+              value={batchYear}
+              onChange={(e) => setBatchYear(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+              inputMode="numeric"
+              placeholder="e.g. 2027"
+              className="w-28 px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-sm focus:border-blue-500 focus:ring-0 outline-none"
+            />
+            <span className="text-xs text-slate-400 font-medium">
+              Optional — overrides the CSV&apos;s <code>year</code> column for every row, keeping ITE tags consistent.
+            </span>
+          </div>
 
           <button
             onClick={handleParse}
