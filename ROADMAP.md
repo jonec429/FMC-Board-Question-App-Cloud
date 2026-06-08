@@ -273,7 +273,7 @@ This file serves as the shared source of truth for development progress between 
 ### Analytics & Reporting
 - [x] **Question-level Analytics**: More granular tracking of individual question performance (distractor analysis heatmap).
 - [x] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
-- [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks now flag a resident who'd otherwise look "on track") + per-resident **"why flagged" reasons**, in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Remaining:** declining-trend detection and proactive alerts.
+- [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Remaining:** proactive alerts.
 - [x] **Advisor Email Reports**: Automated email summaries sent to faculty advisors detailing their specific advisees' performance and completion rates.
 
 ### Transition & Infrastructure
@@ -304,6 +304,10 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-08 — Resident Risk: Declining-Trend Detection (Claude)
+*(Faculty/admin Performance view.)*
+*   **Catch slipping residents before the average tanks.** A resident whose **recent block/quiz scores are trending down** versus their earlier ones is now flagged **🟡 Needs Attention** — even if their cumulative average still looks fine. It appears as a *"Trending down 14%"* chip alongside the other reasons, in the Performance tables, the resident modal, and the CSV/PDF. (Compares the last few scores against the previous few; needs ≥4 attempts. `computeTrend` in `lib/residentRisk.ts`.)
 
 ### 2026-06-08 — Resident Risk: Overdue Detection & "Why Flagged" Reasons (Claude)
 *(Faculty/admin Performance view.)*

@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { AdminData } from '@/lib/types';
 import { FileText, Download, Printer, Users, CheckCircle, XCircle, TrendingDown } from './AppIcons';
 import { isActiveResident, getCurrentAcademicYear } from '@/lib/academicYear';
-import { getDueBlocks, getOverdueBlocks, getRiskLevel, getComplianceRisk, getRiskReasons, riskStatusLabel } from '@/lib/residentRisk';
+import { getDueBlocks, getOverdueBlocks, getRiskLevel, getComplianceRisk, getRiskReasons, riskStatusLabel, computeTrend } from '@/lib/residentRisk';
 
 interface AdminReportingProps {
   adminData: AdminData;
@@ -57,10 +57,16 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
       const overdueCount = getOverdueBlocks(dueBlocks, completedTitles).length;
       const totalPoints = Array.from(topicBestPts.values()).reduce((s, p) => s + p, 0);
 
+      const scoresChrono = [...userResults]
+        .filter((r: any) => typeof r.percentage === 'number')
+        .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .map((r: any) => r.percentage);
+      const { delta: trendDelta, declining } = computeTrend(scoresChrono);
+
       const academicRisk = getRiskLevel(curriculumAvg, assigned.length);
       const complianceRisk = getComplianceRisk(onTimeRate, blocksCompleted, overdueCount);
-      const riskStatus = riskStatusLabel(academicRisk, complianceRisk);
-      const reasons = getRiskReasons({ curriculumAvg, curriculumAttempts: assigned.length, onTimePct: onTimeRate, blocksCompleted, overdueCount });
+      const riskStatus = riskStatusLabel(academicRisk, complianceRisk, declining);
+      const reasons = getRiskReasons({ curriculumAvg, curriculumAttempts: assigned.length, onTimePct: onTimeRate, blocksCompleted, overdueCount, trendDelta });
 
       return {
         name: rosterEntry.name || `${rosterEntry.first_name} ${rosterEntry.last_name}`,

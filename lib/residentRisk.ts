@@ -83,6 +83,7 @@ export interface RiskInputs {
   onTimePct: number;
   blocksCompleted: number;
   overdueCount: number;
+  trendDelta?: number | null;
 }
 
 /** Plain-language reasons a resident is flagged — only the triggers that apply. */
@@ -92,16 +93,34 @@ export function getRiskReasons(x: RiskInputs): string[] {
   const academic = getRiskLevel(x.curriculumAvg, x.curriculumAttempts);
   if (academic === 'red' || academic === 'yellow') reasons.push(`Avg ${Math.round(x.curriculumAvg)}%`);
   if (x.blocksCompleted > 0 && x.onTimePct < 75) reasons.push(`On-time ${Math.round(x.onTimePct)}%`);
+  if (x.trendDelta != null && x.trendDelta <= -10) reasons.push(`Trending down ${Math.abs(Math.round(x.trendDelta))}%`);
   return reasons;
 }
 
 /** Coarse status label for exports, from the two axes. */
 export function riskStatusLabel(
   academic: RiskLevel,
-  compliance: RiskLevel
+  compliance: RiskLevel,
+  declining = false
 ): 'At Risk' | 'Needs Attention' | 'On Track' | 'Evaluating' {
   if (academic === 'red' || compliance === 'red') return 'At Risk';
-  if (academic === 'yellow' || compliance === 'yellow') return 'Needs Attention';
+  if (academic === 'yellow' || compliance === 'yellow' || declining) return 'Needs Attention';
   if (academic === 'green' || compliance === 'green') return 'On Track';
   return 'Evaluating';
+}
+
+/**
+ * Recent-vs-earlier trend on a chronological list of scores (oldest -> newest %).
+ * Returns the delta (recent avg - earlier avg) and whether it's a meaningful drop.
+ * Needs >= 4 data points; compares the last up-to-3 against the 3 immediately before.
+ */
+export function computeTrend(scoresChrono: number[]): { delta: number | null; declining: boolean } {
+  const n = scoresChrono.length;
+  if (n < 4) return { delta: null, declining: false };
+  const w = Math.min(3, Math.floor(n / 2));
+  const recent = scoresChrono.slice(n - w);
+  const earlier = scoresChrono.slice(n - 2 * w, n - w);
+  const avg = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
+  const delta = avg(recent) - avg(earlier);
+  return { delta, declining: delta <= -10 };
 }

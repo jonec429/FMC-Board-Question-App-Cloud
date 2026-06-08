@@ -8,7 +8,7 @@ import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, 
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, Mail, Search } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
-import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons } from '@/lib/residentRisk';
+import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
 
 interface ResidentStat {
   name: string;
@@ -33,6 +33,8 @@ interface ResidentStat {
   academicRisk: RiskLevel;
   complianceRisk: RiskLevel;
   overdueCount: number;
+  trendDelta: number | null;
+  declining: boolean;
   riskReasons: string[];
 
   results: any[];
@@ -161,12 +163,21 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       const overdueCount = getOverdueBlocks(dueBlocks, completedTitles).length;
       const academicRisk = getRiskLevel(curriculumAvg, assignedResults.length);
       const complianceRisk = getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
+
+      // Early-warning: recent scores sliding vs earlier ones (even if the average still looks OK).
+      const scoresChrono = [...resResults]
+        .filter((r: any) => typeof r.percentage === 'number')
+        .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        .map((r: any) => r.percentage);
+      const { delta: trendDelta, declining } = computeTrend(scoresChrono);
+
       const riskReasons = getRiskReasons({
         curriculumAvg,
         curriculumAttempts: assignedResults.length,
         onTimePct,
         blocksCompleted,
         overdueCount,
+        trendDelta,
       });
 
       return {
@@ -192,6 +203,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         academicRisk,
         complianceRisk,
         overdueCount,
+        trendDelta,
+        declining,
         riskReasons,
         results: resResults.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
       };
@@ -219,7 +232,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   }, [residentStats, facultyName]);
 
   const redFlagged = residentStats.filter(r => r.academicRisk === 'red' || r.complianceRisk === 'red');
-  const yellowFlagged = residentStats.filter(r => r.academicRisk === 'yellow' || r.complianceRisk === 'yellow');
+  const yellowFlagged = residentStats.filter(r =>
+    r.academicRisk !== 'red' && r.complianceRisk !== 'red' &&
+    (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining)
+  );
   const programAvg = residentStats.length > 0
     ? residentStats.filter(r => r.totalAttempts > 0).reduce((a, r) => a + r.overallAvg, 0) / (residentStats.filter(r => r.totalAttempts > 0).length || 1)
     : 0;
@@ -256,7 +272,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             // Overall row color uses the worse of the two risks
             let rowColor = riskColors.green.row;
             if (r.academicRisk === 'red' || r.complianceRisk === 'red') rowColor = riskColors.red.row;
-            else if (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow') rowColor = riskColors.yellow.row;
+            else if (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) rowColor = riskColors.yellow.row;
             else if (r.academicRisk === 'gray' || r.complianceRisk === 'gray') rowColor = riskColors.gray.row;
 
             return (
@@ -270,7 +286,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       {r.riskReasons.map((reason, ri) => (
                         <span
                           key={ri}
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reason.includes('overdue') ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reason.includes('overdue') ? 'bg-red-100 text-red-700' : reason.includes('Trending') ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
                         >
                           {reason}
                         </span>
@@ -551,7 +567,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           {yellowFlagged.length > 0 && (
             <div className="bg-white rounded-[32px] border border-amber-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-amber-50 bg-amber-50/40">
-                <h3 className="font-black text-amber-700">🟡 Needs Attention — Avg ≤65%, on-time below 75%, or a block overdue</h3>
+                <h3 className="font-black text-amber-700">🟡 Needs Attention — Avg ≤65%, on-time below 75%, a block overdue, or recent scores sliding</h3>
               </div>
               <ResidentTable residents={sortRes(yellowFlagged)} />
             </div>
