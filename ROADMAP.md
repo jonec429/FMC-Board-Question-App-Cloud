@@ -273,7 +273,7 @@ This file serves as the shared source of truth for development progress between 
 ### Analytics & Reporting
 - [x] **Question-level Analytics**: More granular tracking of individual question performance (distractor analysis heatmap).
 - [x] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
-- [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Remaining:** proactive alerts.
+- [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Alerts:** ✅ in-app "needs attention" banner (Tier 1). **Remaining:** scheduled Web-Push digest (Tier 2).
 - [x] **Advisor Email Reports**: Automated email summaries sent to faculty advisors detailing their specific advisees' performance and completion rates.
 
 ### Transition & Infrastructure
@@ -304,6 +304,10 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-08 — Resident Risk: "Needs Attention" Banner (Claude)
+*(Faculty/admin Performance view.)*
+*   **Flagged residents surface the moment you open Performance.** A banner up top — *"N residents need attention"* with the at-risk count — links straight to the flagged list (scoped to your advisees if you're faculty), so nobody slipping gets buried in a tab. (In-app alerting; a scheduled push digest is the next piece.)
 
 ### 2026-06-08 — Resident Risk: Declining-Trend Detection (Claude)
 *(Faculty/admin Performance view.)*

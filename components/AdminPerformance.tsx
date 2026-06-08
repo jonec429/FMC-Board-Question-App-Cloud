@@ -363,8 +363,29 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     );
   }
 
+  const isFacultyOnly = userIsFaculty && !userIsAdmin;
+  const bannerScope = isFacultyOnly ? myAdvisees : residentStats;
+  const bannerFlaggedCount = bannerScope.filter(r => r.academicRisk === 'red' || r.complianceRisk === 'red' || r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining).length;
+  const bannerRedCount = bannerScope.filter(r => r.academicRisk === 'red' || r.complianceRisk === 'red').length;
+  const bannerTarget: SubTab = isFacultyOnly ? 'my_advisees' : 'at_risk';
+
   return (
     <div className="space-y-8">
+      {/* Tier-1 alert: surface flagged residents on entry so they're not buried in a tab */}
+      {bannerFlaggedCount > 0 && (
+        <button
+          onClick={() => setActiveSubTab(bannerTarget)}
+          className="w-full flex items-center gap-4 p-5 bg-gradient-to-r from-red-50 to-amber-50 border border-red-100 rounded-3xl text-left hover:shadow-md transition-all animate-fade-in"
+        >
+          <div className="w-11 h-11 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center shrink-0 text-xl font-black">!</div>
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-slate-800">{bannerFlaggedCount} resident{bannerFlaggedCount === 1 ? '' : 's'} need{bannerFlaggedCount === 1 ? 's' : ''} attention</p>
+            <p className="text-xs font-bold text-slate-500">{bannerRedCount > 0 ? `${bannerRedCount} at risk · ` : ''}tap to review who and why</p>
+          </div>
+          <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
+        </button>
+      )}
+
       {/* Program Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
