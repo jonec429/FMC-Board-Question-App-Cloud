@@ -273,7 +273,7 @@ This file serves as the shared source of truth for development progress between 
 ### Analytics & Reporting
 - [x] **Question-level Analytics**: More granular tracking of individual question performance (distractor analysis heatmap).
 - [x] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
-- [ ] **"Resident Risk" Logic**: Early warning metrics and alerts based on performance vs. on-time completion (Foundational implementation done, refinements pending).
+- [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks now flag a resident who'd otherwise look "on track") + per-resident **"why flagged" reasons**, in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Remaining:** declining-trend detection and proactive alerts.
 - [x] **Advisor Email Reports**: Automated email summaries sent to faculty advisors detailing their specific advisees' performance and completion rates.
 
 ### Transition & Infrastructure
@@ -304,6 +304,11 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-08 — Resident Risk: Overdue Detection & "Why Flagged" Reasons (Claude)
+*(Faculty/admin Performance view.)*
+*   **Early warning now catches residents who aren't doing the work.** Risk used to be based only on *completed* blocks — so a resident who'd done nothing showed "on track / 100% on-time." Now any **assigned curriculum block past its due date that the resident hasn't completed** counts as **overdue** and drives their compliance flag (2+ overdue → At Risk, 1 → Needs Attention). (`lib/residentRisk.ts`, shared by the Performance dashboard and the CSV/PDF reports so they always agree.)
+*   **Every flag now shows *why*.** Flagged residents display the specific trigger(s) — e.g. "2 blocks overdue," "Avg 54%," "On-time 40%" — in the Performance tables, the resident detail modal, and the exported CSV/PDF, so it's clear who to follow up with and about what.
 
 ### 2026-06-08 — See All Achievements, Locked & Unlocked (Claude)
 *   **The Achievements card now opens a full catalog.** Tap **“View all”** to see *every* badge — earned ones in color with the date you got them, and **locked ones greyed out with a lock and their “how to earn” description**, so residents can see what's available to chase. Shows an **“X of Y earned”** count, grouped into Daily Question vs Practice & Milestones. The card is now always visible (even before you've earned anything) so achievements are discoverable from day one. (`components/AchievementsModal.tsx` → `components/Dashboard.tsx`.)

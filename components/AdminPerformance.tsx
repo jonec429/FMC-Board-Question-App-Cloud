@@ -8,8 +8,7 @@ import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, 
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, Mail, Search } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
-
-type RiskLevel = 'red' | 'yellow' | 'green' | 'gray';
+import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons } from '@/lib/residentRisk';
 
 interface ResidentStat {
   name: string;
@@ -33,16 +32,13 @@ interface ResidentStat {
 
   academicRisk: RiskLevel;
   complianceRisk: RiskLevel;
-  
+  overdueCount: number;
+  riskReasons: string[];
+
   results: any[];
 }
 
-function getRiskLevel(pct: number, attempts: number): RiskLevel {
-  if (attempts < 3) return 'gray';
-  if (pct <= 50) return 'red';
-  if (pct <= 65) return 'yellow';
-  return 'green';
-}
+// RiskLevel + getRiskLevel + the overdue/reasons helpers live in lib/residentRisk.ts.
 
 const riskColors: Record<RiskLevel, { row: string; badge: string; dot: string }> = {
   red: { row: 'bg-red-50/60', badge: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
@@ -99,8 +95,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
   const rawResidentStats = useMemo(() => {
     if (!adminData) return [];
-    const { results: allResults, profiles, roster } = adminData;
+    const { results: allResults, profiles, roster, blocks, block_schedule } = adminData;
     const academicYear = selectedYear;
+    // Required curriculum blocks for this year whose due date has already passed.
+    const dueBlocks = getDueBlocks(blocks || [], block_schedule || [], academicYear);
 
     const profileMap = new Map<string, string>();
     profiles.forEach((p: any) => {
@@ -158,6 +156,19 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
       const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
 
+      // Early-warning: past-due blocks this resident hasn't completed.
+      const completedTitles = new Set(Array.from(topicBestPts.keys()));
+      const overdueCount = getOverdueBlocks(dueBlocks, completedTitles).length;
+      const academicRisk = getRiskLevel(curriculumAvg, assignedResults.length);
+      const complianceRisk = getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
+      const riskReasons = getRiskReasons({
+        curriculumAvg,
+        curriculumAttempts: assignedResults.length,
+        onTimePct,
+        blocksCompleted,
+        overdueCount,
+      });
+
       return {
         name: resident.name,
         last_name: resident.last_name || lastName(resident.name),
@@ -178,8 +189,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         onTimePct,
         totalPoints,
         
-        academicRisk: getRiskLevel(curriculumAvg, assignedResults.length),
-        complianceRisk: getRiskLevel(onTimePct, blocksCompleted),
+        academicRisk,
+        complianceRisk,
+        overdueCount,
+        riskReasons,
         results: resResults.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
       };
     });
@@ -252,6 +265,18 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-800 text-sm">{formatLastNameFirst(r.name, r.last_name)}</span>
                   </div>
+                  {r.riskReasons.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {r.riskReasons.map((reason, ri) => (
+                        <span
+                          key={ri}
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reason.includes('overdue') ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.label}</td>
                 <td className="px-4 py-4 text-center font-black text-slate-700 text-sm">{r.totalPoints}</td>
@@ -518,7 +543,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           {redFlagged.length > 0 && (
             <div className="bg-white rounded-[32px] border border-red-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-red-50 bg-red-50/40">
-                <h3 className="font-black text-red-700">🔴 At Risk — Avg below 60% or On-Time below 50%</h3>
+                <h3 className="font-black text-red-700">🔴 At Risk — Avg ≤50%, low on-time, or 2+ blocks overdue</h3>
               </div>
               <ResidentTable residents={sortRes(redFlagged)} />
             </div>
@@ -526,7 +551,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           {yellowFlagged.length > 0 && (
             <div className="bg-white rounded-[32px] border border-amber-100 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-amber-50 bg-amber-50/40">
-                <h3 className="font-black text-amber-700">🟡 Needs Attention — Avg below 70% or On-Time below 75%</h3>
+                <h3 className="font-black text-amber-700">🟡 Needs Attention — Avg ≤65%, on-time below 75%, or a block overdue</h3>
               </div>
               <ResidentTable residents={sortRes(yellowFlagged)} />
             </div>
@@ -618,6 +643,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     Compliance: {selectedResident.complianceRisk === 'red' ? 'At Risk' : selectedResident.complianceRisk === 'yellow' ? 'Attention' : selectedResident.complianceRisk === 'green' ? 'On Track' : 'Evaluating'}
                   </span>
                 </div>
+                {selectedResident.riskReasons.length > 0 && (
+                  <p className="text-xs font-bold text-red-600 mt-3">⚠ {selectedResident.riskReasons.join(' · ')}</p>
+                )}
               </div>
               <button onClick={() => setSelectedResident(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-all ml-4 shrink-0">
                 <X className="w-6 h-6 text-slate-400" />

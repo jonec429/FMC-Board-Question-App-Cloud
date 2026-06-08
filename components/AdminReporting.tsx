@@ -3,7 +3,8 @@
 import React, { useState, useMemo } from 'react';
 import { AdminData } from '@/lib/types';
 import { FileText, Download, Printer, Users, CheckCircle, XCircle, TrendingDown } from './AppIcons';
-import { isActiveResident } from '@/lib/academicYear';
+import { isActiveResident, getCurrentAcademicYear } from '@/lib/academicYear';
+import { getDueBlocks, getOverdueBlocks, getRiskLevel, getComplianceRisk, getRiskReasons, riskStatusLabel } from '@/lib/residentRisk';
 
 interface AdminReportingProps {
   adminData: AdminData;
@@ -16,36 +17,63 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
   const reportData = useMemo(() => {
     if (!adminData) return [];
 
-    const activeRoster = adminData.roster.filter(isActiveResident);
-    
-    return activeRoster.map(rosterEntry => {
-      const profile = adminData.profiles.find(p => p.email?.toLowerCase() === rosterEntry.email?.toLowerCase());
-      const userResults = profile ? adminData.results.filter(r => r.user_id === profile.id) : [];
-      
-      const quizzesTaken = userResults.length;
-      const totalScore = userResults.reduce((sum, r) => sum + (r.score || 0), 0);
-      const totalPossible = userResults.reduce((sum, r) => sum + (r.total || 0), 0);
-      const averageScore = totalPossible > 0 ? Math.round((totalScore / totalPossible) * 100) : 0;
-      
-      const onTimeResults = userResults.filter(r => r.timing_status === 'on_time');
-      const onTimeRate = quizzesTaken > 0 ? Math.round((onTimeResults.length / quizzesTaken) * 100) : 0;
-      const totalPoints = userResults.reduce((sum, r) => sum + (r.academic_points || 0), 0);
+    // id -> email, so results that only carry user_id can be attributed by email.
+    const profileEmail = new Map<string, string>();
+    adminData.profiles.forEach((p: any) => {
+      const e = (p?.email || '').toLowerCase();
+      if (p?.id && e) profileEmail.set(p.id, e);
+    });
 
-      // Risk Logic matching AdminPerformance
-      const isAtRisk = (quizzesTaken > 0 && averageScore < 60) || (quizzesTaken > 0 && onTimeRate < 50);
-      const isConcern = !isAtRisk && ((quizzesTaken > 0 && averageScore < 70) || (quizzesTaken > 0 && onTimeRate < 75));
-      const riskStatus = isAtRisk ? 'At Risk' : isConcern ? 'Needs Attention' : 'On Track';
+    // Past-due required blocks for the current academic year (shared with the dashboard).
+    const dueBlocks = getDueBlocks(adminData.blocks || [], adminData.block_schedule || [], getCurrentAcademicYear());
+
+    const activeRoster = adminData.roster.filter(isActiveResident);
+
+    return activeRoster.map(rosterEntry => {
+      const email = (rosterEntry.email || '').toLowerCase();
+      const userResults = adminData.results.filter((r: any) =>
+        ((r.legacy_email || '').toLowerCase() === email || (r.user_id && profileEmail.get(r.user_id) === email)) &&
+        !r.topic?.toLowerCase().includes('demo')
+      );
+
+      const assigned = userResults.filter((r: any) => (r.academic_points || 0) > 0);
+
+      // Best points per block (dedupe by topic) -> blocks done + on-time rate.
+      const topicBestPts = new Map<string, number>();
+      assigned.forEach((r: any) => {
+        topicBestPts.set(r.topic, Math.max(topicBestPts.get(r.topic) || 0, r.academic_points || 0));
+      });
+      const blocksCompleted = topicBestPts.size;
+      const nonBonus = Array.from(topicBestPts.entries()).filter(([t]) => !t?.toLowerCase().includes('bonus'));
+      const onTimeRate = nonBonus.length > 0
+        ? Math.round((nonBonus.filter(([, p]) => p >= 2).length / nonBonus.length) * 100)
+        : 100;
+
+      const curriculumAvg = assigned.length > 0
+        ? Math.round(assigned.reduce((s: number, r: any) => s + (r.percentage || 0), 0) / assigned.length)
+        : 0;
+
+      const completedTitles = new Set(Array.from(topicBestPts.keys()));
+      const overdueCount = getOverdueBlocks(dueBlocks, completedTitles).length;
+      const totalPoints = Array.from(topicBestPts.values()).reduce((s, p) => s + p, 0);
+
+      const academicRisk = getRiskLevel(curriculumAvg, assigned.length);
+      const complianceRisk = getComplianceRisk(onTimeRate, blocksCompleted, overdueCount);
+      const riskStatus = riskStatusLabel(academicRisk, complianceRisk);
+      const reasons = getRiskReasons({ curriculumAvg, curriculumAttempts: assigned.length, onTimePct: onTimeRate, blocksCompleted, overdueCount });
 
       return {
         name: rosterEntry.name || `${rosterEntry.first_name} ${rosterEntry.last_name}`,
         email: rosterEntry.email,
         pgy: rosterEntry.pgy || 'Unknown',
         advisor: rosterEntry.advisor || 'Unassigned',
-        quizzesTaken,
-        averageScore,
+        blocksCompleted,
+        curriculumAvg,
         onTimeRate,
+        overdueCount,
         totalPoints,
         riskStatus,
+        reasons,
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [adminData]);
@@ -53,7 +81,7 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
   const handleExportCSV = () => {
     if (reportData.length === 0) return;
     
-    const headers = ['Name', 'Email', 'PGY', 'Advisor', 'Quizzes Taken', 'Avg Score (%)', 'On-Time Rate (%)', 'Total Points', 'Risk Status'];
+    const headers = ['Name', 'Email', 'PGY', 'Advisor', 'Blocks Done', 'Curr Avg (%)', 'On-Time (%)', 'Overdue', 'Total Points', 'Risk Status', 'Flags'];
     const csvContent = [
       headers.join(','),
       ...reportData.map(r => [
@@ -61,11 +89,13 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
         `"${r.email}"`,
         `"${r.pgy}"`,
         `"${r.advisor}"`,
-        r.quizzesTaken,
-        r.averageScore,
+        r.blocksCompleted,
+        r.curriculumAvg,
         r.onTimeRate,
+        r.overdueCount,
         r.totalPoints,
-        `"${r.riskStatus}"`
+        `"${r.riskStatus}"`,
+        `"${r.reasons.join('; ')}"`
       ].join(','))
     ].join('\n');
 
@@ -108,9 +138,10 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
               <th className="pb-3 font-bold">Resident</th>
               <th className="pb-3 font-bold">PGY</th>
               <th className="pb-3 font-bold">Advisor</th>
-              <th className="pb-3 font-bold text-center">Quizzes</th>
-              <th className="pb-3 font-bold text-center">Avg Score</th>
+              <th className="pb-3 font-bold text-center">Blocks</th>
+              <th className="pb-3 font-bold text-center">Curr Avg</th>
               <th className="pb-3 font-bold text-center">On-Time</th>
+              <th className="pb-3 font-bold text-center">Overdue</th>
               <th className="pb-3 font-bold text-center">Points</th>
               <th className="pb-3 font-bold text-right">Status</th>
             </tr>
@@ -118,26 +149,35 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
           <tbody className="divide-y divide-slate-200">
             {reportData.map((r, i) => (
               <tr key={i} className="print-avoid-break">
-                <td className="py-3 font-medium text-slate-800">{r.name}</td>
+                <td className="py-3 font-medium text-slate-800">
+                  {r.name}
+                  {r.reasons.length > 0 && (
+                    <span className="block text-[10px] font-bold text-red-600">⚠ {r.reasons.join(' · ')}</span>
+                  )}
+                </td>
                 <td className="py-3 text-slate-600">{r.pgy}</td>
                 <td className="py-3 text-slate-600">{r.advisor}</td>
-                <td className="py-3 text-center font-medium">{r.quizzesTaken}</td>
+                <td className="py-3 text-center font-medium">{r.blocksCompleted}</td>
                 <td className="py-3 text-center">
-                  <span className={`font-bold ${r.averageScore < 60 ? 'text-red-600' : r.averageScore < 70 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                    {r.averageScore}%
+                  <span className={`font-bold ${r.curriculumAvg <= 50 ? 'text-red-600' : r.curriculumAvg <= 65 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    {r.blocksCompleted > 0 ? `${r.curriculumAvg}%` : '—'}
                   </span>
                 </td>
                 <td className="py-3 text-center">
                   <span className={`font-bold ${r.onTimeRate < 50 ? 'text-red-600' : r.onTimeRate < 75 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                    {r.onTimeRate}%
+                    {r.blocksCompleted > 0 ? `${r.onTimeRate}%` : '—'}
                   </span>
+                </td>
+                <td className="py-3 text-center font-bold">
+                  <span className={r.overdueCount > 0 ? 'text-red-600' : 'text-slate-400'}>{r.overdueCount}</span>
                 </td>
                 <td className="py-3 text-center font-bold text-slate-700">{r.totalPoints}</td>
                 <td className="py-3 text-right">
                   <span className={`px-2 py-1 rounded text-xs font-bold ${
-                    r.riskStatus === 'At Risk' ? 'bg-red-100 text-red-800' : 
-                    r.riskStatus === 'Needs Attention' ? 'bg-amber-100 text-amber-800' : 
-                    'bg-emerald-100 text-emerald-800'
+                    r.riskStatus === 'At Risk' ? 'bg-red-100 text-red-800' :
+                    r.riskStatus === 'Needs Attention' ? 'bg-amber-100 text-amber-800' :
+                    r.riskStatus === 'On Track' ? 'bg-emerald-100 text-emerald-800' :
+                    'bg-slate-100 text-slate-600'
                   }`}>
                     {r.riskStatus}
                   </span>
