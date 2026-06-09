@@ -282,26 +282,16 @@ export default function QuestionCard({
                 <ExternalLink className="w-4 h-4" />
                 Review Topic Material
               </a>
-            ) : question.resource_link ? (
-              <a
-                href={`https://scholar.google.com/scholar?q=${encodeURIComponent(question.resource_link)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Search Literature
-              </a>
             ) : (
               <a
-                href={`https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?q=${encodeURIComponent(question.category || '')}`}
+                href="https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?usp=drive_link"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10"
               >
                 <ExternalLink className="w-4 h-4" />
-                Search Drive for Topic
+                Review Topic Material
               </a>
             )}
             <a
