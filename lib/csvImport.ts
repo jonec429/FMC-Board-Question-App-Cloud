@@ -1,5 +1,5 @@
 /**
- * CSV Import utilities for the FMC QBank Cloud Question Importer.
+ * CSV Import utilities for the FMC Board Question App V2 Question Importer.
  *
  * Designed for the annual ITE workflow:
  *   1. Use Gemini (or any AI) to scrape questions from a PDF into CSV rows.

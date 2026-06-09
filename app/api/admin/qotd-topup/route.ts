@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 
 // Service-role client (mirrors app/api/admin/push-audit). Bypasses RLS; gated by
 // the admin check below before any privileged work is done.
@@ -7,11 +8,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const SUPER_ADMIN_EMAILS = [
-  'jonathan.carbungco@ascension.org',
-  'j.carbungco1@gmail.com',
-];
 
 /**
  * Admin-only: extend the Daily Question schedule with newly-imported questions.

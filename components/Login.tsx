@@ -177,21 +177,21 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   return (
     <div className="min-h-[100dvh] bg-slate-50 flex items-stretch sm:items-center justify-center sm:p-6 font-sans text-slate-800">
       <div className="bg-white w-full max-h-[100dvh] shadow-2xl border border-slate-200 flex flex-col rounded-none sm:rounded-3xl sm:max-w-sm relative">
-        <div className="flex flex-col flex-1 px-8 pt-14 pb-8 sm:px-10 sm:pt-12 sm:pb-8 relative animate-fade-in overflow-y-auto min-h-0">
+        <div className="flex flex-col flex-1 px-6 pt-8 pb-6 sm:px-8 sm:pt-8 sm:pb-6 relative animate-fade-in overflow-y-auto min-h-0">
 
           {/* Branding */}
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="bg-blue-600 p-5 rounded-3xl shadow-xl text-white mb-5">
-              <AbfmShield className="w-12 h-12" />
+          <div className="flex flex-col items-center text-center mb-5">
+            <div className="bg-blue-600 p-4 rounded-2xl shadow-xl text-white mb-3">
+              <AbfmShield className="w-8 h-8" />
             </div>
-            <h1 className="text-3xl font-black text-slate-900 leading-tight">FMC Board Question App</h1>
-            <p className="text-slate-400 text-xs mt-2 leading-snug">
+            <h1 className="text-2xl font-black text-slate-900 leading-tight">FMC Board Question App</h1>
+            <p className="text-slate-400 text-xs mt-1 leading-snug">
               Ascension St. Vincent's Family Medicine Residency Program Jacksonville
             </p>
           </div>
 
           {/* Form */}
-          <form id="fmc-login-form" onSubmit={mode === 'signin' ? handleSignIn : handleSignUp} className="flex flex-col gap-3 flex-1 justify-center">
+          <form id="fmc-login-form" onSubmit={mode === 'signin' ? handleSignIn : handleSignUp} className="flex flex-col gap-2.5 flex-1 justify-center">
             {mode === 'signup' && (
               <div className="grid grid-cols-2 gap-3 animate-fade-in">
                 <input
@@ -199,7 +199,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                   placeholder="First Name"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
+                  className="w-full px-4 py-3 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
                   required
                 />
                 <input
@@ -207,7 +207,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                   placeholder="Last Name"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
+                  className="w-full px-4 py-3 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
                   required
                 />
               </div>
@@ -224,7 +224,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
                   placeholder="Email Address"
-                  className={`w-full pl-12 pr-4 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 transition-all text-base ${showEmailError ? 'border-2 border-red-500 focus:ring-red-200' : 'focus:ring-blue-500'}`}
+                  className={`w-full pl-12 pr-4 py-3 bg-slate-100 rounded-2xl outline-none focus:ring-2 transition-all text-base ${showEmailError ? 'border-2 border-red-500 focus:ring-red-200' : 'focus:ring-blue-500'}`}
                   required
                 />
               </div>
@@ -245,7 +245,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                 placeholder="Password"
-                className="w-full pl-12 pr-12 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 ring-blue-500 transition-all text-base"
+                className="w-full pl-12 pr-12 py-3 bg-slate-100 rounded-2xl outline-none focus:ring-2 ring-blue-500 transition-all text-base"
                 required
               />
               <button
@@ -266,7 +266,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   autoComplete="new-password"
-                  className="w-full pl-12 pr-12 py-4 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
+                  className="w-full pl-12 pr-12 py-3 bg-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-base"
                   required
                 />
                 <button
@@ -309,7 +309,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
             <button
               type="submit"
               disabled={loading || (mode === 'signin' ? !isSigninValid : !isSignupValid)}
-              className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-base mt-1 flex items-center justify-center gap-2"
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-2xl shadow-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-base mt-1 flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : mode === 'signin' ? 'Sign In' : 'Register'}
             </button>
@@ -327,29 +327,29 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
           <button
             type="button"
             onClick={() => setShowInstall(true)}
-            className="mt-6 w-full flex items-center justify-center gap-2 py-3 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 border border-slate-200 rounded-2xl font-bold text-sm transition-all"
+            className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 border border-slate-200 rounded-2xl font-bold text-xs transition-all"
           >
             <Smartphone className="w-4 h-4" />
             Install this app on your phone
           </button>
 
           {/* Bottom links */}
-          <div className="mt-6 flex items-center justify-center gap-6">
-            <button onClick={() => setShowAI(true)} className="flex items-center gap-1.5 text-amber-600/80 hover:text-amber-600 transition-colors text-xs font-bold py-1">
+          <div className="mt-4 flex items-center justify-center gap-6">
+            <button onClick={() => setShowAI(true)} className="flex items-center gap-1.5 text-amber-600/80 hover:text-amber-600 transition-colors text-[11px] font-bold py-1">
               <Info className="w-3.5 h-3.5" /> AI Disclaimer
             </button>
-            <button onClick={() => setShowNews(true)} className="flex items-center gap-1.5 text-slate-400 hover:text-blue-500 transition-colors text-xs font-bold py-1">
+            <button onClick={() => setShowNews(true)} className="flex items-center gap-1.5 text-slate-400 hover:text-blue-500 transition-colors text-[11px] font-bold py-1">
               <HelpCircle className="w-3.5 h-3.5" /> What's New
             </button>
           </div>
 
           {/* Program logo — small, below the form & links for brand continuity */}
-          <div className="mt-6 pt-6 border-t border-slate-100 flex justify-center">
+          <div className="mt-4 pt-4 border-t border-slate-100 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/brand/program-logo.png"
               alt="Ascension St. Vincent's Family Medicine Residency"
-              className="w-44 max-w-full h-auto opacity-70"
+              className="w-32 max-w-full h-auto opacity-70"
             />
           </div>
         </div>

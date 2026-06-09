@@ -1,5 +1,5 @@
 /**
- * Shared utility functions for the FMC QBank Cloud application.
+ * Shared utility functions for the FMC Board Question App V2 application.
  */
 
 /**

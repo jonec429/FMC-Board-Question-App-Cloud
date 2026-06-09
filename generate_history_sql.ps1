@@ -1,7 +1,7 @@
-$resultsFile = "c:\Users\jcarb\.gemini\antigravity\scratch\FMC QBank Cloud\results.csv"
-$attendanceFile = "c:\Users\jcarb\.gemini\antigravity\scratch\FMC QBank Cloud\attendance.csv"
-$blocksFile = "c:\Users\jcarb\.gemini\antigravity\scratch\FMC QBank Cloud\Quiz_Master_List.csv"
-$outputFile = "c:\Users\jcarb\.gemini\antigravity\scratch\FMC QBank Cloud\import_history.sql"
+$resultsFile = "c:\Users\jcarb\.gemini\antigravity\scratch\FMC Board Question App V2\results.csv"
+$attendanceFile = "c:\Users\jcarb\.gemini\antigravity\scratch\FMC Board Question App V2\attendance.csv"
+$blocksFile = "c:\Users\jcarb\.gemini\antigravity\scratch\FMC Board Question App V2\Quiz_Master_List.csv"
+$outputFile = "c:\Users\jcarb\.gemini\antigravity\scratch\FMC Board Question App V2\import_history.sql"
 
 $sql = "BEGIN;`n"
 

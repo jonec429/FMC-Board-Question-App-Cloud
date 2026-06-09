@@ -132,13 +132,12 @@ export async function getQotdHistory(
     return { items: [], hasMore: hasMore };
   }
 
-  // Batch-fetch stats from question_attempts (is_qotd = true)
+  // Batch-fetch stats via RPC and reactions via table read
   const [attemptsResult, reactionsResult] = await Promise.all([
-    withTimeout(supabase
-      .from('question_attempts')
-      .select('question_id, is_correct')
-      .in('question_id', questionIds)
-      .eq('is_qotd', true), 10000).catch(() => ({ data: null })) as any,
+    withTimeout(
+      supabase.rpc('get_qotd_cohort_stats', { p_question_ids: questionIds }),
+      10000
+    ).catch(() => ({ data: null })) as any,
     withTimeout(supabase
       .from('qotd_reactions')
       .select('question_id, reaction')
@@ -149,12 +148,10 @@ export async function getQotdHistory(
   const statsMap = new Map<string, { correct: number; incorrect: number }>();
   if (attemptsResult.data) {
     for (const a of attemptsResult.data) {
-      if (!statsMap.has(a.question_id)) {
-        statsMap.set(a.question_id, { correct: 0, incorrect: 0 });
-      }
-      const entry = statsMap.get(a.question_id)!;
-      if (a.is_correct) entry.correct++;
-      else entry.incorrect++;
+      statsMap.set(a.question_id, {
+        correct: Number(a.correct) || 0,
+        incorrect: Number(a.incorrect) || 0
+      });
     }
   }
 

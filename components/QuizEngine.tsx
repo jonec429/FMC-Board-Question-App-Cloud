@@ -137,16 +137,13 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 }
               });
 
-             // Fetch cohort stats silently
-             supabase.from('question_attempts')
-              .select('is_correct')
-              .eq('question_id', qotdQuestion.id)
-              .eq('is_qotd', true)
-              .then(({ data: attemptsData }) => {
-                if (attemptsData) {
-                  const correct = attemptsData.filter((a: any) => a.is_correct).length;
-                  const incorrect = attemptsData.length - correct;
-                  setQotdStats({ correct, incorrect, total: attemptsData.length });
+             // Fetch cohort stats silently via RPC
+             supabase.rpc('get_qotd_cohort_stats', { p_question_ids: [qotdQuestion.id] })
+              .then(({ data }) => {
+                if (data && data.length > 0) {
+                  const correct = Number(data[0].correct) || 0;
+                  const incorrect = Number(data[0].incorrect) || 0;
+                  setQotdStats({ correct, incorrect, total: correct + incorrect });
                 }
               });
           }
@@ -225,18 +222,25 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         // Pool filtering (unused/incorrect) only applies to category-based custom quizzes, not fixed blocks
         if (!isDemo && !isFixedBlock && pool !== 'all') {
           const { data: attemptData } = (await withTimeout(
-            supabase.from('question_attempts').select('question_id, is_correct').eq('user_id', user.id)
+            supabase.from('question_attempts').select('question_id, is_correct, created_at').eq('user_id', user.id).order('created_at', { ascending: true })
           )) as any;
           
           if (attemptData) {
             if (pool === 'unused') {
-              // Exclude any questions the user has attempted
-              excludeIds = attemptData.map(a => a.question_id);
+              // Now handled completely by the server-side RPC `get_unused_questions`.
+              // We do not need to fetch local excludeIds.
             } else if (pool === 'incorrect') {
               // Only include questions where the most recent attempt was incorrect
-              // We'll group by question_id and take the latest. Since we don't have created_at readily sorted, we just check if any attempt was incorrect (simplified logic)
-              const incorrectIds = new Set<string>(attemptData.filter(a => !a.is_correct).map(a => a.question_id));
-              // Alternatively, strict incorrect only:
+              const latestAttempts = new Map<string, boolean>();
+              for (const attempt of attemptData) {
+                 latestAttempts.set(attempt.question_id, attempt.is_correct);
+              }
+              
+              const incorrectIds = new Set<string>();
+              latestAttempts.forEach((isCorrect, qId) => {
+                 if (!isCorrect) incorrectIds.add(qId);
+              });
+
               includeIds = Array.from(incorrectIds);
               requireInclude = true;
             }
@@ -257,26 +261,43 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
         // Fetch a pool, sorted by year DESC (ITE Priority).
         // Fixed blocks: fetch all assigned IDs (no extra buffer needed).
-        // Pool=unused: fetch a wider pool so we can locally filter excluded IDs without underfilling.
         const fetchLimit = isDemo
           ? 3
           : isFixedBlock
             ? questionIds!.length
-            : (pool === 'unused' ? count * 10 : count * 3);
-        const { data: qData, error: qError } = (await withTimeout(
-          query.neq('year', 'Demo')
-            .neq('category', 'Demo')
-            .not('id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
-            .order('year', { ascending: false }).limit(fetchLimit)
-        )) as any;
+            : (pool === 'unused' ? count : count * 3); // Unused pool now gets exact count from RPC
 
-        if (qError) throw qError;
-        let finalPool = qData || [];
+        let finalPool: any[] = [];
 
-        // Local exclusion filter since .not.in can be tricky with large arrays
-        if (excludeIds.length > 0) {
-          const exSet = new Set(excludeIds);
-          finalPool = finalPool.filter(q => !exSet.has(q.id));
+        if (!isDemo && !isFixedBlock && pool === 'unused') {
+          // Use the robust RPC to fetch unused questions (fixes the under-fill issue)
+          const { data: qData, error: qError } = (await withTimeout(
+            supabase.rpc('get_unused_questions', {
+              p_user_id: user.id,
+              p_categories: categories && categories.length > 0 ? categories : null,
+              p_keywords: keywords && keywords.length > 0 ? keywords : null,
+              p_years: years && years.length > 0 ? years : null,
+              p_limit: fetchLimit
+            })
+          )) as any;
+          if (qError) throw qError;
+          finalPool = qData || [];
+        } else {
+          // Legacy pathway for incorrect, all, demo, fixed blocks
+          const { data: qData, error: qError } = (await withTimeout(
+            query.neq('year', 'Demo')
+              .neq('category', 'Demo')
+              .not('id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
+              .order('year', { ascending: false }).limit(fetchLimit)
+          )) as any;
+          if (qError) throw qError;
+          finalPool = qData || [];
+          
+          // Local exclusion filter (only for older methods, if excludeIds were populated)
+          if (excludeIds.length > 0) {
+            const exSet = new Set(excludeIds);
+            finalPool = finalPool.filter((q: any) => !exSet.has(q.id));
+          }
         }
 
         if (!finalPool || finalPool.length === 0) throw new Error('No questions found matching your selection.');
@@ -284,7 +305,14 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         // For fixed blocks every resident takes the full assigned set; the only randomness
         // is the order of delivery. For other quiz types we still take the top N newest, then shuffle.
         const selected = isFixedBlock ? finalPool : finalPool.slice(0, count);
-        const shuffled = [...selected].sort(() => Math.random() - 0.5);
+        
+        // Fisher-Yates shuffle (uniform shuffle)
+        const shuffled = [...selected];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        
         setQuestions(shuffled);
         setTimeLeft(selected.length * 90);
 
@@ -487,15 +515,15 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           setQotdAggregates(aggs);
         }
 
-        const { data: attemptsData } = await withTimeout(supabase.from('question_attempts')
-          .select('is_correct')
-          .eq('question_id', questions[0].id)
-          .eq('is_qotd', true), 30000).catch(() => ({ data: null })) as any;
+        const { data: attemptsData } = await withTimeout(
+          supabase.rpc('get_qotd_cohort_stats', { p_question_ids: [questions[0].id] }), 
+          30000
+        ).catch(() => ({ data: null })) as any;
           
-        if (attemptsData) {
-          const correct = attemptsData.filter((a: any) => a.is_correct).length;
-          const incorrect = attemptsData.length - correct;
-          setQotdStats({ correct, incorrect, total: attemptsData.length });
+        if (attemptsData && attemptsData.length > 0) {
+          const correct = Number(attemptsData[0].correct) || 0;
+          const incorrect = Number(attemptsData[0].incorrect) || 0;
+          setQotdStats({ correct, incorrect, total: correct + incorrect });
         }
       }
 

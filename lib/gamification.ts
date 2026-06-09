@@ -20,6 +20,31 @@ export async function processGamification(
     const estHour = estNow.getHours();
     const estMinute = estNow.getMinutes();
 
+    // 0. Fetch all existing badges to reduce DB calls during evaluation
+    const { data: allBadgesData } = await supabase.from('badges').select('id, name');
+    const badgeMap = new Map((allBadgesData || []).map((b: any) => [b.name, b.id]));
+    const earnedBadgeIds = new Set<string>();
+
+    const evaluateBadge = async (badgeName: string, condition: boolean, createIfNotExists?: { description: string; icon: string; type: string }) => {
+      if (!condition) return;
+      let badgeId = badgeMap.get(badgeName);
+      
+      if (!badgeId && createIfNotExists) {
+        // Create the badge dynamically
+        const { data: newBadge } = await supabase
+          .from('badges')
+          .insert({ name: badgeName, ...createIfNotExists })
+          .select('id')
+          .single();
+        if (newBadge) {
+          badgeId = newBadge.id;
+          badgeMap.set(badgeName, badgeId);
+        }
+      }
+      
+      if (badgeId) earnedBadgeIds.add(badgeId);
+    };
+
     // 1. Fetch user streaks
     let { data: streakData } = await supabase
       .from('user_streaks')
@@ -269,53 +294,24 @@ export async function processGamification(
       }
     }
 
+    // 4. Batch upsert all earned badges to drastically reduce DB calls
+    if (earnedBadgeIds.size > 0) {
+      const batchInsert = Array.from(earnedBadgeIds).map(id => ({
+        user_id: userId,
+        badge_id: id
+      }));
+      
+      const { error: upsertError } = await supabase.from('user_badges').upsert(
+        batchInsert, 
+        { onConflict: 'user_id, badge_id', ignoreDuplicates: true }
+      );
+      
+      if (upsertError) {
+        console.warn('Failed to batch-award badges:', upsertError.message);
+      }
+    }
+
   } catch (err) {
     console.error('Error processing gamification:', err);
-  }
-}
-
-async function evaluateBadge(
-  userId: string, 
-  badgeName: string, 
-  condition: boolean, 
-  createIfNotExists?: { description: string; icon: string; type: string }
-) {
-  if (!condition) return;
-
-  // Find badge
-  let { data: badge } = await supabase
-    .from('badges')
-    .select('id')
-    .eq('name', badgeName)
-    .maybeSingle();
-
-  if (!badge && createIfNotExists) {
-    // Create the badge dynamically
-    const { data: newBadge } = await supabase
-      .from('badges')
-      .insert({
-        name: badgeName,
-        description: createIfNotExists.description,
-        icon: createIfNotExists.icon,
-        type: createIfNotExists.type
-      })
-      .select('id')
-      .single();
-      
-    badge = newBadge;
-  }
-
-  if (!badge) return;
-
-  // Insert to user_badges. A duplicate (the user already earned this badge) is
-  // expected and harmless. supabase-js returns errors as values rather than
-  // throwing, so inspect the result instead of relying on try/catch — 23505 is
-  // the unique-violation code we intentionally ignore; anything else we log.
-  const { error: insertError } = await supabase.from('user_badges').insert({
-    user_id: userId,
-    badge_id: badge.id
-  });
-  if (insertError && insertError.code !== '23505') {
-    console.warn(`Failed to award badge "${badgeName}":`, insertError.message);
   }
 }

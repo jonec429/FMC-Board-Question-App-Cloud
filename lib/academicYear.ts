@@ -1,5 +1,5 @@
 /**
- * Academic-year helpers for the FMC QBank year-over-year (YoY) model.
+ * Academic-year helpers for the FMC Board Question App V2 year-over-year (YoY) model.
  *
  * The residency academic year runs July 1 -> June 30. We identify an academic
  * year by its ENDING calendar year (AY 2025-26 -> 2026), matching the program's

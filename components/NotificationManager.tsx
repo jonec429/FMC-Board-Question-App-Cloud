@@ -167,7 +167,7 @@ export default function NotificationManager({ user, profile }: NotificationManag
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          title: 'FMC QBank Test Push',
+          title: 'FMC Board Question App V2 Test Push',
           body: 'Success! Your device is registered and push notifications are working properly.',
           targetUserId: user.id
         })

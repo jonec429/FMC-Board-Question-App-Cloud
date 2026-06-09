@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const SUPER_ADMIN_EMAILS = [
-  'jonathan.carbungco@ascension.org',
-  'j.carbungco1@gmail.com',
-];
 
 export async function POST(request: Request) {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';

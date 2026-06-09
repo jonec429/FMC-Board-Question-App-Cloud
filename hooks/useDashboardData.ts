@@ -93,9 +93,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
               .or(`user_id.eq.${userId},legacy_email.eq.${userEmail}`)
               .order('created_at', { ascending: false })
               .abortSignal(signal),
-        selectedYear === 0
-          ? supabase.from('results').select('legacy_email, topic, total, academic_points').abortSignal(signal)
-          : supabase.from('results').select('legacy_email, topic, total, academic_points').eq('academic_year', selectedYear).abortSignal(signal),
+        supabase.rpc('get_leaderboard_stats', { p_academic_year: selectedYear }).abortSignal(signal),
         supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty').abortSignal(signal),
         qotd 
           ? supabase
@@ -142,22 +140,20 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           if (r.email) rosterByEmail.set(r.email.toLowerCase(), { name: r.name, pgy: r.pgy });
         });
 
-        const byEmail = new Map<string, { topicBest: Map<string, number>; qs: number }>();
+        const aggregatedByEmail = new Map<string, { totalPoints: number; totalQs: number }>();
         allResults.forEach((r: any) => {
-          if (r.topic?.toLowerCase().includes('demo')) return;
           const email = r.legacy_email?.toLowerCase();
           if (!email) return;
-          if (!byEmail.has(email)) byEmail.set(email, { topicBest: new Map(), qs: 0 });
-          const entry = byEmail.get(email)!;
-          const cur = entry.topicBest.get(r.topic) || 0;
-          entry.topicBest.set(r.topic, Math.max(cur, r.academic_points || 0));
-          entry.qs += r.total || 0;
+          aggregatedByEmail.set(email, { 
+            totalPoints: Number(r.total_points) || 0, 
+            totalQs: Number(r.total_qs) || 0 
+          });
         });
 
         rosterByEmail.forEach(({ name, pgy }, email) => {
-          const entry = byEmail.get(email);
-          const totalPoints = entry ? Array.from(entry.topicBest.values()).reduce((a, b) => a + b, 0) : 0;
-          const totalQs = entry?.qs || 0;
+          const entry = aggregatedByEmail.get(email);
+          const totalPoints = entry ? entry.totalPoints : 0;
+          const totalQs = entry ? entry.totalQs : 0;
           leaderboard.push({ email, name, pgy, totalPoints, totalQs });
         });
         leaderboard.sort((a, b) => b.totalPoints - a.totalPoints);

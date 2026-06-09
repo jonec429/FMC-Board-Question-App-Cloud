@@ -1,5 +1,5 @@
 /**
- * Centralized role utilities for the FMC QBank Cloud application.
+ * Centralized role utilities for the FMC Board Question App V2 application.
  *
  * 3-Tier Role System:
  *   - resident: Standard user — takes quizzes, sees own performance + leaderboard
@@ -16,13 +16,16 @@
  *   6. otherwise                       → 'resident'
  */
 
+import { User } from '@supabase/supabase-js';
+import { Profile } from './types';
+
 export type UserRole = 'resident' | 'faculty' | 'gme_staff' | 'admin';
 
 /**
  * Emails that always resolve to 'admin' regardless of profile data.
  * Acts as a fail-safe lock-out prevention list.
  */
-const SUPER_ADMIN_EMAILS: string[] = [
+export const SUPER_ADMIN_EMAILS: string[] = [
   'jonathan.carbungco@ascension.org',
   'j.carbungco1@gmail.com',
 ];
@@ -30,7 +33,7 @@ const SUPER_ADMIN_EMAILS: string[] = [
 /**
  * Resolves the effective role for a user based on their auth account and profile row.
  */
-export function getUserRole(user?: any, profile?: any): UserRole {
+export function getUserRole(user?: User | null, profile?: Profile | null): UserRole {
   if (!user) return 'resident';
   const email = (user?.email || '').toLowerCase();
   if (email && SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) {
@@ -44,18 +47,18 @@ export function getUserRole(user?: any, profile?: any): UserRole {
 }
 
 /** Returns true only for full admins (super-admin emails or profile.role==='admin'). */
-export function isAdmin(user?: any, profile?: any): boolean {
+export function isAdmin(user?: User | null, profile?: Profile | null): boolean {
   return getUserRole(user, profile) === 'admin';
 }
 
 /** Returns true for faculty, gme_staff, AND admins (admins inherit all faculty privileges). */
-export function isFaculty(user?: any, profile?: any): boolean {
+export function isFaculty(user?: User | null, profile?: Profile | null): boolean {
   const role = getUserRole(user, profile);
   return role === 'faculty' || role === 'gme_staff' || role === 'admin';
 }
 
 /** Gate for opening the Admin Console — currently faculty and admins. */
-export function canAccessAdmin(user?: any, profile?: any): boolean {
+export function canAccessAdmin(user?: User | null, profile?: Profile | null): boolean {
   return isFaculty(user, profile);
 }
 
@@ -65,14 +68,14 @@ export function canAccessAdmin(user?: any, profile?: any): boolean {
  *
  * The advisor name matches the value stored in `authorized_roster.advisor` for residents.
  */
-export function getFacultyAdviseeFilter(user?: any, profile?: any): string | null {
+export function getFacultyAdviseeFilter(user?: User | null, profile?: Profile | null): string | null {
   const role = getUserRole(user, profile);
   if (role !== 'faculty' && role !== 'gme_staff') return null; // admins see everyone, residents have no admin
   return profile?.full_name || null;
 }
 
 /** Human-friendly label for the resolved role — used in UI badges. */
-export function getRoleLabel(user?: any, profile?: any): string {
+export function getRoleLabel(user?: User | null, profile?: Profile | null): string {
   const role = getUserRole(user, profile);
   if (role === 'gme_staff') return 'GME Staff';
   return role.charAt(0).toUpperCase() + role.slice(1);
