@@ -461,7 +461,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           questions.length,
           result.percentage,
           timingStatus ?? undefined,
-          topicLabel
+          topicLabel,
+          currentBlock?.end_date ?? undefined
         ),
         30000
       ).catch((e) => console.warn('Gamification processing skipped:', e));
@@ -740,6 +741,18 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             </div>
           )}
 
+          {/* QOTD: the correct answer + explanation, revealed after the deadline.
+              Shown whether they got it right or wrong (the old "Missed Questions"
+              card only appeared on a wrong answer, so a correct QOTD showed nothing). */}
+          {isQotd && questions[0] && (
+            <div>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">
+                Correct Answer &amp; Explanation
+              </h3>
+              <QuizReview items={[{ question: questions[0], selected: answers[0] }]} />
+            </div>
+          )}
+
           {/* Quiz mode: full review of every question (answers were hidden until now) */}
           {!isQotd && mode === 'quiz' && (
             <div>
@@ -750,8 +763,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             </div>
           )}
 
-          {/* Missed Questions (practice mode + QOTD) */}
-          {(isQotd || mode === 'practice') && missedQuestions.length > 0 && (
+          {/* Missed Questions — practice mode for regular blocks (QOTD uses the review card above) */}
+          {mode === 'practice' && missedQuestions.length > 0 && (
             <div>
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">
                 Missed Questions ({missedQuestions.length})

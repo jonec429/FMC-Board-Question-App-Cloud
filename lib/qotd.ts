@@ -9,7 +9,8 @@ export function getESTDate(date: Date = new Date()): Date {
 }
 
 /**
- * Returns true if the current time is past 12:25 PM Eastern Time.
+ * Returns true if the current time is past 12:30 PM Eastern Time — the QOTD unlock
+ * time (correct answer, explanation, and cohort stats become visible).
  */
 export function isPastNoon(date: Date = new Date()): boolean {
   // Get time in Eastern Time
@@ -28,7 +29,7 @@ export function isPastNoon(date: Date = new Date()): boolean {
   const currentMinute = parseInt(minutePart || '0', 10);
   
   if (currentHour > 12) return true;
-  if (currentHour === 12 && currentMinute >= 25) return true;
+  if (currentHour === 12 && currentMinute >= 30) return true;
   return false;
 }
 

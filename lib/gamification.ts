@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getESTDate, getTodayDateString, isPastNoon } from './qotd';
+import { getRecentITEYears } from './questionFilters';
 
 export async function processGamification(
   userId: string,
@@ -9,7 +10,9 @@ export async function processGamification(
   totalQuestionsAnsweredInBlock?: number,
   blockScorePercentage?: number,
   timingStatus?: string,
-  topicCategory?: string
+  topicCategory?: string,
+  /** The active block's end_date (YYYY-MM-DD) — drives the "Procrastinator" badge. */
+  blockDueDate?: string
 ) {
   try {
     const todayStr = getTodayDateString();
@@ -103,9 +106,11 @@ export async function processGamification(
       await evaluateBadge(userId, 'QOTD 5x Streak', current_qotd_streak >= 5);
       await evaluateBadge(userId, 'QOTD 10x Streak', current_qotd_streak >= 10);
       await evaluateBadge(userId, 'QOTD 30x Streak', current_qotd_streak >= 30);
+      // Sharpshooter — correct QOTD answers on consecutive days (correct-streak, not just participation).
+      await evaluateBadge(userId, 'Sharpshooter', current_qotd_correct_streak >= 5);
 
-      // Check "Just in Time" (11:55am - 11:59am EST)
-      if (estHour === 11 && estMinute >= 55 && estMinute <= 59) {
+      // Check "Just in Time" — answered in the 5 minutes before the 12:30 PM unlock
+      if (estHour === 12 && estMinute >= 25 && estMinute <= 29) {
         await evaluateBadge(userId, 'Just in Time', true);
       }
 
@@ -143,6 +148,11 @@ export async function processGamification(
         last_block_date: estNow.toISOString()
       }).eq('user_id', userId);
 
+      // On-time block-streak ladder
+      await evaluateBadge(userId, 'On a Roll', current_block_streak >= 3);
+      await evaluateBadge(userId, 'Locked In', current_block_streak >= 5);
+      await evaluateBadge(userId, 'Unstoppable', current_block_streak >= 10);
+
       // 3b. Badges
       await evaluateBadge(userId, 'First Step', true); // Everyone who submits gets this if they don't have it
 
@@ -154,6 +164,17 @@ export async function processGamification(
         await evaluateBadge(userId, 'Night Owl', true);
       }
 
+      // Early Bird — block wrapped up in the early-morning hours (4–6am EST)
+      if (estHour >= 4 && estHour < 6) {
+        await evaluateBadge(userId, 'Early Bird', true);
+      }
+
+      // Weekend Warrior — block completed on a weekend (EST)
+      const estDay = estNow.getDay(); // 0 = Sunday, 6 = Saturday
+      if (estDay === 0 || estDay === 6) {
+        await evaluateBadge(userId, 'Weekend Warrior', true);
+      }
+
       // Check Clubs (100 - 1000 questions)
       const { count: totalQCount } = await supabase
         .from('question_attempts')
@@ -162,6 +183,7 @@ export async function processGamification(
         
       if (totalQCount) {
         if (totalQCount >= 100) await evaluateBadge(userId, '100 Club', true);
+        if (totalQCount >= 140) await evaluateBadge(userId, 'Ironman', true);
         if (totalQCount >= 200) await evaluateBadge(userId, '200 Club', true);
         if (totalQCount >= 300) await evaluateBadge(userId, '300 Club', true);
         if (totalQCount >= 400) await evaluateBadge(userId, '400 Club', true);
@@ -173,57 +195,74 @@ export async function processGamification(
         if (totalQCount >= 1000) await evaluateBadge(userId, '1k Club', true);
       }
 
-      // 3c. Topic Master (100% completion of latest ITE for this category)
+      // Perfectionist — 100% on 5 different blocks. This block's result row is
+      // already saved by the time gamification runs, so it's included.
+      const { data: perfectResults } = await supabase
+        .from('results')
+        .select('topic')
+        .eq('user_id', userId)
+        .gte('percentage', 100);
+      if (perfectResults) {
+        const distinctPerfect = new Set(
+          perfectResults
+            .map((r: any) => r.topic)
+            .filter((t: any) => t && !String(t).toLowerCase().includes('demo'))
+        );
+        await evaluateBadge(userId, 'Perfectionist', distinctPerfect.size >= 5);
+      }
+
+      // Procrastinator — assigned block turned in on its last day or the day before.
+      // timingStatus 'On Time'/'Early' already guarantees this is the active assigned
+      // block (not a custom/mixed build), and blockDueDate is that block's end_date.
+      if (blockDueDate && (timingStatus === 'On Time' || timingStatus === 'Early')) {
+        const [dy, dm, dd] = String(blockDueDate).split('-').map(Number);
+        const [ty, tm, td] = getTodayDateString().split('-').map(Number);
+        if (dy && dm && dd && ty && tm && td) {
+          const due = new Date(dy, dm - 1, dd);
+          const today0 = new Date(ty, tm - 1, td);
+          const daysUntilDue = Math.round((due.getTime() - today0.getTime()) / 86400000);
+          if (daysUntilDue >= 0 && daysUntilDue <= 1) {
+            await evaluateBadge(userId, 'Procrastinator', true);
+          }
+        }
+      }
+
+      // 3c. Topic Master — answered every question in this category across the
+      // 3 most recent ITE years (matches the app-wide freshness window).
       if (topicCategory && topicCategory !== 'Mixed Review Block' && topicCategory !== 'Demo Quiz') {
-        // Find max year for this category
-        const { data: maxYearData } = await supabase
+        // The 3 newest ITE years across the whole bank (dedup + sort handled by getRecentITEYears).
+        const { data: yearRows } = await supabase
           .from('questions')
           .select('year')
-          .eq('category', topicCategory)
-          .order('year', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .not('year', 'is', null)
+          .neq('year', 'Demo')
+          .neq('year', 'Unspecified');
+        const recentYears = getRecentITEYears((yearRows || []).map((r: any) => r.year));
 
-        if (maxYearData && maxYearData.year) {
-          const targetYear = maxYearData.year;
-          
-          // Get total questions in that category & year
-          const { count: targetCount } = await supabase
+        if (recentYears.length > 0) {
+          // Target = every question in this category within those years.
+          const { data: targetQData } = await supabase
             .from('questions')
-            .select('*', { count: 'exact', head: true })
+            .select('id')
             .eq('category', topicCategory)
-            .eq('year', targetYear);
+            .in('year', recentYears);
+          const targetIds = (targetQData || []).map((q: any) => q.id);
 
-          if (targetCount && targetCount > 0) {
-            // Check how many of those specific questions the user has answered
-            // 1. Get IDs of target questions
-            const { data: targetQData } = await supabase
-              .from('questions')
-              .select('id')
-              .eq('category', topicCategory)
-              .eq('year', targetYear);
-              
-            if (targetQData) {
-              const targetIds = targetQData.map(q => q.id);
-              
-              // 2. Count distinct attempts by user for those IDs
-              const { data: attemptsData } = await supabase
-                .from('question_attempts')
-                .select('question_id')
-                .eq('user_id', userId)
-                .in('question_id', targetIds);
-                
-              if (attemptsData) {
-                const uniqueAttemptedIds = new Set(attemptsData.map(a => a.question_id));
-                if (uniqueAttemptedIds.size >= targetCount) {
-                  const badgeName = `Topic Master: ${topicCategory}`;
-                  await evaluateBadge(userId, badgeName, true, {
-                    description: `Answered every question for ${topicCategory} from the most recent ITE.`,
-                    icon: '🎓',
-                    type: 'block'
-                  });
-                }
-              }
+          if (targetIds.length > 0) {
+            const { data: attemptsData } = await supabase
+              .from('question_attempts')
+              .select('question_id')
+              .eq('user_id', userId)
+              .in('question_id', targetIds);
+            const uniqueAttemptedIds = new Set((attemptsData || []).map((a: any) => a.question_id));
+
+            if (uniqueAttemptedIds.size >= targetIds.length) {
+              const badgeName = `Topic Master: ${topicCategory}`;
+              await evaluateBadge(userId, badgeName, true, {
+                description: `Answered every ${topicCategory} question from the 3 most recent ITEs.`,
+                icon: '🎓',
+                type: 'block'
+              });
             }
           }
         }
