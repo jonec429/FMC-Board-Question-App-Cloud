@@ -554,17 +554,10 @@ export default function MyStatsModal({
                                   <ExternalLink className="w-3 h-3" />
                                   Board Prep Gem
                                 </a>
-                                {q.resource_link && q.resource_link.startsWith('http') ? (
-                                  <a href={q.resource_link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
-                                    <ExternalLink className="w-3 h-3" />
-                                    Review Topic Material
-                                  </a>
-                                ) : (
-                                  <a href="https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?usp=drive_link" target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
-                                    <ExternalLink className="w-3 h-3" />
-                                    Review Topic Material
-                                  </a>
-                                )}
+                                <a href="https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?usp=drive_link" target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
+                                  <ExternalLink className="w-3 h-3" />
+                                  Review Topic Material
+                                </a>
                               </div>
                             </div>
                           )}

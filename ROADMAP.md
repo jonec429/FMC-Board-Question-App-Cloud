@@ -62,10 +62,12 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** still pre-launch (no residents yet), so pushing straight to `main` is acceptable for now — but **must** switch to preview-branch testing before rollout (see Deployment Workflow). The app is **deploy-blind for AI agents**: every screen sits behind Supabase login, so changes are verified with `tsc` + `next build`, then the user tests on the live site (`brq.stvfamilymed.org`).
 
-### ▶️ Session Handoff — 2026-06-08 (Antigravity)
-**Shipped & pushed to `main` this session** (detail in the Changelog): Fixed Tech Debt #2 & #3 (Leaderboard and QOTD cohort stats RLS fixes) by shifting aggregation to server-side Postgres functions (`get_leaderboard_stats`, `get_qotd_cohort_stats`) and updating frontend RPC calls. RLS policies for `results` and `question_attempts` are now formally captured in `20260608_techdebt_rls_functions.sql`. Also tightened padding/margins on the Login screen so the "Install this app on your phone" prompt and footer logos fit compactly without scrolling.
-
-**✅ Both pending admin SQL scripts are now run in Supabase** (confirmed by admin 2026-06-08): `20260608_qotd_topup.sql` and `20260608_badges_expansion.sql`. The 9 new badges and the Annual Rollover "Update Daily Question pool" button are now live.
+### ▶️ Session Handoff — 2026-06-09 (Antigravity)
+**Shipped & pushed to `main` this session** (detail in the Changelog): 
+1. Fixed a major bug in the `useDashboardData` hook where starting multiple quizzes caused the Dashboard to lose track of all but the most recent one. 
+2. Fixed a silent database constraint violation (foreign key on `quiz_sessions`) that was completely preventing the Demo Quiz and Test Block from saving progress.
+3. Hardcoded all "Review Topic Material" buttons to point directly to the program's shared Google Drive board review folder, removing reliance on legacy database links.
+4. Added a "Show All / Show Incorrects" toggle to the end-of-quiz review screen.
 
 **▶️ Recommended next task — Tech-Debt #4:** Tighten unauthenticated routes (rate-limiting/identity checks for `verify-roster` and `subscribe`).
 
@@ -290,7 +292,13 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
-### 2026-06-08 — QOTD: Answer & Explanation on Review + Badge Retiming (Claude)
+### 2026-06-09 — Dashboard Active Session Fix & Review Links (Antigravity)
+*   **Multiple In-Progress Quizzes Now Supported:** The dashboard previously had a bug where starting a second quiz would cause the first one to "forget" its active state and drop the "In Progress" badge. Now, the dashboard accurately loads **all** incomplete sessions simultaneously, so every quiz you start retains its own independent resume state and badge. (`hooks/useDashboardData.ts`, `components/Dashboard.tsx`.)
+*   **Database Fix for Quiz Sessions:** Discovered and fixed a silent database constraint error that was completely preventing the "Demo Quiz" and "Test Block" from saving active sessions. They now reliably save and sync your progress. (`components/QuizEngine.tsx`.)
+*   **"Review Topic Material" Button Now Links to Drive:** Hardcoded the Review Topic Material links in both the Question Card and Performance screens to always point directly to the program's shared Google Drive board prep folder instead of relying on legacy/broken database links. (`components/QuestionCard.tsx`, `components/MyStatsModal.tsx`.)
+*   **"Show All / Show Incorrects" Toggle:** Added a quick toggle switch to the end-of-quiz review screen. When you finish a quiz, you can now instantly flip between reviewing only the questions you missed or seeing your entire quiz (questions, answers, and explanations) all at once. (`components/QuizEngine.tsx`.)
+
+
 *   **The Daily Question now shows the correct answer & explanation after it unlocks.** Previously, if you got the QOTD *right*, the review screen showed your score but never the explanation — only a *wrong* answer surfaced it. Now, once the question unlocks at 12:30 PM, you always see the full card: the correct answer highlighted, your own pick, and the explanation. (`components/QuizEngine.tsx`, reusing `QuizReview`.)
 *   **"Just in Time" badge retimed.** It used to reward answering 11:55–11:59 AM (just before *noon*), but the Daily Question actually unlocks at **12:30 PM** — so it now fires for answers in the 5 minutes before that (12:25–12:29 PM). The code's unlock time and the on-screen "12:30 PM" text now agree. (`lib/gamification.ts`, `lib/qotd.ts`; catalog description refreshed by `20260608_badges_expansion.sql`.)
 
