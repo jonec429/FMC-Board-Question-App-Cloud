@@ -76,6 +76,8 @@ export default function Home() {
       .select('*')
       .lte('start_date', today)
       .gte('end_date', today)
+      .order('start_date', { ascending: false })
+      .limit(1)
       .maybeSingle();
       
     if (error) {
