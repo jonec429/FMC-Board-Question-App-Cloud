@@ -92,9 +92,9 @@ $$;
 
 -- 4. Create QOTD Cohort Stats Function
 -- Returns total correct and incorrect answers for given question IDs when answered as QOTD.
-CREATE OR REPLACE FUNCTION public.get_qotd_cohort_stats(p_question_ids uuid[])
+CREATE OR REPLACE FUNCTION public.get_qotd_cohort_stats(p_question_ids text[])
 RETURNS TABLE (
-    question_id uuid,
+    question_id text,
     correct bigint,
     incorrect bigint
 )
