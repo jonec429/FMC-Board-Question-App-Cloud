@@ -77,6 +77,22 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
     try { localStorage.setItem('fmc_resident_block_sort', m); } catch {}
   };
 
+  // QOTD Stats (fetched if past noon)
+  const [qotdStats, setQotdStats] = useState<{correct: number, incorrect: number, total: number} | null>(null);
+
+  useEffect(() => {
+    if (qotdQuestion && isPastNoon()) {
+      supabase.rpc('get_qotd_cohort_stats', { p_question_ids: [qotdQuestion.id] })
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            const correct = Number(data[0].correct) || 0;
+            const incorrect = Number(data[0].incorrect) || 0;
+            setQotdStats({ correct, incorrect, total: correct + incorrect });
+          }
+        });
+    }
+  }, [qotdQuestion]);
+
   // Smart background refetching
   useEffect(() => {
     if (isActive) {
@@ -218,16 +234,34 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                    <Sparkles className="w-5 h-5 text-yellow-300" />
                    Question of the Day
                  </h3>
-                 {qotdAttempt ? (
+                 {qotdAttempt || isPastNoon() ? (
                    <div>
                      <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">
-                       {isPastNoon() ? 'Results and stats are now available!' : 'Answer recorded. Come back at 12:30 PM for results!'}
+                       {qotdAttempt ? (
+                         isPastNoon() ? (
+                           qotdStats && qotdStats.total > 0
+                             ? `${qotdStats.total} responders · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct`
+                             : 'Results and stats are now available!'
+                         ) : (
+                           'Answer recorded. Come back at 12:30 PM for results!'
+                         )
+                       ) : (
+                         qotdStats && qotdStats.total > 0
+                           ? `You missed today's QOTD. ${qotdStats.total} responders · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct.`
+                           : "You missed today's QOTD. The answer and stats are now available."
+                       )}
                      </p>
                      <button
-                       onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', isQotdCompleted: true, qotdAttempt })}
+                       onClick={() => onStartQuiz({ 
+                         isQotd: true, 
+                         qotdQuestion, 
+                         topic: 'Question of the Day', 
+                         isQotdCompleted: true, 
+                         qotdAttempt: qotdAttempt || { is_skipped: true } 
+                       })}
                        className="w-full py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/20"
                      >
-                       {isPastNoon() ? 'View Results & Stats' : 'Review Selection'}
+                       {qotdAttempt ? (isPastNoon() ? 'View Results & Stats' : 'Review Selection') : 'View Answer & Stats'}
                      </button>
                    </div>
                  ) : (

@@ -736,18 +736,20 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           <>
           {/* Score Hero */}
           {isQotd ? (
-            <div className={`rounded-[40px] p-10 text-center text-white ${score === 1 ? 'bg-emerald-600' : 'bg-red-500'}`}>
-              <div className="text-6xl font-black mb-2">{score === 1 ? 'Correct' : 'Incorrect'}</div>
+            <div className={`rounded-[32px] p-6 md:p-8 text-center text-white ${qotdAttempt?.is_skipped ? 'bg-slate-400' : score === 1 ? 'bg-emerald-600' : 'bg-red-500'}`}>
+              <div className="text-4xl md:text-5xl font-black mb-2">
+                {qotdAttempt?.is_skipped ? 'Skipped' : score === 1 ? 'Correct' : 'Incorrect'}
+              </div>
               {qotdStats && qotdStats.total > 0 && (
-                <div className="mt-8 flex flex-col items-center gap-2">
-                  <div className="text-sm font-bold opacity-80 uppercase tracking-widest">Cohort Performance</div>
-                  <div className="flex items-center justify-center gap-4 w-full max-w-sm mt-1">
-                    <div className="text-xl font-black w-12 text-right">{Math.round((qotdStats.correct / qotdStats.total) * 100)}%</div>
-                    <div className="flex-1 h-3 bg-black/20 rounded-full overflow-hidden">
+                <div className="mt-6 flex flex-col items-center gap-2">
+                  <div className="text-xs font-bold opacity-80 uppercase tracking-widest">Cohort Performance</div>
+                  <div className="flex items-center justify-center gap-3 w-full max-w-sm">
+                    <div className="text-lg font-black w-10 text-right">{Math.round((qotdStats.correct / qotdStats.total) * 100)}%</div>
+                    <div className="flex-1 h-2.5 bg-black/20 rounded-full overflow-hidden">
                       <div className="h-full bg-white transition-all" style={{ width: `${Math.round((qotdStats.correct / qotdStats.total) * 100)}%` }} />
                     </div>
                   </div>
-                  <div className="text-xs font-bold opacity-90 mt-2">{qotdStats.correct} correct · {qotdStats.incorrect} incorrect · {qotdStats.total} responses</div>
+                  <div className="text-[11px] font-bold opacity-90">{qotdStats.correct} correct · {qotdStats.incorrect} incorrect · {qotdStats.total} responders</div>
                 </div>
               )}
             </div>
