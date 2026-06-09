@@ -190,8 +190,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         let query = supabase.from('questions').select('*');
 
         if (isDemo) {
-          // For the demo quiz, just pick any random questions from the database.
-          // We skip category/keyword/year filtering.
+          query = query.in('id', [
+            '00000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-000000000002',
+            '00000000-0000-0000-0000-000000000003'
+          ]);
         } else if (isFixedBlock) {
           // Fixed assigned set — ignore category/year/pool filters by design
           query = query.in('id', questionIds!);
