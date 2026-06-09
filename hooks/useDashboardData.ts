@@ -15,7 +15,7 @@ interface LeaderboardEntry {
 interface DashboardData {
   blocks: Block[];
   myResults: Result[];
-  activeSession: any;
+  activeSessions: any[];
   leaderboard: LeaderboardEntry[];
   hasTakenDemo: boolean;
   qotdQuestion: Question | null;
@@ -57,9 +57,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           .eq('user_id', userId)
           .eq('is_completed', false)
           .order('last_updated', { ascending: false })
-          .limit(1)
-          .abortSignal(signal)
-          .maybeSingle(),
+          .abortSignal(signal),
         supabase.from('user_streaks').select('*').eq('user_id', userId).abortSignal(signal).maybeSingle(),
         supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', userId).abortSignal(signal),
         getQotdQuestion(signal).catch(e => {
@@ -179,7 +177,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
       return {
         blocks: sortedBlocks,
         myResults,
-        activeSession: sessionData || null,
+        activeSessions: sessionData || [],
         leaderboard,
         hasTakenDemo,
         qotdQuestion: qotd || null,

@@ -47,7 +47,10 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
 
   const blocks = data?.blocks || [];
   const myResults = data?.myResults || [];
-  const activeSession = data?.activeSession || null;
+  const activeSessions = data?.activeSessions || [];
+  const mostRecentSession = activeSessions.length > 0 ? activeSessions[0] : null;
+
+  const getSessionForBlock = (topic: string) => activeSessions.find((s: any) => s.topic === topic);
   const leaderboard = data?.leaderboard || [];
   const hasTakenDemo = data?.hasTakenDemo || false;
   const qotdQuestion = data?.qotdQuestion || null;
@@ -169,7 +172,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
       </div>
 
       {/* Onboarding Banner for New Users */}
-      {!hasTakenDemo && !activeSession && !loading && (
+      {!hasTakenDemo && !mostRecentSession && !loading && (
         <div className="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden animate-fade-in">
           <div className="flex items-start gap-3 flex-1 min-w-0">
             <div className="p-2 bg-blue-100 rounded-xl shrink-0">
@@ -314,31 +317,29 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
             </div>
           </button>
 
-
-
           {/* Leaderboard */}
           {leaderboard.length > 0 && (
             <LeaderboardWidget data={leaderboard} myEmail={user.email} />
           )}
 
           {/* Resume Saved Block */}
-          {activeSession && (
+          {mostRecentSession && (
             <button
               onClick={() => {
-                const matchedBlock = blocks.find(b => b.title === activeSession.topic || b.id === activeSession.quiz_id);
+                const matchedBlock = blocks.find(b => b.title === mostRecentSession.topic || b.id === mostRecentSession.quiz_id);
                 onStartQuiz({
-                  topic: activeSession.topic,
-                  quizId: activeSession.quiz_id || matchedBlock?.id,
+                  topic: mostRecentSession.topic,
+                  quizId: mostRecentSession.quiz_id || matchedBlock?.id,
                   count: 40,
                 });
               }}
-              className="w-full p-4 bg-amber-50 text-amber-800 border border-amber-200 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-3"
+              className="w-full text-left p-4 md:p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all group"
             >
               <PlayCircle className="w-6 h-6 shrink-0" />
               <div className="text-left flex-1 min-w-0">
                 <p className="font-bold">Resume Saved Block</p>
                 <p className="text-xs text-amber-600 opacity-80 truncate">
-                  {activeSession.topic} · Q{(activeSession.current_index || 0) + 1}
+                  {mostRecentSession.topic} · Q{(mostRecentSession.current_index || 0) + 1}
                 </p>
               </div>
             </button>
@@ -414,7 +415,8 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                   ? block.question_ids.length
                   : (block.question_count || 40);
 
-                const hasResume = activeSession && activeSession.topic === block.title;
+                const activeSession = getSessionForBlock(block.title);
+                const hasResume = !!activeSession;
 
                 // Themed block icon: green check when done, otherwise by type —
                 // play = demo, gem = bonus, open book = standard board-review block.
