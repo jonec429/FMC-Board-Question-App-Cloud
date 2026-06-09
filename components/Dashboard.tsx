@@ -406,8 +406,6 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
               }).map(block => {
                 const result = bestResultByTopic.get(block.title);
                 const isCompleted = !!result && (result.academic_points || 0) > 0;
-                const hasResume = activeSession && activeSession.topic === block.title;
-
                 // Sprint 5: prefer the fixed assigned question set so every resident sees the
                 // same questions (order is still randomized client-side in QuizEngine).
                 // Falls back to category filters for legacy/uninitialized blocks.
@@ -416,19 +414,23 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                   ? block.question_ids.length
                   : (block.question_count || 40);
 
+                const activeSession = getSessionForBlock(block.title);
+                const hasResume = !!activeSession;
+
                 // Themed block icon: green check when done, otherwise by type —
                 // play = demo, gem = bonus, open book = standard board-review block.
                 const titleLc = (block.title || '').toLowerCase();
                 const isDemoBlock = block.block_type === 'demo' || titleLc.includes('demo');
                 const isBonusBlock = titleLc.includes('bonus');
                 const BlockIcon = isCompleted ? CheckCircle : isDemoBlock ? PlayCircle : isBonusBlock ? Gem : BookOpen;
-                const blockIconBadge = isCompleted
-                  ? 'bg-green-50 text-green-600'
-                  : isDemoBlock
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : isBonusBlock
-                      ? 'bg-violet-50 text-violet-600'
-                      : 'bg-blue-50 text-blue-600';
+                
+                const blockIconBadge = isCompleted 
+                    ? 'bg-green-50 text-green-600'
+                    : hasResume
+                    ? 'bg-amber-50 text-amber-600'
+                    : isDemoBlock
+                    ? 'bg-violet-50 text-violet-600'
+                    : 'bg-blue-50 text-blue-600';
                 return (
                   <div
                     key={block.id}
@@ -442,6 +444,11 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                     })}
                     className="shrink-0 p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all group relative overflow-hidden ring-1 ring-slate-200/50 hover:ring-blue-400"
                   >
+                    {hasResume && !isCompleted && (
+                      <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 font-black text-[10px] px-2 py-0.5 rounded-bl-xl shadow-sm border-b border-l border-amber-200">
+                        In Progress
+                      </div>
+                    )}
                     <div className="flex gap-3 items-center min-w-0">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${blockIconBadge}`}>
                         <BlockIcon className="w-5 h-5" />
