@@ -454,6 +454,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                               Done
                             </span>
                           )}
+                        </p>
                         <p className="text-xs text-slate-400 font-medium">
                           {result ? `Best: ${(result.percentage || 0).toFixed(1)}%` : `${displayCount} Questions`}
                           {!isCompleted && hasResume && (
