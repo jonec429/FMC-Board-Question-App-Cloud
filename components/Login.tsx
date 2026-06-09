@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { AbfmShield, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff } from './AppIcons';
+import { AbfmShield, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff, Smartphone } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
+import InstallAppModal from './InstallAppModal';
 
 export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [email, setEmail] = useState('');
@@ -16,6 +17,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showAI, setShowAI] = useState(false);
   const [showNews, setShowNews] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
   const [changelog, setChangelog] = useState<string[]>([]);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -321,8 +323,18 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
             </button>
           </form>
 
+          {/* Install-on-phone prompt */}
+          <button
+            type="button"
+            onClick={() => setShowInstall(true)}
+            className="mt-6 w-full flex items-center justify-center gap-2 py-3 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 border border-slate-200 rounded-2xl font-bold text-sm transition-all"
+          >
+            <Smartphone className="w-4 h-4" />
+            Install this app on your phone
+          </button>
+
           {/* Bottom links */}
-          <div className="mt-8 flex items-center justify-center gap-6">
+          <div className="mt-6 flex items-center justify-center gap-6">
             <button onClick={() => setShowAI(true)} className="flex items-center gap-1.5 text-amber-600/80 hover:text-amber-600 transition-colors text-xs font-bold py-1">
               <Info className="w-3.5 h-3.5" /> AI Disclaimer
             </button>
@@ -402,6 +414,9 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
           </div>
         </div>
       )}
+
+      {/* Install App Modal */}
+      {showInstall && <InstallAppModal onClose={() => setShowInstall(false)} />}
     </div>
   );
 }

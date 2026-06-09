@@ -6,12 +6,13 @@ import { formatDisplayName, withTimeout } from '@/lib/utils';
 import { canAccessAdmin } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
-  LogOut, Lock, Trophy, FileText, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info
+  LogOut, Lock, Trophy, BookOpen, Gem, CheckCircle, ChevronRight,
+  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
 import AchievementsModal from './AchievementsModal';
+import InstallAppModal from './InstallAppModal';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -58,6 +59,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
   const [showMyStats, setShowMyStats] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
 
   // Per-user block sort preference (each resident sorts their own list; saved locally)
   const [blockSort, setBlockSort] = useState<'curriculum' | 'name' | 'status'>('curriculum');
@@ -147,6 +149,9 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
               <Lock className="w-5 h-5" />
             </button>
           )}
+          <button onClick={() => setShowInstall(true)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors" title="Install app on your phone">
+            <Smartphone className="w-5 h-5" />
+          </button>
           <button onClick={() => setShowSettings(true)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Profile Settings">
             <Settings className="w-5 h-5" />
           </button>
@@ -410,6 +415,20 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                 const displayCount = hasFixedSet
                   ? block.question_ids.length
                   : (block.question_count || 40);
+
+                // Themed block icon: green check when done, otherwise by type —
+                // play = demo, gem = bonus, open book = standard board-review block.
+                const titleLc = (block.title || '').toLowerCase();
+                const isDemoBlock = block.block_type === 'demo' || titleLc.includes('demo');
+                const isBonusBlock = titleLc.includes('bonus');
+                const BlockIcon = isCompleted ? CheckCircle : isDemoBlock ? PlayCircle : isBonusBlock ? Gem : BookOpen;
+                const blockIconBadge = isCompleted
+                  ? 'bg-green-50 text-green-600'
+                  : isDemoBlock
+                    ? 'bg-indigo-50 text-indigo-600'
+                    : isBonusBlock
+                      ? 'bg-violet-50 text-violet-600'
+                      : 'bg-blue-50 text-blue-600';
                 return (
                   <div
                     key={block.id}
@@ -429,11 +448,9 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                       </div>
                     )}
                     <div className="flex gap-3 items-center min-w-0">
-                      {isCompleted ? (
-                        <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-                      ) : (
-                        <FileText className="w-5 h-5 text-slate-400 shrink-0" />
-                      )}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${blockIconBadge}`}>
+                        <BlockIcon className="w-5 h-5" />
+                      </div>
                       <div className="min-w-0">
                         <p className="font-bold text-base text-slate-800 truncate flex items-center gap-2">
                           {block.title}
@@ -502,6 +519,8 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           }}
         />
       )}
+
+      {showInstall && <InstallAppModal onClose={() => setShowInstall(false)} />}
 
     </div>
   );
