@@ -136,9 +136,10 @@ export default function Home() {
       if (event === 'INITIAL_SESSION') return;
       if (session?.user) {
         setUser(session.user);
-        setTimeout(() => {
+        // Decouple the async fetch from the auth lock by queuing a microtask
+        Promise.resolve().then(() => {
           loadProfile(session.user).catch((e) => console.error('Profile reload failed:', e));
-        }, 0);
+        });
       } else {
         setUser(null);
         setProfile(null);

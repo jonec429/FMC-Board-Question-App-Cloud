@@ -16,6 +16,7 @@
     "@tanstack/react-query": "^5.100.11",
     "autoprefixer": "^10.4.19",
     "clsx": "^2.1.1",
+    "dompurify": "^3.4.8",
     "lucide-react": "^0.378.0",
     "next": "14.2.3",
     "postcss": "^8.4.38",
@@ -29,6 +30,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/dotenv": "^6.1.1",
     "@types/node": "^20",
     "@types/react": "^18",

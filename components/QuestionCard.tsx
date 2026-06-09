@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle, MessageSquare } from './AppIcons';
 
 interface Question {
@@ -119,7 +120,8 @@ export default function QuestionCard({
   };
 
   const isCorrect = userAnswer === question.correct_index;
-  const renderedStemHtml = applyHighlights(question.question_text, highlights);
+  const renderedStemHtmlRaw = applyHighlights(question.question_text, highlights);
+  const renderedStemHtml = typeof window !== 'undefined' ? DOMPurify.sanitize(renderedStemHtmlRaw) : renderedStemHtmlRaw;
   const optionFontSize = Math.max(14, fontSize - 2);
 
   return (
@@ -247,7 +249,7 @@ export default function QuestionCard({
             <div className={`inline-block px-4 py-1.5 rounded-lg text-sm font-black uppercase tracking-widest mb-4 ${isCorrect ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
               {isCorrect ? 'Correct' : 'Incorrect'}
             </div>
-            <div dangerouslySetInnerHTML={{ __html: question.explanation || 'No explanation provided.' }} />
+            <div dangerouslySetInnerHTML={{ __html: typeof window !== 'undefined' ? DOMPurify.sanitize(question.explanation || 'No explanation provided.') : (question.explanation || 'No explanation provided.') }} />
           </div>
 
           <div className="mt-8 flex flex-wrap gap-4">

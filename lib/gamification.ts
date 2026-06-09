@@ -128,15 +128,15 @@ export async function processGamification(
       }).eq('user_id', userId);
 
       // --- BADGE EVALUATION (QOTD) ---
-      await evaluateBadge(userId, 'QOTD 5x Streak', current_qotd_streak >= 5);
-      await evaluateBadge(userId, 'QOTD 10x Streak', current_qotd_streak >= 10);
-      await evaluateBadge(userId, 'QOTD 30x Streak', current_qotd_streak >= 30);
+      await evaluateBadge('QOTD 5x Streak', current_qotd_streak >= 5);
+      await evaluateBadge('QOTD 10x Streak', current_qotd_streak >= 10);
+      await evaluateBadge('QOTD 30x Streak', current_qotd_streak >= 30);
       // Sharpshooter — correct QOTD answers on consecutive days (correct-streak, not just participation).
-      await evaluateBadge(userId, 'Sharpshooter', current_qotd_correct_streak >= 5);
+      await evaluateBadge('Sharpshooter', current_qotd_correct_streak >= 5);
 
       // Check "Just in Time" — answered in the 5 minutes before the 12:30 PM unlock
       if (estHour === 12 && estMinute >= 25 && estMinute <= 29) {
-        await evaluateBadge(userId, 'Just in Time', true);
+        await evaluateBadge('Just in Time', true);
       }
 
       // Check "First to Answer"
@@ -150,7 +150,7 @@ export async function processGamification(
 
         // if count is exactly 1 (meaning the one they just inserted is the ONLY one)
         if (count === 1) {
-          await evaluateBadge(userId, 'First to Answer', true);
+          await evaluateBadge('First to Answer', true);
         }
       }
     }
@@ -174,30 +174,30 @@ export async function processGamification(
       }).eq('user_id', userId);
 
       // On-time block-streak ladder
-      await evaluateBadge(userId, 'On a Roll', current_block_streak >= 3);
-      await evaluateBadge(userId, 'Locked In', current_block_streak >= 5);
-      await evaluateBadge(userId, 'Unstoppable', current_block_streak >= 10);
+      await evaluateBadge('On a Roll', current_block_streak >= 3);
+      await evaluateBadge('Locked In', current_block_streak >= 5);
+      await evaluateBadge('Unstoppable', current_block_streak >= 10);
 
       // 3b. Badges
-      await evaluateBadge(userId, 'First Step', true); // Everyone who submits gets this if they don't have it
+      await evaluateBadge('First Step', true); // Everyone who submits gets this if they don't have it
 
       if (blockScorePercentage === 100) {
-        await evaluateBadge(userId, 'Perfect Block', true);
+        await evaluateBadge('Perfect Block', true);
       }
 
       if (estHour >= 0 && estHour < 4) {
-        await evaluateBadge(userId, 'Night Owl', true);
+        await evaluateBadge('Night Owl', true);
       }
 
       // Early Bird — block wrapped up in the early-morning hours (4–6am EST)
       if (estHour >= 4 && estHour < 6) {
-        await evaluateBadge(userId, 'Early Bird', true);
+        await evaluateBadge('Early Bird', true);
       }
 
       // Weekend Warrior — block completed on a weekend (EST)
       const estDay = estNow.getDay(); // 0 = Sunday, 6 = Saturday
       if (estDay === 0 || estDay === 6) {
-        await evaluateBadge(userId, 'Weekend Warrior', true);
+        await evaluateBadge('Weekend Warrior', true);
       }
 
       // Check Clubs (100 - 1000 questions)
@@ -207,17 +207,17 @@ export async function processGamification(
         .eq('user_id', userId);
         
       if (totalQCount) {
-        if (totalQCount >= 100) await evaluateBadge(userId, '100 Club', true);
-        if (totalQCount >= 140) await evaluateBadge(userId, 'Ironman', true);
-        if (totalQCount >= 200) await evaluateBadge(userId, '200 Club', true);
-        if (totalQCount >= 300) await evaluateBadge(userId, '300 Club', true);
-        if (totalQCount >= 400) await evaluateBadge(userId, '400 Club', true);
-        if (totalQCount >= 500) await evaluateBadge(userId, '500 Club', true);
-        if (totalQCount >= 600) await evaluateBadge(userId, '600 Club', true);
-        if (totalQCount >= 700) await evaluateBadge(userId, '700 Club', true);
-        if (totalQCount >= 800) await evaluateBadge(userId, '800 Club', true);
-        if (totalQCount >= 900) await evaluateBadge(userId, '900 Club', true);
-        if (totalQCount >= 1000) await evaluateBadge(userId, '1k Club', true);
+        if (totalQCount >= 100) await evaluateBadge('100 Club', true);
+        if (totalQCount >= 140) await evaluateBadge('Ironman', true);
+        if (totalQCount >= 200) await evaluateBadge('200 Club', true);
+        if (totalQCount >= 300) await evaluateBadge('300 Club', true);
+        if (totalQCount >= 400) await evaluateBadge('400 Club', true);
+        if (totalQCount >= 500) await evaluateBadge('500 Club', true);
+        if (totalQCount >= 600) await evaluateBadge('600 Club', true);
+        if (totalQCount >= 700) await evaluateBadge('700 Club', true);
+        if (totalQCount >= 800) await evaluateBadge('800 Club', true);
+        if (totalQCount >= 900) await evaluateBadge('900 Club', true);
+        if (totalQCount >= 1000) await evaluateBadge('1k Club', true);
       }
 
       // Perfectionist — 100% on 5 different blocks. This block's result row is
@@ -233,7 +233,7 @@ export async function processGamification(
             .map((r: any) => r.topic)
             .filter((t: any) => t && !String(t).toLowerCase().includes('demo'))
         );
-        await evaluateBadge(userId, 'Perfectionist', distinctPerfect.size >= 5);
+        await evaluateBadge('Perfectionist', distinctPerfect.size >= 5);
       }
 
       // Procrastinator — assigned block turned in on its last day or the day before.
@@ -247,7 +247,7 @@ export async function processGamification(
           const today0 = new Date(ty, tm - 1, td);
           const daysUntilDue = Math.round((due.getTime() - today0.getTime()) / 86400000);
           if (daysUntilDue >= 0 && daysUntilDue <= 1) {
-            await evaluateBadge(userId, 'Procrastinator', true);
+            await evaluateBadge('Procrastinator', true);
           }
         }
       }
@@ -283,7 +283,7 @@ export async function processGamification(
 
             if (uniqueAttemptedIds.size >= targetIds.length) {
               const badgeName = `Topic Master: ${topicCategory}`;
-              await evaluateBadge(userId, badgeName, true, {
+              await evaluateBadge(badgeName, true, {
                 description: `Answered every ${topicCategory} question from the 3 most recent ITEs.`,
                 icon: '🎓',
                 type: 'block'

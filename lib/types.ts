@@ -1,10 +1,7 @@
 import { Database } from './database.types';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
-export interface User {
-  id: string;
-  email?: string;
-  user_metadata?: { full_name?: string };
-}
+export type User = SupabaseUser;
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type RosterEntry = Database['public']['Tables']['authorized_roster']['Row'];
