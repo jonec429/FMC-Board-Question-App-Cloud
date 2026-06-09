@@ -36,6 +36,7 @@ export default function MyStatsModal({
   const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
   const [reviewItems, setReviewItems] = useState<any[] | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
+  const [showAllReview, setShowAllReview] = useState(true);
   const [qotdStats, setQotdStats] = useState<{ correct: number; incorrect: number } | null>(null);
 
   // Weak Areas State
@@ -389,17 +390,27 @@ export default function MyStatsModal({
                   >
                     <ChevronLeft className="w-4 h-4" /> All quizzes
                   </button>
-                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                    <h3 className="font-black text-slate-800">{selectedQuiz.topic}</h3>
-                    <p className="text-xs font-bold text-slate-400 mt-1">
-                      {selectedQuiz.created_at ? new Date(selectedQuiz.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
-                      {selectedQuiz.percentage != null ? ` · ${Number(selectedQuiz.percentage).toFixed(1)}%` : ''}
-                    </p>
+                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-black text-slate-800">{selectedQuiz.topic}</h3>
+                      <p className="text-xs font-bold text-slate-400 mt-1">
+                        {selectedQuiz.created_at ? new Date(selectedQuiz.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
+                        {selectedQuiz.percentage != null ? ` · ${Number(selectedQuiz.percentage).toFixed(1)}%` : ''}
+                      </p>
+                    </div>
+                    {reviewItems && reviewItems.length > 0 && (
+                      <button
+                        onClick={() => setShowAllReview(!showAllReview)}
+                        className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-all shadow-sm"
+                      >
+                        {showAllReview ? 'Show Incorrect Only' : 'Show All Questions'}
+                      </button>
+                    )}
                   </div>
                   {loadingReview ? (
                     <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-blue-500 animate-spin" /></div>
                   ) : reviewItems && reviewItems.length > 0 ? (
-                    <QuizReview items={reviewItems} />
+                    <QuizReview items={showAllReview ? reviewItems : reviewItems.filter((i: any) => i.selected !== i.question?.correct_index)} />
                   ) : (
                     <p className="text-center text-slate-400 text-sm italic py-10">
                       A reviewable copy of this quiz wasn't saved — it was taken before review was added.

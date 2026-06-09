@@ -49,6 +49,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [resultData, setResultData] = useState<any>(null);
+  const [showAllReview, setShowAllReview] = useState(false);
   // Practice (reveal after each Q) vs Quiz (answers hidden until the end), chosen
   // on the pre-start screen for non-QOTD quizzes. `started` gates that screen; a
   // resumed session (existing progress) skips it.
@@ -776,6 +777,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           {/* QOTD: the correct answer + explanation, revealed after the deadline.
               Shown whether they got it right or wrong (the old "Missed Questions"
               card only appeared on a wrong answer, so a correct QOTD showed nothing). */}
+          {/* QOTD: the correct answer + explanation, revealed after the deadline. */}
           {isQotd && questions[0] && (
             <div>
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">
@@ -785,42 +787,26 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             </div>
           )}
 
-          {/* Quiz mode: full review of every question (answers were hidden until now) */}
-          {!isQotd && mode === 'quiz' && (
+          {/* Review Section */}
+          {!isQotd && (
             <div>
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">
-                Review All Questions
-              </h3>
-              <QuizReview items={questions.map((q, i) => ({ question: q, selected: answers[i] }))} />
-            </div>
-          )}
-
-          {/* Missed Questions — practice mode for regular blocks (QOTD uses the review card above) */}
-          {mode === 'practice' && missedQuestions.length > 0 && (
-            <div>
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">
-                Missed Questions ({missedQuestions.length})
-              </h3>
-              <div className="space-y-4">
-                {missedQuestions.map(({ q, idx }: any) => (
-                  <div key={idx} className="bg-white rounded-2xl border border-red-100 p-6">
-                    <p className="font-bold text-slate-800 text-sm mb-3">{q.question_text}</p>
-                    <div className="space-y-1.5">
-                      {(q.options as string[]).map((opt, oi) => (
-                        <div
-                          key={oi}
-                          className={`px-3 py-2 rounded-xl text-sm font-medium ${oi === q.correct_index ? 'bg-emerald-50 text-emerald-700 font-bold' : oi === answers[idx] ? 'bg-red-50 text-red-600' : 'text-slate-400'}`}
-                        >
-                          {String.fromCharCode(65 + oi)}. {opt}
-                        </div>
-                      ))}
-                    </div>
-                    {q.explanation && (
-                      <p className="mt-4 text-sm text-slate-600 bg-slate-50 p-3 rounded-xl">{q.explanation}</p>
-                    )}
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-4 ml-2">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                  Review Questions
+                </h3>
+                <button
+                  onClick={() => setShowAllReview(!showAllReview)}
+                  className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-all shadow-sm"
+                >
+                  {showAllReview ? 'Show Incorrect Only' : 'Show All Questions'}
+                </button>
               </div>
+              <QuizReview items={
+                (showAllReview ? questions : missedQuestions.map((mq: any) => mq.q)).map((q: any) => {
+                  const idx = questions.findIndex(orig => orig.id === q.id);
+                  return { question: q, selected: answers[idx] };
+                })
+              } />
             </div>
           )}
 
