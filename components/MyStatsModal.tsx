@@ -548,8 +548,13 @@ export default function MyStatsModal({
                                     <ExternalLink className="w-3 h-3" />
                                     Review Topic Material
                                   </a>
+                                ) : q.resource_link ? (
+                                  <a href={`https://scholar.google.com/scholar?q=${encodeURIComponent(q.resource_link)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
+                                    <ExternalLink className="w-3 h-3" />
+                                    Search Literature
+                                  </a>
                                 ) : (
-                                  <a href={`https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?q=${encodeURIComponent(q.resource_link ? q.resource_link : q.category || '')}`} target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
+                                  <a href={`https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?q=${encodeURIComponent(q.category || '')}`} target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
                                     <ExternalLink className="w-3 h-3" />
                                     Search Drive for Topic
                                   </a>
