@@ -322,12 +322,12 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         setTimeLeft(selected.length * 90);
 
         if (!sData) {
-          const { data: newSession } = (await withTimeout(
+          const { data: newSession, error: insertError } = (await withTimeout(
             supabase
               .from('quiz_sessions')
               .insert({
                 user_id: user.id,
-                quiz_id: quizId || null,
+                quiz_id: null,
                 topic: topicLabel,
                 current_index: 0,
                 questions: shuffled,
@@ -339,6 +339,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               .select('id')
               .single()
           )) as any;
+
+          if (insertError) throw insertError;
 
           if (newSession) setSessionId(newSession.id);
         } else if (!sData.questions) {
