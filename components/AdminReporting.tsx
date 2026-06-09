@@ -129,7 +129,7 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
       <div className="absolute top-0 left-0 w-full bg-white text-black p-8 z-50 print-only">
         <div className="flex items-center justify-between border-b-2 border-slate-200 pb-6 mb-8">
           <div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">FMC Board Question App V2 Performance Report</h1>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tight">FMC Board Question App Performance Report</h1>
             <p className="text-slate-500 font-medium mt-1">Generated: {new Date().toLocaleDateString()}</p>
           </div>
           <div className="text-right">

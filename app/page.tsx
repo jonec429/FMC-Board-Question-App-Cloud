@@ -190,7 +190,7 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing FMC Board Question App V2...</p>
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Initializing FMC Board Question App...</p>
           
           {showReset && (
             <div className="mt-8 flex flex-col items-center gap-2 animate-in fade-in duration-500 text-center max-w-xs">
