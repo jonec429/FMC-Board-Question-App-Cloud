@@ -62,6 +62,15 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** still pre-launch (no residents yet), so pushing straight to `main` is acceptable for now — but **must** switch to preview-branch testing before rollout (see Deployment Workflow). The app is **deploy-blind for AI agents**: every screen sits behind Supabase login, so changes are verified with `tsc` + `next build`, then the user tests on the live site (`brq.stvfamilymed.org`).
 
+### ▶️ Session Handoff — 2026-06-08 (Claude → Antigravity)
+**Shipped & pushed to `main` this session** (detail in the Changelog): install-on-phone guide + themed block icons; 9 new badges + Topic Master now spanning the 3 most recent ITEs (Marathoner retired); QOTD shows the correct answer/explanation on review; QOTD unlock unified to **12:30 PM** and "Just in Time" retimed; the dead `/api/email` open relay removed; this ROADMAP tidied and a tech-debt tracker opened.
+
+**⏳ Two admin SQL scripts still need to be run in Supabase** (see Action Required below): `20260608_qotd_topup.sql` and `20260608_badges_expansion.sql`. The new badges won't appear or award until the second one runs.
+
+**▶️ Recommended next task — Tech-Debt #2 + #3 (launch-blocker, scoped but NOT started):** the leaderboard and the QOTD "cohort performance" stats are **broken for non-admin residents**. Confirmed via live `pg_policies`: `results` reads = admins-all + self-only; `question_attempts` reads = self-only. So a resident's leaderboard shows only themselves, and cohort stats reflect only the viewer. Fix = server-side `SECURITY DEFINER` aggregation functions (e.g. `get_leaderboard`, `get_qotd_cohort_stats`) returning only summaries, called from `hooks/useDashboardData.ts`, `components/QuizEngine.tsx`, and `lib/qotd.ts` — makes both work for everyone AND keeps raw rows private (also captures `results` RLS in version control, #2).
+
+**Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass at this commit (`e5e5fc0`).
+
 ### ⚠️ Action Required From Admin
 - [x] **Sprint 5 step 1**: SQL migration `migrate_blocks_question_ids.sql` run in Supabase ✅
 - [x] **Sprint 5 step 2**: ~~Open the app → Admin Console → **Curriculum** → click **"Initialize N Blocks"** to lock in question sets~~ *(Deprecated: the old "Block Builder" tab was merged into the new Curriculum Manager on 2026-05-18 and fixed blocks are now automatically enforced).*
