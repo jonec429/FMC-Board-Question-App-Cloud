@@ -48,16 +48,19 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
-## 📊 Current Status (Snapshot — 2026-05-20)
+## 📊 Current Status (Snapshot — 2026-06-08)
+
+**All planned phases are shipped; the app is in pre-launch hardening.** The active work queue is the **🔧 Code Review — Tech Debt & Hardening** section below (security → bugs → maintainability), being worked top-to-bottom.
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| **Phase 1** | ✅ **Complete** | 3 optional code-quality recommendations remain |
-| **Phase 2** | ✅ **Complete** | Admin Overhaul, Fixed Blocks, and Stability Hardened |
-| **Phase 3** | ✅ **Complete** | QOTD, Notifications, Heatmap, Resident Review |
-| **Phase 4** | ✅ **Complete** | YoY schema + derived-PGY model done. "Start Year Transition" wizard built. Academic Year filtering implemented. |
+| **Phase 1 — Stabilization** | ✅ Complete | UI/Auth fixes, shared types, error boundaries |
+| **Phase 2 — Admin Overhaul & Logic Engine** | ✅ Complete | Fixed blocks, Curriculum Manager, RLS write-lockdown, TanStack Query data layer |
+| **Phase 3 — Notifications & Intelligence** | ✅ Complete | QOTD ecosystem, Web Push, Analytics Heatmap, Resident Review |
+| **Phase 4 — Year-over-Year Transition** | ✅ Complete | YoY schema, derived-PGY model, Academic-Year filtering, Annual Rollover |
+| **Phase 5 — Feature Wishlist** | 🔄 Ongoing | Resident Risk shipped; RFID kiosk still parked. See section below. |
 
-**Data layer (2026-05-20):** Admin console now runs on **TanStack Query** (retries, caching, lazy questions). The recurring timeout issues are resolved. See changelog.
+**Deployment:** still pre-launch (no residents yet), so pushing straight to `main` is acceptable for now — but **must** switch to preview-branch testing before rollout (see Deployment Workflow). The app is **deploy-blind for AI agents**: every screen sits behind Supabase login, so changes are verified with `tsc` + `next build`, then the user tests on the live site (`brq.stvfamilymed.org`).
 
 ### ⚠️ Action Required From Admin
 - [x] **Sprint 5 step 1**: SQL migration `migrate_blocks_question_ids.sql` run in Supabase ✅
@@ -72,65 +75,38 @@ This file serves as the shared source of truth for development progress between 
 - [x] **NEXT — Phase 3 QOTD & Push**: `migrate_qotd_reactions.sql` and `migrate_push_subscriptions.sql` — Adds the tables required for Web Push notifications and Question of the Day emoji reactions. **Admin must run it in Supabase.**
 - [x] **Punctual QOTD Notifications (pg_cron)** ✅ *(2026-06-05)*: `migrate_qotd_pgcron.sql` run + verified in Supabase (`pg_cron` + `pg_net` enabled; test push returned `200 "Morning QOTD notifications processed."`). The redundant Vercel cron (`vercel.json`) and GitHub Actions workflow were removed in the same deploy — **pg_cron is now the single scheduler.** Note: `CRON_SECRET` was rotated to a new value on this date.
 - [ ] **2026-06-08 — QOTD Top-Up Engine**: `20260608_qotd_topup.sql` — adds a `UNIQUE(question_id)` recycle guardrail to `qotd_schedule` plus the `qotd_topup()` function that powers the Annual Rollover "Update Daily Question pool" button. **Admin must run it in Supabase before that button will work.**
+- [ ] **2026-06-08 — Badge Catalog Expansion**: `20260608_badges_expansion.sql` — seeds the 9 new achievement badges (Ironman, block-streak ladder, Sharpshooter, Early Bird, Weekend Warrior, Perfectionist, Procrastinator) and removes the duplicate "Marathoner". **Admin must run it in Supabase for the new badges to appear and be awarded.**
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
-### 🎯 Remaining in Phase 2
+### 🎯 Phase 2 — Final Items ✅
 - [x] **Sprint 4B** — Browse + per-question Edit UI for the question bank ✅
 - [x] **Roster Edit/Archive** — finish the Roster CRUD ✅
 - [x] **Custom URL** — DNS/Vercel config only, no code change ✅
-- [x] **Question-level Analytics** (Moved to Phase 6 Wishlist)
-
-## 📅 Session Handoff – 2026-05-26 (Antigravity)
-
-**What shipped today (all live on `main`):**
-1. **PWA App Badging API**: Integrated the Web App Badging API (`navigator.setAppBadge` / `navigator.clearAppBadge`) to show visual badges on installed PWA application icons when push notifications are received. The badge automatically clears when the app is opened by the user.
-2. **QOTD Dashboard Return & Navigation**: Replaced the plain tab switcher in QOTD view with a clean header including a circular "X" close button next to the tabs to quickly return to the dashboard. Removed redundant/duplicated "Back to Dashboard" buttons from the screens.
-3. **QOTD Starting Clock Reset**: Configured the academic year starting date for QOTD sequential question selection to set the start date to **May 21st, 2026** (the launch date) for the current academic year, preventing the app from burning through sequential questions for pre-launch dates.
-4. **Push Notification Security Bypass**: Implemented a backend security bypass to fetch the correct active push subscription count safely for admin dashboard views.
-5. **Logout Resiliency**: Added a 5-second timeout and local storage fallback clearing to the logout mechanism, ensuring stuck auth states can be recovered.
-6. **QOTD History & Admin Tuning**: Overhauled the notification cron routes to be robust against bad subscription payloads, aligned user-facing QOTD release text to "12:25 PM", and implemented a paginated "Past QOTDs" history rolling view.
-
-**Next tasks, priority order:**
-1. **Admin Designation UI**: Build the UI to allow existing admins to assign admin roles to users from the Roster Manager.
-2. **Resume Phase 4**: Finish applying strict TypeScript definitions to `AdminConsole.tsx` and all Admin Tab Managers, then run `tsc --noEmit` to finalize.
-
-**Workflow note:** still pushing straight to `main` (pre-launch, no users). User works on the live BRQ URL, not local. See "Deployment Workflow" above for the post-launch transition.
+- [x] **Question-level Analytics** (Moved to Phase 5 Wishlist)
 
 ---
 
-## 📅 Session Handoff – 2026-05-24 (Antigravity)
+## 🔧 Code Review — Tech Debt & Hardening
+*Opened 2026-06-08 (Claude) from a full deep-dive review. User reviewed and approved all items; we're working **top-to-bottom**. Most are small. None change the resident-facing 1:1 look — they're security, correctness, and maintainability fixes. Each item notes the file(s) involved so any agent can pick it up.*
 
-**What shipped today (all live on `main`):**
-1. **MyStatsModal Refactor**: Rebuilt the "Review Weak Areas" logic. Combined "Stats & Badges" and "Review Weak Areas" into a single tabbed modal directly accessible from the Dashboard. Removed `ResidentReview.tsx` entirely.
-2. **QOTD Emoji Fix**: Resolved the bug where changing a reaction on a Question of the Day caused duplicate aggregates in the UI. Users can now actively change their vote, and the UI will properly decrement the old vote and increment the new one optimistically while syncing with Supabase.
-3. **Decentralized Admin Console**: Broke up the monolithic Admin Console data fetch. The shell now loads instantly, and each tab (Performance, Roster, Curriculum, Questions) independently fetches only the specific database tables it needs, completely resolving timeout issues and long loading screens.
-4. **Weak Areas Category Grid**: Replaced the initial question view with a Category Grid that displays topic buttons (e.g., "Cardiology - 3") for focused review sessions.
-5. **Dynamic Google Drive Integration**: The "Search Drive for Topic" button now pre-populates the search query using the question's `resource_link` (citation), falling back to the `category` if no citation exists.
-6. **Demo Quizzes Excluded**: Stripped Demo Quizzes out of all metrics. They no longer skew Block Performance stats or impact At-Risk algorithms.
+**🔴 Security & data exposure**
+- [x] **1. Delete the open `/api/email` route.** ✅ *Done 2026-06-08 (Claude).* Removed `app/api/email/route.ts` (an open, unauthenticated Resend relay); confirmed no code referenced it. The `resend` npm package is now unused — optional follow-up to drop it from `package.json`. *(If email is ever needed again, gate it behind the `CRON_SECRET` / admin-token check that `app/api/web-push/send` already uses.)*
+- [ ] **2. Put all RLS policies under version control.** Some tables' policies live only in the Supabase dashboard — notably **`results`** (the leaderboard depends on a read policy that exists in no migration file) and the **`question_attempts`** read policy (see #3). Export the live policies into a `supabase/migrations/` file so the repo is the source of truth and the DB is reproducible.
+- [ ] **3. Stop shipping every resident's raw scores to the browser; verify cohort-stats RLS.** The dashboard leaderboard pulls **all** `results` rows (emails + per-topic scores) client-side (`hooks/useDashboardData.ts`). Related: QOTD "cohort performance" reads `question_attempts` across users — so either (a) those stats are silently self-only (if the policy is still `auth.uid() = user_id`), or (b) the policy was loosened in the dashboard and every resident can read everyone's per-question history. **Verify the live policies**, then move leaderboard + cohort aggregation server-side (a Postgres function/view) so only summaries leave the server.
+- [ ] **4. (minor) Tighten the unauthenticated routes.** `app/api/auth/verify-roster` lets anyone enumerate the roster (returns name/pgy/role per email); `app/api/web-push/subscribe` trusts a client-supplied email. Add basic rate-limiting / identity checks.
 
-**Next tasks, priority order:**
-1. **Admin Designation UI**: Build the UI to allow existing admins to assign admin roles to users from the Roster Manager.
-2. [x] **Supabase CLI Setup**: Integrate the Supabase CLI for local database migrations, local testing, and automated TypeScript interface generation (major Quality of Life upgrade).
-3. **Resume Phase 4**: Finish applying strict TypeScript definitions to `AdminConsole.tsx` and all Admin Tab Managers, then run `tsc --noEmit` to finalize.
+**🟠 Correctness bugs**
+- [ ] **5. "Review incorrect questions" includes mastered questions.** In `components/QuizEngine.tsx` the `pool === 'incorrect'` path grabs any question ever answered wrong, even if a later attempt was correct (the code comment flags it as "simplified"). Fix to "the most recent attempt was incorrect."
+- [ ] **6. Push-notification icons 404.** `public/sw.js` references `/icon-192x192.png` and `/badge-72x72.png`, but the icons live under `/icons/` and no badge file exists. Point them at real paths (and add a badge asset).
+- [ ] **7. "Unused questions" pool can under-fill.** `pool === 'unused'` fetches `count × 10` then filters client-side, so a heavy user can get fewer than requested. Use a server-side `NOT IN` / RPC.
+- [ ] **8. Biased shuffle.** `sort(() => Math.random() - 0.5)` (QuizEngine, question delivery order) isn't uniform. Replace with Fisher–Yates.
 
-**Workflow note:** still pushing straight to `main` (pre-launch, no users). User works on the live BRQ URL, not local. See "Deployment Workflow" above for the post-launch transition.
-
----
-
-## 🤝 Session Handoff — 2026-05-23 (Antigravity)
-
-**What shipped today (all live on `main`):**
-1. **Architecture & Performance**: Refactored `page.tsx` to keep the Dashboard mounted in the background when navigating to the Quiz Builder or Admin Console. This completely fixed the disappearing Question of the Day (QOTD) bug and resolved the heavy database hangs that were crashing the Admin Console upon return.
-2. **Database Integrity**: Provided the raw SQL to enforce a `UNIQUE` constraint on `qotd_reactions`, fixing the duplicate QOTD emoji reaction bug and allowing `.upsert()` to work correctly.
-3. **TypeScript Migration (Phase 4)**: Built the core `lib/types.ts` infrastructure. Replaced all `any` typings in `Dashboard.tsx` and `useAdminData.ts` with strict Supabase interface types.
-4. **Enhanced Error Logging**: Added specific rejection-reason tracing to the Admin Console's network layer so we can instantly diagnose if a fetch fails due to a network drop, timeout, or RLS block.
-
-**Next tasks, priority order:**
-1. **"Review Weak Areas" Refactor**: Re-evaluate and rebuild the logic for the "Review Weak Areas" button, as it is currently not working as the user imagined.
-2. **Supabase CLI Setup**: Integrate the Supabase CLI for local database migrations, local testing, and automated TypeScript interface generation (major Quality of Life upgrade).
-3. **Resume Phase 4**: Finish applying strict TypeScript definitions to `AdminConsole.tsx` and all Admin Tab Managers, then run `tsc --noEmit` to finalize.
-
-**Workflow note:** still pushing straight to `main` (pre-launch, no users). User works on the live BRQ URL, not local. See "Deployment Workflow" above for the post-launch transition.
+**🟡 Performance & maintainability**
+- [ ] **9. Gamification fires 20+ sequential DB calls per submit.** `lib/gamification.ts` does a select-then-insert for every badge/club threshold. Move into one Postgres function (or batch + upsert).
+- [ ] **10. `SUPER_ADMIN_EMAILS` is duplicated in ~7 places** (`lib/roles.ts`, four API routes, a component, the SQL helper). Centralize so adding/removing an admin can't drift out of sync.
+- [ ] **11. Re-enable build-time type/lint checks.** `next.config.js` sets `ignoreBuildErrors`/`ignoreDuringBuilds: true`. `tsc` passes clean today, so flip them back on to restore the safety net.
+- [ ] **12. Replace pervasive `any` types** (`user`, `profile`, `question`, …) with the interfaces already in `lib/types.ts`, so the `tsc` gate actually protects those paths.
+- [ ] **13. Consolidate loose SQL files.** ~30 ad-hoc `*.sql` files + large data dumps sit in the repo root; only 2 are in `supabase/migrations/`. Move into one ordered migrations folder so it's clear what's been applied.
 
 ---
 
@@ -166,7 +142,7 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
-## 📍 Phase 2: The "Admin Overhaul" & Logic Engine (Active)
+## 📍 Phase 2: The "Admin Overhaul" & Logic Engine (Complete)
 *Goal: Move the source of truth to the app and implement "Set and Forget" block logic.*
 
 ### Dynamic Quiz Engine
@@ -304,6 +280,19 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-08 — QOTD: Answer & Explanation on Review + Badge Retiming (Claude)
+*   **The Daily Question now shows the correct answer & explanation after it unlocks.** Previously, if you got the QOTD *right*, the review screen showed your score but never the explanation — only a *wrong* answer surfaced it. Now, once the question unlocks at 12:30 PM, you always see the full card: the correct answer highlighted, your own pick, and the explanation. (`components/QuizEngine.tsx`, reusing `QuizReview`.)
+*   **"Just in Time" badge retimed.** It used to reward answering 11:55–11:59 AM (just before *noon*), but the Daily Question actually unlocks at **12:30 PM** — so it now fires for answers in the 5 minutes before that (12:25–12:29 PM). The code's unlock time and the on-screen "12:30 PM" text now agree. (`lib/gamification.ts`, `lib/qotd.ts`; catalog description refreshed by `20260608_badges_expansion.sql`.)
+
+### 2026-06-08 — New Achievements & Badges (Claude)
+*   **Nine new badges to chase.** 🏊 **Ironman** (140 questions — an Ironman is 140.6 miles, and our program staffs the race's medical tent), an on-time **block-streak ladder** (🎳 On a Roll / 🔒 Locked In / ⚡ Unstoppable for 3 / 5 / 10 in a row), 🎯 **Sharpshooter** (5 QOTDs correct in a row), 🌅 **Early Bird** (block finished 4–6 AM), ⚔️ **Weekend Warrior** (block on a weekend), 💯 **Perfectionist** (100% on 5 different blocks), and 🐢 **Procrastinator** (turn an assigned block in on its last day). Tap **Achievements → View all** to see them — locked until earned. (`lib/gamification.ts`; catalog seeded by `20260608_badges_expansion.sql`.)
+*   **🎓 Topic Master now spans the 3 most recent ITEs** — earn it by answering every question in a category across the last three ITE years (was: only the single most recent year), matching the app's freshness window.
+*   **Retired a duplicate.** "Marathoner" and "100 Club" were the same achievement (100 questions answered); the unused Marathoner was removed.
+
+### 2026-06-08 — Add-to-Home-Screen Guide + Fresh Block Icons (Claude)
+*   **"Install this app on your phone" — step by step.** The login screen *and* your dashboard now have an **Install on your phone** button that opens simple instructions for both **iPhone/iPad (Safari → Share → Add to Home Screen)** and **Android (Chrome → ⋮ → Install app)** — so you can add the app to your home screen and open it full-screen like a native app (and get Question-of-the-Day reminders). It auto-detects your device and highlights the matching steps. (`components/InstallAppModal.tsx`, surfaced from `Login.tsx` + `Dashboard.tsx`.)
+*   **Board Review Blocks got friendlier icons.** The plain grey document on each block is now a **colored icon tile** — an open book for standard blocks, a play symbol for the Demo, a gem for Bonus blocks, and a green check once you've completed one. (`components/Dashboard.tsx`.)
 
 ### 2026-06-08 — Advisor Emails Now Include the "Why" (Claude)
 *(Faculty/admin Performance view.)*
