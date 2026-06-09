@@ -278,7 +278,7 @@ This file serves as the shared source of truth for development progress between 
 
 ### Transition & Infrastructure
 - [x] **"Academic Year Transition" Tool**: Handle PGY bumps, archiving old data, and resetting for July 1st (Completed in Phase 4).
-- [ ] **Migrate Study Materials**: Move PDFs and docs from personal Google Drive to **Supabase Storage** to centralize all app data in one ecosystem.
+- [x] ~~**Migrate Study Materials**: Move PDFs and docs from personal Google Drive to **Supabase Storage**~~ — **Scrapped 2026-06-08 (user decision):** keeping a Supabase Storage mirror in sync with the live Google Drive would be ongoing maintenance for little benefit. Study materials stay on Google Drive.
 - [ ] **RFID Kiosk Attendance System:** Build a dedicated iPad kiosk mode (`/kiosk`) that uses a hidden input field to accept badge taps via a USB RFID keyboard-emulating reader. Admins can register badges and monitor a live attendance roster.
 
 ### Learning Features
