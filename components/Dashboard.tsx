@@ -442,11 +442,6 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                     })}
                     className="shrink-0 p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all group relative overflow-hidden ring-1 ring-slate-200/50 hover:ring-blue-400"
                   >
-                    {hasResume && !isCompleted && (
-                      <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 text-[9px] font-bold px-2 py-0.5 rounded-bl-xl border-l border-b border-amber-200">
-                        Q{(activeSession.current_index || 0) + 1}
-                      </div>
-                    )}
                     <div className="flex gap-3 items-center min-w-0">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${blockIconBadge}`}>
                         <BlockIcon className="w-5 h-5" />
@@ -459,14 +454,13 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                               Done
                             </span>
                           )}
-                          {!isCompleted && hasResume && (
-                            <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full border border-amber-200 uppercase tracking-wider shrink-0">
-                              Resume
-                            </span>
-                          )}
-                        </p>
                         <p className="text-xs text-slate-400 font-medium">
                           {result ? `Best: ${(result.percentage || 0).toFixed(1)}%` : `${displayCount} Questions`}
+                          {!isCompleted && hasResume && (
+                            <span className="ml-2 text-amber-600 font-bold">
+                              • In Progress (Q{(activeSession.current_index || 0) + 1}/{displayCount})
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>

@@ -190,11 +190,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         let query = supabase.from('questions').select('*');
 
         if (isDemo) {
-          query = query.in('id', [
-            '00000000-0000-0000-0000-000000000001',
-            '00000000-0000-0000-0000-000000000002',
-            '00000000-0000-0000-0000-000000000003'
-          ]);
+          // For the demo quiz, just pick any random questions from the database.
+          // We skip category/keyword/year filtering.
         } else if (isFixedBlock) {
           // Fixed assigned set — ignore category/year/pool filters by design
           query = query.in('id', questionIds!);
@@ -284,12 +281,16 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           finalPool = qData || [];
         } else {
           // Legacy pathway for incorrect, all, demo, fixed blocks
-          const { data: qData, error: qError } = (await withTimeout(
-            query.neq('year', 'Demo')
-              .neq('category', 'Demo')
-              .not('id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")')
-              .order('year', { ascending: false }).limit(fetchLimit)
-          )) as any;
+          let dbQuery = query.order('year', { ascending: false }).limit(fetchLimit);
+          
+          if (!isDemo && !isFixedBlock) {
+             // Exclude demo questions from regular quizzes
+             dbQuery = dbQuery.neq('year', 'Demo')
+                .neq('category', 'Demo')
+                .not('id', 'in', '("00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003")');
+          }
+
+          const { data: qData, error: qError } = (await withTimeout(dbQuery)) as any;
           if (qError) throw qError;
           finalPool = qData || [];
           
