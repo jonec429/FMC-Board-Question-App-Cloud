@@ -486,9 +486,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               {myAdvisees.length > 0 && (
                 <button 
                   onClick={() => {
-                    const subject = encodeURIComponent("FMC Board Question App: Advisee Performance Update");
+                    const subject = encodeURIComponent("FMC Board Review App: Advisee Performance Update");
                     const body = encodeURIComponent(
-                      "Hello,\n\nHere is a summary of your advisees' current performance in the FMC Board Question App:\n\n" + 
+                      "Hello,\n\nHere is a summary of your advisees' current performance in the FMC Board Review App:\n\n" + 
                       myAdvisees.map(r => {
                         const status = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'AT RISK' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) ? 'NEEDS ATTENTION' : 'ON TRACK';
                         const flags = r.riskReasons.length > 0 ? ` | Flags: ${r.riskReasons.join(', ')}` : '';
@@ -553,7 +553,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   groups[adv].push(r);
                 });
                 
-                let bodyStr = "Hello Faculty,\n\nHere is a summary of resident performance in the FMC Board Question App grouped by advisor:\n\n";
+                let bodyStr = "Hello Faculty,\n\nHere is a summary of resident performance in the FMC Board Review App grouped by advisor:\n\n";
                 Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).forEach(([adv, resList]) => {
                   bodyStr += `\n=== ${adv} ===\n`;
                   resList.forEach(r => {
@@ -565,7 +565,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 });
                 bodyStr += "\n\nLog in to the Admin Console for more details.\n\nThank you!";
                 
-                const subject = encodeURIComponent("FMC Board Question App: Program Performance Update");
+                const subject = encodeURIComponent("FMC Board Review App: Program Performance Update");
                 window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyStr)}`;
               }}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm"

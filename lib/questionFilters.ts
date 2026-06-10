@@ -1,5 +1,5 @@
 /**
- * Question filtering utilities for the FMC Board Question App V2 application.
+ * Question filtering utilities for the FMC Board Review App application.
  *
  * Board-prep best practice is to study the most recent 3 ITE years — older
  * questions may reference superseded guidelines. This module defines that

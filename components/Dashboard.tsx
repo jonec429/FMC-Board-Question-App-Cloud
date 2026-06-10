@@ -140,7 +140,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
         <div className="relative z-10 flex-1 min-w-0 pr-2 flex items-center gap-3">
           <AbfmShield className="w-10 h-10 text-blue-600 hidden sm:block shrink-0" />
           <div className="min-w-0">
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight truncate">FMC Board Question App</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight truncate">FMC Board Review App</h2>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
             <p className="text-slate-500 font-bold text-[10px] md:text-xs tracking-wide uppercase opacity-60 truncate">
               Ascension St. Vincent's FM Residency · {formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : user.email}
@@ -196,7 +196,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
             </div>
             <div className="min-w-0">
               <h3 className="text-base font-bold text-blue-900 mb-0.5">
-                Welcome to the FMC Board Question App!
+                Welcome to the FMC Board Review App!
               </h3>
               <p className="text-blue-700 text-sm font-medium pr-2">
                 We recommend taking the Demo Quiz first to get familiar with the interface, tools, and question formats. It's only 3 questions and won't affect your stats.

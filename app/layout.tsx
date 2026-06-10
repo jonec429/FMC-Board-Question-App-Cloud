@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "FMC Board Question App",
+  title: "FMC Board Review App",
   description: "Advanced Resident Performance & Quiz System",
   manifest: "/manifest.json",
   icons: {
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "FMC Board Question App",
+    title: "FMC Board Review App",
   },
 };
 

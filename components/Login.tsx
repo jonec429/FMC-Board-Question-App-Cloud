@@ -184,7 +184,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
             <div className="bg-blue-600 p-4 rounded-2xl shadow-xl text-white mb-3">
               <AbfmShield className="w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900 leading-tight">FMC Board Question App</h1>
+            <h1 className="text-2xl font-black text-slate-900 leading-tight">FMC Board Review App</h1>
             <p className="text-slate-400 text-xs mt-1 leading-snug">
               Ascension St. Vincent's Family Medicine Residency Program Jacksonville
             </p>

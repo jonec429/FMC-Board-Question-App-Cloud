@@ -1,5 +1,5 @@
 /**
- * Shared utility functions for the FMC Board Question App V2 application.
+ * Shared utility functions for the FMC Board Review App application.
  */
 
 /**

@@ -178,7 +178,7 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
             </div>
             <h3 className="text-2xl font-black text-slate-800">Seamless Auto-Advance</h3>
             <p className="text-slate-500 max-w-lg text-lg">
-              Because FMC Board Question App uses a cohort-based schema, <strong>PGY1s and PGY2s have automatically advanced</strong> to their next year based on the current date. No database updates are required!
+              Because FMC Board Review App uses a cohort-based schema, <strong>PGY1s and PGY2s have automatically advanced</strong> to their next year based on the current date. No database updates are required!
             </p>
             <div className="pt-8">
               <button

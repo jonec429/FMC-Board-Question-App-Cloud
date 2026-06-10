@@ -1,5 +1,5 @@
 /**
- * Centralized role utilities for the FMC Board Question App V2 application.
+ * Centralized role utilities for the FMC Board Review App application.
  *
  * 3-Tier Role System:
  *   - resident: Standard user — takes quizzes, sees own performance + leaderboard

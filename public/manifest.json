@@ -1,6 +1,6 @@
 {
-  "name": "FMC Board Question App V2",
-  "short_name": "FMC Board Question App V2",
+  "name": "FMC Board Review App",
+  "short_name": "FMC Board Review App",
   "description": "Advanced Resident Performance & Quiz System",
   "start_url": "/",
   "display": "standalone",
