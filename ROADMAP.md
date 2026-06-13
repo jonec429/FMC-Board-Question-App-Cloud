@@ -62,14 +62,14 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** still pre-launch (no residents yet), so pushing straight to `main` is acceptable for now — but **must** switch to preview-branch testing before rollout (see Deployment Workflow). The app is **deploy-blind for AI agents**: every screen sits behind Supabase login, so changes are verified with `tsc` + `next build`, then the user tests on the live site (`brq.stvfamilymed.org`).
 
-### ▶️ Session Handoff — 2026-06-09 (Antigravity)
-**Shipped & pushed to `main` this session** (detail in the Changelog): 
-1. Fixed a major bug in the `useDashboardData` hook where starting multiple quizzes caused the Dashboard to lose track of all but the most recent one. 
-2. Fixed a silent database constraint violation (foreign key on `quiz_sessions`) that was completely preventing the Demo Quiz and Test Block from saving progress.
-3. Hardcoded all "Review Topic Material" buttons to point directly to the program's shared Google Drive board review folder, removing reliance on legacy database links.
-4. Added a "Show All / Show Incorrects" toggle to the end-of-quiz review screen.
+### ▶️ Session Handoff — 2026-06-13 (Antigravity)
+**Shipped & pushed to `main` this session**: 
+1. **Dashboard Layout**: Pinned the "Demo Quiz" to the top of the dashboard regardless of sort settings. Moved the QOTD to the main dashboard column above the Quiz Builder.
+2. **Weekend QOTD**: Added a persistent QOTD card on weekends that displays a custom message and includes a "Past QOTDs" button with a calendar icon.
+3. **Snapshot Cleanup**: Implemented year-over-year filtering directly inside the `MyStatsModal` (Snapshot component). Improved the middle column grid rendering for smaller screens to prevent text overlap.
+4. **Email Invites**: Consolidated mass-invite functionality in the Roster Manager, drafted unified intro templates including PWA installation/notification instructions.
 
-**▶️ Recommended next task — Tech-Debt #4:** Tighten unauthenticated routes (rate-limiting/identity checks for `verify-roster` and `subscribe`).
+**▶️ Recommended next task**: Tech Debt #12 — Replace pervasive `any` types throughout the codebase.
 
 **Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass at this commit.
 
