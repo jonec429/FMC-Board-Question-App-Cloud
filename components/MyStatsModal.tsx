@@ -245,29 +245,7 @@ export default function MyStatsModal({
           </button>
         </div>
 
-        {/* QOTD Performance (Permanent Fixture at Top) */}
-        {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (
-          <div className="px-6 py-4 border-b border-slate-100 bg-white">
-            <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-2">QOTD Performance</h3>
-            <div className="flex items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between text-xs font-bold mb-1.5">
-                  <span className="text-emerald-600">{qotdStats.correct} Correct</span>
-                  <span className="text-red-600">{qotdStats.incorrect} Incorrect</span>
-                </div>
-                <div className="h-2 bg-red-100 rounded-full overflow-hidden flex">
-                  <div 
-                    className="h-full bg-emerald-500 transition-all" 
-                    style={{ width: `${(qotdStats.correct / (qotdStats.correct + qotdStats.incorrect)) * 100}%` }} 
-                  />
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1.5 text-center uppercase tracking-widest font-bold">
-                  {qotdStats.correct + qotdStats.incorrect} Total Attempts
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* QOTD Performance was moved into the snapshot card */}
         <div className="flex border-b border-slate-100 bg-slate-50/50">
           <button
             onClick={() => setActiveTab('stats')}
@@ -304,76 +282,86 @@ export default function MyStatsModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {activeTab === 'stats' && (
             <div className="space-y-6 animate-fade-in">
-              {/* Quick Stats Widget */}
-              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200">
-                <div className="flex items-center gap-2 mb-4">
+              {/* Unified Snapshot Widget */}
+              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 space-y-8">
+                <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center">
                     <Target className="w-3.5 h-3.5 text-white" />
                   </div>
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Board Prep Snapshot</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 divide-y md:divide-y-0 md:divide-x divide-white/10">
-                  <div className="pt-2 md:pt-0">
+
+                {/* Grid KPIs */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
+                  <div>
+                    <div className="text-3xl font-black">{avgPct !== null ? `${avgPct.toFixed(1)}%` : '—'}</div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Avg Score</div>
+                  </div>
+                  <div>
                     <div className="text-3xl font-black">{totalQs}</div>
                     <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Questions Done</div>
                   </div>
-                  <div className="pt-4 md:pt-0 md:px-4">
-                    <div className="text-xl md:text-2xl font-black truncate">{topicAverages.length > 0 ? topicAverages[0].topic : '—'}</div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Top Scoring Topic</div>
+                  <div>
+                    <div className="text-3xl font-black">{totalPoints}</div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Quiz Points</div>
                   </div>
-                  <div className="pt-4 md:pt-0 md:px-4">
-                    <div className="text-xl md:text-2xl font-black">
-                      {nextBadge ? nextBadge.name : 'All Maxed!'}
-                    </div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">
-                      {nextBadge ? `${nextBadge.remaining} Qs away` : 'Legendary Status'}
-                    </div>
+                  <div>
+                    <div className="text-xl font-black leading-tight line-clamp-2 break-words">{topicAverages.length > 0 ? topicAverages[0].topic : '—'}</div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Top Topic</div>
+                  </div>
+                  <div>
+                    <div className="text-xl font-black leading-tight line-clamp-2">{nextBadge ? nextBadge.name : 'All Maxed!'}</div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">{nextBadge ? `${nextBadge.remaining} Qs away` : 'Next Badge'}</div>
+                  </div>
+                  <div>
+                    <div className="text-xl font-black leading-tight">{blocksCompleted}</div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Blocks Done</div>
                   </div>
                 </div>
-              </div>
 
-              {/* KPI Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="text-center p-3 bg-slate-50 rounded-2xl">
-                  <div className="text-xl font-black text-slate-800">{avgPct !== null ? `${avgPct.toFixed(1)}%` : '—'}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Avg Score</div>
-                </div>
-                <div className="text-center p-3 bg-slate-50 rounded-2xl">
-                  <div className="text-xl font-black text-slate-800">{totalQs}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Questions Done</div>
-                </div>
-                <div className="text-center p-3 bg-slate-50 rounded-2xl">
-                  <div className="text-xl font-black text-slate-800">{blocksCompleted}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Blocks Done</div>
-                </div>
-                <div className="text-center p-3 bg-slate-50 rounded-2xl">
-                  <div className="text-xl font-black text-slate-800">{totalPoints}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Quiz Points</div>
-                </div>
-              </div>
-
-              {/* Badges */}
-              {userBadges.length > 0 && (
-                <div>
-                  <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Badges &amp; Milestones</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {userBadges.map((b, i) => (
-                      <div key={i} className="relative group">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-indigo-50 text-indigo-700 border-indigo-200 cursor-help transition-transform hover:scale-105">
-                          <span>{b.icon}</span>
-                          <span>{b.name}</span>
-                        </span>
-                        {b.description && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl">
-                            {b.description}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                {/* QOTD INTEGRATION */}
+                {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (
+                  <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
+                    <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest mb-2">QOTD Performance</h3>
+                    <div className="flex justify-between text-xs font-bold mb-1.5">
+                      <span className="text-emerald-300">{qotdStats.correct} Correct</span>
+                      <span className="text-red-300">{qotdStats.incorrect} Incorrect</span>
+                    </div>
+                    <div className="h-2 bg-red-500/50 rounded-full overflow-hidden flex">
+                      <div 
+                        className="h-full bg-emerald-400 transition-all" 
+                        style={{ width: `${(qotdStats.correct / (qotdStats.correct + qotdStats.incorrect)) * 100}%` }} 
+                      />
+                    </div>
+                    <p className="text-[10px] text-indigo-200 mt-1.5 text-center uppercase tracking-widest font-bold">
+                      {qotdStats.correct + qotdStats.incorrect} Total Attempts
+                    </p>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* BADGES INTEGRATION */}
+                {userBadges.length > 0 && (
+                  <div>
+                    <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest mb-3">Earned Badges</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {userBadges.map((b, i) => (
+                        <div key={i} className="relative group">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-indigo-500/30 text-white border-indigo-400/30 cursor-help transition-transform hover:scale-105">
+                            <span>{b.icon}</span>
+                            <span>{b.name}</span>
+                          </span>
+                          {b.description && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl">
+                              {b.description}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Block Performance */}
               {topicAverages.length > 0 && (
