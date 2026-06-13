@@ -263,7 +263,7 @@ export default function QuestionCard({
               Open Evidence
             </a>
             <a
-              href="https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X?usp=sharing"
+              href="https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-2xl text-purple-300 font-bold transition-all border border-purple-500/20 group relative"
