@@ -194,35 +194,19 @@ export default function RosterManager() {
         <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
           <button
             onClick={() => {
-              const pendingEmails = sortedRoster.filter(m => !m.has_account && m.track === 'family_medicine').map(m => m.email);
-              if (pendingEmails.length === 0) return alert("All residents have active accounts!");
+              const pendingEmails = sortedRoster.filter(m => !m.has_account).map(m => m.email);
+              if (pendingEmails.length === 0) return alert("Everyone has an active account!");
               const subject = encodeURIComponent("Invitation to the FMC Board Question App");
               const body = encodeURIComponent(
-                "Welcome to the FMC Board Question App!\n\nThis app is designed to help you prepare for the ABFM boards by providing daily practice questions, automatically tracking your weak areas over time, and gamifying your studying with badges and leaderboards.\n\nTo get started and set up your profile, please visit the link below and click 'Continue with Google' using your Ascension email address:\nhttps://stvfamilymed.org/brq"
+                "Welcome to the FMC Board Question App!\n\nThis app is designed to help prepare for the ABFM boards by providing daily practice questions and automatically tracking weak areas over time.\n\nWhen you first log in, please make sure to allow notifications so you can receive the Question of the Day (QOTD) directly on your device!\n\nFor Residents:\nGamify your studying with badges and leaderboards while tracking your progress throughout the academic year.\n\nFor Faculty:\nYour account will grant you access to the Faculty Dashboard where you can monitor resident performance, review their weak areas, and check the leaderboard. (You can also take the daily quizzes yourself if you'd like!)\n\nTo get started and set up your profile, please visit the link below and click 'Continue with Google' using your Ascension email address:\nhttps://stvfamilymed.org/brq"
               );
               const bcc = pendingEmails.join(',');
               window.open(`https://mail.google.com/mail/?view=cm&fs=1&bcc=${bcc}&su=${subject}&body=${body}`, '_blank');
             }}
-            className="w-full md:w-auto px-4 py-4 bg-white text-blue-600 border border-blue-100 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-blue-50 active:scale-95 transition-all shadow-sm"
+            className="w-full md:w-auto px-6 py-4 bg-white text-blue-600 border border-blue-100 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-blue-50 active:scale-95 transition-all shadow-sm"
           >
             <Mail className="w-5 h-5" />
-            Email Residents
-          </button>
-          <button
-            onClick={() => {
-              const pendingEmails = sortedRoster.filter(m => !m.has_account && m.track !== 'family_medicine').map(m => m.email);
-              if (pendingEmails.length === 0) return alert("All faculty/staff have active accounts!");
-              const subject = encodeURIComponent("Invitation to the FMC Board Question App (Faculty Access)");
-              const body = encodeURIComponent(
-                "Welcome to the FMC Board Question App!\n\nThis app is designed to help our residents prepare for the ABFM boards. As a faculty member, your account will grant you access to the Faculty Dashboard where you can monitor resident performance, review their weak areas, and check the leaderboard. (You can also take the daily quizzes yourself if you'd like!)\n\nTo access the app, please visit the link below and click 'Continue with Google' using your Ascension email address:\nhttps://stvfamilymed.org/brq"
-              );
-              const bcc = pendingEmails.join(',');
-              window.open(`https://mail.google.com/mail/?view=cm&fs=1&bcc=${bcc}&su=${subject}&body=${body}`, '_blank');
-            }}
-            className="w-full md:w-auto px-4 py-4 bg-white text-purple-600 border border-purple-100 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-purple-50 active:scale-95 transition-all shadow-sm"
-          >
-            <Mail className="w-5 h-5" />
-            Email Faculty
+            Email Pending Invites
           </button>
           <button
             onClick={() => setShowWizard(true)}
@@ -321,12 +305,9 @@ export default function RosterManager() {
                     {!member.has_account && (
                       <button
                         onClick={() => {
-                          const isFaculty = member.track !== 'family_medicine';
-                          const subject = encodeURIComponent(isFaculty ? "Invitation to the FMC Board Question App (Faculty Access)" : "Invitation to the FMC Board Question App");
+                          const subject = encodeURIComponent("Invitation to the FMC Board Question App");
                           const body = encodeURIComponent(
-                            isFaculty 
-                              ? "Welcome to the FMC Board Question App!\n\nThis app is designed to help our residents prepare for the ABFM boards. As a faculty member, your account will grant you access to the Faculty Dashboard where you can monitor resident performance, review their weak areas, and check the leaderboard. (You can also take the daily quizzes yourself if you'd like!)\n\nTo access the app, please visit the link below and click 'Continue with Google' using your Ascension email address:\nhttps://stvfamilymed.org/brq"
-                              : "Welcome to the FMC Board Question App!\n\nThis app is designed to help you prepare for the ABFM boards by providing daily practice questions, automatically tracking your weak areas over time, and gamifying your studying with badges and leaderboards.\n\nTo get started and set up your profile, please visit the link below and click 'Continue with Google' using your Ascension email address:\nhttps://stvfamilymed.org/brq"
+                            "Welcome to the FMC Board Question App!\n\nThis app is designed to help prepare for the ABFM boards by providing daily practice questions and automatically tracking weak areas over time.\n\nWhen you first log in, please make sure to allow notifications so you can receive the Question of the Day (QOTD) directly on your device!\n\nFor Residents:\nGamify your studying with badges and leaderboards while tracking your progress throughout the academic year.\n\nFor Faculty:\nYour account will grant you access to the Faculty Dashboard where you can monitor resident performance, review their weak areas, and check the leaderboard. (You can also take the daily quizzes yourself if you'd like!)\n\nTo get started and set up your profile, please visit the link below and click 'Continue with Google' using your Ascension email address:\nhttps://stvfamilymed.org/brq"
                           );
                           window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${member.email}&su=${subject}&body=${body}`, '_blank');
                         }}
