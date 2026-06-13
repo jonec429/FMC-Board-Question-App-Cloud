@@ -169,7 +169,7 @@ export default function QuestionCard({
           const isCorrectOption = index === question.correct_index;
           const isStruck = strikethroughs.has(index);
           
-          let stateStyles = "bg-white border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50/30";
+          let stateStyles = "bg-white border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50/30 hover:-translate-y-1 hover:shadow-md hover:scale-[1.01]";
           
           if (showExplanation) {
             if (isCorrectOption) stateStyles = "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20";
@@ -177,7 +177,7 @@ export default function QuestionCard({
             else if (isStruck) stateStyles = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
             else stateStyles = "bg-white border-slate-100 text-slate-400 opacity-60";
           } else if (isSelected) {
-            stateStyles = "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200 scale-[1.02]";
+            stateStyles = "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200 scale-[1.02] -translate-y-1";
           } else if (isStruck) {
             stateStyles = "bg-slate-50 border-slate-200 text-slate-400 opacity-50 grayscale";
           }
@@ -225,7 +225,7 @@ export default function QuestionCard({
           <button
             onClick={handleSubmit}
             disabled={selectedOption === undefined}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl shadow-blue-200"
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl shadow-blue-200 hover:-translate-y-1 hover:shadow-2xl hover:scale-[1.01]"
           >
             Submit Answer
           </button>

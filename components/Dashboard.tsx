@@ -227,8 +227,8 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           
           {/* QOTD Card */}
           {qotdQuestion && (
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in">
-               <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 group">
+               <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
                <div className="relative z-10">
                  <h3 className="font-black text-lg flex items-center gap-2 mb-2">
                    <Sparkles className="w-5 h-5 text-yellow-300" />
@@ -340,7 +340,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           {/* My Performance — yellow gradient */}
           <button
             onClick={() => setShowMyStats(true)}
-            className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 text-yellow-800 rounded-3xl shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group"
+            className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 text-yellow-800 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
           >
             <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 transition-transform">
               <Trophy className="w-6 h-6 text-yellow-500" />
@@ -367,7 +367,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                   count: 40,
                 });
               }}
-              className="w-full text-left p-4 md:p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all group"
+              className="w-full text-left p-4 md:p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group"
             >
               <PlayCircle className="w-6 h-6 shrink-0" />
               <div className="text-left flex-1 min-w-0">
@@ -387,9 +387,9 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           {/* Quiz Builder — indigo gradient */}
           <button
             onClick={onOpenBuilder}
-            className="w-full mb-6 flex items-center justify-center gap-4 p-5 bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-700 border border-indigo-200 rounded-3xl shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group"
+            className="w-full mb-6 flex items-center justify-center gap-4 p-5 bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-700 border border-indigo-200 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
           >
-            <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300">
               <Sparkles className="w-7 h-7 text-indigo-500" />
             </div>
             <div className="text-left">
@@ -477,7 +477,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                       keywords: !hasFixedSet && block.keyword_filters && block.keyword_filters.length > 0 ? block.keyword_filters : undefined,
                       count: displayCount,
                     })}
-                    className="shrink-0 p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all group relative overflow-hidden ring-1 ring-slate-200/50 hover:ring-blue-400"
+                    className="shrink-0 p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group relative overflow-hidden ring-1 ring-slate-200/50 hover:ring-blue-400"
                   >
                     {hasResume && !isCompleted && (
                       <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 font-black text-[10px] px-2 py-0.5 rounded-bl-xl shadow-sm border-b border-l border-amber-200">
@@ -485,7 +485,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                       </div>
                     )}
                     <div className="flex gap-3 items-center min-w-0">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${blockIconBadge}`}>
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${blockIconBadge}`}>
                         <BlockIcon className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">

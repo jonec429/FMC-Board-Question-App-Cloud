@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName } from '@/lib/utils';
-import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight } from './AppIcons';
+import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save } from './AppIcons';
 import { LeaderboardEntry } from '@/lib/types';
 import QuizReview from './QuizReview';
+import { exportIncorrectToAnki, downloadCsv } from '@/lib/anki';
 
 interface MyStatsModalProps {
   onClose: () => void;
@@ -36,7 +37,8 @@ export default function MyStatsModal({
   const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
   const [reviewItems, setReviewItems] = useState<any[] | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
-  const [showAllReview, setShowAllReview] = useState(true);
+  const [showAllReview, setShowAllReview] = useState(false);
+  const [exportingAnki, setExportingAnki] = useState(false);
   const [qotdStats, setQotdStats] = useState<{ correct: number; incorrect: number } | null>(null);
 
   // Weak Areas State
@@ -105,6 +107,17 @@ export default function MyStatsModal({
   const topicAverages = Array.from(topicStats.entries())
     .map(([topic, { sum, count, qs }]) => ({ topic, avg: sum / count, attempts: count, qs }))
     .sort((a, b) => b.avg - a.avg);
+
+  const getNextBadgeInfo = () => {
+    const clubs = [100, 140, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+    for (const c of clubs) {
+      if (totalQs < c) {
+        return { name: `${c} Club`, remaining: c - totalQs };
+      }
+    }
+    return null;
+  };
+  const nextBadge = getNextBadgeInfo();
 
   useEffect(() => {
     async function loadQotdStats() {
@@ -191,6 +204,27 @@ export default function MyStatsModal({
     loadMissedQuestions();
   }, [activeTab, userId, missedQuestions.length]);
 
+  const handleNext = () => {
+    if (currentIndex < displayedMissedQuestions.length - 1) setCurrentIndex(currentIndex + 1);
+  };
+
+  const handleExportAnki = async () => {
+    try {
+      setExportingAnki(true);
+      const csv = await exportIncorrectToAnki(userId);
+      if (csv) {
+        downloadCsv('fmc_board_prep_incorrect_qs_anki.csv', csv);
+      } else {
+        alert('No incorrect questions to export.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to export Anki flashcards.');
+    } finally {
+      setExportingAnki(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -270,6 +304,34 @@ export default function MyStatsModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {activeTab === 'stats' && (
             <div className="space-y-6 animate-fade-in">
+              {/* Quick Stats Widget */}
+              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center">
+                    <Target className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Board Prep Snapshot</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 divide-y md:divide-y-0 md:divide-x divide-white/10">
+                  <div className="pt-2 md:pt-0">
+                    <div className="text-3xl font-black">{totalQs}</div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Questions Done</div>
+                  </div>
+                  <div className="pt-4 md:pt-0 md:px-4">
+                    <div className="text-xl md:text-2xl font-black truncate">{topicAverages.length > 0 ? topicAverages[0].topic : '—'}</div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Top Scoring Topic</div>
+                  </div>
+                  <div className="pt-4 md:pt-0 md:px-4">
+                    <div className="text-xl md:text-2xl font-black">
+                      {nextBadge ? nextBadge.name : 'All Maxed!'}
+                    </div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">
+                      {nextBadge ? `${nextBadge.remaining} Qs away` : 'Legendary Status'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* KPI Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="text-center p-3 bg-slate-50 rounded-2xl">
@@ -465,7 +527,17 @@ export default function MyStatsModal({
                   {/* Category Grid or Question Viewer */}
                   {!selectedTopic ? (
                     <div className="space-y-4">
-                      <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Select a Category to Review</h3>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">Select a Category to Review</h3>
+                        <button 
+                          onClick={handleExportAnki}
+                          disabled={exportingAnki}
+                          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-indigo-200 shadow-sm disabled:opacity-50"
+                        >
+                          {exportingAnki ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                          Export Anki Deck (CSV)
+                        </button>
+                      </div>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {Array.from(new Set(missedQuestions.map(q => q.category).filter(Boolean))).map((cat) => {
                           const count = missedQuestions.filter(q => q.category === cat).length;
@@ -575,7 +647,7 @@ export default function MyStatsModal({
                       <ChevronLeft className="w-4 h-4" /> Prev
                     </button>
                     <button
-                      onClick={() => setCurrentIndex(prev => Math.min(displayedMissedQuestions.length - 1, prev + 1))}
+                      onClick={handleNext}
                       disabled={currentIndex === displayedMissedQuestions.length - 1}
                       className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-lg shadow-slate-200"
                     >

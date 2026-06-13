@@ -23,6 +23,14 @@ export async function processGamification(
     // 0. Fetch all existing badges to reduce DB calls during evaluation
     const { data: allBadgesData } = await supabase.from('badges').select('id, name');
     const badgeMap = new Map((allBadgesData || []).map((b: any) => [b.name, b.id]));
+    
+    // 0.5 Fetch user's existing badges to ensure we only report TRULY new badges
+    const { data: existingUserBadges } = await supabase
+      .from('user_badges')
+      .select('badge_id')
+      .eq('user_id', userId);
+    const existingBadgeIds = new Set((existingUserBadges || []).map((ub: any) => ub.badge_id));
+    
     const earnedBadgeIds = new Set<string>();
 
     const evaluateBadge = async (badgeName: string, condition: boolean, createIfNotExists?: { description: string; icon: string; type: string }) => {
@@ -42,7 +50,10 @@ export async function processGamification(
         }
       }
       
-      if (badgeId) earnedBadgeIds.add(badgeId);
+      
+      if (badgeId && !existingBadgeIds.has(badgeId)) {
+        earnedBadgeIds.add(badgeId);
+      }
     };
 
     // 1. Fetch user streaks
@@ -303,13 +314,8 @@ export async function processGamification(
 
     if (baseBadgeIds.size > 0) {
       // Get user's current badges from the database to combine with what they earned this session
-      const { data: existingUserBadges } = await supabase
-        .from('user_badges')
-        .select('badge_id')
-        .eq('user_id', userId);
-        
       const allUserBadgeIds = new Set([
-        ...(existingUserBadges || []).map((ub: any) => ub.badge_id),
+        ...Array.from(existingBadgeIds),
         ...Array.from(earnedBadgeIds)
       ]);
 
@@ -339,8 +345,13 @@ export async function processGamification(
       
       if (upsertError) {
         console.warn('Failed to batch-award badges:', upsertError.message);
+      } else {
+        // Return array of newly earned badges
+        return { newlyEarnedBadgeIds: Array.from(earnedBadgeIds) };
       }
     }
+    
+    return { newlyEarnedBadgeIds: [] };
 
   } catch (err) {
     console.error('Error processing gamification:', err);

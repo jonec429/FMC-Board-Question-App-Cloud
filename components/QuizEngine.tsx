@@ -10,6 +10,7 @@ import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { getTodayDateString, isPastNoon } from '@/lib/qotd';
 import { processGamification } from '@/lib/gamification';
+import confetti from 'canvas-confetti';
 
 interface QuizEngineProps {
   user: any;
@@ -55,9 +56,30 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // resumed session (existing progress) skips it.
   const [mode, setMode] = useState<'practice' | 'quiz'>('practice');
   const [started, setStarted] = useState(false);
+  const [newBadgesEarned, setNewBadgesEarned] = useState(false);
+  
   useEffect(() => {
     if (currentIndex > 0 || Object.keys(answers).length > 0) setStarted(true);
   }, [currentIndex, answers]);
+
+  const confettiFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (showResults && resultData && !confettiFiredRef.current) {
+      const passed = resultData.percentage > 60;
+      // Fire confetti if they scored > 60% OR if they earned a new badge
+      if (passed || newBadgesEarned) {
+        confettiFiredRef.current = true;
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+          zIndex: 9999,
+          colors: ['#4f46e5', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b']
+        });
+      }
+    }
+  }, [showResults, resultData, newBadgesEarned]);
 
   // Idempotency guards for submit. submittingRef blocks re-entrant calls
   // (double-tap, timer auto-submit racing a manual Finish) synchronously, since
@@ -500,7 +522,13 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           currentBlock?.end_date ?? undefined
         ),
         30000
-      ).catch((e) => console.warn('Gamification processing skipped:', e));
+      )
+      .then((res: any) => {
+         if (res && res.newlyEarnedBadgeIds && res.newlyEarnedBadgeIds.length > 0) {
+           setNewBadgesEarned(true);
+         }
+      })
+      .catch((e) => console.warn('Gamification processing skipped:', e));
 
       if (sessionId) {
         await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 30000);

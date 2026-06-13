@@ -8,7 +8,8 @@ self.addEventListener('push', function (event) {
       vibrate: [100, 50, 100],
       data: {
         dateOfArrival: Date.now(),
-        primaryKey: '2'
+        primaryKey: '2',
+        ...data.data
       }
     };
     
@@ -49,20 +50,25 @@ self.addEventListener('notificationclick', function (event) {
   if ('clearAppBadge' in navigator) {
     navigator.clearAppBadge();
   }
+
+  const targetUrl = event.notification.data?.url || '/';
   
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then(windowClients => {
       // Check if there is already a window/tab open with the target URL
       for (var i = 0; i < windowClients.length; i++) {
         var client = windowClients[i];
-        var url = new URL(client.url);
-        if ((url.pathname === '/' || client.url === self.registration.scope) && 'focus' in client) {
+        // If client url matches the target URL, or is the root domain and we're just going to root
+        var clientUrl = new URL(client.url);
+        var tUrl = new URL(targetUrl, self.location.origin);
+        
+        if (clientUrl.href === tUrl.href && 'focus' in client) {
           return client.focus();
         }
       }
       // If not, open a new window
       if (clients.openWindow) {
-        return clients.openWindow('/');
+        return clients.openWindow(targetUrl);
       }
     })
   );
