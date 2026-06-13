@@ -3,7 +3,9 @@ import { User as SupabaseUser } from '@supabase/supabase-js';
 
 export type User = SupabaseUser;
 
-export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type Profile = Database['public']['Tables']['profiles']['Row'] & {
+  view_as?: 'resident' | 'faculty' | 'admin' | null;
+};
 export type RosterEntry = Database['public']['Tables']['authorized_roster']['Row'];
 export type Question = Omit<Database['public']['Tables']['questions']['Row'], 'options'> & { options: string[] };
 export type Block = Omit<Database['public']['Tables']['blocks']['Row'], 'question_ids' | 'category_filters' | 'keyword_filters'> & {

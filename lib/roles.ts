@@ -36,6 +36,17 @@ export const SUPER_ADMIN_EMAILS: string[] = [
 export function getUserRole(user?: User | null, profile?: Profile | null): UserRole {
   if (!user) return 'resident';
   const email = (user?.email || '').toLowerCase();
+  
+  // --- IMPERSONATION OVERRIDE ---
+  // Verify the user's TRUE role before honoring view_as to prevent privilege escalation.
+  const isActuallyAdmin = 
+    (email && SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) || 
+    profile?.role === 'admin';
+    
+  if (isActuallyAdmin && profile?.view_as && profile.view_as !== 'admin') {
+    return profile.view_as;
+  }
+
   if (email && SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) {
     return 'admin';
   }

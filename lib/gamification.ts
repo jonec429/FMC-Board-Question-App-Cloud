@@ -294,6 +294,37 @@ export async function processGamification(
       }
     }
 
+    // 3d. Over Achiever
+    // Get all standard badges (excluding Topic Master and Over Achiever itself)
+    const baseBadges = (allBadgesData || []).filter((b: any) => 
+      !b.name.startsWith('Topic Master: ') && b.name !== 'Over Achiever'
+    );
+    const baseBadgeIds = new Set(baseBadges.map((b: any) => b.id));
+
+    if (baseBadgeIds.size > 0) {
+      // Get user's current badges from the database to combine with what they earned this session
+      const { data: existingUserBadges } = await supabase
+        .from('user_badges')
+        .select('badge_id')
+        .eq('user_id', userId);
+        
+      const allUserBadgeIds = new Set([
+        ...(existingUserBadges || []).map((ub: any) => ub.badge_id),
+        ...Array.from(earnedBadgeIds)
+      ]);
+
+      // Check if all user badge IDs contain every single base badge ID
+      const hasAllBaseBadges = Array.from(baseBadgeIds).every(id => allUserBadgeIds.has(id));
+
+      if (hasAllBaseBadges) {
+        await evaluateBadge('Over Achiever', true, {
+          description: 'Unlocked every standard achievement in the app. Incredible work!',
+          icon: '👑',
+          type: 'block'
+        });
+      }
+    }
+
     // 4. Batch upsert all earned badges to drastically reduce DB calls
     if (earnedBadgeIds.size > 0) {
       const batchInsert = Array.from(earnedBadgeIds).map(id => ({

@@ -87,6 +87,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Punctual QOTD Notifications (pg_cron)** ✅ *(2026-06-05)*: `migrate_qotd_pgcron.sql` run + verified in Supabase (`pg_cron` + `pg_net` enabled; test push returned `200 "Morning QOTD notifications processed."`). The redundant Vercel cron (`vercel.json`) and GitHub Actions workflow were removed in the same deploy — **pg_cron is now the single scheduler.** Note: `CRON_SECRET` was rotated to a new value on this date.
 - [x] **2026-06-08 — QOTD Top-Up Engine**: `20260608_qotd_topup.sql` — adds a `UNIQUE(question_id)` recycle guardrail to `qotd_schedule` plus the `qotd_topup()` function that powers the Annual Rollover "Update Daily Question pool" button. ✅ **Run by admin 2026-06-08.**
 - [x] **2026-06-08 — Badge Catalog Expansion**: `20260608_badges_expansion.sql` — seeds the 9 new achievement badges (Ironman, block-streak ladder, Sharpshooter, Early Bird, Weekend Warrior, Perfectionist, Procrastinator) and removes the duplicate "Marathoner". ✅ **Run by admin 2026-06-08 — new badges now live.**
+- [ ] **NEXT — Over Achiever Badge**: `20260611_over_achiever_badge.sql` — seeds the new "Over Achiever" milestone badge to the catalog so it shows as locked in the UI. **Admin must run it in Supabase.**
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Phase 2 — Final Items ✅
@@ -272,6 +273,9 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
 - [x] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
 
+### UI & UX
+- [ ] **Dark Mode Toggle**: Implement a dark mode theme using `next-themes` and Tailwind `dark:` variants. Requires systematically updating all hardcoded Tailwind color classes across the app to prevent visual bugs.
+
 ---
 
 ## 💡 Parked Ideas & Future Considerations
@@ -291,6 +295,15 @@ This file serves as the shared source of truth for development progress between 
 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-13 — View As Impersonation Feature (Antigravity)
+*   **See what residents see:** Super Admins can now instantly preview the app exactly as a Resident or Faculty member would, perfect for troubleshooting issues without needing a test account.
+*   **Where to find it:** Open **Profile Settings** (the gear icon on the dashboard) and look for the new **Admin Tools: View As** dropdown.
+*   **Temporary by design:** Changing your view is purely a temporary client-side override. The moment you refresh the page or log out, you will automatically revert back to your default Admin view.
+
+### 2026-06-11 — Over Achiever Badge (Antigravity)
+*   **The Ultimate Milestone:** Added a new "Over Achiever" badge (👑) that unlocks automatically when a resident earns every other standard achievement in the catalog. 
+*   **Admin Note:** `20260611_over_achiever_badge.sql` must be run in Supabase to seed the catalog so the badge appears as locked before it's earned.
 
 ### 2026-06-09 — Dashboard Active Session Fix & Review Links (Antigravity)
 *   **Multiple In-Progress Quizzes Now Supported:** The dashboard previously had a bug where starting a second quiz would cause the first one to "forget" its active state and drop the "In Progress" badge. Now, the dashboard accurately loads **all** incomplete sessions simultaneously, so every quiz you start retains its own independent resume state and badge. (`hooks/useDashboardData.ts`, `components/Dashboard.tsx`.)

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout } from '@/lib/utils';
 import { X, Loader2, CheckCircle, Lock, MailIcon, Sparkles, Eye, EyeOff } from './AppIcons';
+import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 
 // Public VAPID key
 const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
@@ -304,6 +305,39 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
 
           {/* Divider */}
           <div className="border-t border-slate-100" />
+
+          {/* View As Section (Super Admin Only) */}
+          {((user?.email && SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(user.email.toLowerCase())) || profile?.role === 'admin') && (
+            <div className="space-y-4">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Sparkles className="w-3 h-3 text-purple-500" />
+                Admin Tools: View As
+              </h3>
+              <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Role Impersonation</p>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">See the app exactly as a resident or faculty member would. Resets on refresh.</p>
+                </div>
+                <select
+                  value={profile?.view_as || 'admin'}
+                  onChange={(e) => {
+                    const newRole = e.target.value;
+                    onProfileUpdate({ ...profile, view_as: newRole === 'admin' ? null : newRole });
+                  }}
+                  className="px-3 py-2 bg-white border border-purple-200 text-purple-700 font-bold text-sm rounded-xl outline-none focus:ring-2 focus:ring-purple-500 shrink-0"
+                >
+                  <option value="admin">Admin (Default)</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="resident">Resident</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Divider */}
+          {((user?.email && SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(user.email.toLowerCase())) || profile?.role === 'admin') && (
+            <div className="border-t border-slate-100" />
+          )}
 
           {/* Notifications Section */}
           <div className="space-y-4">
