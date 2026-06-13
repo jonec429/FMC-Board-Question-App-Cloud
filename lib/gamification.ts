@@ -346,12 +346,20 @@ export async function processGamification(
       if (upsertError) {
         console.warn('Failed to batch-award badges:', upsertError.message);
       } else {
-        // Return array of newly earned badges
-        return { newlyEarnedBadgeIds: Array.from(earnedBadgeIds) };
+        // Fetch badge details to return for UI overlay
+        const { data: newBadgesInfo } = await supabase
+          .from('badges')
+          .select('id, name, description, icon')
+          .in('id', Array.from(earnedBadgeIds));
+          
+        return { 
+          newlyEarnedBadgeIds: Array.from(earnedBadgeIds),
+          newlyEarnedBadges: newBadgesInfo || [] 
+        };
       }
     }
     
-    return { newlyEarnedBadgeIds: [] };
+    return { newlyEarnedBadgeIds: [], newlyEarnedBadges: [] };
 
   } catch (err) {
     console.error('Error processing gamification:', err);

@@ -524,8 +524,14 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         30000
       )
       .then((res: any) => {
-         if (res && res.newlyEarnedBadgeIds && res.newlyEarnedBadgeIds.length > 0) {
+         if (res && res.newlyEarnedBadges && res.newlyEarnedBadges.length > 0) {
            setNewBadgesEarned(true);
+           try {
+             // Store in localStorage for Dashboard to pick up and display modal
+             localStorage.setItem('recent_badges', JSON.stringify(res.newlyEarnedBadges));
+           } catch (e) {
+             console.warn('Failed to save recent badges to local storage:', e);
+           }
          }
       })
       .catch((e) => console.warn('Gamification processing skipped:', e));

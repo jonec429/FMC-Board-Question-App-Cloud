@@ -41,9 +41,55 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
   const isSuperAdmin = canAccessAdmin(user, profile);
 
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [showInstallApp, setShowInstallApp] = useState(false);
+  const [recentBadges, setRecentBadges] = useState<any[]>([]);
   
   const { data, loading, error, refetch } = useDashboardData(user.id, user.email, selectedYear);
   const fetchError = error ? error.message : null;
+
+  // Check for recently earned badges
+  useEffect(() => {
+    try {
+      const recent = localStorage.getItem('recent_badges');
+      if (recent) {
+        const parsedBadges = JSON.parse(recent);
+        if (parsedBadges && parsedBadges.length > 0) {
+          setRecentBadges(parsedBadges);
+          localStorage.removeItem('recent_badges');
+          
+          // Fire massive confetti
+          import('canvas-confetti').then((confetti) => {
+            const duration = 3000;
+            const end = Date.now() + duration;
+
+            (function frame() {
+              confetti.default({
+                particleCount: 5,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0 },
+                colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42', '#ffa62d', '#ff36ff']
+              });
+              confetti.default({
+                particleCount: 5,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1 },
+                colors: ['#26ccff', '#a25afd', '#ff5e7e', '#88ff5a', '#fcff42', '#ffa62d', '#ff36ff']
+              });
+
+              if (Date.now() < end) {
+                requestAnimationFrame(frame);
+              }
+            }());
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse recent badges', e);
+    }
+  }, []);
 
   const blocks = data?.blocks || [];
   const myResults = data?.myResults || [];
@@ -60,9 +106,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
 
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
-  const [showAchievements, setShowAchievements] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showInstall, setShowInstall] = useState(false);
 
   // Per-user block sort preference (each resident sorts their own list; saved locally)
   const [blockSort, setBlockSort] = useState<'curriculum' | 'name' | 'status'>('curriculum');
@@ -168,7 +212,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
               <Lock className="w-5 h-5" />
             </button>
           )}
-          <button onClick={() => setShowInstall(true)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors" title="Install app on your phone">
+          <button onClick={() => setShowInstallApp(true)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors" title="Install app on your phone">
             <Smartphone className="w-5 h-5" />
           </button>
           <button onClick={() => setShowSettings(true)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Profile Settings">
@@ -378,8 +422,6 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
               </div>
             </button>
           )}
-
-          {/* QOTD placeholder — wired up in Step 6 */}
         </div>
 
         {/* RIGHT MAIN */}
@@ -515,29 +557,8 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           )}
         </div>
       </div>
-    </main>
-  );
 
-  return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
-      {renderTopicSelect()}
-
-      {/* MY STATS MODAL */}
-      {showMyStats && (
-        <MyStatsModal
-          onClose={() => setShowMyStats(false)}
-          profile={profile}
-          userEmail={user.email}
-          userId={user.id}
-          avgPct={avgPct}
-          blocksCompleted={blocksCompleted}
-          totalPoints={totalPoints}
-          myResults={myResults}
-          leaderboard={leaderboard}
-          userBadges={userBadges}
-        />
-      )}
-
+      {/* Modals */}
       {showAchievements && (
         <AchievementsModal
           userBadges={userBadges}
@@ -557,8 +578,56 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
         />
       )}
 
-      {showInstall && <InstallAppModal onClose={() => setShowInstall(false)} />}
+      {showMyStats && (
+        <MyStatsModal
+          onClose={() => setShowMyStats(false)}
+          profile={profile}
+          userEmail={user.email}
+          userId={user.id}
+          avgPct={avgPct}
+          blocksCompleted={blocksCompleted}
+          totalPoints={totalPoints}
+          myResults={myResults}
+          leaderboard={leaderboard}
+          userBadges={userBadges}
+        />
+      )}
 
+      {showInstallApp && <InstallAppModal onClose={() => setShowInstallApp(false)} />}
+
+      {/* New Badge Overlay Modal */}
+      {recentBadges.length > 0 && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setRecentBadges([])}>
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-500" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setRecentBadges([])} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+            <h2 className="text-3xl font-black text-slate-800 mb-2">Achievement Unlocked!</h2>
+            <p className="text-slate-500 font-medium mb-8">You've earned {recentBadges.length === 1 ? 'a new badge' : 'new badges'}!</p>
+            
+            <div className="space-y-4">
+              {recentBadges.map((badge, idx) => (
+                <div key={idx} className="flex flex-col items-center justify-center p-6 bg-gradient-to-b from-amber-50 to-orange-50 border border-amber-200/50 rounded-2xl shadow-inner">
+                  <div className="text-7xl mb-4 drop-shadow-md animate-bounce">{badge.icon || '🏆'}</div>
+                  <h3 className="text-xl font-bold text-amber-900">{badge.name}</h3>
+                  {badge.description && <p className="text-sm text-amber-700/80 mt-2 font-medium leading-relaxed">{badge.description}</p>}
+                </div>
+              ))}
+            </div>
+            
+            <button onClick={() => setRecentBadges([])} className="mt-8 w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all transform active:scale-95 shadow-lg flex justify-center items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-400" />
+              Awesome!
+            </button>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+      {renderTopicSelect()}
     </div>
   );
 }
