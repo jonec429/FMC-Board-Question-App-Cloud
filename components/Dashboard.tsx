@@ -41,7 +41,8 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
 
-  const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
+  // Default to 0 ("All Time / YoY Trend") as requested, since cumulative APs are the primary goal
+  const [selectedYear, setSelectedYear] = useState<number>(0);
   const [showAchievements, setShowAchievements] = useState(false);
   const [showInstallApp, setShowInstallApp] = useState(false);
   const [recentBadges, setRecentBadges] = useState<any[]>([]);
@@ -687,7 +688,10 @@ function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmai
   return (
     <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">Leaderboard</h3>
+        <div className="flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-slate-400" />
+          <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">Academic Points Leaderboard</h3>
+        </div>
         {myRank && <span className="text-[10px] font-bold text-blue-600">You: #{myRank}</span>}
       </div>
       <div className="space-y-1">

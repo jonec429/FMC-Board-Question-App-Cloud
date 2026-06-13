@@ -11,6 +11,7 @@ import QuestionHeatmap from './QuestionHeatmap';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
 
 interface ResidentStat {
+  userId: string | null;
   name: string;
   last_name: string;
   email: string;
@@ -29,6 +30,9 @@ interface ResidentStat {
   blocksCompleted: number;
   onTimePct: number;
   totalPoints: number;
+  onTimePoints: number;
+  latePoints: number;
+  bonusPoints: number;
 
   academicRisk: RiskLevel;
   complianceRisk: RiskLevel;
@@ -75,6 +79,39 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [showGraduates, setShowGraduates] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
 
+  const [isAdjustingPoints, setIsAdjustingPoints] = useState(false);
+  const [adjustPointsValue, setAdjustPointsValue] = useState<number>(1);
+  const [adjustPointsReason, setAdjustPointsReason] = useState('Noon Conference');
+  const [isSubmittingPoints, setIsSubmittingPoints] = useState(false);
+
+  const handleAddManualPoints = async () => {
+    if (!selectedResident || !selectedResident.userId) return;
+    setIsSubmittingPoints(true);
+    try {
+      const res = await fetch('/api/admin/manual-points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: selectedResident.userId,
+          email: selectedResident.email,
+          points: adjustPointsValue,
+          reason: adjustPointsReason,
+        })
+      });
+      if (res.ok) {
+        setIsAdjustingPoints(false);
+        alert('Points added successfully!');
+        window.location.reload();
+      } else {
+        alert('Failed to add points');
+      }
+    } catch (e) {
+      alert('Error adding points');
+    } finally {
+      setIsSubmittingPoints(false);
+    }
+  };
+
   // Table sorting (shared across the resident tables; default = points desc)
   const { sortKey, sortDir, toggle } = useSortState({ key: 'points', dir: 'desc' });
   const residentAccessor = (r: ResidentStat, key: string): string | number => {
@@ -103,9 +140,13 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     const dueBlocks = getDueBlocks(blocks || [], block_schedule || [], academicYear);
 
     const profileMap = new Map<string, string>();
+    const emailToUserId = new Map<string, string>();
     profiles.forEach((p: any) => {
       const email = p?.email || p?.user_email;
-      if (p?.id && email) profileMap.set(p.id, email);
+      if (p?.id && email) {
+        profileMap.set(p.id, email);
+        emailToUserId.set(email.toLowerCase(), p.id);
+      }
     });
 
     const enriched = allResults
@@ -131,11 +172,35 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       const independentResults = resResults.filter((r: any) => !r.academic_points || r.academic_points === 0);
 
       // Dedupe by topic — for each block, keep best timing (highest points)
+      let onTimePoints = 0;
+      let latePoints = 0;
+      let bonusPoints = 0;
+
       const topicBestPts = new Map<string, number>();
-      assignedResults.forEach((r: any) => {
-        const cur = topicBestPts.get(r.topic) || 0;
-        topicBestPts.set(r.topic, Math.max(cur, r.academic_points || 0));
+      resResults
+        .filter((r: any) => (r.academic_points || 0) > 0)
+        .forEach((r: any) => {
+          const cur = topicBestPts.get(r.topic) || 0;
+          if ((r.academic_points || 0) > cur) {
+            topicBestPts.set(r.topic, r.academic_points || 0);
+          }
+        });
+        
+      const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
+
+      Array.from(topicBestPts.entries()).forEach(([topic, pts]) => {
+        if (topic.toLowerCase().includes('bonus')) {
+          bonusPoints += pts;
+        } else if (pts === 2) {
+          onTimePoints += pts;
+        } else if (pts === 1) {
+          latePoints += pts;
+        } else {
+          // Catch-all if points are somehow > 2 or some edge case, default to onTimePoints
+          onTimePoints += pts;
+        }
       });
+
       const blocksCompleted = topicBestPts.size;
 
       const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(([topic]) => !topic?.toLowerCase().includes('bonus'));
@@ -155,8 +220,6 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       const overallAvg = resResults.length > 0
         ? resResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / resResults.length
         : 0;
-
-      const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
 
       // Early-warning: past-due blocks this resident hasn't completed.
       const completedTitles = new Set(Array.from(topicBestPts.keys()));
@@ -181,6 +244,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       });
 
       return {
+        userId: emailToUserId.get(resident.email?.toLowerCase()) || null,
         name: resident.name,
         last_name: resident.last_name || lastName(resident.name),
         email: resident.email,
@@ -199,6 +263,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         blocksCompleted,
         onTimePct,
         totalPoints,
+        onTimePoints,
+        latePoints,
+        bonusPoints,
         
         academicRisk,
         complianceRisk,
@@ -686,6 +753,49 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 </div>
                 {selectedResident.riskReasons.length > 0 && (
                   <p className="text-xs font-bold text-red-600 mt-3">⚠ {selectedResident.riskReasons.join(' · ')}</p>
+                )}
+
+                {userIsAdmin && (
+                  <div className="mt-6 pt-6 border-t border-slate-100">
+                    {!isAdjustingPoints ? (
+                      <button
+                        onClick={() => setIsAdjustingPoints(true)}
+                        className="text-xs font-black text-slate-500 uppercase tracking-widest hover:text-blue-600 transition-colors"
+                      >
+                        + Add Manual Points
+                      </button>
+                    ) : (
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap md:flex-nowrap items-center gap-3">
+                        <input
+                          type="number"
+                          value={adjustPointsValue}
+                          onChange={(e) => setAdjustPointsValue(Number(e.target.value))}
+                          className="w-20 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold"
+                          placeholder="Pts"
+                        />
+                        <input
+                          type="text"
+                          value={adjustPointsReason}
+                          onChange={(e) => setAdjustPointsReason(e.target.value)}
+                          className="flex-1 min-w-[200px] px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold"
+                          placeholder="Reason (e.g. Noon Conference)"
+                        />
+                        <button
+                          onClick={handleAddManualPoints}
+                          disabled={isSubmittingPoints}
+                          className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          {isSubmittingPoints ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setIsAdjustingPoints(false)}
+                          className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-600 rounded-xl transition-all"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               <button onClick={() => setSelectedResident(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-all ml-4 shrink-0">

@@ -421,9 +421,22 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     // `submitting` state updates. Release the claim if the user cancels the confirm.
     if (submittingRef.current) return;
     submittingRef.current = true;
-    if (!autoSubmit && !window.confirm('Are you sure you want to finish this block?')) {
-      submittingRef.current = false;
-      return;
+
+    if (!autoSubmit) {
+      const unansweredIndices = questions
+        .map((q, idx) => answers[idx] === undefined ? idx + 1 : -1)
+        .filter(idx => idx !== -1);
+      
+      if (unansweredIndices.length > 0) {
+        submittingRef.current = false;
+        alert(`Please complete the following questions before finishing the block:\nQuestion(s): ${unansweredIndices.join(', ')}`);
+        return;
+      }
+
+      if (!window.confirm('Are you sure you want to finish this block?')) {
+        submittingRef.current = false;
+        return;
+      }
     }
 
     setSubmitting(true);
