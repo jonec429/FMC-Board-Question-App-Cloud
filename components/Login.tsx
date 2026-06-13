@@ -319,7 +319,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
               onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); }}
               className="text-xs font-bold text-slate-400 hover:text-blue-600 transition-colors mt-1"
             >
-              {mode === 'signin' ? 'New resident? Register account →' : '← Already registered? Sign in'}
+              {mode === 'signin' ? 'Create an Account →' : '← Already registered? Sign in'}
             </button>
           </form>
 
