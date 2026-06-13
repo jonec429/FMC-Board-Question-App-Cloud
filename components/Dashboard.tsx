@@ -7,12 +7,13 @@ import { canAccessAdmin } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, BookOpen, Gem, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info
+  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info, Calendar
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
 import AchievementsModal from './AchievementsModal';
 import InstallAppModal from './InstallAppModal';
+import QotdHistoryModal from './QotdHistoryModal';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -107,6 +108,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showQotdHistoryModal, setShowQotdHistoryModal] = useState(false);
 
   // Per-user block sort preference (each resident sorts their own list; saved locally)
   const [blockSort, setBlockSort] = useState<'curriculum' | 'name' | 'status'>('curriculum');
@@ -271,60 +273,6 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
         {/* LEFT SIDEBAR */}
         <div className="md:w-80 flex flex-col gap-4 shrink-0">
           
-          {/* QOTD Card */}
-          {qotdQuestion && (
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 group">
-               <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
-               <div className="relative z-10">
-                 <h3 className="font-black text-lg flex items-center gap-2 mb-2">
-                   <Sparkles className="w-5 h-5 text-yellow-300" />
-                   Question of the Day
-                 </h3>
-                 {qotdAttempt || isPastNoon() ? (
-                   <div>
-                     <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">
-                       {qotdAttempt ? (
-                         isPastNoon() ? (
-                           qotdStats && qotdStats.total > 0
-                             ? `${qotdStats.total} responders · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct`
-                             : 'Results and stats are now available!'
-                         ) : (
-                           'Answer recorded. Come back at 12:30 PM for results!'
-                         )
-                       ) : (
-                         qotdStats && qotdStats.total > 0
-                           ? `You missed today's QOTD. ${qotdStats.total} responders · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct.`
-                           : "You missed today's QOTD. The answer and stats are now available."
-                       )}
-                     </p>
-                     <button
-                       onClick={() => onStartQuiz({ 
-                         isQotd: true, 
-                         qotdQuestion, 
-                         topic: 'Question of the Day', 
-                         isQotdCompleted: true, 
-                         qotdAttempt: qotdAttempt || { is_skipped: true } 
-                       })}
-                       className="w-full py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/20"
-                     >
-                       {qotdAttempt ? (isPastNoon() ? 'View Results & Stats' : 'Review Selection') : 'View Answer & Stats'}
-                     </button>
-                   </div>
-                 ) : (
-                   <div>
-                     <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">A new high-yield question is ready for you.</p>
-                     <button
-                       onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', count: 1 })}
-                       className="w-full py-3 bg-white text-indigo-600 rounded-xl font-black transition-all hover:scale-105 active:scale-95 shadow-md flex items-center justify-center gap-2"
-                     >
-                       Take QOTD <ChevronRight className="w-4 h-4" />
-                     </button>
-                   </div>
-                 )}
-               </div>
-            </div>
-           )}
-
           {/* Achievements */}
             <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm animate-fade-in">
               <div className="flex items-center justify-between mb-4">
@@ -428,6 +376,89 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
 
         {/* RIGHT MAIN */}
         <div className="flex-1 flex flex-col min-w-0">
+          
+          {/* QOTD Card */}
+          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 group mb-6">
+             <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
+             <div className="relative z-10">
+               <h3 className="font-black text-lg flex items-center gap-2 mb-2">
+                 <Sparkles className="w-5 h-5 text-yellow-300" />
+                 Question of the Day
+               </h3>
+               {qotdQuestion ? (
+                 qotdAttempt || isPastNoon() ? (
+                   <div>
+                     <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">
+                       {qotdAttempt ? (
+                         isPastNoon() ? (
+                           qotdStats && qotdStats.total > 0
+                             ? `${qotdStats.total} responders · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct`
+                             : 'Results and stats are now available!'
+                         ) : (
+                           'Answer recorded. Come back at 12:30 PM for results!'
+                         )
+                       ) : (
+                         qotdStats && qotdStats.total > 0
+                           ? `You missed today's QOTD. ${qotdStats.total} responders · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct.`
+                           : "You missed today's QOTD. The answer and stats are now available."
+                       )}
+                     </p>
+                     <div className="flex items-center gap-2">
+                       <button
+                         onClick={() => onStartQuiz({ 
+                           isQotd: true, 
+                           qotdQuestion, 
+                           topic: 'Question of the Day', 
+                           isQotdCompleted: true, 
+                           qotdAttempt: qotdAttempt || { is_skipped: true } 
+                         })}
+                         className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/20"
+                       >
+                         {qotdAttempt ? (isPastNoon() ? 'View Results & Stats' : 'Review Selection') : 'View Answer & Stats'}
+                       </button>
+                       <button
+                         onClick={() => setShowQotdHistoryModal(true)}
+                         className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/10"
+                         title="Past QOTDs"
+                       >
+                         <Calendar className="w-5 h-5" />
+                       </button>
+                     </div>
+                   </div>
+                 ) : (
+                   <div>
+                     <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">A new high-yield question is ready for you.</p>
+                     <div className="flex items-center gap-2">
+                       <button
+                         onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', count: 1 })}
+                         className="flex-1 py-3 bg-white text-indigo-600 rounded-xl font-black transition-all hover:scale-105 active:scale-95 shadow-md flex items-center justify-center gap-2"
+                       >
+                         Take QOTD <ChevronRight className="w-4 h-4" />
+                       </button>
+                       <button
+                         onClick={() => setShowQotdHistoryModal(true)}
+                         className="px-4 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/20"
+                         title="Past QOTDs"
+                       >
+                         <Calendar className="w-5 h-5" />
+                       </button>
+                     </div>
+                   </div>
+                 )
+               ) : (
+                 <div>
+                   <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">Enjoy your weekend! There is no Question of the Day today. Check out previous questions or come back Monday!</p>
+                   <button
+                     onClick={() => setShowQotdHistoryModal(true)}
+                     className="w-full py-3 bg-white text-indigo-600 rounded-xl font-black transition-all hover:scale-105 active:scale-95 shadow-md flex items-center justify-center gap-2"
+                   >
+                     <Calendar className="w-5 h-5" /> Past QOTDs
+                   </button>
+                 </div>
+               )}
+             </div>
+          </div>
+
           {/* Quiz Builder — indigo gradient */}
           <button
             onClick={onOpenBuilder}
@@ -474,6 +505,13 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           ) : (
             <div className="flex flex-col gap-2.5">
               {[...blocks].sort((a, b) => {
+                const isDemoA = a.block_type === 'demo' || (a.title || '').toLowerCase().includes('demo');
+                const isDemoB = b.block_type === 'demo' || (b.title || '').toLowerCase().includes('demo');
+                
+                // Pin Demo block to top
+                if (isDemoA && !isDemoB) return -1;
+                if (!isDemoA && isDemoB) return 1;
+
                 if (blockSort === 'name') return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
                 if (blockSort === 'status') {
                   const rA = bestResultByTopic.get(a.title); const rB = bestResultByTopic.get(b.title);
@@ -593,6 +631,10 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           leaderboard={leaderboard}
           userBadges={userBadges}
         />
+      )}
+
+      {showQotdHistoryModal && (
+        <QotdHistoryModal onClose={() => setShowQotdHistoryModal(false)} />
       )}
 
       {showInstallApp && <InstallAppModal onClose={() => setShowInstallApp(false)} />}
