@@ -266,8 +266,8 @@ export default function QuestionCard({
               href="https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X?usp=sharing"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-2xl text-purple-300 font-bold transition-all border border-purple-500/20"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-2xl text-purple-300 font-bold transition-all border border-purple-500/20 group relative"
+              title="Ensure you are logged into your Ascension SSO / work Google account"
             >
               <Gem className="w-4 h-4" />
               Board Prep Gem
@@ -276,8 +276,8 @@ export default function QuestionCard({
               href="https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?usp=drive_link"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10 group relative"
+              title="Ensure you are logged into your Ascension SSO / work Google account"
             >
               <ExternalLink className="w-4 h-4" />
               Review Topic Material
