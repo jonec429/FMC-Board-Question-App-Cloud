@@ -7,6 +7,7 @@ import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Sa
 import { LeaderboardEntry } from '@/lib/types';
 import QuizReview from './QuizReview';
 import { exportIncorrectToAnki, downloadCsv } from '@/lib/anki';
+import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 
 interface MyStatsModalProps {
   onClose: () => void;
@@ -19,6 +20,8 @@ interface MyStatsModalProps {
   myResults: any[];
   leaderboard: LeaderboardEntry[];
   userBadges: any[];
+  selectedYear: number;
+  onYearChange: (year: number) => void;
 }
 
 export default function MyStatsModal({
@@ -32,6 +35,8 @@ export default function MyStatsModal({
   myResults,
   leaderboard,
   userBadges,
+  selectedYear,
+  onYearChange,
 }: MyStatsModalProps) {
   const [activeTab, setActiveTab] = useState<'stats' | 'weakAreas' | 'pastQuizzes'>('stats');
   const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
@@ -284,15 +289,27 @@ export default function MyStatsModal({
             <div className="space-y-6 animate-fade-in">
               {/* Unified Snapshot Widget */}
               <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 space-y-8">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center">
-                    <Target className="w-3.5 h-3.5 text-white" />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
+                      <Target className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Board Prep Snapshot</h3>
                   </div>
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Board Prep Snapshot</h3>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => onYearChange(parseInt(e.target.value, 10))}
+                    className="px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg font-bold text-white text-xs shadow-sm outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm cursor-pointer transition-colors"
+                  >
+                    <option value={0} className="text-slate-800">All Time (YoY Trend)</option>
+                    {getAvailableAcademicYears().map(year => (
+                      <option key={year} value={year} className="text-slate-800">{formatAcademicYear(year)}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Grid KPIs */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-8 gap-x-6">
                   <div>
                     <div className="text-3xl font-black">{avgPct !== null ? `${avgPct.toFixed(1)}%` : '—'}</div>
                     <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Avg Score</div>

@@ -630,6 +630,8 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
           myResults={myResults}
           leaderboard={leaderboard}
           userBadges={userBadges}
+          selectedYear={selectedYear}
+          onYearChange={(year: number) => setSelectedYear(year)}
         />
       )}
 
