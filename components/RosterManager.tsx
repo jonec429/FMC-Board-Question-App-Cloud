@@ -193,16 +193,33 @@ export default function RosterManager() {
         </label>
         <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
           <button
+            onClick={() => {
+              const pendingEmails = sortedRoster.filter(m => !m.has_account).map(m => m.email);
+              if (pendingEmails.length === 0) return alert("Everyone has an active account!");
+              const subject = encodeURIComponent("Invitation to the FMC Board Question App");
+              const body = encodeURIComponent(
+                "You have been invited to join the FMC Board Question App!\n\nPlease visit the link below and click 'Continue with Google' using your Ascension email address to log in:\nhttps://fmc-board-question-app.vercel.app"
+              );
+              const bcc = pendingEmails.join(',');
+              window.open(`https://mail.google.com/mail/?view=cm&fs=1&bcc=${bcc}&su=${subject}&body=${body}`, '_blank');
+            }}
+            className="w-full md:w-auto px-6 py-4 bg-white text-blue-600 border border-blue-100 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-blue-50 active:scale-95 transition-all shadow-sm"
+          >
+            <Mail className="w-5 h-5" />
+            Email Pending Invites
+          </button>
+          <button
             onClick={() => setShowWizard(true)}
             className="w-full md:w-auto px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 active:scale-95 transition-all shadow-xl shadow-indigo-200"
           >
             Year Transition Wizard
           </button>
-          <button
+          <button 
             onClick={() => setShowAddModal(true)}
-            className="w-full md:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-slate-800 active:scale-95 transition-all shadow-xl shadow-slate-200"
+            className="w-full md:w-auto px-6 py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-blue-700 active:scale-95 transition-all shadow-xl shadow-blue-200"
           >
-            <Plus className="w-5 h-5" /> Add Person
+            <Plus className="w-5 h-5" />
+            Add Person
           </button>
         </div>
       </div>
@@ -285,6 +302,21 @@ export default function RosterManager() {
                     <span className={`text-sm font-bold ${member.has_account ? 'text-emerald-600' : 'text-amber-600'}`}>
                       {member.has_account ? 'Active Account' : 'Invite Sent (Pending)'}
                     </span>
+                    {!member.has_account && (
+                      <button
+                        onClick={() => {
+                          const subject = encodeURIComponent("Invitation to the FMC Board Question App");
+                          const body = encodeURIComponent(
+                            "You have been invited to join the FMC Board Question App!\n\nPlease visit the link below and click 'Continue with Google' using your Ascension email address to log in:\nhttps://fmc-board-question-app.vercel.app"
+                          );
+                          window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${member.email}&su=${subject}&body=${body}`, '_blank');
+                        }}
+                        className="ml-2 p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                        title="Resend Invitation Email"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </td>
                 <td className="px-8 py-6 text-right">
