@@ -15,11 +15,16 @@ export type Track = 'family_medicine' | 'ob_fellow' | 'academic_fellow' | 'facul
 // We use Partial<RosterEntry> here because some functions derive values from incomplete objects or manual overrides
 export type RosterRow = Partial<RosterEntry>;
 
-/** Academic year identified by its ending calendar year (July rollover). */
+/** Academic year identified by its ending calendar year (Mid-June rollover for orientation). */
 export function getCurrentAcademicYear(now: Date = new Date()): number {
-  const month = now.getMonth(); // 0 = Jan ... 6 = Jul
+  const month = now.getMonth(); // 0 = Jan ... 5 = Jun
+  const date = now.getDate();
   const year = now.getFullYear();
-  return month >= 6 ? year + 1 : year; // July onward belongs to the next ending-year
+  
+  // Interns typically start mid-June. Roll over on June 14th or later.
+  const isRollover = month > 5 || (month === 5 && date >= 14);
+  
+  return isRollover ? year + 1 : year;
 }
 
 /** Formats an academic year integer into 'AY 25-26' format. */
