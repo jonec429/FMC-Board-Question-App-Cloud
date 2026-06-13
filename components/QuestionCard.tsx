@@ -273,7 +273,7 @@ export default function QuestionCard({
               Board Prep Gem
             </a>
             <a
-              href="https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?usp=drive_link"
+              href="https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10 group relative"
