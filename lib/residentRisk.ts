@@ -1,3 +1,4 @@
+import { Block, BlockSchedule } from '@/lib/types';
 /**
  * Shared Resident Risk logic — used by AdminPerformance (dashboard) and
  * AdminReporting (CSV/PDF) so the two never disagree.
@@ -36,8 +37,8 @@ function localDateStr(d: Date): string {
  * blocks with no scheduled end date.
  */
 export function getDueBlocks(
-  blocks: any[],
-  blockSchedule: any[],
+  blocks: Block[],
+  blockSchedule: BlockSchedule[],
   academicYear: number,
   now: Date = new Date()
 ): DueBlock[] {
@@ -124,3 +125,5 @@ export function computeTrend(scoresChrono: number[]): { delta: number | null; de
   const delta = avg(recent) - avg(earlier);
   return { delta, declining: delta <= -10 };
 }
+
+

@@ -80,8 +80,10 @@ export async function GET(request: Request) {
       subscriptions: enrichedSubs,
       roster
     });
-  } catch (err: any) {
-    console.error('[push-audit] Error:', err.message);
+  } catch (err: unknown) {
+    console.error('[push-audit] Error:', (err instanceof Error ? err.message : String(err)));
     return NextResponse.json({ error: 'Failed to fetch audit data' }, { status: 500 });
   }
 }
+
+

@@ -71,7 +71,7 @@ export async function withRetry<T>(
   while (true) {
     try {
       return await operation();
-    } catch (error: any) {
+    } catch (error: unknown) {
       attempt++;
       if (attempt > maxRetries) {
         throw error;
@@ -82,3 +82,4 @@ export async function withRetry<T>(
     }
   }
 }
+

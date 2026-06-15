@@ -142,7 +142,12 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
              if (qotdAttempt?.selected_index !== undefined && qotdAttempt?.selected_index !== null) {
                setAnswers({ 0: qotdAttempt.selected_index });
              }
-             setShowResults(true);
+             attemptsSavedRef.current = true;
+             if (isPastNoon()) {
+               setShowResults(true);
+             } else {
+               setShowResults(false);
+             }
              
              // Fetch existing reactions silently
              supabase.from('qotd_reactions')
@@ -719,6 +724,12 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             </div>
 
             <button
+              onClick={() => setShowResults(false)}
+              className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all shadow-sm mb-3"
+            >
+              Review Question
+            </button>
+            <button
               onClick={() => onComplete(resultData)}
               className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
             >
@@ -1141,3 +1152,6 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     </div>
   );
 }
+
+
+

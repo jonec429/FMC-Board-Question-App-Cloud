@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { withTimeout } from './utils';
+import { Question } from '@/lib/types';
 
 /**
  * Helper to get the current date explicitly in EST
@@ -67,7 +68,7 @@ export async function getQotdQuestion(signal?: AbortSignal) {
 }
 
 export interface QotdHistoryItem {
-  question: any;
+  question: Question;
   date: string;       // YYYY-MM-DD
   displayDate: string; // "Mon, May 19"
   index: number;       // For UI numbering if needed
@@ -91,7 +92,7 @@ export async function getQotdHistory(
     .select('schedule_date, question:questions(*)')
     .lt('schedule_date', todayStr)
     .order('schedule_date', { ascending: false })
-    .range(offset, offset + pageSize), 10000).catch((e: any) => ({ data: null, error: e })) as any;
+    .range(offset, offset + pageSize), 10000).catch((e: unknown) => ({ data: null, error: e }));
 
   if (error || !scheduleData || scheduleData.length === 0) {
     return { items: [], hasMore: false };
@@ -103,7 +104,7 @@ export async function getQotdHistory(
   const questionIds: string[] = [];
   const items: QotdHistoryItem[] = [];
 
-  pageData.forEach((row: any, idx: number) => {
+  pageData.forEach((row: { schedule_date: string; question: Question }, idx: number) => {
     if (!row.question) return;
     
     // Create display date
@@ -179,3 +180,6 @@ export async function getQotdHistory(
 
   return { items, hasMore };
 }
+
+
+

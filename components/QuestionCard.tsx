@@ -19,6 +19,7 @@ interface QuestionCardProps {
   userAnswer?: number;
   onAnswer: (index: number) => void;
   showExplanation?: boolean;
+  readOnly?: boolean;
   fontSize?: number;
   initialHighlights?: string[];
   initialStrikethroughs?: number[];
@@ -49,6 +50,7 @@ export default function QuestionCard({
   userAnswer,
   onAnswer,
   showExplanation = false,
+  readOnly = false,
   fontSize = 18,
   initialHighlights = [],
   initialStrikethroughs = [],
@@ -185,8 +187,8 @@ export default function QuestionCard({
           return (
             <div key={index} className="relative group">
               <button
-                disabled={showExplanation}
-                onClick={() => !isStruck && !showExplanation && setSelectedOption(index)}
+                disabled={showExplanation || readOnly}
+                onClick={() => !isStruck && !showExplanation && !readOnly && setSelectedOption(index)}
                 className={`w-full text-left py-5 pl-5 pr-14 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
                 style={{ fontSize: `${optionFontSize}px` }}
               >
@@ -205,7 +207,7 @@ export default function QuestionCard({
                 )}
               </button>
 
-              {!showExplanation && (
+              {!showExplanation && !readOnly && (
                 <button
                   onClick={(e) => toggleStrikethrough(e, index)}
                   className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 ${isStruck ? 'text-slate-800 bg-slate-200' : 'text-slate-300 hover:text-slate-600 hover:bg-slate-100'}`}
@@ -220,7 +222,7 @@ export default function QuestionCard({
       </div>
 
       {/* Submit Button */}
-      {!showExplanation && (
+      {!showExplanation && !readOnly && (
         <div className="pt-2 animate-fade-in">
           <button
             onClick={handleSubmit}
@@ -252,47 +254,49 @@ export default function QuestionCard({
             <div dangerouslySetInnerHTML={{ __html: typeof window !== 'undefined' ? DOMPurify.sanitize(question.explanation || 'No explanation provided.') : (question.explanation || 'No explanation provided.') }} />
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-4">
-            <a
-              href="https://www.openevidence.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500/10 hover:bg-blue-500/20 rounded-2xl text-blue-400 font-bold transition-all border border-blue-500/20"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Open Evidence
-            </a>
-            <a
-              href="https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-purple-500/10 hover:bg-purple-500/20 rounded-2xl text-purple-300 font-bold transition-all border border-purple-500/20 group relative"
-              title="Ensure you are logged into your Ascension SSO / work Google account"
-            >
-              <Gem className="w-4 h-4" />
-              Board Prep Gem
-            </a>
-            <a
-              href="https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-300 font-bold transition-all border border-white/10 group relative"
-              title="Ensure you are logged into your Ascension SSO / work Google account"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Review Topic Material
-            </a>
-            <a
-              href={`mailto:jonathan.carbungco@ascension.org?subject=Question%20Feedback:%20FMC%20Board%20Review%20App%20-%20ID:%20${question.id || 'Unknown'}`}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-slate-500/10 hover:bg-slate-500/20 rounded-2xl text-slate-300 font-bold transition-all border border-slate-500/20"
-              title="Report an issue or ask a question about this item"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Feedback / Questions?
-            </a>
+          <div className="mt-8 flex flex-wrap gap-3 animate-fade-in">
+          <a
+            href="https://www.openevidence.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl text-blue-400 text-sm font-bold transition-all border border-blue-500/20"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Open Evidence
+          </a>
+          <a
+            href={`https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X${userEmail ? `?authuser=${encodeURIComponent(userEmail)}` : ''}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Ensure you are logged into your Ascension SSO / work Google account"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl text-purple-400 text-sm font-bold transition-all border border-purple-500/20"
+          >
+            <Gem className="w-4 h-4" />
+            Board Prep Gem
+          </a>
+          <a
+            href={`https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?usp=drive_link${userEmail ? `&authuser=${encodeURIComponent(userEmail)}` : ''}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-sm font-bold transition-all border border-white/10"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Review Topic Material
+          </a>
+          <a
+            href={`https://mail.google.com/mail/?view=cm&fs=1&to=jonathan.carbungco@ascension.org&su=Question%20Feedback:%20FMC%20Board%20Review%20App%20-%20ID:%20${question.id || 'Unknown'}${userEmail ? `&authuser=${encodeURIComponent(userEmail)}` : ''}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-500/10 hover:bg-slate-500/20 rounded-xl text-slate-300 text-sm font-bold transition-all border border-slate-500/20"
+            title="Report an issue or ask a question about this item"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Feedback / Questions?
+          </a>
           </div>
         </div>
       )}
     </div>
   );
-}
+

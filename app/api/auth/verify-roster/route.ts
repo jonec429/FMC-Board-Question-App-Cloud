@@ -52,8 +52,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true, user: authorized });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Verify Roster Error:', err);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+

@@ -35,8 +35,11 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error('[web-push/receipt] Error saving receipt:', err.message);
+  } catch (err: unknown) {
+    console.error('[web-push/receipt] Error saving receipt:', (err instanceof Error ? err.message : String(err)));
     return NextResponse.json({ error: 'Failed to save receipt' }, { status: 500 });
   }
 }
+
+
+

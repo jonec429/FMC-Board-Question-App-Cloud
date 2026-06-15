@@ -10,9 +10,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     // Bypass navigator.locks to prevent infinite hanging when resuming
     // the PWA from the background (a known issue in iOS WebKit/Safari).
-    lock: async (...args: any[]) => {
-      const acquire = args[args.length - 1];
+    lock: async (...args: unknown[]) => {
+      const acquire = args[args.length - 1] as () => Promise<any>;
+      
       return await acquire();
     }
   }
 });
+
+
+

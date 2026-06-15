@@ -15,9 +15,11 @@ import AnnualRollover from './AnnualRollover';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
+import { User, Profile } from '@/lib/types';
+
 interface AdminConsoleProps {
-  user?: any;
-  profile?: any;
+  user?: User | null;
+  profile?: Profile | null;
   onExit: () => void;
 }
 
@@ -41,7 +43,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
 
   // Sidebar groups — ordered by likely-use frequency
   // `adminOnly: true` tabs are hidden from faculty users
-  type TabDef = { id: TabId; label: string; icon: any; adminOnly?: boolean; description?: string };
+  type TabDef = { id: TabId; label: string; icon: React.FC<any>; adminOnly?: boolean; description?: string };
   const tabGroups: { heading: string; items: TabDef[] }[] = [
     {
       heading: 'Reports',
@@ -180,3 +182,4 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
 }
 
 // (End of file)
+

@@ -14,7 +14,10 @@ export type Block = Omit<Database['public']['Tables']['blocks']['Row'], 'questio
   keyword_filters: string[] | null;
 };
 export type BlockSchedule = Database['public']['Tables']['block_schedule']['Row'];
-export type Result = Omit<Database['public']['Tables']['results']['Row'], 'missed_questions'> & { missed_questions: any[] | null };
+export type Result = Database['public']['Tables']['results']['Row'];
+export type Badge = Database['public']['Tables']['badges']['Row'];
+export type UserBadge = Database['public']['Tables']['user_badges']['Row'];
+export type QuestionAttempt = Database['public']['Tables']['question_attempts']['Row'];
 
 export interface LeaderboardEntry {
   email: string;
@@ -45,3 +48,4 @@ export interface QuizSession {
   is_completed: boolean;
   last_updated?: string;
 }
+

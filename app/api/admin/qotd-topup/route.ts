@@ -43,8 +43,10 @@ export async function POST(request: Request) {
       added: row?.added ?? 0,
       last_day: row?.last_day ?? null,
     });
-  } catch (err: any) {
-    console.error('[qotd-topup] Error:', err?.message);
-    return NextResponse.json({ error: err?.message || 'Top-up failed' }, { status: 500 });
+  } catch (err: unknown) {
+    console.error('[qotd-topup] Error:', (err instanceof Error ? err.message : String(err)));
+    return NextResponse.json({ error: (err instanceof Error ? err.message : String(err)) || 'Top-up failed' }, { status: 500 });
   }
 }
+
+

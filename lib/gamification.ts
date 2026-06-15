@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { Badge, UserBadge, Result, Question } from '@/lib/types';
 import { getESTDate, getTodayDateString, isPastNoon } from './qotd';
 import { getRecentITEYears } from './questionFilters';
 
@@ -22,14 +23,14 @@ export async function processGamification(
 
     // 0. Fetch all existing badges to reduce DB calls during evaluation
     const { data: allBadgesData } = await supabase.from('badges').select('id, name');
-    const badgeMap = new Map((allBadgesData || []).map((b: any) => [b.name, b.id]));
+    const badgeMap = new Map((allBadgesData || []).map((b: Badge) => [b.name, b.id]));
     
     // 0.5 Fetch user's existing badges to ensure we only report TRULY new badges
     const { data: existingUserBadges } = await supabase
       .from('user_badges')
       .select('badge_id')
       .eq('user_id', userId);
-    const existingBadgeIds = new Set((existingUserBadges || []).map((ub: any) => ub.badge_id));
+    const existingBadgeIds = new Set((existingUserBadges || []).map((ub: UserBadge) => ub.badge_id));
     
     const earnedBadgeIds = new Set<string>();
 
@@ -241,8 +242,8 @@ export async function processGamification(
       if (perfectResults) {
         const distinctPerfect = new Set(
           perfectResults
-            .map((r: any) => r.topic)
-            .filter((t: any) => t && !String(t).toLowerCase().includes('demo'))
+            .map((r: Result) => r.topic)
+            .filter((t: string | null) => t && !String(t).toLowerCase().includes('demo'))
         );
         await evaluateBadge('Perfectionist', distinctPerfect.size >= 5);
       }
@@ -273,7 +274,7 @@ export async function processGamification(
           .not('year', 'is', null)
           .neq('year', 'Demo')
           .neq('year', 'Unspecified');
-        const recentYears = getRecentITEYears((yearRows || []).map((r: any) => r.year));
+        const recentYears = getRecentITEYears((yearRows || []).map((r: { year: string }) => r.year));
 
         if (recentYears.length > 0) {
           // Target = every question in this category within those years.
@@ -282,7 +283,7 @@ export async function processGamification(
             .select('id')
             .eq('category', topicCategory)
             .in('year', recentYears);
-          const targetIds = (targetQData || []).map((q: any) => q.id);
+          const targetIds = (targetQData || []).map((q: Question) => q.id);
 
           if (targetIds.length > 0) {
             const { data: attemptsData } = await supabase
@@ -290,7 +291,7 @@ export async function processGamification(
               .select('question_id')
               .eq('user_id', userId)
               .in('question_id', targetIds);
-            const uniqueAttemptedIds = new Set((attemptsData || []).map((a: any) => a.question_id));
+            const uniqueAttemptedIds = new Set((attemptsData || []).map((a: { question_id: string }) => a.question_id));
 
             if (uniqueAttemptedIds.size >= targetIds.length) {
               const badgeName = `Topic Master: ${topicCategory}`;
@@ -307,10 +308,10 @@ export async function processGamification(
 
     // 3d. Over Achiever
     // Get all standard badges (excluding Topic Master and Over Achiever itself)
-    const baseBadges = (allBadgesData || []).filter((b: any) => 
+    const baseBadges = (allBadgesData || []).filter((b: Badge) => 
       !b.name.startsWith('Topic Master: ') && b.name !== 'Over Achiever'
     );
-    const baseBadgeIds = new Set(baseBadges.map((b: any) => b.id));
+    const baseBadgeIds = new Set(baseBadges.map((b: Badge) => b.id));
 
     if (baseBadgeIds.size > 0) {
       // Get user's current badges from the database to combine with what they earned this session
@@ -365,3 +366,6 @@ export async function processGamification(
     console.error('Error processing gamification:', err);
   }
 }
+
+
+

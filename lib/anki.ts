@@ -1,5 +1,5 @@
+import { QuestionAttempt, Question } from '@/lib/types';
 import { supabase } from './supabase';
-import { Question } from './types';
 
 function escapeCsv(field: string): string {
   if (!field) return '';
@@ -30,9 +30,9 @@ export async function exportIncorrectToAnki(userId: string): Promise<string> {
 
   // Deduplicate by question ID so we don't have multiple cards for the same question
   const uniqueQuestions = new Map<string, Question>();
-  attempts.forEach((attempt: any) => {
+  attempts.forEach((attempt: QuestionAttempt & { questions?: Question | Question[] | null }) => {
     if (attempt.questions) {
-      uniqueQuestions.set(attempt.question_id, attempt.questions as Question);
+      uniqueQuestions.set(attempt.question_id, (Array.isArray(attempt.questions) ? attempt.questions[0] : attempt.questions) as Question);
     }
   });
 
@@ -86,3 +86,6 @@ export function downloadCsv(filename: string, csvContent: string) {
   link.click();
   document.body.removeChild(link);
 }
+
+
+

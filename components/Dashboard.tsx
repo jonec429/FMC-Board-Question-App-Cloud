@@ -222,7 +222,7 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
             <Settings className="w-5 h-5" />
           </button>
           <a
-            href="https://mail.google.com/mail/?view=cm&fs=1&to=jonathan.carbungco@ascension.org&su=Feedback:%20FMC%20Board%20Question%20App"
+            href={`https://mail.google.com/mail/?view=cm&fs=1&to=jonathan.carbungco@ascension.org&su=Feedback:%20FMC%20Board%20Question%20App${user.email ? `&authuser=${encodeURIComponent(user.email)}` : ''}`}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"

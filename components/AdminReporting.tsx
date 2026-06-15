@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { AdminData } from '@/lib/types';
+import { AdminData, Profile, Result } from '@/lib/types';
 import { FileText, Download, Printer, Users, CheckCircle, XCircle, TrendingDown } from './AppIcons';
 import { isActiveResident, getCurrentAcademicYear } from '@/lib/academicYear';
 import { getDueBlocks, getOverdueBlocks, getRiskLevel, getComplianceRisk, getRiskReasons, riskStatusLabel, computeTrend } from '@/lib/residentRisk';
@@ -19,7 +19,7 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
 
     // id -> email, so results that only carry user_id can be attributed by email.
     const profileEmail = new Map<string, string>();
-    adminData.profiles.forEach((p: any) => {
+    adminData.profiles.forEach((p: Profile) => {
       const e = (p?.email || '').toLowerCase();
       if (p?.id && e) profileEmail.set(p.id, e);
     });
@@ -31,16 +31,16 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
 
     return activeRoster.map(rosterEntry => {
       const email = (rosterEntry.email || '').toLowerCase();
-      const userResults = adminData.results.filter((r: any) =>
+      const userResults = adminData.results.filter((r: Result & { email?: string | null }) =>
         ((r.legacy_email || '').toLowerCase() === email || (r.user_id && profileEmail.get(r.user_id) === email)) &&
         !r.topic?.toLowerCase().includes('demo')
       );
 
-      const assigned = userResults.filter((r: any) => (r.academic_points || 0) > 0);
+      const assigned = userResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0);
 
       // Best points per block (dedupe by topic) -> blocks done + on-time rate.
       const topicBestPts = new Map<string, number>();
-      assigned.forEach((r: any) => {
+      assigned.forEach((r: Result & { email?: string | null }) => {
         topicBestPts.set(r.topic, Math.max(topicBestPts.get(r.topic) || 0, r.academic_points || 0));
       });
       const blocksCompleted = topicBestPts.size;
@@ -50,7 +50,7 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
         : 100;
 
       const curriculumAvg = assigned.length > 0
-        ? Math.round(assigned.reduce((s: number, r: any) => s + (r.percentage || 0), 0) / assigned.length)
+        ? Math.round(assigned.reduce((s: number, r: Result & { email?: string | null }) => s + (r.percentage || 0), 0) / assigned.length)
         : 0;
 
       const completedTitles = new Set(Array.from(topicBestPts.keys()));
@@ -58,9 +58,9 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
       const totalPoints = Array.from(topicBestPts.values()).reduce((s, p) => s + p, 0);
 
       const scoresChrono = [...userResults]
-        .filter((r: any) => typeof r.percentage === 'number')
-        .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r: any) => r.percentage);
+        .filter((r: Result & { email?: string | null }) => typeof r.percentage === 'number')
+        .sort((a: Result, b: Result) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())
+        .map((r: Result & { email?: string | null }) => r.percentage);
       const { delta: trendDelta, declining } = computeTrend(scoresChrono);
 
       const academicRisk = getRiskLevel(curriculumAvg, assigned.length);
@@ -245,3 +245,4 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
     </div>
   );
 }
+

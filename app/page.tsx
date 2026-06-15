@@ -11,14 +11,32 @@ import { Loader2 } from '@/components/AppIcons';
 import { withTimeout, withRetry } from '@/lib/utils';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useDayChangeReload } from '@/hooks/useDayChangeReload';
+import { User, Profile, Block, Question, Result } from '@/lib/types';
+import { Session } from '@supabase/supabase-js';
+
+interface ActiveQuizState {
+  isQotd?: boolean;
+  qotdQuestion?: Question;
+  isQotdCompleted?: boolean;
+  qotdAttempt?: Result;
+  quizId?: string;
+  topic?: string;
+  questionIds?: string[];
+  categories?: string[];
+  keywords?: string[];
+  years?: string[];
+  pool?: 'all' | 'unused' | 'incorrect';
+  count?: number;
+  timerEnabled?: boolean;
+}
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
-  const [activeQuiz, setActiveQuiz] = useState<any>(null);
-  const [currentBlock, setCurrentBlock] = useState<any>(null);
+  const [activeQuiz, setActiveQuiz] = useState<ActiveQuizState | null>(null);
+  const [currentBlock, setCurrentBlock] = useState<Block | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showReset, setShowReset] = useState(false);
@@ -31,7 +49,7 @@ export default function Home() {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   const envMissing = !supabaseUrl || !supabaseKey;
 
-  const loadProfile = async (sessionUser: any) => {
+  const loadProfile = async (sessionUser: User) => {
     // Try to find an existing profile row first
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
@@ -57,6 +75,9 @@ export default function Home() {
 
     if (rosterData) {
       setProfile({
+        first_name: '',
+        last_name: '',
+        created_at: new Date().toISOString(),
         id: sessionUser.id,
         email: sessionUser.email,
         full_name: profileData?.full_name || rosterData.name,
@@ -104,8 +125,9 @@ export default function Home() {
       const runStep = async <T,>(label: string, op: () => Promise<T>): Promise<T> => {
         try {
           return await withRetry(() => withTimeout(op(), 30000), 1, 1000);
-        } catch (err: any) {
-          throw new Error(`[${label}] ${err?.message || 'unknown error'}`);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          throw new Error(`[${label}] ${message}`);
         }
       };
 
@@ -113,16 +135,17 @@ export default function Home() {
         const { data: { session } } = (await runStep(
           'getSession',
           () => supabase.auth.getSession()
-        )) as any;
+        ));
         if (session?.user) {
           setUser(session.user);
           // Run sequentially with step labels so a single hung query is identifiable
           await runStep('loadProfile', () => loadProfile(session.user));
           await runStep('loadCurrentBlock', () => loadCurrentBlock());
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('App init error:', err);
-        setInitError(err?.message || 'Failed to initialize the app. Check your network and Supabase project status.');
+        const message = err instanceof Error ? err.message : String(err);
+        setInitError(message || 'Failed to initialize the app. Check your network and Supabase project status.');
       } finally {
         setLoading(false);
       }
@@ -130,7 +153,7 @@ export default function Home() {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: Session | null) => {
       // init() above already loads the initial session, profile, and block.
       // Per Supabase's docs, never `await` a Supabase call inside this callback —
       // it holds the auth lock and deadlocks getSession on the next refresh (the
@@ -177,7 +200,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    let timer: any;
+    let timer: ReturnType<typeof setTimeout>;
     if (loading && !showReset) {
       timer = setTimeout(() => setShowReset(true), 5000);
     }
@@ -266,10 +289,10 @@ export default function Home() {
             profile={profile}
             isActive={!(showBuilder || showAdmin || activeQuiz)}
             onLogout={handleLogout}
-            onStartQuiz={(quiz: any) => setActiveQuiz(quiz)}
+            onStartQuiz={(quiz: ActiveQuizState) => setActiveQuiz(quiz)}
             onOpenBuilder={() => setShowBuilder(true)}
             onOpenAdmin={() => setShowAdmin(true)}
-            onProfileUpdate={(updatedProfile: any) => setProfile(updatedProfile)}
+            onProfileUpdate={(updatedProfile: Profile) => setProfile(updatedProfile)}
           />
         </ErrorBoundary>
       </div>
@@ -309,7 +332,7 @@ export default function Home() {
                 categories: config.categories.length > 0 ? config.categories : undefined,
                 years: config.years.length > 0 ? config.years : undefined,
                 count: config.count,
-                pool: config.pool,
+                pool: config.pool as 'all' | 'incorrect' | 'unused',
                 timerEnabled: config.timerEnabled,
               });
             }}
@@ -326,3 +349,7 @@ export default function Home() {
     </>
   );
 }
+
+
+
+

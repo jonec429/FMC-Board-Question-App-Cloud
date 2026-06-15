@@ -124,13 +124,13 @@ export async function POST(request: Request) {
       try {
         await webpush.sendNotification(pushSubscription, payload);
         sent++;
-      } catch (err: any) {
-        if (err.statusCode === 404 || err.statusCode === 410) {
-          console.log(`[web-push/send] Subscription expired (${err.statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
+      } catch (err: unknown) {
+        if ((err as any).statusCode === 404 || (err as any).statusCode === 410) {
+          console.log(`[web-push/send] Subscription expired (${(err as any).statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
           await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
           expired++;
         } else {
-          console.error(`[web-push/send] Push failed for ${sub.endpoint.slice(0, 60)}...:`, err.statusCode, err.body || err.message);
+          console.error(`[web-push/send] Push failed for ${sub.endpoint.slice(0, 60)}...:`, (err as any).statusCode, (err as any).body || (err instanceof Error ? err.message : String(err)));
           failed++;
         }
       }
@@ -159,9 +159,9 @@ export async function POST(request: Request) {
       counts: summary
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[web-push/send] Fatal error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: (err instanceof Error ? err.message : String(err)) }, { status: 500 });
   }
 }
 
@@ -210,7 +210,10 @@ export async function GET(request: Request) {
     if (error) throw error;
 
     return NextResponse.json({ success: true, count: count || 0 });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: (err instanceof Error ? err.message : String(err)) }, { status: 500 });
   }
 }
+
+
+

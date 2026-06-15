@@ -41,7 +41,7 @@ interface ResidentStat {
   declining: boolean;
   riskReasons: string[];
 
-  results: any[];
+  results: Result[];
 }
 
 // RiskLevel + getRiskLevel + the overdue/reasons helpers live in lib/residentRisk.ts.
@@ -53,12 +53,12 @@ const riskColors: Record<RiskLevel, { row: string; badge: string; dot: string }>
   gray: { row: 'bg-slate-50/40', badge: 'bg-slate-100 text-slate-500', dot: 'bg-slate-300' },
 };
 
-import { AdminData } from '@/lib/types';
+import { AdminData, User, Profile, Result, RosterEntry } from '@/lib/types';
 import { useAdminData } from '@/hooks/useAdminData';
 
 interface AdminPerformanceProps {
-  user?: any;
-  profile?: any;
+  user?: User | null;
+  profile?: Profile | null;
 }
 
 type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'my_advisees' | 'heatmap';
@@ -141,8 +141,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
     const profileMap = new Map<string, string>();
     const emailToUserId = new Map<string, string>();
-    profiles.forEach((p: any) => {
-      const email = p?.email || p?.user_email;
+    profiles.forEach((p: Profile) => {
+      const email = p?.email || p?.email;
       if (p?.id && email) {
         profileMap.set(p.id, email);
         emailToUserId.set(email.toLowerCase(), p.id);
@@ -150,26 +150,26 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     });
 
     const enriched = allResults
-      .filter((r: any) => (selectedYear === 0 || r.academic_year === selectedYear) && !r.topic?.toLowerCase().includes('demo'))
-      .map((r: any) => ({
+      .filter((r: Result & { email?: string | null }) => (selectedYear === 0 || r.academic_year === selectedYear) && !r.topic?.toLowerCase().includes('demo'))
+      .map((r: Result & { email?: string | null }) => ({
         ...r,
         email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
       }))
-      .filter((r: any) => r.email);
+      .filter((r: Result & { email?: string | null }) => r.email);
 
     // Only active FM residents are scored. Faculty and fellows are excluded;
     // graduates are hidden unless the toggle is on.
-    const scopedRoster = roster.filter((r: any) =>
+    const scopedRoster = roster.filter((r: RosterEntry) =>
       isActiveResident(r) || (showGraduates && isGraduated(r))
     );
 
-    const stats: ResidentStat[] = scopedRoster.map((resident: any) => {
+    const stats: ResidentStat[] = scopedRoster.map((resident: RosterEntry) => {
       const resResults = enriched.filter(
-        (r: any) => r.email?.toLowerCase() === resident.email?.toLowerCase()
+        (r: Result & { email?: string | null }) => r.email?.toLowerCase() === resident.email?.toLowerCase()
       );
 
-      const assignedResults = resResults.filter((r: any) => (r.academic_points || 0) > 0);
-      const independentResults = resResults.filter((r: any) => !r.academic_points || r.academic_points === 0);
+      const assignedResults = resResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0);
+      const independentResults = resResults.filter((r: Result & { email?: string | null }) => !r.academic_points || r.academic_points === 0);
 
       // Dedupe by topic — for each block, keep best timing (highest points)
       let onTimePoints = 0;
@@ -178,8 +178,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
       const topicBestPts = new Map<string, number>();
       resResults
-        .filter((r: any) => (r.academic_points || 0) > 0)
-        .forEach((r: any) => {
+        .filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0)
+        .forEach((r: Result & { email?: string | null }) => {
           const cur = topicBestPts.get(r.topic) || 0;
           if ((r.academic_points || 0) > cur) {
             topicBestPts.set(r.topic, r.academic_points || 0);
@@ -210,15 +210,15 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         : 100;
 
       const curriculumAvg = assignedResults.length > 0
-        ? assignedResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / assignedResults.length
+        ? assignedResults.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / assignedResults.length
         : 0;
 
       const independentAvg = independentResults.length > 0
-        ? independentResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / independentResults.length
+        ? independentResults.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / independentResults.length
         : null;
 
       const overallAvg = resResults.length > 0
-        ? resResults.reduce((a: number, r: any) => a + (r.percentage || 0), 0) / resResults.length
+        ? resResults.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / resResults.length
         : 0;
 
       // Early-warning: past-due blocks this resident hasn't completed.
@@ -229,9 +229,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
       // Early-warning: recent scores sliding vs earlier ones (even if the average still looks OK).
       const scoresChrono = [...resResults]
-        .filter((r: any) => typeof r.percentage === 'number')
-        .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r: any) => r.percentage);
+        .filter((r: Result & { email?: string | null }) => typeof r.percentage === 'number')
+        .sort((a: Result, b: Result) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())
+        .map((r: Result & { email?: string | null }) => r.percentage);
       const { delta: trendDelta, declining } = computeTrend(scoresChrono);
 
       const riskReasons = getRiskReasons({
@@ -273,7 +273,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         trendDelta,
         declining,
         riskReasons,
-        results: resResults.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+        results: resResults.sort((a: Result, b: Result) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()),
       };
     });
 
@@ -814,7 +814,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Core Curriculum ({assigned.length})</h3>
                       {assigned.length > 0 ? (
                         <div className="space-y-3">
-                          {assigned.map((r: any, i: number) => {
+                          {assigned.map((r: Result & { email?: string | null }, i: number) => {
                             const pts = r.academic_points || 0;
                             const timingLabel = pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
                               : pts === 1 ? '⏰ Late'
@@ -847,7 +847,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Independent Study ({custom.length})</h3>
                       {custom.length > 0 ? (
                         <div className="space-y-3">
-                          {custom.map((r: any, i: number) => (
+                          {custom.map((r: Result & { email?: string | null }, i: number) => (
                             <div key={`ind-${i}`} className="flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 transition-all border border-indigo-50/50">
                               <div className="flex-1">
                                 <p className="font-bold text-slate-800 text-sm">{r.topic}</p>
@@ -877,3 +877,6 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     </div>
   );
 }
+
+
+

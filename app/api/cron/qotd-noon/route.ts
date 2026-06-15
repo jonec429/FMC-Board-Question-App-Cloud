@@ -72,13 +72,13 @@ export async function GET(request: Request) {
       try {
         await webpush.sendNotification(pushSubscription, payload);
         sent++;
-      } catch (err: any) {
-        if (err.statusCode === 404 || err.statusCode === 410) {
-          console.log(`[qotd-noon] Subscription expired (${err.statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
+      } catch (err: unknown) {
+        if ((err as any).statusCode === 404 || (err as any).statusCode === 410) {
+          console.log(`[qotd-noon] Subscription expired (${(err as any).statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
           await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
           expired++;
         } else {
-          console.error(`[qotd-noon] Push failed for ${sub.endpoint.slice(0, 60)}...:`, err.statusCode, err.body || err.message);
+          console.error(`[qotd-noon] Push failed for ${sub.endpoint.slice(0, 60)}...:`, (err as any).statusCode, (err as any).body || (err instanceof Error ? err.message : String(err)));
           failed++;
         }
       }
@@ -110,8 +110,11 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, message: `Noon QOTD notifications processed.`, counts: summary });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[qotd-noon] Fatal error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: (err instanceof Error ? err.message : String(err)) }, { status: 500 });
   }
 }
+
+
+

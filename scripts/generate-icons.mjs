@@ -42,3 +42,10 @@ await sharp(svg, { density: 384 })
 console.log('✓ apple-touch-icon.png (180×180)');
 
 console.log('Done. Icons written to public/icons/');
+
+
+const badgeSource = join(iconsDir, 'badge-icon.svg');
+const badgeSvg = await readFile(badgeSource);
+await sharp(badgeSvg, { density: 384 }).resize(96, 96).png().toFile(join(iconsDir, 'badge-96x96.png'));
+console.log('? badge-96x96.png (96x96)');
+

@@ -4,7 +4,7 @@ self.addEventListener('push', function (event) {
     const options = {
       body: data.body,
       icon: data.icon || '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
+      badge: '/icons/badge-96x96.png',
       vibrate: [100, 50, 100],
       data: {
         dateOfArrival: Date.now(),
@@ -73,3 +73,4 @@ self.addEventListener('notificationclick', function (event) {
     })
   );
 });
+
