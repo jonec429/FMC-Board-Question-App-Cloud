@@ -462,14 +462,14 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         points = 0;
         timingStatus = null;
       } else if (topicLabel.toLowerCase().includes('bonus')) {
-        points = 2;
+        points = 0;
         timingStatus = null;
       } else {
         if (currentBlock && currentBlock.topic === topicLabel) {
           points = 2;
           timingStatus = 'On Time';
         } else {
-          points = 1;
+          points = 0;
           timingStatus = 'Late';
         }
       }

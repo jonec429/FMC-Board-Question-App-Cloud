@@ -36,12 +36,15 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
         !r.topic?.toLowerCase().includes('demo')
       );
 
-      const assigned = userResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0);
+      const assigned = userResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null);
 
       // Best points per block (dedupe by topic) -> blocks done + on-time rate.
       const topicBestPts = new Map<string, number>();
       assigned.forEach((r: Result & { email?: string | null }) => {
-        topicBestPts.set(r.topic, Math.max(topicBestPts.get(r.topic) || 0, r.academic_points || 0));
+        const cur = topicBestPts.get(r.topic) || 0;
+        if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
+          topicBestPts.set(r.topic, r.academic_points || 0);
+        }
       });
       const blocksCompleted = topicBestPts.size;
       const nonBonus = Array.from(topicBestPts.entries()).filter(([t]) => !t?.toLowerCase().includes('bonus'));

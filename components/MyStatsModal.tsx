@@ -417,10 +417,13 @@ export default function MyStatsModal({
                   <div className="space-y-2">
                     {myResults.map((r, i) => {
                       const pts = r.academic_points || 0;
-                      const timingEmoji = pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'
+                      const timingEmoji = r.timing_status === 'On Time' ? '✅'
+                        : r.timing_status === 'Late' ? '⏰'
+                        : r.timing_status === 'Manual' ? '✨'
+                        : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'
                         : pts === 1 ? '⏰'
                         : pts >= 2 ? '⚡'
-                        : null;
+                        : null);
                       return (
                         <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                           <div className="flex-1 min-w-0">

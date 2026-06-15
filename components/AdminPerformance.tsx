@@ -168,8 +168,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         (r: Result & { email?: string | null }) => r.email?.toLowerCase() === resident.email?.toLowerCase()
       );
 
-      const assignedResults = resResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0);
-      const independentResults = resResults.filter((r: Result & { email?: string | null }) => !r.academic_points || r.academic_points === 0);
+      const assignedResults = resResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null);
+      const independentResults = resResults.filter((r: Result & { email?: string | null }) => (!r.academic_points || r.academic_points === 0) && r.timing_status == null);
 
       // Dedupe by topic — for each block, keep best timing (highest points)
       let onTimePoints = 0;
@@ -178,10 +178,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
       const topicBestPts = new Map<string, number>();
       resResults
-        .filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0)
+        .filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null)
         .forEach((r: Result & { email?: string | null }) => {
           const cur = topicBestPts.get(r.topic) || 0;
-          if ((r.academic_points || 0) > cur) {
+          if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
             topicBestPts.set(r.topic, r.academic_points || 0);
           }
         });
@@ -805,8 +805,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
             <div className="flex-1 overflow-y-auto p-8 space-y-8">
               {(() => {
-                const assigned = selectedResident.results.filter(r => (r.academic_points || 0) > 0);
-                const custom = selectedResident.results.filter(r => !r.academic_points || r.academic_points === 0);
+                const assigned = selectedResident.results.filter(r => (r.academic_points || 0) > 0 || r.timing_status != null);
+                const custom = selectedResident.results.filter(r => (!r.academic_points || r.academic_points === 0) && r.timing_status == null);
 
                 return (
                   <>
@@ -816,10 +816,13 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                         <div className="space-y-3">
                           {assigned.map((r: Result & { email?: string | null }, i: number) => {
                             const pts = r.academic_points || 0;
-                            const timingLabel = pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
+                            const timingLabel = r.timing_status === 'On Time' ? '✅ On Time'
+                              : r.timing_status === 'Late' ? '⏰ Late'
+                              : r.timing_status === 'Manual' ? '✨ Manual'
+                              : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
                               : pts === 1 ? '⏰ Late'
                               : pts >= 2 ? '⚡ Bonus'
-                              : '—';
+                              : '—');
                             return (
                               <div key={`curr-${i}`} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50">
                                 <div className="flex-1">

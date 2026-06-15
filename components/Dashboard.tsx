@@ -166,10 +166,12 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
   // Best points per topic (dedupe retakes)
   const topicBestPts = new Map<string, number>();
   myResults
-    .filter(r => (r.academic_points || 0) > 0)
+    .filter(r => (r.academic_points || 0) > 0 || r.timing_status != null)
     .forEach(r => {
       const cur = topicBestPts.get(r.topic) || 0;
-      topicBestPts.set(r.topic, Math.max(cur, r.academic_points || 0));
+      if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
+        topicBestPts.set(r.topic, r.academic_points || 0);
+      }
     });
 
   const blocksCompleted = topicBestPts.size;
@@ -516,14 +518,14 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                 if (blockSort === 'name') return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
                 if (blockSort === 'status') {
                   const rA = bestResultByTopic.get(a.title); const rB = bestResultByTopic.get(b.title);
-                  const doneA = !!rA && (rA.academic_points || 0) > 0;
-                  const doneB = !!rB && (rB.academic_points || 0) > 0;
+                  const doneA = !!rA && ((rA.academic_points || 0) > 0 || rA.timing_status != null);
+                  const doneB = !!rB && ((rB.academic_points || 0) > 0 || rB.timing_status != null);
                   return Number(doneA) - Number(doneB);
                 }
                 return 0; // 'curriculum' — keep server order (by sort_order)
               }).map(block => {
                 const result = bestResultByTopic.get(block.title);
-                const isCompleted = !!result && (result.academic_points || 0) > 0;
+                const isCompleted = !!result && ((result.academic_points || 0) > 0 || result.timing_status != null);
                 // Sprint 5: prefer the fixed assigned question set so every resident sees the
                 // same questions (order is still randomized client-side in QuizEngine).
                 // Falls back to category filters for legacy/uninitialized blocks.
