@@ -43,6 +43,7 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
     qotd: profile?.notification_preferences?.qotd ?? true,
     qotd_reminder: profile?.notification_preferences?.qotd_reminder ?? true,
     block_reminders: profile?.notification_preferences?.block_reminders ?? true,
+    faculty_digest: profile?.notification_preferences?.faculty_digest ?? true,
   });
 
   const handleTogglePreference = async (key: keyof typeof notificationPreferences) => {
@@ -424,6 +425,22 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPreferences.block_reminders ? 'translate-x-5' : 'translate-x-1'}`} />
                     </button>
                   </div>
+
+                  {(profile?.role === 'faculty' || profile?.role === 'admin') && (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">Faculty Digest</p>
+                        <p className="text-[11px] font-medium text-slate-500">Weekly summary of resident performance</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePreference('faculty_digest')}
+                        className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${notificationPreferences.faculty_digest ? 'bg-blue-500' : 'bg-slate-300'}`}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPreferences.faculty_digest ? 'translate-x-5' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

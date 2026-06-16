@@ -49,17 +49,22 @@ export async function GET(request: Request) {
     // Find all faculty users
     const { data: facultyProfiles, error: profileError } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, notification_preferences')
       .in('role', ['faculty', 'admin']);
     
     if (profileError) throw profileError;
 
-    if (!facultyProfiles || facultyProfiles.length === 0) {
-      console.log('[faculty-digest] No faculty users found.');
+    // Filter out users who have opted out of the faculty digest
+    const optedInFaculty = facultyProfiles?.filter(p => 
+      p.notification_preferences?.faculty_digest !== false
+    ) || [];
+
+    if (optedInFaculty.length === 0) {
+      console.log('[faculty-digest] No faculty users found with digest notifications enabled.');
       return NextResponse.json({ success: true, message: 'No faculty found', counts: { total: 0 } });
     }
 
-    const facultyIds = facultyProfiles.map(p => p.id);
+    const facultyIds = optedInFaculty.map(p => p.id);
 
     // Get their push subscriptions
     const { data: subs, error: subsError } = await supabase
