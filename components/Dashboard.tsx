@@ -355,29 +355,6 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
               <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} />
             </div>
           )}
-
-          {/* Resume Saved Block */}
-          {mostRecentSession && (
-            <button
-              onClick={() => {
-                const matchedBlock = blocks.find(b => b.title === mostRecentSession.topic || b.id === mostRecentSession.quiz_id);
-                onStartQuiz({
-                  topic: mostRecentSession.topic,
-                  quizId: mostRecentSession.quiz_id || matchedBlock?.id,
-                  count: 40,
-                });
-              }}
-              className="w-full text-left p-4 md:p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group"
-            >
-              <PlayCircle className="w-6 h-6 shrink-0" />
-              <div className="text-left flex-1 min-w-0">
-                <p className="font-bold">Resume Saved Block</p>
-                <p className="text-xs text-amber-600 opacity-80 truncate">
-                  {mostRecentSession.topic} · Q{(mostRecentSession.current_index || 0) + 1}
-                </p>
-              </div>
-            </button>
-          )}
         </div>
 
         {/* RIGHT MAIN */}
@@ -478,6 +455,29 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
               <p className="text-xs text-indigo-500/80">Custom filters or quick mixed review</p>
             </div>
           </button>
+
+          {/* Resume Saved Block */}
+          {mostRecentSession && (
+            <button
+              onClick={() => {
+                const matchedBlock = blocks.find(b => b.title === mostRecentSession.topic || b.id === mostRecentSession.quiz_id);
+                onStartQuiz({
+                  topic: mostRecentSession.topic,
+                  quizId: mostRecentSession.quiz_id || matchedBlock?.id,
+                  count: 40,
+                });
+              }}
+              className="w-full mb-6 text-left p-4 md:p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-3xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group"
+            >
+              <PlayCircle className="w-6 h-6 shrink-0 text-amber-500" />
+              <div className="text-left flex-1 min-w-0">
+                <p className="font-bold text-lg">Resume Saved Block</p>
+                <p className="text-xs font-medium text-amber-600 opacity-80 truncate">
+                  {mostRecentSession.topic} · Q{(mostRecentSession.current_index || 0) + 1}
+                </p>
+              </div>
+            </button>
+          )}
 
           <div className="flex items-center justify-between gap-2 mb-3">
             <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs">Board Review Blocks</h3>
