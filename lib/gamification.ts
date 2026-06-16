@@ -197,6 +197,22 @@ export async function processGamification(
         await evaluateBadge('Perfect Block', true);
       }
 
+      // Comeback Kid — improved by >= 20% compared to previous block
+      const { data: previousBlocks } = await supabase
+        .from('results')
+        .select('percentage')
+        .eq('user_id', userId)
+        .not('topic', 'ilike', '%demo%')
+        .order('created_at', { ascending: false })
+        .limit(2); // index 0 is the one just inserted, index 1 is the previous
+
+      if (previousBlocks && previousBlocks.length === 2) {
+        const prevPercentage = previousBlocks[1].percentage;
+        if (blockScorePercentage - prevPercentage >= 20) {
+          await evaluateBadge('Comeback Kid', true);
+        }
+      }
+
       if (estHour >= 0 && estHour < 4) {
         await evaluateBadge('Night Owl', true);
       }
@@ -219,6 +235,7 @@ export async function processGamification(
         .eq('user_id', userId);
         
       if (totalQCount) {
+        if (totalQCount >= 70) await evaluateBadge('Half Iron Man', true);
         if (totalQCount >= 100) await evaluateBadge('100 Club', true);
         if (totalQCount >= 140) await evaluateBadge('Ironman', true);
         if (totalQCount >= 200) await evaluateBadge('200 Club', true);
