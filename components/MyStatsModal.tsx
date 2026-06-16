@@ -320,7 +320,7 @@ export default function MyStatsModal({
                   </div>
                   <div>
                     <div className="text-3xl font-black">{totalPoints}</div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Quiz Points</div>
+                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Total Academic Points</div>
                   </div>
                   <div>
                     <div className="text-xl font-black leading-tight line-clamp-2 break-words">{topicAverages.length > 0 ? topicAverages[0].topic : '—'}</div>
