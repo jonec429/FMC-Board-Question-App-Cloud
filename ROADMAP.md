@@ -62,6 +62,15 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** still pre-launch (no residents yet), so pushing straight to `main` is acceptable for now — but **must** switch to preview-branch testing before rollout (see Deployment Workflow). The app is **deploy-blind for AI agents**: every screen sits behind Supabase login, so changes are verified with `tsc` + `next build`, then the user tests on the live site (`brq.stvfamilymed.org`).
 
+### ▶️ Session Handoff — 2026-06-16 (Antigravity)
+**Shipped & pushed to `main` this session**: 
+1. **Gamification Fixes & Improvements**: Adjusted the resident point structure to strictly award 2 points for blocks completed on time or early, removed bonus block points, and stopped negative logic. 
+2. **New Achievements**: Implemented `Half Iron Man` (70 questions) and `Comeback Kid` (+20% improvement). Added `Top of the Class` badge with an automated monthly `pg_cron` snapshot system.
+3. **Pre-start UI Flow**: Added an "Abandon Quiz" button for resumed quizzes that deletes uncompleted session progress without triggering gamification penalties. Renamed UI elements to say "Total Academic Points".
+4. **Block Reminders**: Built a fully automated Thursday reminder system using a Vercel cron job that scans the `block_schedule` and dispatches Emails via Resend and Web Push notifications to any residents who have not completed the upcoming block.
+
+**Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass at this commit.
+
 ### ▶️ Session Handoff — 2026-06-13 (Antigravity)
 **Shipped & pushed to `main` this session**: 
 1. **Dashboard Layout**: Pinned the "Demo Quiz" to the top of the dashboard regardless of sort settings. Moved the QOTD to the main dashboard column above the Quiz Builder.
@@ -272,6 +281,7 @@ This file serves as the shared source of truth for development progress between 
 ### Learning Features
 - [x] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
 - [x] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
+- [ ] **Faculty-Assigned Custom Quizzes**: Allow advisors or faculty department heads to create custom quizzes and explicitly assign them to specific residents (e.g., for remediation or individual improvement plans).
 
 ### UI & UX
 - [ ] **Dark Mode Toggle**: Implement a dark mode theme using `next-themes` and Tailwind `dark:` variants. Requires systematically updating all hardcoded Tailwind color classes across the app to prevent visual bugs.

@@ -8,10 +8,10 @@
 -- the QOTD pushes (the two old schedulers get retired once this is verified).
 --
 -- WHAT IT SCHEDULES (Monday-Friday):
---    * 12:00 UTC  ->  8:00 AM Eastern (EDT)  ->  /api/cron/qotd-morning
+--    * 12:30 UTC  ->  8:30 AM Eastern (EDT)  ->  /api/cron/qotd-morning
 --    * 16:30 UTC  -> 12:30 PM Eastern (EDT)  ->  /api/cron/qotd-noon
 --   NOTE ON DST: these are fixed UTC times (same as the old crons). In winter
---   (EST) they land one hour earlier — 7:00 AM and 11:30 AM. If you want them
+--   (EST) they land one hour earlier — 7:30 AM and 11:30 AM. If you want them
 --   pinned to wall-clock time year-round, tell me and we'll adjust each November.
 --
 -- -------------------------------------------------------------------------
@@ -29,10 +29,10 @@
 do $$ begin perform cron.unschedule('qotd-morning-push'); exception when others then null; end $$;
 do $$ begin perform cron.unschedule('qotd-noon-push');    exception when others then null; end $$;
 
--- 2. Morning push  -- 12:00 UTC = 8:00 AM Eastern (EDT), Mon-Fri
+-- 2. Morning push  -- 12:30 UTC = 8:30 AM Eastern (EDT), Mon-Fri
 select cron.schedule(
   'qotd-morning-push',
-  '0 12 * * 1-5',
+  '30 12 * * 1-5',
   $$
     select net.http_get(
       url     := 'https://brq.stvfamilymed.org/api/cron/qotd-morning',

@@ -5,7 +5,7 @@ import webpush from 'web-push';
 
 export const dynamic = 'force-dynamic';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
 
 export async function GET(request: Request) {
   try {
@@ -134,12 +134,14 @@ export async function GET(request: Request) {
         // Find their push subscriptions. We need their user_id from the profiles table.
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id')
+          .select('id, notification_preferences')
           .eq('email', user.email.toLowerCase())
           .maybeSingle();
 
         if (profile?.id) {
-          const { data: subs } = await supabase
+          const prefs: any = profile.notification_preferences || {};
+          if (prefs.block_reminders !== false) {
+            const { data: subs } = await supabase
             .from('web_push_subscriptions')
             .select('*')
             .eq('user_id', profile.id);
@@ -163,6 +165,7 @@ export async function GET(request: Request) {
               }
             }
           }
+        }
         }
       }
     }

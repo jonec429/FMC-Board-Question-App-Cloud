@@ -39,8 +39,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, message: 'No subscriptions found.', counts: { total: 0 } });
     }
 
+    const { data: profs } = await supabase.from('profiles').select('id, notification_preferences');
+    const prefsMap = new Map((profs || []).map(p => [p.id, p.notification_preferences || {}]));
+
+    const targetSubs = subs.filter(sub => {
+      const prefs: any = prefsMap.get(sub.user_id) || {};
+      return prefs.qotd_reminder !== false;
+    });
+
+    if (targetSubs.length === 0) {
+      console.log('[qotd-noon] No subscriptions opted in for QOTD reminder push.');
+      return NextResponse.json({ success: true, message: 'No users opted in.', counts: { total: 0 } });
+    }
+
     const run_id = crypto.randomUUID();
-    console.log(`[qotd-noon] Found ${subs.length} subscription(s). Sending notifications... (Run ID: ${run_id})`);
+    console.log(`[qotd-noon] Found ${targetSubs.length} opted-in subscription(s) out of ${subs.length}. Sending notifications... (Run ID: ${run_id})`);
 
     const payload = JSON.stringify({
       title: 'Question of the Day',
@@ -53,7 +66,7 @@ export async function GET(request: Request) {
     let expired = 0;
     let skipped = 0;
 
-    const notifications = subs.map(async (sub) => {
+    const notifications = targetSubs.map(async (sub) => {
       // Validate required fields
       if (!sub.p256dh || !sub.auth || !sub.endpoint) {
         console.warn(`[qotd-noon] Skipping subscription ${sub.id}: missing p256dh, auth, or endpoint.`);
@@ -86,7 +99,7 @@ export async function GET(request: Request) {
 
     await Promise.allSettled(notifications);
 
-    const summary = { total: subs.length, sent, failed, expired, skipped };
+    const summary = { total: targetSubs.length, sent, failed, expired, skipped };
     console.log('[qotd-noon] Complete:', JSON.stringify(summary));
     
     // Log to Supabase

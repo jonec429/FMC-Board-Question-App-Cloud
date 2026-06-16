@@ -8,7 +8,7 @@ const supabase = createClient(
 
 // Basic in-memory rate limiting (per lambda instance)
 const rateLimitMap = new Map<string, { count: number; expiresAt: number }>();
-const RATE_LIMIT = 5;
+const RATE_LIMIT = 100;
 const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 
 export async function POST(request: Request) {

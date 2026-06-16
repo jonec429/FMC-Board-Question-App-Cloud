@@ -39,6 +39,30 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
 
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    qotd: profile?.notification_preferences?.qotd ?? true,
+    qotd_reminder: profile?.notification_preferences?.qotd_reminder ?? true,
+    block_reminders: profile?.notification_preferences?.block_reminders ?? true,
+  });
+
+  const handleTogglePreference = async (key: keyof typeof notificationPreferences) => {
+    const newPrefs = { ...notificationPreferences, [key]: !notificationPreferences[key] };
+    setNotificationPreferences(newPrefs);
+    
+    try {
+      await supabase
+        .from('profiles')
+        .update({ notification_preferences: newPrefs })
+        .eq('id', user.id);
+        
+      onProfileUpdate({ ...profile, notification_preferences: newPrefs });
+    } catch (err) {
+      console.error('Failed to save preference:', err);
+      // Revert on failure
+      setNotificationPreferences(notificationPreferences);
+    }
+  };
+
   React.useEffect(() => {
     // Check if push is enabled
     if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -342,18 +366,66 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
           {/* Notifications Section */}
           <div className="space-y-4">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Notifications</h3>
-            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-bold text-slate-800">Push Notifications</p>
-                <p className="text-xs font-medium text-slate-500 mt-0.5">Receive reminders for the Question of the Day</p>
+            <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Push Notifications</p>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">Enable push notifications on this device</p>
+                </div>
+                <button
+                  onClick={handleTogglePush}
+                  disabled={pushLoading}
+                  className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${pushEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                >
+                  <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${pushEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
               </div>
-              <button
-                onClick={handleTogglePush}
-                disabled={pushLoading}
-                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 ${pushEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
-              >
-                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${pushEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-              </button>
+
+              {pushEnabled && (
+                <div className="pt-4 border-t border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">Question of the Day</p>
+                      <p className="text-[11px] font-medium text-slate-500">Morning alert when the new question opens</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePreference('qotd')}
+                      className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${notificationPreferences.qotd ? 'bg-blue-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPreferences.qotd ? 'translate-x-5' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">QOTD Reminder</p>
+                      <p className="text-[11px] font-medium text-slate-500">Midday reminder if you haven't answered</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePreference('qotd_reminder')}
+                      className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${notificationPreferences.qotd_reminder ? 'bg-blue-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPreferences.qotd_reminder ? 'translate-x-5' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">Block Reminders</p>
+                      <p className="text-[11px] font-medium text-slate-500">Alerts for upcoming block deadlines</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePreference('block_reminders')}
+                      className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors ${notificationPreferences.block_reminders ? 'bg-blue-500' : 'bg-slate-300'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notificationPreferences.block_reminders ? 'translate-x-5' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
