@@ -56,11 +56,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // resumed session (existing progress) skips it.
   const [mode, setMode] = useState<'practice' | 'quiz'>('practice');
   const [started, setStarted] = useState(false);
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [newBadgesEarned, setNewBadgesEarned] = useState(false);
-  
-  useEffect(() => {
-    if (currentIndex > 0 || Object.keys(answers).length > 0) setStarted(true);
-  }, [currentIndex, answers]);
 
   const confettiFiredRef = useRef(false);
 
@@ -964,6 +961,43 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
   // Pre-start screen: choose Practice vs Quiz before a non-QOTD, non-demo quiz begins.
   if (!isQotd && !((topic || '').toLowerCase().includes('demo')) && !started && currentQuestion) {
+    const hasProgress = sessionId !== null;
+
+    if (showAbandonConfirm) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+          <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 max-w-md w-full space-y-6 animate-fade-in text-center">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <X className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800">Abandon Quiz?</h2>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              By abandoning this quiz you will lose progress and it will not count towards streaks or achievements.
+            </p>
+            <div className="space-y-3 pt-4">
+              <button
+                onClick={async () => {
+                  if (sessionId) {
+                    await supabase.from('quiz_sessions').delete().eq('id', sessionId);
+                  }
+                  onCancel();
+                }}
+                className="w-full py-4 bg-red-500 text-white rounded-2xl font-black text-lg hover:bg-red-600 transition-all shadow-xl shadow-red-500/20"
+              >
+                Yes, Abandon Quiz
+              </button>
+              <button
+                onClick={() => setShowAbandonConfirm(false)}
+                className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 max-w-md w-full space-y-6 animate-fade-in">
@@ -997,14 +1031,24 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             onClick={() => setStarted(true)}
             className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl"
           >
-            Start
+            {hasProgress ? 'Resume' : 'Start'}
           </button>
-          <button
-            onClick={onCancel}
-            className="w-full py-2 text-slate-400 font-bold text-sm hover:text-slate-600 transition-all"
-          >
-            Cancel
-          </button>
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={onCancel}
+              className="w-full py-2 text-slate-400 font-bold text-sm hover:text-slate-600 transition-all"
+            >
+              Cancel
+            </button>
+            {hasProgress && (
+              <button
+                onClick={() => setShowAbandonConfirm(true)}
+                className="w-full py-2 text-red-400 font-bold text-sm hover:text-red-600 transition-all"
+              >
+                Abandon Quiz
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
