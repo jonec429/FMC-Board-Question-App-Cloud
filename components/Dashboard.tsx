@@ -350,7 +350,10 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
 
           {/* Leaderboard */}
           {leaderboard.length > 0 && (
-            <LeaderboardWidget data={leaderboard} myEmail={user.email} />
+            <div className="space-y-4">
+              <LeaderboardWidget data={leaderboard} myEmail={user.email} />
+              <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} />
+            </div>
           )}
 
           {/* Resume Saved Block */}
@@ -729,3 +732,56 @@ function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmai
   );
 }
 
+// === CLASS LEADERBOARD WIDGET ===
+function ClassLeaderboardWidget({ data, myPgy }: { data: LeaderboardEntry[]; myPgy?: string }) {
+  const classTotals = data.reduce((acc, curr) => {
+    // Only group by actual classes, ignoring empty/faculty
+    if (!curr.pgy || curr.pgy === 'Faculty') return acc;
+    if (!acc[curr.pgy]) acc[curr.pgy] = 0;
+    acc[curr.pgy] += curr.totalPoints;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const classes = Object.entries(classTotals)
+    .map(([pgy, totalPoints]) => ({ pgy, totalPoints }))
+    .sort((a, b) => b.totalPoints - a.totalPoints);
+
+  if (classes.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-4 h-4 text-slate-400" />
+          <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">Class Leaderboard</h3>
+        </div>
+      </div>
+      <div className="space-y-1">
+        {classes.map((c, i) => {
+          const isMyClass = c.pgy === myPgy;
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+          return (
+            <div
+              key={c.pgy}
+              className={`flex items-center justify-between py-1.5 px-2 rounded-lg ${isMyClass ? 'bg-blue-50' : ''}`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs font-bold text-slate-400 w-5 shrink-0">
+                  {medal || `#${i + 1}`}
+                </span>
+                <div className="min-w-0">
+                  <p className={`text-xs font-bold truncate ${isMyClass ? 'text-blue-700' : 'text-slate-700'}`}>
+                    {c.pgy.replace('Class of ', 'Class ')}
+                  </p>
+                </div>
+              </div>
+              <span className={`text-xs font-black shrink-0 ml-2 ${isMyClass ? 'text-blue-700' : 'text-slate-600'}`}>
+                {c.totalPoints} pts
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
