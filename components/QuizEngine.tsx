@@ -28,6 +28,7 @@ interface QuizEngineProps {
   pool?: 'all' | 'unused' | 'incorrect';
   count?: number;
   timerEnabled?: boolean;
+  forceNew?: boolean;
   currentBlock?: any;
   onComplete: (results: any) => void;
   onCancel: () => void;
@@ -37,7 +38,7 @@ interface QuizEngineProps {
 const FONT_SIZES = [14, 16, 18, 20, 22, 24];
 const DEFAULT_FONT_INDEX = 2; // 18px
 
-export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted, qotdAttempt, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
+export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted, qotdAttempt, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, forceNew = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -56,6 +57,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // resumed session (existing progress) skips it.
   const [mode, setMode] = useState<'practice' | 'quiz'>('practice');
   const [started, setStarted] = useState(false);
+  const [isTimed, setIsTimed] = useState(timerEnabled);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [newBadgesEarned, setNewBadgesEarned] = useState(false);
 
@@ -180,28 +182,31 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         const topicLabel = topic || 'Mixed Review Block';
 
         // 1. Fetch active session first
-        const { data: sData } = (await withTimeout(
-          supabase
-            .from('quiz_sessions')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('is_completed', false)
-            .eq('topic', topicLabel)
-            .order('last_updated', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-        )) as any;
+        // If forceNew is true, we skip checking for an existing session and start fresh.
+        if (!forceNew) {
+          const { data: sData } = (await withTimeout(
+            supabase
+              .from('quiz_sessions')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('is_completed', false)
+              .eq('topic', topicLabel)
+              .order('last_updated', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          )) as any;
 
-        if (sData) {
-          setSessionId(sData.id);
-          setCurrentIndex(sData.current_index || 0);
-          setAnswers(sData.answers || {});
-          if (sData.time_left) setTimeLeft(sData.time_left);
-          
-          if (sData.questions && Array.isArray(sData.questions) && sData.questions.length > 0) {
-            setQuestions(sData.questions);
-            setLoading(false);
-            return; // Skip new fetch if we already have questions
+          if (sData) {
+            setSessionId(sData.id);
+            setCurrentIndex(sData.current_index || 0);
+            setAnswers(sData.answers || {});
+            if (sData.time_left) setTimeLeft(sData.time_left);
+            
+            if (sData.questions && Array.isArray(sData.questions) && sData.questions.length > 0) {
+              setQuestions(sData.questions);
+              setLoading(false);
+              return; // Skip new fetch if we already have questions
+            }
           }
         }
 
@@ -404,12 +409,12 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // Timer countdown — stops at 0, turns red as warning. Pauses while reviewing an
   // explanation so reading it never counts against the resident's time.
   useEffect(() => {
-    if (showResults || !timerEnabled || reviewingExplanation) return;
+    if (showResults || !isTimed || reviewingExplanation) return;
     const interval = setInterval(() => {
       setTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [showResults, timerEnabled, reviewingExplanation]);
+  }, [showResults, isTimed, reviewingExplanation]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -961,7 +966,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
   // Pre-start screen: choose Practice vs Quiz before a non-QOTD, non-demo quiz begins.
   if (!isQotd && !((topic || '').toLowerCase().includes('demo')) && !started && currentQuestion) {
-    const hasProgress = sessionId !== null;
+    const hasProgress = sessionId !== null && answeredCount > 0;
 
     if (showAbandonConfirm) {
       return (
@@ -1003,7 +1008,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 max-w-md w-full space-y-6 animate-fade-in">
           <div className="text-center">
             <h2 className="text-2xl font-black text-slate-800 leading-tight">{topic || 'Quiz'}</h2>
-            <p className="text-slate-500 font-medium mt-2">{questions.length} question{questions.length === 1 ? '' : 's'}{timerEnabled ? ' · timed' : ''}</p>
+            <p className="text-slate-500 font-medium mt-2">{questions.length} question{questions.length === 1 ? '' : 's'}</p>
           </div>
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Choose mode</p>
@@ -1026,6 +1031,18 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 ? 'The correct answer and explanation appear right after each question.'
                 : 'Answers stay hidden until you finish — then you get a full review.'}
             </p>
+          </div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
+                Exam Timer
+              </label>
+              <p className="text-xs text-slate-500 font-medium">Enable 90-second countdown per question</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" className="sr-only peer" checked={isTimed} onChange={() => setIsTimed(!isTimed)} />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
           </div>
           <button
             onClick={() => setStarted(true)}
@@ -1070,7 +1087,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             <div>
               <h2 className="font-black text-slate-800 leading-tight truncate max-w-[200px] md:max-w-none">{topic || 'FMC Board Review'}</h2>
               <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                {timerEnabled && (
+                {isTimed && (
                   <>
                     <Clock className={`w-3 h-3 ${reviewingExplanation ? 'text-amber-500' : isTimeLow ? 'text-red-500' : ''}`} />
                     <span

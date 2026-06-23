@@ -32,7 +32,6 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
   const [weakestCategories, setWeakestCategories] = useState<string[]>([]);
   const [qCount, setQCount] = useState(40);
   const [qCountInput, setQCountInput] = useState('40');
-  const [timerEnabled, setTimerEnabled] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   // Legacy year reveal — residents must explicitly opt-in to ITEs > 3 years old
   const [showLegacyYears, setShowLegacyYears] = useState(false);
@@ -173,7 +172,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
       categories: mode === 'random' ? [] : selectedCategories,
       count: qCount,
       pool: pool,
-      timerEnabled,
+      timerEnabled: false,
     });
   };
 
@@ -423,19 +422,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
                 </div>
               </div>
 
-              {/* Timer Option */}
-              <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
-                    {mode === 'custom' ? '6' : '4'}. Exam Timer
-                  </label>
-                  <p className="text-xs text-slate-500 font-medium">Enable 90-second countdown per question</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" checked={timerEnabled} onChange={() => setTimerEnabled(!timerEnabled)} />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
+
 
             </div>
           )}
