@@ -183,8 +183,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
         // 1. Fetch active session first
         // If forceNew is true, we skip checking for an existing session and start fresh.
+        let sData: any = null;
         if (!forceNew) {
-          const { data: sData } = (await withTimeout(
+          const { data } = (await withTimeout(
             supabase
               .from('quiz_sessions')
               .select('*')
@@ -195,6 +196,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               .limit(1)
               .maybeSingle()
           )) as any;
+          sData = data;
 
           if (sData) {
             setSessionId(sData.id);
