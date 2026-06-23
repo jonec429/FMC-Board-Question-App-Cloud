@@ -42,9 +42,34 @@ export async function GET(request: Request) {
     const { data: profs } = await supabase.from('profiles').select('id, notification_preferences');
     const prefsMap = new Map((profs || []).map(p => [p.id, p.notification_preferences || {}]));
 
+    // Find today's QOTD question ID
+    const estDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const todayStr = `${estDate.getFullYear()}-${String(estDate.getMonth() + 1).padStart(2, '0')}-${String(estDate.getDate()).padStart(2, '0')}`;
+
+    const { data: qotdSchedule } = await supabase
+      .from('qotd_schedule')
+      .select('question_id')
+      .eq('schedule_date', todayStr)
+      .maybeSingle();
+
+    if (!qotdSchedule) {
+      console.log('[qotd-noon] No QOTD scheduled for today.');
+      return NextResponse.json({ success: true, message: 'No QOTD scheduled.', counts: { total: 0 } });
+    }
+
+    // Find users who have already attempted today's QOTD
+    const { data: attempts } = await supabase
+      .from('question_attempts')
+      .select('user_id')
+      .eq('question_id', qotdSchedule.question_id);
+
+    const attemptedUserIds = new Set((attempts || []).map(a => a.user_id));
+
     const targetSubs = subs.filter(sub => {
       const prefs: any = prefsMap.get(sub.user_id) || {};
-      return prefs.qotd_reminder !== false;
+      if (prefs.qotd_reminder === false) return false;
+      if (attemptedUserIds.has(sub.user_id)) return false;
+      return true;
     });
 
     if (targetSubs.length === 0) {
