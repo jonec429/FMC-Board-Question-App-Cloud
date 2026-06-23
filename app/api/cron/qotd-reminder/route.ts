@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
   // Validate VAPID keys are configured
   if (!publicKey || !privateKey) {
-    console.error('[qotd-noon] VAPID keys not configured. NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set.');
+    console.error('[qotd-reminder] VAPID keys not configured. NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must be set.');
     return NextResponse.json({ success: false, error: 'VAPID keys not configured' }, { status: 500 });
   }
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
   // Verify Vercel Cron Secret
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    console.warn('[qotd-noon] Unauthorized request — CRON_SECRET mismatch or missing.');
+    console.warn('[qotd-reminder] Unauthorized request — CRON_SECRET mismatch or missing.');
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     if (error) throw error;
 
     if (!subs || subs.length === 0) {
-      console.log('[qotd-noon] No subscriptions found in web_push_subscriptions table.');
+      console.log('[qotd-reminder] No subscriptions found in web_push_subscriptions table.');
       return NextResponse.json({ success: true, message: 'No subscriptions found.', counts: { total: 0 } });
     }
 
@@ -53,26 +53,36 @@ export async function GET(request: Request) {
       .maybeSingle();
 
     if (!qotdSchedule) {
-      console.log('[qotd-noon] No QOTD scheduled for today.');
+      console.log('[qotd-reminder] No QOTD scheduled for today.');
       return NextResponse.json({ success: true, message: 'No QOTD scheduled.', counts: { total: 0 } });
     }
 
+    // Find users who have already attempted today's QOTD
+    const { data: attempts } = await supabase
+      .from('question_attempts')
+      .select('user_id')
+      .eq('question_id', qotdSchedule.question_id);
+
+    const attemptedUserIds = new Set((attempts || []).map(a => a.user_id));
+
     const targetSubs = subs.filter(sub => {
       const prefs: any = prefsMap.get(sub.user_id) || {};
-      return prefs.qotd !== false;
+      if (prefs.qotd_reminder === false) return false;
+      if (attemptedUserIds.has(sub.user_id)) return false;
+      return true;
     });
 
     if (targetSubs.length === 0) {
-      console.log('[qotd-noon] No subscriptions opted in for QOTD push.');
+      console.log('[qotd-reminder] No subscriptions opted in for QOTD reminder push.');
       return NextResponse.json({ success: true, message: 'No users opted in.', counts: { total: 0 } });
     }
 
     const run_id = crypto.randomUUID();
-    console.log(`[qotd-noon] Found ${targetSubs.length} opted-in subscription(s) out of ${subs.length}. Sending notifications... (Run ID: ${run_id})`);
+    console.log(`[qotd-reminder] Found ${targetSubs.length} opted-in subscription(s) out of ${subs.length}. Sending notifications... (Run ID: ${run_id})`);
 
     const payload = JSON.stringify({
       title: 'Question of the Day',
-      body: 'The answer for today\'s QOTD is now available! Check the app to see the explanation and stats.',
+      body: 'Today\'s QOTD is still waiting for you. Complete it before the answer is revealed at 12:30!',
       data: { run_id }
     });
 
@@ -84,7 +94,7 @@ export async function GET(request: Request) {
     const notifications = targetSubs.map(async (sub) => {
       // Validate required fields
       if (!sub.p256dh || !sub.auth || !sub.endpoint) {
-        console.warn(`[qotd-noon] Skipping subscription ${sub.id}: missing p256dh, auth, or endpoint.`);
+        console.warn(`[qotd-reminder] Skipping subscription ${sub.id}: missing p256dh, auth, or endpoint.`);
         skipped++;
         return;
       }
@@ -102,11 +112,11 @@ export async function GET(request: Request) {
         sent++;
       } catch (err: unknown) {
         if ((err as any).statusCode === 404 || (err as any).statusCode === 410) {
-          console.log(`[qotd-noon] Subscription expired (${(err as any).statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
+          console.log(`[qotd-reminder] Subscription expired (${(err as any).statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
           await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
           expired++;
         } else {
-          console.error(`[qotd-noon] Push failed for ${sub.endpoint.slice(0, 60)}...:`, (err as any).statusCode, (err as any).body || (err instanceof Error ? err.message : String(err)));
+          console.error(`[qotd-reminder] Push failed for ${sub.endpoint.slice(0, 60)}...:`, (err as any).statusCode, (err as any).body || (err instanceof Error ? err.message : String(err)));
           failed++;
         }
       }
@@ -115,11 +125,11 @@ export async function GET(request: Request) {
     await Promise.allSettled(notifications);
 
     const summary = { total: targetSubs.length, sent, failed, expired, skipped };
-    console.log('[qotd-noon] Complete:', JSON.stringify(summary));
+    console.log('[qotd-reminder] Complete:', JSON.stringify(summary));
     
     // Log to Supabase
     await supabase.from('cron_logs').insert({
-      cron_name: 'qotd-noon',
+      cron_name: 'qotd-reminder',
       status: 'success',
       details: { ...summary, run_id }
     });
@@ -133,13 +143,13 @@ export async function GET(request: Request) {
       .lt('delivered_at', thirtyDaysAgo.toISOString());
     
     if (cleanupError) {
-      console.error('[qotd-noon] Failed to prune old push receipts:', cleanupError);
+      console.error('[qotd-reminder] Failed to prune old push receipts:', cleanupError);
     }
 
-    return NextResponse.json({ success: true, message: `Noon QOTD notifications processed.`, counts: summary });
+    return NextResponse.json({ success: true, message: `Reminder QOTD notifications processed.`, counts: summary });
 
   } catch (err: unknown) {
-    console.error('[qotd-noon] Fatal error:', err);
+    console.error('[qotd-reminder] Fatal error:', err);
     return NextResponse.json({ success: false, error: (err instanceof Error ? err.message : String(err)) }, { status: 500 });
   }
 }

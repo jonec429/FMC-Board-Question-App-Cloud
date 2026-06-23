@@ -9,6 +9,7 @@
 --
 -- WHAT IT SCHEDULES (Monday-Friday):
 --    * 12:30 UTC  ->  8:30 AM Eastern (EDT)  ->  /api/cron/qotd-morning
+--    * 15:30 UTC  -> 11:30 AM Eastern (EDT)  ->  /api/cron/qotd-reminder
 --    * 16:30 UTC  -> 12:30 PM Eastern (EDT)  ->  /api/cron/qotd-noon
 --   NOTE ON DST: these are fixed UTC times (same as the old crons). In winter
 --   (EST) they land one hour earlier — 7:30 AM and 11:30 AM. If you want them
@@ -27,6 +28,7 @@
 
 -- 1. Remove any previous versions of these jobs (makes this script re-runnable)
 do $$ begin perform cron.unschedule('qotd-morning-push'); exception when others then null; end $$;
+do $$ begin perform cron.unschedule('qotd-reminder-push');  exception when others then null; end $$;
 do $$ begin perform cron.unschedule('qotd-noon-push');    exception when others then null; end $$;
 
 -- 2. Morning push  -- 12:30 UTC = 8:30 AM Eastern (EDT), Mon-Fri
@@ -42,7 +44,20 @@ select cron.schedule(
   $$
 );
 
--- 3. Noon push  -- 16:30 UTC = 12:30 PM Eastern (EDT), Mon-Fri
+-- 3. Reminder push  -- 15:30 UTC = 11:30 AM Eastern (EDT), Mon-Fri
+select cron.schedule(
+  'qotd-reminder-push',
+  '30 15 * * 1-5',
+  $$
+    select net.http_get(
+      url     := 'https://brq.stvfamilymed.org/api/cron/qotd-reminder',
+      headers := jsonb_build_object('Authorization', 'Bearer __PASTE_YOUR_CRON_SECRET_HERE__'),
+      timeout_milliseconds := 30000
+    );
+  $$
+);
+
+-- 4. Noon push  -- 16:30 UTC = 12:30 PM Eastern (EDT), Mon-Fri
 select cron.schedule(
   'qotd-noon-push',
   '30 16 * * 1-5',
