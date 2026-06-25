@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
 import QotdHistory from './QotdHistory';
 import QuizReview from './QuizReview';
+import QuestionNavigator from './QuestionNavigator';
 import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X, CheckCircle } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
@@ -43,6 +44,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [stagedAnswers, setStagedAnswers] = useState<Record<number, number>>({});
+  const [viewedQuestions, setViewedQuestions] = useState<Set<number>>(new Set([0]));
+  const [showNavigator, setShowNavigator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -95,6 +98,15 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [qotdAggregates, setQotdAggregates] = useState<Record<string, number> | null>(null);
   const [qotdStats, setQotdStats] = useState<{correct: number, incorrect: number, total: number} | null>(null);
   const [qotdTab, setQotdTab] = useState<'today' | 'history'>('today');
+
+  useEffect(() => {
+    setViewedQuestions(prev => {
+      if (prev.has(currentIndex)) return prev;
+      const newSet = new Set(prev);
+      newSet.add(currentIndex);
+      return newSet;
+    });
+  }, [currentIndex]);
 
   // === Quiz Tools (Text Resize + Highlight/Strikethrough Persistence) ===
   // Font size loads from localStorage so the user's preference persists across all quizzes
@@ -868,6 +880,29 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   {showAllReview ? 'Show Incorrect Only' : 'Show All Questions'}
                 </button>
               </div>
+              <div className="mb-6">
+                <QuestionNavigator
+                  totalQuestions={questions.length}
+                  currentIndex={-1}
+                  answers={answers}
+                  stagedAnswers={{}}
+                  viewedQuestions={new Set()}
+                  reviewMode={true}
+                  questions={questions}
+                  onSelect={(idx) => {
+                    const isCorrect = answers[idx] === questions[idx].correct_index;
+                    if (isCorrect && !showAllReview) {
+                      setShowAllReview(true);
+                    }
+                    setTimeout(() => {
+                      const el = document.getElementById(`review-question-${idx}`);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }, 100);
+                  }}
+                />
+              </div>
               <QuizReview items={
                 (showAllReview ? questions : missedQuestions.map((mq: any) => mq.q)).map((q: any) => {
                   const idx = questions.findIndex(orig => orig.id === q.id);
@@ -1104,7 +1139,18 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                     <span className="opacity-30">·</span>
                   </>
                 )}
-                <span>Q {currentIndex + 1} / {questions.length}</span>
+                {isQotd || questions.length <= 1 ? (
+                  <span>Q {currentIndex + 1} / {questions.length}</span>
+                ) : (
+                  <button 
+                    onClick={() => setShowNavigator(prev => !prev)}
+                    className="hover:text-blue-600 transition-colors flex items-center gap-1 font-bold xl:pointer-events-none"
+                    title="Show question navigator"
+                  >
+                    <span>Q {currentIndex + 1} / {questions.length}</span>
+                    <svg className={`w-3 h-3 xl:hidden transition-transform ${showNavigator ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                )}
                 <span className="opacity-30">·</span>
                 <span>{answeredCount} answered</span>
               </div>
@@ -1153,9 +1199,48 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         <div className="max-w-5xl mx-auto mt-4 h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div className="h-full bg-blue-600 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
         </div>
+        
+        {showNavigator && !isQotd && questions.length > 1 && (
+          <div className="xl:hidden max-w-5xl mx-auto mt-4 relative animate-in fade-in slide-in-from-top-2">
+            <div className="absolute top-0 left-0 w-full z-50 md:w-[600px]">
+              <QuestionNavigator
+                totalQuestions={questions.length}
+                currentIndex={currentIndex}
+                answers={answers}
+                stagedAnswers={stagedAnswers}
+                viewedQuestions={viewedQuestions}
+                onSelect={(idx) => {
+                  setCurrentIndex(idx);
+                }}
+                onClose={() => setShowNavigator(false)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      <main className="max-w-3xl mx-auto pt-12 px-4">
+      {showNavigator && !isQotd && questions.length > 1 && (
+        <div 
+          className="xl:hidden fixed inset-0 z-0 bg-slate-900/10 backdrop-blur-sm" 
+          onClick={() => setShowNavigator(false)} 
+        />
+      )}
+
+      <main className="max-w-3xl mx-auto pt-12 px-4 relative">
+        {!isQotd && questions.length > 1 && (
+          <div className="hidden xl:block absolute top-12 right-[100%] mr-8 w-[280px]">
+            <div className="sticky top-32">
+              <QuestionNavigator
+                totalQuestions={questions.length}
+                currentIndex={currentIndex}
+                answers={answers}
+                stagedAnswers={stagedAnswers}
+                viewedQuestions={viewedQuestions}
+                onSelect={(idx) => setCurrentIndex(idx)}
+              />
+            </div>
+          </div>
+        )}
         {currentQuestion && (
           <QuestionCard
             question={currentQuestion}

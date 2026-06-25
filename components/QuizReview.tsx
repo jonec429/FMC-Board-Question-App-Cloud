@@ -35,6 +35,7 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
         return (
           <div
             key={q.id || idx}
+            id={`review-question-${idx}`}
             className={`bg-white rounded-2xl border p-6 ${skipped ? 'border-slate-200' : isCorrect ? 'border-emerald-100' : 'border-red-100'}`}
           >
             <div className="flex items-start justify-between gap-3 mb-3">
