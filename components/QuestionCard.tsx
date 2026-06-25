@@ -17,7 +17,6 @@ interface Question {
 interface QuestionCardProps {
   question: Question;
   userAnswer?: number;
-  onAnswer: (index: number) => void;
   showExplanation?: boolean;
   readOnly?: boolean;
   fontSize?: number;
@@ -25,6 +24,7 @@ interface QuestionCardProps {
   initialStrikethroughs?: number[];
   onToolsChange?: (tools: { highlights: string[]; strikethroughs: number[] }) => void;
   userEmail?: string;
+  onSelectOption?: (index: number) => void;
 }
 
 // Escape special regex characters in user-selected text so we can safely build a RegExp
@@ -49,7 +49,7 @@ function applyHighlights(html: string, highlights: string[]): string {
 export default function QuestionCard({
   question,
   userAnswer,
-  onAnswer,
+  onSelectOption,
   showExplanation = false,
   readOnly = false,
   fontSize = 18,
@@ -115,12 +115,6 @@ export default function QuestionCard({
     if (newSet.has(index)) newSet.delete(index);
     else newSet.add(index);
     setStrikethroughs(newSet);
-  };
-
-  const handleSubmit = () => {
-    if (selectedOption !== undefined) {
-      onAnswer(selectedOption);
-    }
   };
 
   const isCorrect = userAnswer === question.correct_index;
@@ -190,7 +184,12 @@ export default function QuestionCard({
             <div key={index} className="relative group">
               <button
                 disabled={showExplanation || readOnly}
-                onClick={() => !isStruck && !showExplanation && !readOnly && setSelectedOption(index)}
+                onClick={() => {
+                  if (!isStruck && !showExplanation && !readOnly) {
+                    setSelectedOption(index);
+                    if (onSelectOption) onSelectOption(index);
+                  }
+                }}
                 className={`w-full text-left py-5 pl-5 pr-14 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
                 style={{ fontSize: `${optionFontSize}px` }}
               >
@@ -223,18 +222,7 @@ export default function QuestionCard({
         })}
       </div>
 
-      {/* Submit Button */}
-      {!showExplanation && !readOnly && (
-        <div className="pt-2 animate-fade-in">
-          <button
-            onClick={handleSubmit}
-            disabled={selectedOption === undefined}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-xl shadow-blue-200 hover:-translate-y-1 hover:shadow-2xl hover:scale-[1.01]"
-          >
-            Submit Answer
-          </button>
-        </div>
-      )}
+
 
       {/* Explanation Area */}
       {showExplanation && (

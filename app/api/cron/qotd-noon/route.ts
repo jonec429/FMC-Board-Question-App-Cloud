@@ -31,6 +31,25 @@ export async function GET(request: Request) {
   }
 
   try {
+    // 1. Idempotency Check: Prevent duplicate runs on the same day
+    const { data: existingLog } = await supabase
+      .from('cron_logs')
+      .select('id, created_at')
+      .eq('cron_name', 'qotd-noon')
+      .eq('status', 'success')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (existingLog && existingLog.length > 0) {
+      const lastRun = new Date(existingLog[0].created_at);
+      const estDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      const lastRunEst = new Date(lastRun.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      if (lastRunEst.toDateString() === estDate.toDateString()) {
+        console.log('[qotd-noon] Already ran successfully today. Exiting early.');
+        return NextResponse.json({ success: true, message: 'Already ran today.', counts: { total: 0 } });
+      }
+    }
+
     const { data: subs, error } = await supabase.from('web_push_subscriptions').select('*');
     if (error) throw error;
 
@@ -57,9 +76,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, message: 'No QOTD scheduled.', counts: { total: 0 } });
     }
 
-    const targetSubs = subs.filter(sub => {
+    let targetSubs = subs.filter(sub => {
       const prefs: any = prefsMap.get(sub.user_id) || {};
       return prefs.qotd !== false;
+    });
+
+    // 2. Deduplication: Prevent sending multiple times to the same device endpoint
+    const uniqueEndpoints = new Set();
+    targetSubs = targetSubs.filter(sub => {
+      if (uniqueEndpoints.has(sub.endpoint)) return false;
+      uniqueEndpoints.add(sub.endpoint);
+      return true;
     });
 
     if (targetSubs.length === 0) {
@@ -68,7 +95,7 @@ export async function GET(request: Request) {
     }
 
     const run_id = crypto.randomUUID();
-    console.log(`[qotd-noon] Found ${targetSubs.length} opted-in subscription(s) out of ${subs.length}. Sending notifications... (Run ID: ${run_id})`);
+    console.log(`[qotd-noon] Found ${targetSubs.length} opted-in subscription(s). Sending notifications... (Run ID: ${run_id})`);
 
     const payload = JSON.stringify({
       title: 'Question of the Day',

@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import QuestionCard from './QuestionCard';
 import QotdHistory from './QotdHistory';
 import QuizReview from './QuizReview';
-import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X } from './AppIcons';
+import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X, CheckCircle } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { getTodayDateString, isPastNoon } from '@/lib/qotd';
@@ -42,6 +42,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [stagedAnswers, setStagedAnswers] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -1158,12 +1159,12 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         {currentQuestion && (
           <QuestionCard
             question={currentQuestion}
-            userAnswer={answers[currentIndex]}
-            onAnswer={(idx) => {
-              const newAnswers = { ...answers, [currentIndex]: idx };
-              setAnswers(newAnswers);
-              if (isQotd) {
-                submitQuiz(true, newAnswers);
+            userAnswer={answers[currentIndex] ?? stagedAnswers[currentIndex]}
+            onSelectOption={(idx) => {
+              setStagedAnswers(prev => ({ ...prev, [currentIndex]: idx }));
+              if (mode === 'quiz') {
+                const newAnswers = { ...answers, [currentIndex]: idx };
+                setAnswers(newAnswers);
               }
             }}
             showExplanation={!isQotd && mode === 'practice' && answers[currentIndex] !== undefined}
@@ -1190,26 +1191,44 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             <ChevronLeft className="w-5 h-5 pointer-events-none" />
             Prev
           </button>
-          {currentIndex === questions.length - 1 ? (
-            <button
-              onClick={handleFinish}
-              disabled={submitting}
-              className="flex-1 py-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-green-200 cursor-pointer"
-            >
-              {submitting ? <Loader2 className="w-5 h-5 animate-spin pointer-events-none" /> : (
-                <>{isQotd ? 'Close' : 'Finish Block'} <ChevronRight className="w-5 h-5 pointer-events-none" /></>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
-              disabled={currentIndex === questions.length - 1}
-              className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-xl shadow-slate-200 cursor-pointer"
-            >
-              Next
-              <ChevronRight className="w-5 h-5 pointer-events-none" />
-            </button>
-          )}
+          {(() => {
+            const isLast = currentIndex === questions.length - 1;
+            const hasAnswered = answers[currentIndex] !== undefined;
+            const hasStaged = stagedAnswers[currentIndex] !== undefined;
+            const needsSubmit = (mode === 'practice' || isQotd) && !hasAnswered;
+
+            if (needsSubmit) {
+              return (
+                <button
+                  onClick={() => {
+                    const newAnswers = { ...answers, [currentIndex]: stagedAnswers[currentIndex] };
+                    setAnswers(newAnswers);
+                    if (isQotd) {
+                      submitQuiz(true, newAnswers);
+                    }
+                  }}
+                  disabled={!hasStaged || submitting}
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl shadow-blue-200 cursor-pointer animate-in fade-in active:scale-95"
+                >
+                  {submitting ? <Loader2 className="w-5 h-5 animate-spin pointer-events-none" /> : (
+                    <>Submit Answer <CheckCircle className="w-5 h-5 pointer-events-none" /></>
+                  )}
+                </button>
+              );
+            }
+
+            return (
+              <button
+                onClick={isLast ? handleFinish : () => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
+                disabled={isLast && submitting}
+                className={`flex-1 py-4 text-white rounded-2xl font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl cursor-pointer animate-in fade-in active:scale-95 ${isLast ? 'bg-green-600 hover:bg-green-700 shadow-green-200' : 'bg-slate-900 hover:bg-slate-800 shadow-slate-200'}`}
+              >
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin pointer-events-none" /> : (
+                  <>{isLast ? (isQotd ? 'Close' : 'Finish Block') : 'Next Question'} <ChevronRight className="w-5 h-5 pointer-events-none" /></>
+                )}
+              </button>
+            );
+          })()}
         </div>
       </nav>
     </div>
