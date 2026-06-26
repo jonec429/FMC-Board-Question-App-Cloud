@@ -26,9 +26,9 @@ export default function RiskLegend() {
           </div>
         </div>
 
-        {/* Compliance Risk */}
+        {/* Participation Risk */}
         <div>
-          <h4 className="font-black tracking-widest uppercase text-xs text-slate-500 mb-3">Compliance Risk</h4>
+          <h4 className="font-black tracking-widest uppercase text-xs text-slate-500 mb-3">Participation Risk</h4>
           <p className="text-xs text-slate-400 mb-3 italic">Requires at least 3 completed blocks.</p>
           <div className="space-y-3">
             <div className="flex items-start gap-3">

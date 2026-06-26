@@ -360,7 +360,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             <SortHeader label="Total Avg" sortKey="avg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <SortHeader label="On-Time" sortKey="ontime" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <SortHeader label="Academic" sortKey="academicRisk" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Compliance" sortKey="complianceRisk" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Participation" sortKey="complianceRisk" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <th className="px-4 py-3" />
           </tr>
         </thead>
@@ -884,7 +884,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     Academic: {selectedResident.academicRisk === 'red' ? 'At Risk' : selectedResident.academicRisk === 'yellow' ? 'Attention' : selectedResident.academicRisk === 'green' ? 'On Track' : 'Evaluating'}
                   </span>
                   <span className={`text-xs font-black px-3 py-1.5 uppercase tracking-widest rounded-full ${riskColors[selectedResident.complianceRisk].badge}`}>
-                    Compliance: {selectedResident.complianceRisk === 'red' ? 'At Risk' : selectedResident.complianceRisk === 'yellow' ? 'Attention' : selectedResident.complianceRisk === 'green' ? 'On Track' : 'Evaluating'}
+                    Participation: {selectedResident.complianceRisk === 'red' ? 'At Risk' : selectedResident.complianceRisk === 'yellow' ? 'Attention' : selectedResident.complianceRisk === 'green' ? 'On Track' : 'Evaluating'}
                   </span>
                 </div>
                 {selectedResident.riskReasons.length > 0 && (
