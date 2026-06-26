@@ -501,7 +501,10 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               const startDate = new Date(bSched.start_date + 'T00:00:00Z');
               const endDate = new Date(bSched.end_date + 'T23:59:59Z');
               
-              if (now <= endDate) {
+              if (now < startDate) {
+                points = 2;
+                timingStatus = 'Early';
+              } else if (now <= endDate) {
                 points = 2;
                 timingStatus = 'On Time';
               }
@@ -890,7 +893,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   {timing_status && (
                     <div className="flex flex-col items-center">
                       <div className="text-3xl mb-1">
-                        {timing_status === 'On Time' ? '✅' : timing_status === 'Late' ? '⏰' : '—'}
+                        {timing_status === 'Early' ? '🚀' : timing_status === 'On Time' ? '✅' : timing_status === 'Late' ? '⏰' : '—'}
                       </div>
                       <div className="text-xs font-black uppercase tracking-widest opacity-70">{timing_status}</div>
                     </div>
