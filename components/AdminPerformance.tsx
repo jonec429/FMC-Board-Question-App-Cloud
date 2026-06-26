@@ -61,7 +61,7 @@ interface AdminPerformanceProps {
   profile?: Profile | null;
 }
 
-type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'my_advisees' | 'heatmap';
+type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'by_block' | 'my_advisees' | 'heatmap';
 
 export default function AdminPerformance({ user, profile }: AdminPerformanceProps) {
   const userIsAdmin = isAdmin(user, profile);
@@ -493,6 +493,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             ['overview', 'Program Overview'],
             ['at_risk', `At Risk (${redFlagged.length + yellowFlagged.length})`],
             ['by_pgy', 'By Class Year'],
+            ['by_block', 'By Block'],
             ['heatmap', 'Trend Analysis'],
           ];
           // Faculty-only tab: appears first when user is faculty (admins can also pull it up if they have advisees)
@@ -675,6 +676,85 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       )}
 
       {/* By PGY Tab */}
+      {activeSubTab === 'by_block' && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mt-6">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100 uppercase tracking-widest text-[10px] font-black text-slate-400">
+                <th className="px-6 py-4">Block Title</th>
+                <th className="px-4 py-4 text-center">Assigned</th>
+                <th className="px-4 py-4 text-center">Completed</th>
+                <th className="px-4 py-4 text-center">Avg Score</th>
+                <th className="px-4 py-4 text-center">On-Time %</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(blocks || []).map(block => {
+                // Determine completions by looking for results that matched this block's topic
+                const blockResults = enriched.filter(r => r.topic === block.title);
+                
+                // Keep only the highest academic_points attempt per user
+                const userBestPts = new Map<string, Result & { email?: string | null }>();
+                blockResults.forEach(r => {
+                  const uid = r.user_id || r.legacy_email || r.email;
+                  if (!uid) return;
+                  const cur = userBestPts.get(uid);
+                  if (!cur || (r.academic_points || 0) > (cur.academic_points || 0)) {
+                    userBestPts.set(uid, r);
+                  }
+                });
+
+                const uniqueCompletions = Array.from(userBestPts.values());
+                const onTimeCount = uniqueCompletions.filter(r => (r.academic_points || 0) >= 2 || r.timing_status === 'On Time').length;
+                const completedCount = uniqueCompletions.length;
+                
+                const avgScore = completedCount > 0
+                  ? uniqueCompletions.reduce((acc, r) => acc + (r.percentage || 0), 0) / completedCount
+                  : 0;
+                  
+                const onTimePct = completedCount > 0 ? (onTimeCount / completedCount) * 100 : 0;
+                
+                return (
+                  <tr key={block.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-800">{block.title}</div>
+                      <div className="text-xs text-slate-500 mt-1">{block.question_count || 40} questions</div>
+                    </td>
+                    <td className="px-4 py-4 text-center font-bold text-slate-600">
+                      {scopedRoster.length}
+                    </td>
+                    <td className="px-4 py-4 text-center font-bold text-slate-600">
+                      {completedCount}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      {completedCount > 0 ? (
+                        <span className="text-sm font-black text-slate-600">
+                          {avgScore.toFixed(1)}%
+                        </span>
+                      ) : <span className="text-slate-300 font-bold">—</span>}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      {completedCount > 0 ? (
+                        <span className={`text-sm font-bold ${onTimePct > 65 ? 'text-emerald-600' : onTimePct > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                          {onTimePct.toFixed(0)}%
+                        </span>
+                      ) : <span className="text-slate-300 font-bold">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+              {(!blocks || blocks.length === 0) && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500 font-bold">
+                    No blocks scheduled for this academic year.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {activeSubTab === 'by_pgy' && (
         <div className="space-y-6">
           {Object.entries(pgyGroups).sort(([a], [b]) => a.localeCompare(b)).map(([pgy, residents]) => {

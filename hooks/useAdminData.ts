@@ -14,7 +14,7 @@ async function fetchCore(): Promise<CoreData> {
   const [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes] = await Promise.all([
     supabase.from('blocks').select('*'),
     supabase.from('block_schedule').select('*'),
-    supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at'),
+    supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status'),
     supabase.from('profiles').select('*'),
     supabase.from('authorized_roster').select('*'),
   ]);

@@ -127,7 +127,8 @@ This file serves as the shared source of truth for development progress between 
 - [x] **10. `SUPER_ADMIN_EMAILS` is duplicated in ~7 places** (`lib/roles.ts`, four API routes, a component, the SQL helper). Centralize so adding/removing an admin can't drift out of sync.
 - [x] **11. Re-enable build-time type/lint checks.** `next.config.js` sets `ignoreBuildErrors`/`ignoreDuringBuilds: true`. `tsc` passes clean today, so flip them back on to restore the safety net.
 - [ ] **12. Replace pervasive `any` types** (`user`, `profile`, `question`, …) with the interfaces already in `lib/types.ts`, so the `tsc` gate actually protects those paths.
-- [x] **13. Consolidate loose SQL files.** ~30 ad-hoc `*.sql` files + large data dumps sit in the repo root; only 2 are in `supabase/migrations/`. Move into one ordered migrations folder so it's clear what's been applied.
+- [ ] **13. Improve highlighter function and stability.**
+- [x] **14. Consolidate loose SQL files.** ~30 ad-hoc `*.sql` files + large data dumps sit in the repo root; only 2 are in `supabase/migrations/`. Move into one ordered migrations folder so it's clear what's been applied.
 
 ---
 
