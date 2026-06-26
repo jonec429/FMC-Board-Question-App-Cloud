@@ -38,14 +38,14 @@ export default function QuestionNavigator({
         )}
       </div>
 
-      <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
+      <div className="grid grid-cols-5 gap-2 sm:gap-3">
         {Array.from({ length: totalQuestions }).map((_, idx) => {
           const isCurrent = currentIndex === idx;
           const hasAnswered = answers[idx] !== undefined;
           const hasStaged = stagedAnswers[idx] !== undefined;
           const isViewed = viewedQuestions.has(idx);
 
-          let buttonStyle = "w-10 h-10 rounded-xl font-bold text-sm flex items-center justify-center transition-all ";
+          let buttonStyle = "aspect-square rounded-xl font-bold text-sm flex items-center justify-center transition-all ";
 
           if (reviewMode && questions[idx]) {
             // Review Mode
