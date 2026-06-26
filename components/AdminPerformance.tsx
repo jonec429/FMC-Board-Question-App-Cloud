@@ -133,8 +133,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   };
   const sortRes = (list: ResidentStat[]) => sortItems(list, residentAccessor, sortKey, sortDir);
 
-  const { enriched, scopedRoster, emailToUserId } = useMemo(() => {
-    if (!adminData) return { enriched: [], scopedRoster: [], emailToUserId: new Map<string, string>() };
+  const { enriched, allEnriched, scopedRoster, emailToUserId } = useMemo(() => {
+    if (!adminData) return { enriched: [], allEnriched: [], scopedRoster: [], emailToUserId: new Map<string, string>() };
 
     const profileMap = new Map<string, string>();
     const emailToUserIdMap = new Map<string, string>();
@@ -161,13 +161,16 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       }
     });
 
-    const enrichedResults = allResults
-      .filter((r: Result & { email?: string | null }) => (selectedYear === 0 || r.academic_year === selectedYear) && !r.topic?.toLowerCase().includes('demo'))
+    const allEnrichedResults = allResults
+      .filter((r: Result & { email?: string | null }) => !r.topic?.toLowerCase().includes('demo'))
       .map((r: Result & { email?: string | null }) => ({
         ...r,
         email: r.legacy_email || (r.user_id ? profileMap.get(r.user_id) : null),
       }))
       .filter((r: Result & { email?: string | null }) => r.email);
+
+    const enrichedResults = allEnrichedResults
+      .filter((r: Result & { email?: string | null }) => (selectedYear === 0 || r.academic_year === selectedYear));
 
     // Merge faculty from profiles who might not be in authorized_roster
     const rosterEmails = new Set(roster.map((r: RosterEntry) => r.email?.toLowerCase()));
@@ -180,7 +183,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       isActiveResident(r) || (showGraduates && isGraduated(r)) || r.track === 'faculty' || r.pgy === 'Faculty' || r.role === 'faculty'
     );
 
-    return { enriched: enrichedResults, scopedRoster: scopedRosterList, emailToUserId: emailToUserIdMap };
+    return { enriched: enrichedResults, allEnriched: allEnrichedResults, scopedRoster: scopedRosterList, emailToUserId: emailToUserIdMap };
   }, [adminData, selectedYear, showGraduates, profiles, allResults, roster]);
 
   const rawResidentStats = useMemo(() => {
@@ -744,7 +747,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 })
                 .map(block => {
                 // Determine completions by looking for results that matched this block's topic
-                const blockResults = enriched.filter(r => r.topic === block.title);
+                const blockResults = allEnriched.filter(r => r.topic === block.title && (!r.academic_year || r.academic_year === selectedYear));
                 
                 // Keep only the highest academic_points attempt per user
                 const userBestPts = new Map<string, Result & { email?: string | null }>();
