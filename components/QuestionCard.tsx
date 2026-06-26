@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle, MessageSquare } from './AppIcons';
 
@@ -38,22 +38,51 @@ function applyHighlights(html: string, highlights: string[]): string {
   if (!highlights || highlights.length === 0) return html;
   let result = html;
   // Sort longest-first so longer phrases match before substrings of them
-  const sorted = [...highlights].sort((a, b) => b.length - a.length);
+  const sorted = [...highlights].sort((a, b) => {
+    const textA = a.includes('|') ? a.substring(a.indexOf('|') + 1) : a;
+    const textB = b.includes('|') ? b.substring(b.indexOf('|') + 1) : b;
+    return textB.length - textA.length;
+  });
+
   sorted.forEach(h => {
-    if (!h || h.length < 2) return;
+    let targetIndex = -1;
+    let textToHighlight = h;
+    
+    // Check if it's the new format: `index|text`
+    const match = h.match(/^(\d+)\|(.+)$/);
+    if (match) {
+        targetIndex = parseInt(match[1], 10);
+        textToHighlight = match[2];
+    }
+
+    if (!textToHighlight || textToHighlight.length < 2) return;
     
     // Check if the highlight string starts or ends with a word character
-    const startsWithWordChar = /^\w/.test(h);
-    const endsWithWordChar = /\w$/.test(h);
+    const startsWithWordChar = /^\w/.test(textToHighlight);
+    const endsWithWordChar = /\w$/.test(textToHighlight);
     
     // Add word boundaries conditionally to avoid substring matches (e.g. 'in' matching inside 'incase')
     const prefix = startsWithWordChar ? '\\b' : '';
     const suffix = endsWithWordChar ? '\\b' : '';
     
     // Only match text outside of HTML tags
-    const regex = new RegExp(`${prefix}(${escapeRegex(h)})${suffix}(?![^<]*>)`, 'gi');
+    const regex = new RegExp(`${prefix}(${escapeRegex(textToHighlight)})${suffix}(?![^<]*>)`, 'gi');
     
-    result = result.replace(regex, '<mark class="highlight-marker cursor-pointer hover:bg-red-200 transition-colors" style="background-color:#fef08a;color:inherit;" title="Click to remove highlight">$1</mark>');
+    if (targetIndex === -1) {
+        // Legacy: highlight all occurrences
+        result = result.replace(regex, `<mark class="highlight-marker cursor-pointer hover:bg-red-200 transition-colors" style="background-color:#fef08a;color:inherit;" title="Click to remove highlight" data-id="${h}">$1</mark>`);
+    } else {
+        // New: highlight specific occurrence
+        let currentMatch = 0;
+        result = result.replace(regex, (fullMatch, group1) => {
+            if (currentMatch === targetIndex) {
+                currentMatch++;
+                return `<mark class="highlight-marker cursor-pointer hover:bg-red-200 transition-colors" style="background-color:#fef08a;color:inherit;" title="Click to remove highlight" data-id="${h}">${group1}</mark>`;
+            }
+            currentMatch++;
+            return fullMatch;
+        });
+    }
   });
   return result;
 }
@@ -117,8 +146,28 @@ export default function QuestionCard({
     const text = selection.toString().trim();
     if (text.length < 2) return;
 
+    // Calculate which occurrence this is in the text
+    let highlightId = text;
+    if (stemRef.current) {
+      const preSelectionRange = range.cloneRange();
+      preSelectionRange.selectNodeContents(stemRef.current);
+      preSelectionRange.setEnd(range.startContainer, range.startOffset);
+      const preSelectionText = preSelectionRange.toString();
+      
+      const startsWithWordChar = /^\w/.test(text);
+      const endsWithWordChar = /\w$/.test(text);
+      const prefix = startsWithWordChar ? '\\b' : '';
+      const suffix = endsWithWordChar ? '\\b' : '';
+      
+      const regex = new RegExp(`${prefix}(${escapeRegex(text)})${suffix}`, 'gi');
+      const matches = preSelectionText.match(regex);
+      const matchIndex = matches ? matches.length : 0;
+      
+      highlightId = `${matchIndex}|${text}`;
+    }
+
     // Save the highlighted text string so it survives re-renders
-    setHighlights(prev => prev.includes(text) ? prev : [...prev, text]);
+    setHighlights(prev => prev.includes(highlightId) ? prev : [...prev, highlightId]);
     selection.removeAllRanges();
   }, [highlightMode]);
 
@@ -135,9 +184,15 @@ export default function QuestionCard({
   const handleStemClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.tagName.toLowerCase() === 'mark' && target.classList.contains('highlight-marker')) {
-      const textToRemove = target.textContent;
-      if (textToRemove) {
-        setHighlights(prev => prev.filter(h => h !== textToRemove));
+      const highlightId = target.getAttribute('data-id');
+      if (highlightId) {
+        setHighlights(prev => prev.filter(h => h !== highlightId));
+      } else {
+        // Fallback for legacy highlights
+        const textToRemove = target.textContent;
+        if (textToRemove) {
+          setHighlights(prev => prev.filter(h => h !== textToRemove));
+        }
       }
     }
   };

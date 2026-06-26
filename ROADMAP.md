@@ -311,6 +311,21 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-26 — UI Enhancements & Bug Fixes (Antigravity)
+*   **Highlighter Tool Fixes:** Fixed the text selection highlighter in the question card. It now accurately highlights only the selected words (preventing partial word matches) and no longer disappears prematurely during click-and-drag.
+*   **Explanation Enhancements:** The explanation card now prominently displays the ITE Question ID and Year on the right side of the header.
+*   **Auto-Scroll to Explanation:** Added an automatic smooth scroll behavior so the screen focuses on the explanation card immediately after submitting an answer.
+
+### 2026-06-25 — Quiz UI & Navigation Overhaul (Antigravity)
+*   **Review Screen Redesign:** The Question Navigator grid has been moved to a persistent left sidebar during the end-of-quiz review phase, making it easier to jump between questions. The grid now prominently displays question numbers alongside the correct/incorrect icons.
+*   **Compact Interface:** Tightened up the padding and slightly reduced the default font size across the quiz interface to maximize screen real estate and reduce scrolling.
+*   **Explanation Fixes:** Fixed a styling issue where the first letter of explanations was occasionally being truncated.
+*   **Custom Block Resumption:** Resolved a glitch where resuming a custom-built quiz block would sometimes lose track of the previously answered questions.
+
+### 2026-06-24 — QOTD Notification Architecture (Antigravity)
+*   **Triple-Phase Notifications:** Overhauled the Question of the Day (QOTD) notification system. Residents now receive a morning prompt, a targeted reminder if unanswered, and a final noon notification when the answer is revealed.
+*   **Duplicate Prevention:** Added robust idempotency checks to the cron jobs to ensure push notifications are never sent twice.
+
 ### 2026-06-25 — Admin Stats & By Block Dashboard (Antigravity)
 *   **Missing Completions Fixed:** Addressed an issue where curriculum blocks completed by residents were incorrectly hidden from the Admin Console stats. All historical completions are now visible again.
 *   **New "By Block" View:** Added a dedicated "By Block" tab inside the Admin Performance dashboard so you can quickly review completion rates, averages, and on-time percentages for every scheduled block.

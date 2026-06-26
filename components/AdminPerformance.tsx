@@ -73,7 +73,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   );
 
   const { data: adminData, loading, error } = useAdminData();
-  const { roster, profiles, results: allResults } = adminData || { roster: [], profiles: [], results: [] };
+  const { roster, profiles, results: allResults, blocks, block_schedule } = adminData || { roster: [], profiles: [], results: [], blocks: [], block_schedule: [] };
 
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
   const [showGraduates, setShowGraduates] = useState(false);
@@ -132,24 +132,20 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   };
   const sortRes = (list: ResidentStat[]) => sortItems(list, residentAccessor, sortKey, sortDir);
 
-  const rawResidentStats = useMemo(() => {
-    if (!adminData) return [];
-    const { results: allResults, profiles, roster, blocks, block_schedule } = adminData;
-    const academicYear = selectedYear;
-    // Required curriculum blocks for this year whose due date has already passed.
-    const dueBlocks = getDueBlocks(blocks || [], block_schedule || [], academicYear);
+  const { enriched, scopedRoster, emailToUserId } = useMemo(() => {
+    if (!adminData) return { enriched: [], scopedRoster: [], emailToUserId: new Map<string, string>() };
 
     const profileMap = new Map<string, string>();
-    const emailToUserId = new Map<string, string>();
+    const emailToUserIdMap = new Map<string, string>();
     profiles.forEach((p: Profile) => {
       const email = p?.email || p?.email;
       if (p?.id && email) {
         profileMap.set(p.id, email);
-        emailToUserId.set(email.toLowerCase(), p.id);
+        emailToUserIdMap.set(email.toLowerCase(), p.id);
       }
     });
 
-    const enriched = allResults
+    const enrichedResults = allResults
       .filter((r: Result & { email?: string | null }) => (selectedYear === 0 || r.academic_year === selectedYear) && !r.topic?.toLowerCase().includes('demo'))
       .map((r: Result & { email?: string | null }) => ({
         ...r,
@@ -159,9 +155,19 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
     // Only active FM residents are scored. Faculty and fellows are excluded;
     // graduates are hidden unless the toggle is on.
-    const scopedRoster = roster.filter((r: RosterEntry) =>
+    const scopedRosterList = roster.filter((r: RosterEntry) =>
       isActiveResident(r) || (showGraduates && isGraduated(r))
     );
+
+    return { enriched: enrichedResults, scopedRoster: scopedRosterList, emailToUserId: emailToUserIdMap };
+  }, [adminData, selectedYear, showGraduates, profiles, allResults, roster]);
+
+  const rawResidentStats = useMemo(() => {
+    if (!adminData) return [];
+    
+    const academicYear = selectedYear;
+    // Required curriculum blocks for this year whose due date has already passed.
+    const dueBlocks = getDueBlocks(blocks || [], block_schedule || [], academicYear);
 
     const stats: ResidentStat[] = scopedRoster.map((resident: RosterEntry) => {
       const resResults = enriched.filter(

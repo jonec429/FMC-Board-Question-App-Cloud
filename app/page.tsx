@@ -95,7 +95,7 @@ export default function Home() {
     const today = new Date().toISOString().split('T')[0];
     const { data: bData, error } = await supabase
       .from('block_schedule')
-      .select('*')
+      .select('*, blocks(*)')
       .lte('start_date', today)
       .gte('end_date', today)
       .order('start_date', { ascending: false })
@@ -105,7 +105,16 @@ export default function Home() {
     if (error) {
       throw new Error(`Block fetch failed: ${error.message}`);
     }
-    setCurrentBlock(bData);
+
+    if (bData && bData.blocks) {
+      setCurrentBlock({
+        ...bData.blocks,
+        end_date: bData.end_date,
+        topic: (bData.blocks as any).title // Alias title to topic for QuizEngine
+      });
+    } else {
+      setCurrentBlock(null);
+    }
   };
 
   useEffect(() => {
