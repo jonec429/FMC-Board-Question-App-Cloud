@@ -37,7 +37,7 @@ interface QuizEngineProps {
 
 // Font-size scale options for the A-/A+ toolbar
 const FONT_SIZES = [14, 16, 18, 20, 22, 24];
-const DEFAULT_FONT_INDEX = 2; // 18px
+const DEFAULT_FONT_INDEX = 1; // 16px
 
 export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted, qotdAttempt, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, forceNew = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
   const [questions, setQuestions] = useState<any[]>([]);
@@ -1226,9 +1226,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         />
       )}
 
-      <main className="max-w-3xl mx-auto pt-6 px-4 relative">
+      <main className="max-w-3xl mx-auto pt-4 md:pt-6 px-4 relative">
         {!isQotd && questions.length > 1 && (
-          <div className="hidden xl:block absolute top-6 right-[100%] mr-8 w-[280px]">
+          <div className="hidden xl:block absolute top-4 md:top-6 right-[100%] mr-8 w-[280px]">
             <div className="sticky top-32">
               <QuestionNavigator
                 totalQuestions={questions.length}

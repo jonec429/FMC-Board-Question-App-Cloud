@@ -123,10 +123,10 @@ export default function QuestionCard({
   const optionFontSize = Math.max(14, fontSize - 2);
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-3 md:space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="w-full max-w-3xl mx-auto space-y-2 md:space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Stem */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-4 md:p-6 border border-slate-100 relative group">
-        <div className="flex flex-wrap justify-between items-start mb-4 gap-2">
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-3 md:p-5 border border-slate-100 relative group">
+        <div className="flex flex-wrap justify-between items-start mb-3 gap-2">
           <span className="px-3 py-1 bg-slate-100 text-slate-500 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
             {question.category || 'General Medicine'}
           </span>
@@ -161,7 +161,7 @@ export default function QuestionCard({
       </div>
 
       {/* Options */}
-      <div className="grid gap-3">
+      <div className="grid gap-2 md:gap-2.5">
         {question.options.map((option, index) => {
           const isSelected = selectedOption === index;
           const isCorrectOption = index === question.correct_index;
@@ -190,10 +190,10 @@ export default function QuestionCard({
                     if (onSelectOption) onSelectOption(index);
                   }
                 }}
-                className={`w-full text-left py-3 md:py-4 pl-4 pr-12 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
+                className={`w-full text-left py-2.5 md:py-3 pl-3 pr-10 rounded-2xl border-2 transition-all duration-200 flex items-center gap-3 ${stateStyles}`}
                 style={{ fontSize: `${optionFontSize}px` }}
               >
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
+                <div className={`w-7 h-7 text-sm rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
                   {String.fromCharCode(65 + index)}
                 </div>
                 <span className={`font-bold leading-snug flex-1 min-w-0 break-words ${isStruck ? 'line-through decoration-2' : ''}`}>
