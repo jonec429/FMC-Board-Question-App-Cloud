@@ -511,7 +511,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             <Users className="w-5 h-5" />
           </div>
           <span className="text-3xl font-black text-slate-800">{residentStats.length}</span>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Residents</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Users</span>
         </div>
       </div>
 
