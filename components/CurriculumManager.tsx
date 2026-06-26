@@ -59,8 +59,17 @@ export default function CurriculumManager() {
     const years = new Set<number>();
     getAvailableAcademicYears().forEach(y => years.add(y));
     blocks.forEach(b => {
-      const val = b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear();
-      if (!isNaN(val) && val > 0) years.add(val);
+      let year = b.academic_year ? Number(b.academic_year) : 0;
+      if (!year || isNaN(year) || year === 0) {
+        const sched = block_schedule.find((s: any) => s.block_id === b.id);
+        if (sched?.end_date) {
+          const d = new Date(sched.end_date + "T12:00:00Z");
+          year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0);
+        } else {
+          year = getCurrentAcademicYear();
+        }
+      }
+      if (year > 0) years.add(year);
     });
     if (!isNaN(selectedYear) && selectedYear > 0) years.add(selectedYear);
     return Array.from(years).sort().reverse();
@@ -68,8 +77,16 @@ export default function CurriculumManager() {
 
   const sortedBlocks = useMemo(() => {
     const filtered = [...blocks].filter(b => {
-      const val = b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear();
-      const year = !isNaN(val) && val > 0 ? val : getCurrentAcademicYear();
+      let year = b.academic_year ? Number(b.academic_year) : 0;
+      if (!year || isNaN(year) || year === 0) {
+        const sched = block_schedule.find((s: any) => s.block_id === b.id);
+        if (sched?.end_date) {
+          const d = new Date(sched.end_date + "T12:00:00Z");
+          year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0);
+        } else {
+          year = getCurrentAcademicYear();
+        }
+      }
       return year === selectedYear;
     });
     if (adminBlockSort === 'name') {
@@ -423,7 +440,7 @@ export default function CurriculumManager() {
                         </button>
                       </div>
                     )}
-                    <p className="text-xs font-bold text-slate-400">{resultsCount.get(block.title) || 0} completions{block.is_archived && ' ΓÇó Archived'}</p>
+                    <p className="text-xs font-bold text-slate-400">{resultsCount.get(block.title) || 0} completions{block.is_archived && ' • Archived'}</p>
                   </div>
                 </div>
 

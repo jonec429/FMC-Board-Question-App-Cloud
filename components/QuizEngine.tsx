@@ -488,6 +488,28 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         } else {
           points = 0;
           timingStatus = 'Late';
+          // Check if this is an early completion (the block's deadline hasn't passed yet)
+          if (quizId) {
+            const { data: bSched } = await supabase
+              .from('block_schedule')
+              .select('start_date, end_date')
+              .eq('block_id', quizId)
+              .maybeSingle();
+            
+            if (bSched) {
+              const now = new Date();
+              const startDate = new Date(bSched.start_date + 'T00:00:00Z');
+              const endDate = new Date(bSched.end_date + 'T23:59:59Z');
+              
+              if (now < startDate) {
+                points = 2;
+                timingStatus = 'Early';
+              } else if (now <= endDate) {
+                points = 2;
+                timingStatus = 'On Time';
+              }
+            }
+          }
         }
       }
 
@@ -869,9 +891,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                     </div>
                   )}
                   {timing_status && (
-                    <div>
-                      <div className="text-2xl font-black">
-                        {timing_status === 'On Time' ? '✅' : timing_status === 'Late' ? '⏰' : '—'}
+                    <div className="flex flex-col items-center">
+                      <div className="text-3xl mb-1">
+                        {timing_status === 'Early' ? '🚀' : timing_status === 'On Time' ? '✅' : timing_status === 'Late' ? '⏰' : '—'}
                       </div>
                       <div className="text-xs font-black uppercase tracking-widest opacity-70">{timing_status}</div>
                     </div>

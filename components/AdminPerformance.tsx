@@ -8,6 +8,7 @@ import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, 
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, Mail, Search } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
+import RiskLegend from './RiskLegend';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
 
 interface ResidentStat {
@@ -137,11 +138,26 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
     const profileMap = new Map<string, string>();
     const emailToUserIdMap = new Map<string, string>();
+    const facultyProfiles: RosterEntry[] = [];
+
     profiles.forEach((p: Profile) => {
       const email = p?.email || p?.email;
       if (p?.id && email) {
         profileMap.set(p.id, email);
         emailToUserIdMap.set(email.toLowerCase(), p.id);
+        
+        if (p.role === 'faculty') {
+          facultyProfiles.push({
+            email: email,
+            name: p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || email,
+            last_name: p.last_name || p.full_name?.split(' ').pop() || '',
+            pgy: 'Faculty',
+            track: 'faculty',
+            status: 'active',
+            advisor: null,
+            role: 'faculty',
+          } as RosterEntry);
+        }
       }
     });
 
@@ -153,10 +169,15 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       }))
       .filter((r: Result & { email?: string | null }) => r.email);
 
-    // Only active FM residents are scored. Faculty and fellows are excluded;
+    // Merge faculty from profiles who might not be in authorized_roster
+    const rosterEmails = new Set(roster.map((r: RosterEntry) => r.email?.toLowerCase()));
+    const missingFaculty = facultyProfiles.filter(f => f.email && !rosterEmails.has(f.email.toLowerCase()));
+    const combinedRoster = [...roster, ...missingFaculty];
+
+    // Only active FM residents are scored. Faculty and fellows are excluded (except faculty when requested);
     // graduates are hidden unless the toggle is on.
-    const scopedRosterList = roster.filter((r: RosterEntry) =>
-      isActiveResident(r) || (showGraduates && isGraduated(r))
+    const scopedRosterList = combinedRoster.filter((r: RosterEntry) =>
+      isActiveResident(r) || (showGraduates && isGraduated(r)) || r.track === 'faculty' || r.pgy === 'Faculty' || r.role === 'faculty'
     );
 
     return { enriched: enrichedResults, scopedRoster: scopedRosterList, emailToUserId: emailToUserIdMap };
@@ -497,7 +518,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         {(() => {
           const baseTabs: [SubTab, string][] = [
             ['overview', 'Program Overview'],
-            ['at_risk', `At Risk (${redFlagged.length + yellowFlagged.length})`],
+            ['at_risk', `Flagged (${redFlagged.length + yellowFlagged.length})`],
             ['by_pgy', 'By Class Year'],
             ['by_block', 'By Block'],
             ['heatmap', 'Trend Analysis'],
@@ -545,6 +566,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           </div>
         </div>
       </div>
+
+      {/* Risk Legend */}
+      <RiskLegend />
 
       {/* My Advisees Tab (faculty-focused view) */}
       {activeSubTab === 'my_advisees' && (
@@ -695,7 +719,30 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {(blocks || []).map(block => {
+              {(blocks || [])
+                .filter(b => {
+                  if (selectedYear === 0) return true;
+                  let year = b.academic_year ? Number(b.academic_year) : 0;
+                  if (!year || isNaN(year) || year === 0) {
+                    const sched = block_schedule.find((s: any) => s.block_id === b.id);
+                    if (sched?.end_date) {
+                      const d = new Date(sched.end_date + "T12:00:00Z");
+                      year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0); // Approx getCurrentAcademicYear logic
+                    } else {
+                      year = getCurrentAcademicYear();
+                    }
+                  }
+                  return year === selectedYear;
+                })
+                .sort((a, b) => {
+                  const da = block_schedule.find((s: any) => s.block_id === a.id)?.end_date || '';
+                  const db = block_schedule.find((s: any) => s.block_id === b.id)?.end_date || '';
+                  if (!da && !db) return (a.sort_order || 1000) - (b.sort_order || 1000);
+                  if (!da) return 1;
+                  if (!db) return -1;
+                  return da.localeCompare(db);
+                })
+                .map(block => {
                 // Determine completions by looking for results that matched this block's topic
                 const blockResults = enriched.filter(r => r.topic === block.title);
                 
@@ -902,7 +949,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                         <div className="space-y-3">
                           {assigned.map((r: Result & { email?: string | null }, i: number) => {
                             const pts = r.academic_points || 0;
-                            const timingLabel = r.timing_status === 'On Time' ? '✅ On Time'
+                            const timingLabel = r.timing_status === 'Early' ? '🚀 Early'
+                              : r.timing_status === 'On Time' ? '✅ On Time'
                               : r.timing_status === 'Late' ? '⏰ Late'
                               : r.timing_status === 'Manual' ? '✨ Manual'
                               : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
