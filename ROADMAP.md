@@ -308,8 +308,14 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
-## 🆕 Recent Updates (Changelog)
+## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-06-26 — Risk Criteria Overhaul & Terminology Updates (Antigravity)
+*   **New Risk Definitions Enforced:** Residents are no longer prematurely flagged for academic or participation risk before they have completed at least 3 blocks. Once the 3-block minimum is met, strict new percentage thresholds are applied for "Needs Attention" (Yellow) and "At Risk" (Red).
+*   **Transparent Risk Legend:** Added a new, prominent `RiskLegend` to both the Admin Performance dashboard and the resident's personal stats modal. This replaces the old yellow banner and explicitly breaks down exactly what triggers Academic, Participation, and Trend flags, keeping both faculty and residents fully aligned on expectations.
+*   **Terminology Refinements:** Changed "Compliance Risk" to "Participation Risk" across all dashboards to better reflect the program's supportive tone. Additionally, changed "Total Residents" to "Total Users" on the admin dashboard.
+*   **Block 1 Start Date Fix:** Updated the official start date for Block 1 (AY 26-27) in the database to June 28th. Completions submitted prior to this date correctly show up as "🚀 Early" again.
 
 ### 2026-06-26 — UI Enhancements & Bug Fixes (Antigravity)
 *   **Highlighter Tool Fixes:** Fixed the text selection highlighter in the question card. It now accurately highlights only the selected words (preventing partial word matches) and no longer disappears prematurely during click-and-drag.
