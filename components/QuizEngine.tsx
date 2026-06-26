@@ -759,7 +759,35 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
     return (
       <div className="min-h-screen bg-slate-50 pb-20">
-        <div className="max-w-3xl mx-auto pt-12 px-4 space-y-8">
+        <div className="max-w-3xl mx-auto pt-12 px-4 space-y-8 relative">
+          {/* Navigator Sidebar */}
+          {!isQotd && questions.length > 1 && (
+            <div className="hidden xl:block absolute top-12 right-[100%] mr-8 w-[280px]">
+              <div className="sticky top-32">
+                <QuestionNavigator
+                  totalQuestions={questions.length}
+                  currentIndex={-1}
+                  answers={answers}
+                  stagedAnswers={{}}
+                  viewedQuestions={new Set()}
+                  reviewMode={true}
+                  questions={questions}
+                  onSelect={(idx) => {
+                    const isCorrect = answers[idx] === questions[idx].correct_index;
+                    if (isCorrect && !showAllReview) {
+                      setShowAllReview(true);
+                    }
+                    setTimeout(() => {
+                      const el = document.getElementById(`review-question-${idx}`);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }, 100);
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {/* QOTD Tab Bar */}
           {isQotd && (
@@ -880,28 +908,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   {showAllReview ? 'Show Incorrect Only' : 'Show All Questions'}
                 </button>
               </div>
-              <div className="mb-6">
-                <QuestionNavigator
-                  totalQuestions={questions.length}
-                  currentIndex={-1}
-                  answers={answers}
-                  stagedAnswers={{}}
-                  viewedQuestions={new Set()}
-                  reviewMode={true}
-                  questions={questions}
-                  onSelect={(idx) => {
-                    const isCorrect = answers[idx] === questions[idx].correct_index;
-                    if (isCorrect && !showAllReview) {
-                      setShowAllReview(true);
-                    }
-                    setTimeout(() => {
-                      const el = document.getElementById(`review-question-${idx}`);
-                      if (el) {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
-                    }, 100);
-                  }}
-                />
+              <div className="mb-2">
               </div>
               <QuizReview items={
                 (showAllReview ? questions : missedQuestions.map((mq: any) => mq.q)).map((q: any) => {

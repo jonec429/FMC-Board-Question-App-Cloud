@@ -12,6 +12,7 @@ interface Question {
   explanation?: string;
   resource_link?: string;
   category?: string;
+  year?: string;
 }
 
 interface QuestionCardProps {
@@ -40,7 +41,18 @@ function applyHighlights(html: string, highlights: string[]): string {
   const sorted = [...highlights].sort((a, b) => b.length - a.length);
   sorted.forEach(h => {
     if (!h || h.length < 2) return;
-    const regex = new RegExp(`(${escapeRegex(h)})(?![^<]*>)`, 'g');
+    
+    // Check if the highlight string starts or ends with a word character
+    const startsWithWordChar = /^\w/.test(h);
+    const endsWithWordChar = /\w$/.test(h);
+    
+    // Add word boundaries conditionally to avoid substring matches (e.g. 'in' matching inside 'incase')
+    const prefix = startsWithWordChar ? '\\b' : '';
+    const suffix = endsWithWordChar ? '\\b' : '';
+    
+    // Only match text outside of HTML tags
+    const regex = new RegExp(`${prefix}(${escapeRegex(h)})${suffix}(?![^<]*>)`, 'gi');
+    
     result = result.replace(regex, '<mark class="highlight-marker cursor-pointer hover:bg-red-200 transition-colors" style="background-color:#fef08a;color:inherit;" title="Click to remove highlight">$1</mark>');
   });
   return result;
@@ -63,6 +75,7 @@ export default function QuestionCard({
   const [selectedOption, setSelectedOption] = useState<number | undefined>(userAnswer);
   const [highlightMode, setHighlightMode] = useState(false);
   const stemRef = useRef<HTMLDivElement>(null);
+  const explanationRef = useRef<HTMLDivElement>(null);
 
   // Sync local state with parent-provided tools when navigating between questions
   useEffect(() => {
@@ -81,13 +94,25 @@ export default function QuestionCard({
     }
   }, [highlights, strikethroughs]);
 
-  const handleMouseUp = () => {
+  // Scroll to explanation when it appears
+  useEffect(() => {
+    if (showExplanation && explanationRef.current) {
+      // Small delay to ensure the DOM is fully rendered and layout is calculated
+      setTimeout(() => {
+        explanationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [showExplanation]);
+
+  const handleSelection = useCallback(() => {
     if (!highlightMode) return;
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
 
     const range = selection.getRangeAt(0);
-    if (!stemRef.current?.contains(range.commonAncestorContainer)) return;
+    if (!stemRef.current?.contains(range.startContainer) && !stemRef.current?.contains(range.endContainer)) {
+      return;
+    }
 
     const text = selection.toString().trim();
     if (text.length < 2) return;
@@ -95,7 +120,17 @@ export default function QuestionCard({
     // Save the highlighted text string so it survives re-renders
     setHighlights(prev => prev.includes(text) ? prev : [...prev, text]);
     selection.removeAllRanges();
-  };
+  }, [highlightMode]);
+
+  // Global mouseup/touchend to catch selections that end outside the stemRef bounds
+  useEffect(() => {
+    document.addEventListener('mouseup', handleSelection);
+    document.addEventListener('touchend', handleSelection);
+    return () => {
+      document.removeEventListener('mouseup', handleSelection);
+      document.removeEventListener('touchend', handleSelection);
+    };
+  }, [handleSelection]);
 
   const handleStemClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -152,7 +187,6 @@ export default function QuestionCard({
 
         <div
           ref={stemRef}
-          onMouseUp={handleMouseUp}
           onClick={handleStemClick}
           className={`font-bold leading-relaxed text-slate-800 ${highlightMode ? 'cursor-text selection:bg-yellow-200' : ''}`}
           style={{ fontSize: `${fontSize}px` }}
@@ -226,15 +260,28 @@ export default function QuestionCard({
 
       {/* Explanation Area */}
       {showExplanation && (
-        <div className="bg-slate-900 text-slate-100 rounded-3xl p-8 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Gem className="w-6 h-6 text-white" />
+        <div ref={explanationRef} className="bg-slate-900 text-slate-100 rounded-3xl p-8 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+                <Gem className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-black text-lg">Explanation</h3>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Logic & Evidence</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-black text-lg">Explanation</h3>
-              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Logic & Evidence</p>
-            </div>
+            
+            {(question.id || question.year) && (
+              <div className="text-right flex flex-col justify-center">
+                {question.id && (
+                  <p className="text-slate-400 text-xs font-medium">ITE ID: <span className="text-slate-300 font-bold">{question.id}</span></p>
+                )}
+                {question.year && (
+                  <p className="text-slate-400 text-xs font-medium">Year: <span className="text-slate-300 font-bold">{question.year}</span></p>
+                )}
+              </div>
+            )}
           </div>
           
           <div className="space-y-4 text-slate-300 leading-relaxed font-medium">

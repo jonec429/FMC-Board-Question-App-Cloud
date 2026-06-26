@@ -83,15 +83,16 @@ export default function QuestionNavigator({
               className={buttonStyle}
             >
               {reviewMode && questions[idx] ? (
-                answers[idx] === questions[idx].correct_index ? (
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                ) : answers[idx] !== undefined ? (
-                  <XCircle className="w-5 h-5 text-red-600" />
-                ) : (
-                  <span className="text-slate-400 text-xs">—</span>
-                )
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className="text-lg">{idx + 1}</span>
+                  {answers[idx] === questions[idx].correct_index ? (
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                  ) : answers[idx] !== undefined ? (
+                    <XCircle className="w-5 h-5 text-red-600" />
+                  ) : null}
+                </div>
               ) : (
-                idx + 1
+                <span className="text-lg">{idx + 1}</span>
               )}
             </button>
           );
