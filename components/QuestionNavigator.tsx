@@ -38,7 +38,7 @@ export default function QuestionNavigator({
         )}
       </div>
 
-      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {Array.from({ length: totalQuestions }).map((_, idx) => {
           const isCurrent = currentIndex === idx;
           const hasAnswered = answers[idx] !== undefined;
