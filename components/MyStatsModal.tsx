@@ -418,8 +418,7 @@ export default function MyStatsModal({
                   <div className="space-y-2">
                     {myResults.map((r, i) => {
                       const pts = r.academic_points || 0;
-                      const timingEmoji = r.timing_status === 'Early' ? '🚀'
-                        : r.timing_status === 'On Time' ? '✅'
+                      const timingEmoji = r.timing_status === 'On Time' ? '✅'
                         : r.timing_status === 'Late' ? '⏰'
                         : r.timing_status === 'Manual' ? '✨'
                         : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'

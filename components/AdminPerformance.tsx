@@ -952,8 +952,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                         <div className="space-y-3">
                           {assigned.map((r: Result & { email?: string | null }, i: number) => {
                             const pts = r.academic_points || 0;
-                            const timingLabel = r.timing_status === 'Early' ? '🚀 Early'
-                              : r.timing_status === 'On Time' ? '✅ On Time'
+                            const timingLabel = r.timing_status === 'On Time' ? '✅ On Time'
                               : r.timing_status === 'Late' ? '⏰ Late'
                               : r.timing_status === 'Manual' ? '✨ Manual'
                               : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
