@@ -311,6 +311,10 @@ This file serves as the shared source of truth for development progress between 
 ## 🆕 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-06-25 — Admin Stats & By Block Dashboard (Antigravity)
+*   **Missing Completions Fixed:** Addressed an issue where curriculum blocks completed by residents were incorrectly hidden from the Admin Console stats. All historical completions are now visible again.
+*   **New "By Block" View:** Added a dedicated "By Block" tab inside the Admin Performance dashboard so you can quickly review completion rates, averages, and on-time percentages for every scheduled block.
+
 ### 2026-06-13 — View As Impersonation Feature (Antigravity)
 *   **See what residents see:** Super Admins can now instantly preview the app exactly as a Resident or Faculty member would, perfect for troubleshooting issues without needing a test account.
 *   **Where to find it:** Open **Profile Settings** (the gear icon on the dashboard) and look for the new **Admin Tools: View As** dropdown.
