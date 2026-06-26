@@ -1226,9 +1226,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         />
       )}
 
-      <main className="max-w-3xl mx-auto pt-12 px-4 relative">
+      <main className="max-w-3xl mx-auto pt-6 px-4 relative">
         {!isQotd && questions.length > 1 && (
-          <div className="hidden xl:block absolute top-12 right-[100%] mr-8 w-[280px]">
+          <div className="hidden xl:block absolute top-6 right-[100%] mr-8 w-[280px]">
             <div className="sticky top-32">
               <QuestionNavigator
                 totalQuestions={questions.length}

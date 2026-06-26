@@ -123,9 +123,9 @@ export default function QuestionCard({
   const optionFontSize = Math.max(14, fontSize - 2);
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="w-full max-w-3xl mx-auto space-y-3 md:space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Stem */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-5 md:p-8 border border-slate-100 relative group">
+      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-4 md:p-6 border border-slate-100 relative group">
         <div className="flex flex-wrap justify-between items-start mb-4 gap-2">
           <span className="px-3 py-1 bg-slate-100 text-slate-500 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
             {question.category || 'General Medicine'}
@@ -190,7 +190,7 @@ export default function QuestionCard({
                     if (onSelectOption) onSelectOption(index);
                   }
                 }}
-                className={`w-full text-left py-5 pl-5 pr-14 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
+                className={`w-full text-left py-3 md:py-4 pl-4 pr-12 rounded-2xl border-2 transition-all duration-200 flex items-center gap-4 ${stateStyles}`}
                 style={{ fontSize: `${optionFontSize}px` }}
               >
                 <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
