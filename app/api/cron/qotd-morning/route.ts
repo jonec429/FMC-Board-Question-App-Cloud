@@ -32,16 +32,20 @@ export async function GET(request: Request) {
 
   try {
     // 1. Idempotency Check: Prevent duplicate runs on the same day
-    const { data: existingLog } = await supabase
+    const { data: existingLog, error: logError } = await supabase
       .from('cron_logs')
-      .select('id, created_at')
+      .select('id, executed_at')
       .eq('cron_name', 'qotd-morning')
       .eq('status', 'success')
-      .order('created_at', { ascending: false })
+      .order('executed_at', { ascending: false })
       .limit(1);
 
+    if (logError) {
+      console.warn('[qotd-morning] Failed to check idempotency:', logError);
+    }
+
     if (existingLog && existingLog.length > 0) {
-      const lastRun = new Date(existingLog[0].created_at);
+      const lastRun = new Date(existingLog[0].executed_at);
       const estDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
       const lastRunEst = new Date(lastRun.toLocaleString('en-US', { timeZone: 'America/New_York' }));
       if (lastRunEst.toDateString() === estDate.toDateString()) {
