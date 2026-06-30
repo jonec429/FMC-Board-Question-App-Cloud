@@ -909,7 +909,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   <h2 className="text-2xl font-black text-slate-800">{formatDisplayName(selectedResident.name)}</h2>
                 </div>
                 <p className="text-sm font-bold text-slate-400 mb-6">{selectedResident.label} · Advisor: {selectedResident.advisor || '—'}</p>
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800">{selectedResident.curriculumAttempts > 0 ? `${selectedResident.curriculumAvg.toFixed(1)}%` : '—'}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Curr Avg</div>
@@ -933,6 +933,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800">{selectedResident.totalPoints}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Points</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xl font-black text-slate-800">{selectedResident.totalAttendance}</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attend</div>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-6">
