@@ -6,9 +6,10 @@ import { formatDisplayName, formatLastNameFirst } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
-import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, Mail, Search } from './AppIcons';
+import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
 import RiskLegend from './RiskLegend';
+import QuizReview from './QuizReview';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
 
 interface ResidentStat {
@@ -84,6 +85,41 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [adjustPointsValue, setAdjustPointsValue] = useState<number>(1);
   const [adjustPointsReason, setAdjustPointsReason] = useState('Noon Conference');
   const [isSubmittingPoints, setIsSubmittingPoints] = useState(false);
+
+  const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
+  const [reviewItems, setReviewItems] = useState<any[] | null>(null);
+  const [loadingReview, setLoadingReview] = useState(false);
+
+  const openReview = async (r: any) => {
+    setSelectedQuiz(r);
+    setLoadingReview(true);
+    setReviewItems(null);
+    
+    try {
+      const rd = Array.isArray(r.review_data) ? r.review_data : null;
+      if (!rd || rd.length === 0) {
+        setReviewItems([]);
+        setLoadingReview(false);
+        return;
+      }
+      
+      const qIds = rd.map((item: any) => item.q);
+      const { data, error } = await supabase.from('questions').select('*').in('id', qIds);
+      if (error) throw error;
+      
+      const hydrated = rd.map((item: any) => {
+        const qData = data?.find(x => x.id === item.q);
+        return qData ? { q: qData, a: item.a } : null;
+      }).filter(Boolean);
+      
+      setReviewItems(hydrated);
+    } catch (e) {
+      console.error(e);
+      setReviewItems([]);
+    } finally {
+      setLoadingReview(false);
+    }
+  };
 
   const handleAddManualPoints = async () => {
     if (!selectedResident || !selectedResident.userId) return;
@@ -940,7 +976,27 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 space-y-8">
-              {(() => {
+              {selectedQuiz ? (
+                <div className="space-y-6 animate-fade-in">
+                  <div className="flex items-center justify-between mb-2">
+                    <button onClick={() => setSelectedQuiz(null)} className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors">
+                      <ChevronLeft className="w-4 h-4" /> Back to Performance
+                    </button>
+                    <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">{selectedQuiz.topic}</span>
+                  </div>
+                  
+                  {loadingReview ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                      <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
+                      <p className="font-bold text-sm tracking-widest uppercase">Loading Responses...</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                      <QuizReview items={reviewItems || []} />
+                    </div>
+                  )}
+                </div>
+              ) : (() => {
                 const assigned = selectedResident.results.filter(r => (r.academic_points || 0) > 0 || r.timing_status != null);
                 const custom = selectedResident.results.filter(r => (!r.academic_points || r.academic_points === 0) && r.timing_status == null);
 
@@ -950,7 +1006,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Core Curriculum ({assigned.length})</h3>
                       {assigned.length > 0 ? (
                         <div className="space-y-3">
-                          {assigned.map((r: Result & { email?: string | null }, i: number) => {
+                          {assigned.map((r: Result & { email?: string | null, review_data?: any }, i: number) => {
                             const pts = r.academic_points || 0;
                             const timingLabel = r.timing_status === 'Early' ? '🚀 Early'
                               : r.timing_status === 'On Time' ? '✅ On Time'
@@ -961,20 +1017,22 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                               : pts >= 2 ? '⚡ Bonus'
                               : '—');
                             return (
-                              <div key={`curr-${i}`} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50">
-                                <div className="flex-1">
-                                  <p className="font-bold text-slate-800 text-sm">{r.topic}</p>
+                              <button key={`curr-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50 group">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-bold text-slate-800 text-sm truncate">{r.topic}</p>
                                   <p className="text-xs font-bold text-slate-400 mt-0.5">
                                     {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
+                                    {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
                                   </p>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 shrink-0">
                                   <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
                                     {(r.percentage || 0).toFixed(1)}%
                                   </span>
                                   <span className="text-xs font-bold text-slate-400 w-12 text-right">{pts} pt{pts !== 1 ? 's' : ''}</span>
+                                  <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -987,20 +1045,22 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Independent Study ({custom.length})</h3>
                       {custom.length > 0 ? (
                         <div className="space-y-3">
-                          {custom.map((r: Result & { email?: string | null }, i: number) => (
-                            <div key={`ind-${i}`} className="flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 transition-all border border-indigo-50/50">
-                              <div className="flex-1">
-                                <p className="font-bold text-slate-800 text-sm">{r.topic}</p>
+                          {custom.map((r: Result & { email?: string | null, review_data?: any }, i: number) => (
+                            <button key={`ind-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 transition-all border border-indigo-50/50 group">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-slate-800 text-sm truncate">{r.topic}</p>
                                 <p className="text-xs font-bold text-slate-400 mt-0.5">
                                   {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+                                  {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
                                 </p>
                               </div>
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-3 shrink-0">
                                 <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
                                   {(r.percentage || 0).toFixed(1)}%
                                 </span>
+                                <ChevronRight className="w-4 h-4 text-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
-                            </div>
+                            </button>
                           ))}
                         </div>
                       ) : (
