@@ -54,37 +54,59 @@ export default function AttendanceManager() {
 
   const processCSVContent = (csvString: string) => {
     Papa.parse(csvString, {
-      header: true,
+      header: false,
       skipEmptyLines: true,
       complete: (results) => {
-        const data = results.data;
+        const data = results.data as string[][];
         if (data.length === 0) {
             alert("No data found.");
             setLoading(false);
             return;
         }
-        
-        const firstRow = data[0] as any;
+
         const newParsedData: any[] = [];
         const today = new Date().toISOString().split('T')[0];
 
-        // Format 1: Granular CSV (Timestamp, Resident, Email, Conference Date, Topic, Status, Academic Points)
-        if (firstRow['Timestamp'] !== undefined && firstRow['Resident'] !== undefined) {
-           data.forEach((row: any) => {
-               const status = row['Status']?.trim();
-               const points = parseInt(row['Academic Points']) || 0;
+        // Find header row by looking for known columns
+        let headerRowIndex = -1;
+        let format: 'granular' | 'summary' | 'unknown' = 'unknown';
+
+        for (let i = 0; i < Math.min(10, data.length); i++) {
+           const row = data[i].map(c => c ? c.trim().toLowerCase() : '');
+           if (row.includes('timestamp') && row.includes('resident')) {
+               headerRowIndex = i;
+               format = 'granular';
+               break;
+           } else if (row.includes('person') && row.includes('present')) {
+               headerRowIndex = i;
+               format = 'summary';
+               break;
+           }
+        }
+
+        if (format === 'granular') {
+           const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
+           const residentIdx = headers.indexOf('Resident');
+           const emailIdx = headers.indexOf('Email');
+           const dateIdx = headers.indexOf('Conference Date');
+           const topicIdx = headers.indexOf('Topic');
+           const statusIdx = headers.indexOf('Status');
+           const pointsIdx = headers.indexOf('Academic Points');
+
+           for (let i = headerRowIndex + 1; i < data.length; i++) {
+               const row = data[i];
+               const status = statusIdx >= 0 ? row[statusIdx]?.trim() : '';
+               const points = pointsIdx >= 0 ? parseInt(row[pointsIdx]) || 0 : 0;
                
-               // Only give credit if Attended or Points > 0
                if (status === 'Attended' || points > 0) {
-                   const residentName = row['Resident']?.trim();
-                   const email = row['Email']?.trim();
-                   const rawConfDate = row['Conference Date']?.trim();
-                   const topic = row['Topic']?.trim();
+                   const residentName = residentIdx >= 0 ? row[residentIdx]?.trim() : '';
+                   const email = emailIdx >= 0 ? row[emailIdx]?.trim() : '';
+                   const rawConfDate = dateIdx >= 0 ? row[dateIdx]?.trim() : '';
+                   const topic = topicIdx >= 0 ? row[topicIdx]?.trim() : '';
                    
                    let confDate = today;
                    if (rawConfDate) {
                        try {
-                           // Format usually "YYYY-MM-DD" or similar, just parse it safely
                            const parsedDate = new Date(rawConfDate);
                            if (!isNaN(parsedDate.getTime())) {
                                confDate = parsedDate.toISOString().split('T')[0];
@@ -92,7 +114,6 @@ export default function AttendanceManager() {
                        } catch(e) {}
                    }
 
-                   // Match with roster
                    const resident = roster.find(r => 
                        (email && r.email && email.toLowerCase() === r.email.toLowerCase()) || 
                        (residentName && r.full_name && r.full_name.toLowerCase() === residentName.toLowerCase()) ||
@@ -107,13 +128,20 @@ export default function AttendanceManager() {
                        matched: !!resident
                    });
                }
-           });
+           }
         } 
-        // Format 2: Summary CSV (Person, Dept/Div, Status, Category, # Conferences, Present)
-        else if (firstRow['Person'] !== undefined && firstRow['Present'] !== undefined) {
-           data.forEach((row: any) => {
-               const person = row['Person']?.trim(); // e.g. "Abernethy, Emily Catherine"
-               const presentCount = parseInt(row['Present']) || 0;
+        else if (format === 'summary') {
+           const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
+           const personIdx = headers.indexOf('Person');
+           const presentIdx = headers.indexOf('Present');
+
+           for (let i = headerRowIndex + 1; i < data.length; i++) {
+               const row = data[i];
+               const person = personIdx >= 0 ? row[personIdx]?.trim() : '';
+               // Ignore totals rows
+               if (!person || person.toLowerCase() === 'totals:' || person.toLowerCase() === 'grand totals') continue;
+
+               const presentCount = presentIdx >= 0 ? parseInt(row[presentIdx]) || 0 : 0;
                
                if (presentCount > 0) {
                    const resident = roster.find(r => {
@@ -128,21 +156,20 @@ export default function AttendanceManager() {
                       return r.full_name.toLowerCase().includes(person.toLowerCase());
                    });
                    
-                   // Push an entry for EACH present count
-                   for(let i=0; i < presentCount; i++) {
+                   for(let j=0; j < presentCount; j++) {
                        newParsedData.push({
-                           raw: `${person} (Credit ${i+1}/${presentCount})`,
+                           raw: `${person} (Credit ${j+1}/${presentCount})`,
                            name: resident?.full_name || person,
                            email: resident?.email || null,
-                           session_date: today, // Can't know specific dates from summary
+                           session_date: today,
                            matched: !!resident
                        });
                    }
                }
-           });
+           }
         } 
-        // Fallback: Unstructured plain text paste
         else {
+           // Fallback unstructured
            const rawItems = csvString.split(/[\n,]+/).map(i => i.trim()).filter(Boolean);
            rawItems.forEach(item => {
               const lowerItem = item.toLowerCase();
