@@ -11,15 +11,16 @@ type CoreData = Omit<AdminData, 'questions'>;
  * up to 3 times before displaying the error UI.
  */
 async function fetchCore(): Promise<CoreData> {
-  const [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes] = await Promise.all([
+  const [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes, attendanceRes] = await Promise.all([
     supabase.from('blocks').select('*'),
     supabase.from('block_schedule').select('*'),
     supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, review_data'),
     supabase.from('profiles').select('*'),
     supabase.from('authorized_roster').select('*'),
+    supabase.from('attendance').select('*'),
   ]);
 
-  const failures = [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes].filter((r) => r.error);
+  const failures = [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes, attendanceRes].filter((r) => r.error);
   if (failures.length > 0) {
     const errorMessages = failures.map(f => f.error?.message).join(' | ');
     throw new Error(`Failed to load admin data: ${errorMessages}`);
@@ -31,6 +32,7 @@ async function fetchCore(): Promise<CoreData> {
     results: (resultsRes.data as any) || [],
     profiles: profilesRes.data || [],
     roster: rosterRes.data || [],
+    attendance: attendanceRes.data || [],
   };
 }
 

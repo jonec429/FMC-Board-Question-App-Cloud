@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Users, Clipboard, Check, AlertTriangle, Save, Loader2, Database } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import Papa from 'papaparse';
+import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 
 export default function AttendanceManager() {
   const [pasteContent, setPasteContent] = useState('');
@@ -12,19 +13,28 @@ export default function AttendanceManager() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [roster, setRoster] = useState<any[]>([]);
+  const [blocks, setBlocks] = useState<any[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
+  const [selectedBlockId, setSelectedBlockId] = useState<string>('');
 
   useEffect(() => {
-    async function fetchRoster() {
+    async function fetchData() {
       try {
-        const { data } = await withTimeout(supabase.from('authorized_roster').select('email, name'));
-        if (data) {
-          setRoster(data.map((r: any) => ({ email: r.email, full_name: r.name })));
+        const [rosterRes, blocksRes] = await Promise.all([
+          withTimeout(supabase.from('authorized_roster').select('email, name')),
+          withTimeout(supabase.from('blocks').select('*').order('sort_order', { ascending: true }))
+        ]);
+        if (rosterRes.data) {
+          setRoster(rosterRes.data.map((r: any) => ({ email: r.email, full_name: r.name })));
+        }
+        if (blocksRes.data) {
+          setBlocks(blocksRes.data);
         }
       } catch (err) {
         console.error('Attendance fetch error:', err);
       }
     }
-    fetchRoster();
+    fetchData();
   }, []);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -200,6 +210,13 @@ export default function AttendanceManager() {
   };
 
   const saveAttendance = async () => {
+    if (!selectedBlockId) {
+      alert("Please select a target Block to assign this attendance to.");
+      return;
+    }
+    const targetBlock = blocks.find(b => b.id === selectedBlockId);
+    if (!targetBlock) return;
+
     setSaving(true);
     
     const validEntries = parsedData.filter(p => p.matched).map(p => ({
@@ -208,7 +225,7 @@ export default function AttendanceManager() {
       date: p.session_date,
       status: 'Attended',
       points: 1,
-      topic: 'Monthly Bulk Upload'
+      topic: `[AY ${selectedYear}] Block: ${targetBlock.title}`
     }));
 
     if (validEntries.length === 0) {
@@ -229,9 +246,9 @@ export default function AttendanceManager() {
         throw new Error(errorData.error || 'Failed to save attendance');
       }
 
-      alert(`Successfully saved ${validEntries.length} attendance credits!`);
+      alert(`Successfully saved ${validEntries.length} attendance credits to ${targetBlock.title}!`);
       setParsedData([]);
-      setCsvFile(null);
+      setPasteContent('');
     } catch (e: any) {
       alert('Error saving attendance: ' + e.message);
     } finally {
@@ -259,6 +276,34 @@ export default function AttendanceManager() {
                 <Clipboard className="w-5 h-5" />
               </div>
               <h3 className="text-xl font-black text-slate-800">NI Data Ingestion</h3>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Academic Year</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
+                >
+                  {getAvailableAcademicYears().map(year => (
+                    <option key={year} value={year}>{formatAcademicYear(year)}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Block</label>
+                <select
+                  value={selectedBlockId}
+                  onChange={(e) => setSelectedBlockId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
+                >
+                  <option value="" disabled>Select Block...</option>
+                  {blocks.map(b => (
+                    <option key={b.id} value={b.id}>{b.title}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             
             <div className="mb-6">

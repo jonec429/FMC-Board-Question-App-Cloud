@@ -44,6 +44,7 @@ interface ResidentStat {
   riskReasons: string[];
 
   results: Result[];
+  totalAttendance: number;
 }
 
 // RiskLevel + getRiskLevel + the overdue/reasons helpers live in lib/residentRisk.ts.
@@ -162,6 +163,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       case 'blocks': return r.blocksCompleted;
       case 'ontime': return r.onTimePct;
       case 'points': return r.totalPoints;
+      case 'attendance': return r.totalAttendance;
       case 'academicRisk': return r.academicRisk === 'red' ? 0 : r.academicRisk === 'yellow' ? 1 : r.academicRisk === 'green' ? 2 : 3;
       case 'complianceRisk': return r.complianceRisk === 'red' ? 0 : r.complianceRisk === 'yellow' ? 1 : r.complianceRisk === 'green' ? 2 : 3;
       default: return 0;
@@ -309,6 +311,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         trendDelta,
       });
 
+      const resAttendance = adminData.attendance?.filter(
+        (a: any) => a.resident_email?.toLowerCase() === resident.email?.toLowerCase() &&
+                    (selectedYear === 0 || a.topic?.includes(`[AY ${selectedYear}]`))
+      ) || [];
+      const totalAttendance = resAttendance.length;
+
       return {
         userId: emailToUserId.get(resident.email?.toLowerCase()) || null,
         name: resident.name,
@@ -340,6 +348,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         declining,
         riskReasons,
         results: resResults.sort((a: Result, b: Result) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()),
+        totalAttendance,
       };
     });
 
@@ -391,6 +400,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             <SortHeader label="Resident" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-left px-6 py-3" />
             <SortHeader label="PGY" sortKey="pgy" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <SortHeader label="Pts" sortKey="points" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
+            <SortHeader label="Attend" sortKey="attendance" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <SortHeader label="Curr Avg" sortKey="curriculumAvg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <SortHeader label="Indep Avg" sortKey="independentAvg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
             <SortHeader label="Total Avg" sortKey="avg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
@@ -429,6 +439,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 </td>
                 <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.label}</td>
                 <td className="px-4 py-4 text-center font-black text-slate-700 text-sm">{r.totalPoints}</td>
+                <td className="px-4 py-4 text-center font-black text-indigo-600 text-sm">{r.totalAttendance}</td>
                 <td className="px-4 py-4 text-center">
                   {r.curriculumAttempts > 0 ? (
                     <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.curriculumAvg > 65 ? 'text-emerald-700' : r.curriculumAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
@@ -753,6 +764,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 <th className="px-6 py-4">Block Title</th>
                 <th className="px-4 py-4 text-center">Assigned</th>
                 <th className="px-4 py-4 text-center">Completed</th>
+                <th className="px-4 py-4 text-center">Attendance</th>
                 <th className="px-4 py-4 text-center">Avg Score</th>
                 <th className="px-4 py-4 text-center">On-Time %</th>
               </tr>
@@ -806,6 +818,11 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   
                 const onTimePct = completedCount > 0 ? (onTimeCount / completedCount) * 100 : 0;
                 
+                const blockAttendance = adminData.attendance?.filter(a => 
+                  (selectedYear === 0 && a.topic?.includes(`Block: ${block.title}`)) ||
+                  a.topic === `[AY ${selectedYear}] Block: ${block.title}`
+                ).length || 0;
+
                 return (
                   <tr key={block.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
@@ -817,6 +834,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     </td>
                     <td className="px-4 py-4 text-center font-bold text-slate-600">
                       {completedCount}
+                    </td>
+                    <td className="px-4 py-4 text-center font-black text-indigo-600 text-sm">
+                      {blockAttendance}
                     </td>
                     <td className="px-4 py-4 text-center">
                       {completedCount > 0 ? (
@@ -1016,6 +1036,13 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                               : pts === 1 ? '⏰ Late'
                               : pts >= 2 ? '⚡ Bonus'
                               : '—');
+                            
+                            const blockAttendance = adminData.attendance?.filter(a => 
+                              a.resident_email?.toLowerCase() === selectedResident.email?.toLowerCase() &&
+                              a.topic?.includes(`Block: ${r.topic}`) &&
+                              (selectedYear === 0 || a.topic?.includes(`[AY ${selectedYear}]`))
+                            ).length || 0;
+
                             return (
                               <button key={`curr-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50 group">
                                 <div className="flex-1 min-w-0">
@@ -1029,6 +1056,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                   <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
                                     {(r.percentage || 0).toFixed(1)}%
                                   </span>
+                                  {blockAttendance > 0 && (
+                                    <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg w-12 text-center">{blockAttendance} Att</span>
+                                  )}
                                   <span className="text-xs font-bold text-slate-400 w-12 text-right">{pts} pt{pts !== 1 ? 's' : ''}</span>
                                   <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </div>

@@ -18,6 +18,7 @@ export type Result = Database['public']['Tables']['results']['Row'];
 export type Badge = Database['public']['Tables']['badges']['Row'];
 export type UserBadge = Database['public']['Tables']['user_badges']['Row'];
 export type QuestionAttempt = Database['public']['Tables']['question_attempts']['Row'];
+export type AttendanceRecord = Database['public']['Tables']['attendance']['Row'];
 
 export interface LeaderboardEntry {
   email: string;
@@ -34,6 +35,7 @@ export interface AdminData {
   results: Result[];
   profiles: Profile[];
   roster: RosterEntry[];
+  attendance: AttendanceRecord[];
 }
 
 export interface QuizSession {
