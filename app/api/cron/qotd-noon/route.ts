@@ -46,9 +46,10 @@ export async function GET(request: Request) {
 
     if (existingLog && existingLog.length > 0) {
       const lastRun = new Date(existingLog[0].executed_at);
-      const estDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-      const lastRunEst = new Date(lastRun.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-      if (lastRunEst.toDateString() === estDate.toDateString()) {
+      const options: Intl.DateTimeFormatOptions = { timeZone: 'America/New_York', year: 'numeric', month: 'numeric', day: 'numeric' };
+      const todayEstStr = new Date().toLocaleDateString('en-US', options);
+      const lastRunEstStr = lastRun.toLocaleDateString('en-US', options);
+      if (todayEstStr === lastRunEstStr) {
         console.log('[qotd-noon] Already ran successfully today. Exiting early.');
         return NextResponse.json({ success: true, message: 'Already ran today.', counts: { total: 0 } });
       }
