@@ -44,10 +44,10 @@ select cron.schedule(
   $$
 );
 
--- 3. Reminder push  -- 15:30 UTC = 11:30 AM Eastern (EDT), Mon-Fri
+-- 3. Reminder push  -- 16:00 UTC = 12:00 PM Eastern (EDT), Mon-Fri
 select cron.schedule(
   'qotd-reminder-push',
-  '30 15 * * 1-5',
+  '0 16 * * 1-5',
   $$
     select net.http_get(
       url     := 'https://brq.stvfamilymed.org/api/cron/qotd-reminder',
@@ -57,10 +57,10 @@ select cron.schedule(
   $$
 );
 
--- 4. Noon push  -- 16:30 UTC = 12:30 PM Eastern (EDT), Mon-Fri
+-- 4. Noon push  -- 16:35 UTC = 12:35 PM Eastern (EDT), Mon-Fri
 select cron.schedule(
   'qotd-noon-push',
-  '30 16 * * 1-5',
+  '35 16 * * 1-5',
   $$
     select net.http_get(
       url     := 'https://brq.stvfamilymed.org/api/cron/qotd-noon',

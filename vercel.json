@@ -1,17 +1,6 @@
 {
   "crons": [
-    {
-      "path": "/api/cron/qotd-morning",
-      "schedule": "30 12 * * 1-5"
-    },
-    {
-      "path": "/api/cron/qotd-reminder",
-      "schedule": "20 16 * * 1-5"
-    },
-    {
-      "path": "/api/cron/qotd-noon",
-      "schedule": "30 16 * * 1-5"
-    },
+
     {
       "path": "/api/cron/faculty-digest",
       "schedule": "0 13 * * 1"
