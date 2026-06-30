@@ -212,21 +212,31 @@ export default function AttendanceManager() {
     }));
 
     if (validEntries.length === 0) {
-        alert("No valid matched entries to save.");
-        setSaving(false);
-        return;
+      alert("No matched residents to save.");
+      setSaving(false);
+      return;
     }
 
-    const { error } = await supabase.from('attendance').insert(validEntries);
-    
-    if (error) {
-      alert('Error saving attendance: ' + error.message);
-    } else {
+    try {
+      const res = await fetch('/api/admin/bulk-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries: validEntries })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to save attendance');
+      }
+
       alert(`Successfully saved ${validEntries.length} attendance credits!`);
-      setPasteContent('');
       setParsedData([]);
+      setCsvFile(null);
+    } catch (e: any) {
+      alert('Error saving attendance: ' + e.message);
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
