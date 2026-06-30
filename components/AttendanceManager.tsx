@@ -203,10 +203,12 @@ export default function AttendanceManager() {
     setSaving(true);
     
     const validEntries = parsedData.filter(p => p.matched).map(p => ({
-      email: p.email,
-      full_name: p.name,
-      session_date: p.session_date,
-      method: 'Monthly Bulk Upload'
+      resident_email: p.email,
+      resident_name: p.name,
+      date: p.session_date,
+      status: 'Attended',
+      points: 1,
+      topic: 'Monthly Bulk Upload'
     }));
 
     if (validEntries.length === 0) {
