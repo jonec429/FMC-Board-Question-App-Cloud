@@ -46,6 +46,12 @@ export default function RosterManager() {
     await refetch();
   };
 
+  // Derived list of available faculty members for the dropdown
+  const facultyList = Array.from(new Set(roster
+    .filter(p => p.role === 'faculty' || p.role === 'admin')
+    .map(p => `${p.first_name} ${p.last_name}`.trim())
+  )).sort();
+
   const handleAddPerson = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -422,13 +428,16 @@ export default function RosterManager() {
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Faculty Advisor</label>
-                  <input 
-                    type="text"
+                  <select 
                     value={newPerson.advisor}
                     onChange={(e) => setNewPerson({...newPerson, advisor: e.target.value})}
                     className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
-                    placeholder="Optional"
-                  />
+                  >
+                    <option value="">None / Unassigned</option>
+                    {facultyList.map(facultyName => (
+                      <option key={facultyName} value={facultyName}>{facultyName}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div>
@@ -514,13 +523,16 @@ export default function RosterManager() {
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-1 block">Faculty Advisor</label>
-                  <input 
-                    type="text"
+                  <select 
                     value={editingPerson.advisor}
                     onChange={(e) => setEditingPerson({...editingPerson, advisor: e.target.value})}
                     className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-bold text-slate-800"
-                    placeholder="Optional"
-                  />
+                  >
+                    <option value="">None / Unassigned</option>
+                    {facultyList.map(facultyName => (
+                      <option key={facultyName} value={facultyName}>{facultyName}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div>

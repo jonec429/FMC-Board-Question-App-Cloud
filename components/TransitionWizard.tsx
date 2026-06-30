@@ -16,6 +16,14 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
   const [submitting, setSubmitting] = useState(false);
   const academicYear = getCurrentAcademicYear();
 
+  // Derived list of available faculty members for the dropdown
+  const facultyList = useMemo(() => {
+    return Array.from(new Set(roster
+      .filter(p => p.role === 'faculty' || p.role === 'admin')
+      .map(p => `${p.first_name} ${p.last_name}`.trim())
+    )).sort();
+  }, [roster]);
+
   // PGY3s identified as those with derivePGY >= 3 and still active
   const graduatingResidents = useMemo(() => {
     return roster.filter(r => isActiveResident(r) && r.cohort_year && derivePGY(r.cohort_year, academicYear) >= 3);
@@ -240,13 +248,16 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
                         />
                       </td>
                       <td className="px-2 py-2">
-                        <input
-                          type="text"
+                        <select
                           value={row.advisor}
                           onChange={(e) => handleUpdateIncoming(i, 'advisor', e.target.value)}
-                          placeholder="Dr. Lastname"
                           className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-400 font-medium"
-                        />
+                        >
+                          <option value="">None / Unassigned</option>
+                          {facultyList.map(facultyName => (
+                            <option key={facultyName} value={facultyName}>{facultyName}</option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-2 py-2 text-center">
                         <button
