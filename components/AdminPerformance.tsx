@@ -109,7 +109,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       
       const hydrated = rd.map((item: any) => {
         const qData = data?.find(x => x.id === item.q);
-        return qData ? { q: qData, a: item.a } : null;
+        return qData ? { question: qData, selected: item.a } : null;
       }).filter(Boolean);
       
       setReviewItems(hydrated);
