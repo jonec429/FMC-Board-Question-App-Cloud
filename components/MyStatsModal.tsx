@@ -104,6 +104,9 @@ export default function MyStatsModal({
   const topicStats = new Map<string, { sum: number; count: number; qs: number }>();
   profileResults.forEach(r => {
     if (!r.topic) return;
+    const t = r.topic.toLowerCase();
+    if (t.includes('question of the day') || t.includes('[attendance]') || t.includes('[manual]')) return;
+    
     if (!topicStats.has(r.topic)) topicStats.set(r.topic, { sum: 0, count: 0, qs: 0 });
     const entry = topicStats.get(r.topic)!;
     entry.sum += r.percentage || 0;
