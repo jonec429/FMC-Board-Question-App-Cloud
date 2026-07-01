@@ -337,6 +337,23 @@ export default function MyStatsModal({
                   </div>
                 </div>
 
+                {/* ACADEMIC POINTS TRACKER */}
+                <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
+                  <div className="flex justify-between items-end mb-2">
+                    <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">Academic Points Tracker</h3>
+                    <span className="text-xs font-bold text-white">{totalPoints} / {selectedYear === 0 ? 300 : 100} ({selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal)</span>
+                  </div>
+                  <div className="h-2 bg-indigo-900/50 rounded-full overflow-hidden flex mb-2">
+                    <div 
+                      className="h-full bg-indigo-400 transition-all" 
+                      style={{ width: `${Math.min((totalPoints / (selectedYear === 0 ? 300 : 100)) * 100, 100)}%` }} 
+                    />
+                  </div>
+                  <p className="text-[10px] text-indigo-200 text-right uppercase tracking-widest font-bold">
+                    Includes {myResults.filter(r => r.topic?.includes('[Attendance]')).length} conferences attended
+                  </p>
+                </div>
+
                 {/* QOTD INTEGRATION */}
                 {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (
                   <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">

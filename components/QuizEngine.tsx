@@ -1050,7 +1050,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               <button
                 onClick={async () => {
                   if (sessionId) {
-                    await supabase.from('quiz_sessions').delete().eq('id', sessionId);
+                    const { error } = await supabase.from('quiz_sessions').delete().eq('id', sessionId);
+                    if (error) {
+                      console.error("Failed to delete session:", error);
+                      alert("Failed to abandon quiz: " + error.message);
+                    }
                   }
                   onCancel();
                 }}
