@@ -240,25 +240,35 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         (r: Result & { email?: string | null }) => r.email?.toLowerCase() === resident.email?.toLowerCase()
       );
 
-      const assignedResults = resResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null);
-      const independentResults = resResults.filter((r: Result & { email?: string | null }) => (!r.academic_points || r.academic_points === 0) && r.timing_status == null);
+      const blockResults = resResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+
+      const assignedResults = blockResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null);
+      const independentResults = blockResults.filter((r: Result & { email?: string | null }) => (!r.academic_points || r.academic_points === 0) && r.timing_status == null);
 
       // Dedupe by topic — for each block, keep best timing (highest points)
       let onTimePoints = 0;
       let latePoints = 0;
       let bonusPoints = 0;
+      let attendancePoints = 0;
+      let manualPoints = 0;
 
       const topicBestPts = new Map<string, number>();
       resResults
         .filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null)
         .forEach((r: Result & { email?: string | null }) => {
-          const cur = topicBestPts.get(r.topic) || 0;
-          if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
-            topicBestPts.set(r.topic, r.academic_points || 0);
+          if (r.topic?.includes('[Attendance]')) {
+            attendancePoints += (r.academic_points || 1);
+          } else if (r.topic?.includes('[Manual]')) {
+            manualPoints += (r.academic_points || 0);
+          } else {
+            const cur = topicBestPts.get(r.topic) || 0;
+            if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
+              topicBestPts.set(r.topic, r.academic_points || 0);
+            }
           }
         });
         
-      const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
+      const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
 
       Array.from(topicBestPts.entries()).forEach(([topic, pts]) => {
         if (topic.toLowerCase().includes('bonus')) {
