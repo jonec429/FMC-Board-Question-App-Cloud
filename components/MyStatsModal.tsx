@@ -565,19 +565,25 @@ export default function MyStatsModal({
                           Export Anki Deck (CSV)
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
                         {Array.from(new Set(missedQuestions.map(q => q.category).filter(Boolean))).map((cat) => {
                           const count = missedQuestions.filter(q => q.category === cat).length;
                           return (
                             <button 
                               key={cat} 
                               onClick={() => setSelectedTopic(cat)}
-                              className="bg-white border border-slate-200 rounded-3xl p-6 flex flex-col items-center justify-center gap-3 hover:border-blue-300 hover:shadow-lg transition-all group w-full"
+                              className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all group text-left"
                             >
-                              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center font-black text-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                {count}
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black text-sm group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                                  {count}
+                                </div>
+                                <div>
+                                  <div className="font-bold text-slate-800 text-sm">{cat}</div>
+                                  <div className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">{count} Missed Question{count !== 1 ? 's' : ''}</div>
+                                </div>
                               </div>
-                              <div className="font-bold text-slate-700 text-sm text-center">{cat}</div>
+                              <ChevronLeft className="w-5 h-5 text-slate-300 group-hover:text-indigo-400 rotate-180 transition-colors" />
                             </button>
                           );
                         })}

@@ -11,6 +11,7 @@ import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { getTodayDateString, isPastNoon } from '@/lib/qotd';
 import { processGamification } from '@/lib/gamification';
+import { useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 
 interface QuizEngineProps {
@@ -40,6 +41,7 @@ const FONT_SIZES = [14, 16, 18, 20, 22, 24];
 const DEFAULT_FONT_INDEX = 1; // 16px
 
 export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted, qotdAttempt, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, forceNew = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
+  const queryClient = useQueryClient();
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -1054,6 +1056,15 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                     if (error) {
                       console.error("Failed to delete session:", error);
                       alert("Failed to abandon quiz: " + error.message);
+                    } else {
+                      queryClient.setQueriesData({ queryKey: ['dashboard'] }, (old: any) => {
+                        if (!old) return old;
+                        return {
+                          ...old,
+                          activeSessions: old.activeSessions?.filter((s: any) => s.id !== sessionId)
+                        };
+                      });
+                      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
                     }
                   }
                   onCancel();
