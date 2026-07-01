@@ -6,6 +6,8 @@ import {
   Database, PlusCircle, Search, Edit3, Trash2, Loader2, X, Save, Eye
 } from './AppIcons';
 import QuestionImporter from './QuestionImporter';
+import { DataTable } from './DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 import { CANONICAL_CATEGORIES } from '@/lib/csvImport';
 import { withTimeout } from '@/lib/utils';
 import { AdminData } from '@/lib/types';
@@ -64,7 +66,6 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
   const allQuestions = adminData.questions || [];
   
   // Filters
-  const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [yearFilter, setYearFilter] = useState('');
   
@@ -73,26 +74,76 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
-  // Pagination (Simple limit for now)
-  const [limit, setLimit] = useState(50);
-
   const [error, setError] = useState<string | null>(null);
 
   const availableYears = React.useMemo(() => {
-    const years = new Set<string>(allQuestions.map(q => q.year).filter(Boolean));
+    const years = new Set<string>(allQuestions.map((q: any) => q.year).filter(Boolean));
     return Array.from(years).sort((a: string, b: string) => b.localeCompare(a));
   }, [allQuestions]);
 
   const displayQuestions = React.useMemo(() => {
     let filtered = allQuestions;
-    if (categoryFilter) filtered = filtered.filter(q => q.category === categoryFilter);
-    if (yearFilter) filtered = filtered.filter(q => q.year === yearFilter);
-    if (search) {
-      const term = search.toLowerCase();
-      filtered = filtered.filter(q => q.question_text.toLowerCase().includes(term));
+    if (categoryFilter) filtered = filtered.filter((q: any) => q.category === categoryFilter);
+    if (yearFilter) filtered = filtered.filter((q: any) => q.year === yearFilter);
+    return filtered;
+  }, [allQuestions, categoryFilter, yearFilter]);
+
+  const columns: ColumnDef<any>[] = React.useMemo(() => [
+    {
+      accessorKey: 'question_text',
+      header: 'Question',
+      cell: info => (
+        <div className="text-sm font-medium text-slate-800 line-clamp-2" title={info.getValue() as string}>
+          {info.getValue() as string}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'category',
+      header: 'Category',
+      cell: info => (
+        <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg whitespace-nowrap">
+          {info.getValue() as string}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'year',
+      header: 'Year',
+      cell: info => (
+        <span className="text-sm font-bold text-slate-500">
+          {(info.getValue() as string) || '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: info => {
+        const q = info.row.original;
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <button 
+              onClick={(e) => { e.stopPropagation(); openEditModal(q); }}
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Edit Question"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
+              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Delete Question"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      },
+      enableSorting: false,
+      enableColumnFilter: false,
     }
-    return filtered.slice(0, limit);
-  }, [allQuestions, search, categoryFilter, yearFilter, limit]);
+  ], []);
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to permanently delete this question? This action cannot be undone.')) return;
@@ -164,16 +215,6 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
     <div className="space-y-6">
       {/* Filters */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative w-full flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search question text..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 transition-all font-medium"
-          />
-        </div>
         <select 
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
@@ -192,77 +233,11 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
         </select>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                <th className="px-6 py-4 w-[60%]">Question</th>
-                <th className="px-6 py-4">Category</th>
-                <th className="px-6 py-4">Year</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {displayQuestions.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="p-12 text-center text-slate-400 font-bold">
-                    <Database className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    No questions found matching your filters.
-                  </td>
-                </tr>
-              ) : (
-                displayQuestions.map((q) => (
-                  <tr key={q.id} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-slate-800 line-clamp-2">
-                        {q.question_text}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg whitespace-nowrap">
-                        {q.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-bold text-slate-500">
-                      {q.year || '—'}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => openEditModal(q)}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Edit Question"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(q.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete Question"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        {displayQuestions.length === limit && (
-          <div className="p-4 border-t border-slate-50 flex justify-center">
-            <button 
-              onClick={() => setLimit(l => l + 50)}
-              className="px-6 py-2 bg-slate-100 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-200 transition-colors"
-            >
-              Load More
-            </button>
-          </div>
-        )}
-      </div>
+      <DataTable 
+        columns={columns} 
+        data={displayQuestions} 
+        globalSearchPlaceholder="Search question text..."
+      />
 
       {/* Edit Modal */}
       {showEditModal && editingQuestion && (

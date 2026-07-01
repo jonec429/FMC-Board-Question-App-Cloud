@@ -6,6 +6,8 @@ import {
   Database, Loader2, CheckCircle, XCircle, AlertTriangle, Save, Clipboard, Sparkles,
 } from './AppIcons';
 import { parseAndValidate, ParseSummary, RowResult, CANONICAL_CATEGORIES } from '@/lib/csvImport';
+import { DataTable } from './DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 type Phase = 'input' | 'preview' | 'importing' | 'done';
 
@@ -429,39 +431,60 @@ function Section({ title, tint, children }: { title: string; tint: 'red' | 'ambe
 }
 
 function ResultTable({ rows, kind }: { rows: RowResult[]; kind: 'valid' | 'dupe' | 'error' }) {
+  const columns: ColumnDef<RowResult>[] = useMemo(() => [
+    {
+      accessorKey: 'line',
+      header: 'Line',
+      cell: info => <span className="tabular-nums font-bold">{info.getValue() as number}</span>,
+    },
+    {
+      id: 'category',
+      accessorFn: row => row.raw.category,
+      header: 'Category',
+      cell: info => <span className="font-bold">{info.getValue() as string || '—'}</span>,
+    },
+    {
+      id: 'question',
+      accessorFn: row => row.raw.question_text,
+      header: 'Question (preview)',
+      cell: info => {
+        const text = info.getValue() as string || '';
+        return (
+          <div className="max-w-md truncate" title={text}>
+            {text.slice(0, 120)}{text.length > 120 ? '…' : ''}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'issues',
+      accessorFn: row => kind === 'error' ? row.errors.join(' ') : row.warnings.join(' '),
+      header: kind === 'error' ? 'Errors' : 'Warnings',
+      cell: info => {
+        const row = info.row.original;
+        const issues = kind === 'error' ? row.errors : row.warnings;
+        if (kind === 'error') {
+          return (
+            <div className="text-red-600">
+              {issues.map((e, i) => <div key={i}>• {e}</div>)}
+            </div>
+          );
+        } else {
+          return (
+            <div className="text-amber-600">
+              {issues.length === 0 ? <span className="text-slate-300">—</span> : issues.map((w, i) => <div key={i}>• {w}</div>)}
+            </div>
+          );
+        }
+      },
+    },
+  ], [kind]);
+
   return (
-    <div className="overflow-x-auto max-h-96">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50 sticky top-0">
-          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-            <th className="px-4 py-3">Line</th>
-            <th className="px-4 py-3">Category</th>
-            <th className="px-4 py-3">Question (preview)</th>
-            {kind === 'error' && <th className="px-4 py-3">Errors</th>}
-            {kind !== 'error' && <th className="px-4 py-3">Warnings</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.line} className="border-b border-slate-50 hover:bg-slate-50/50">
-              <td className="px-4 py-3 text-xs font-bold text-slate-500 tabular-nums">{r.line}</td>
-              <td className="px-4 py-3 text-xs font-bold text-slate-700">{r.raw.category || '—'}</td>
-              <td className="px-4 py-3 text-xs text-slate-600 max-w-md truncate">
-                {(r.raw.question_text || '').slice(0, 120)}{(r.raw.question_text || '').length > 120 ? '…' : ''}
-              </td>
-              {kind === 'error' ? (
-                <td className="px-4 py-3 text-xs text-red-600">
-                  {r.errors.map((e, i) => <div key={i}>• {e}</div>)}
-                </td>
-              ) : (
-                <td className="px-4 py-3 text-xs text-amber-600">
-                  {r.warnings.length === 0 ? <span className="text-slate-300">—</span> : r.warnings.map((w, i) => <div key={i}>• {w}</div>)}
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      columns={columns}
+      data={rows}
+      globalSearchPlaceholder="Search preview..."
+    />
   );
 }

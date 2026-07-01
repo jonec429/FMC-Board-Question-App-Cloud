@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Megaphone, CheckCircle, AlertCircle, Loader2, Shield, FileText, Smartphone } from './AppIcons';
+import { DataTable } from './DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 interface NotificationManagerProps {
   user?: any;
@@ -239,6 +241,117 @@ export default function NotificationManager({ user, profile }: NotificationManag
     })).sort((a: any, b: any) => (a.isRegistered === b.isRegistered ? 0 : a.isRegistered ? -1 : 1));
   }
 
+  const registrationColumns: ColumnDef<any>[] = useMemo(() => [
+    {
+      accessorKey: 'full_name',
+      header: 'Name',
+      cell: info => info.row.original.full_name || info.row.original.email,
+    },
+    {
+      accessorKey: 'pgy_level',
+      header: 'PGY',
+      cell: info => (
+        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold">
+          {info.getValue() as string}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      accessorFn: row => row.isRegistered,
+      header: 'Status',
+      cell: info => {
+        const isRegistered = info.getValue() as boolean;
+        return isRegistered ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Registered
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-black uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 bg-slate-300 rounded-full" /> Missing
+          </span>
+        );
+      },
+    },
+  ], []);
+
+  const auditColumns: ColumnDef<any>[] = useMemo(() => [
+    {
+      id: 'timestamp',
+      accessorFn: row => new Date(row.executed_at).getTime(),
+      header: 'Timestamp',
+      cell: info => (
+        <span className="text-slate-500 text-xs font-semibold">
+          {new Date(info.row.original.executed_at).toLocaleString()}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'cron_name',
+      header: 'Job Name',
+      cell: info => (
+        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-widest">
+          {info.getValue() as string}
+        </span>
+      ),
+    },
+    {
+      id: 'message',
+      accessorFn: row => `${row.details?.title} ${row.details?.body}`,
+      header: 'Message',
+      cell: info => {
+        const row = info.row.original;
+        return (
+          <div className="min-w-[250px]">
+            <div className="font-bold text-slate-900">{row.details?.title || 'System Broadcast'}</div>
+            <div className="text-xs text-slate-500 line-clamp-1 mt-0.5">{row.details?.body || '-'}</div>
+          </div>
+        );
+      },
+    },
+    {
+      id: 'dispatch_stats',
+      accessorFn: row => row.details?.sent || 0,
+      header: 'Dispatch Stats',
+      cell: info => {
+        const row = info.row.original;
+        return (
+          <div className="flex gap-3 text-xs">
+            <span className="text-emerald-600 font-bold">Sent: {row.details?.sent || 0}</span>
+            <span className="text-red-500 font-bold">Failed: {row.details?.failed || 0}</span>
+          </div>
+        );
+      },
+    },
+    {
+      id: 'receipts',
+      accessorFn: row => {
+        const runId = row.details?.run_id;
+        const logReceipts = runId ? (auditData?.receipts || []).filter((r: any) => r.run_id === runId) : [];
+        return logReceipts.length;
+      },
+      header: 'Receipts Confirmed',
+      cell: info => {
+        const row = info.row.original;
+        const runId = row.details?.run_id;
+        const logReceipts = runId ? (auditData?.receipts || []).filter((r: any) => r.run_id === runId) : [];
+        const sent = row.details?.sent || 0;
+        const confirmed = logReceipts.length;
+        const pct = sent > 0 ? Math.round((confirmed / sent) * 100) : 0;
+        return runId ? (
+          <div className="flex flex-col items-center">
+            <span className={`text-lg font-black tracking-tighter ${pct >= 80 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+              {confirmed} <span className="text-sm font-bold text-slate-400">/ {sent}</span>
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{pct}% Arrival</span>
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400 font-bold">No Run ID</span>
+        );
+      },
+    },
+  ], [auditData]);
+
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-100 relative overflow-hidden">
@@ -376,41 +489,11 @@ export default function NotificationManager({ user, profile }: NotificationManag
           {auditLoading ? (
             <div className="p-10 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead>
-                  <tr className="bg-slate-50/50 text-slate-500 font-bold text-xs uppercase tracking-wider border-b border-slate-100">
-                    <th className="px-6 py-4">Name</th>
-                    <th className="px-6 py-4">PGY</th>
-                    <th className="px-6 py-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {registrationList.map((r: any, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4">{r.full_name || r.email}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold">{r.pgy_level}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {r.isRegistered ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black uppercase tracking-widest">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Registered
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-500 rounded-full text-xs font-black uppercase tracking-widest">
-                            <span className="w-1.5 h-1.5 bg-slate-300 rounded-full" /> Missing
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {registrationList.length === 0 && (
-                    <tr><td colSpan={3} className="p-8 text-center text-slate-500">No roster data available.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable 
+              columns={registrationColumns} 
+              data={registrationList} 
+              globalSearchPlaceholder="Search registrations..."
+            />
           )}
         </div>
       )}
@@ -424,66 +507,11 @@ export default function NotificationManager({ user, profile }: NotificationManag
           {auditLoading ? (
             <div className="p-10 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="bg-slate-50/50 text-slate-500 font-bold text-xs uppercase tracking-wider border-b border-slate-100">
-                    <th className="px-6 py-4 whitespace-nowrap">Timestamp</th>
-                    <th className="px-6 py-4 whitespace-nowrap">Job Name</th>
-                    <th className="px-6 py-4">Message</th>
-                    <th className="px-6 py-4 whitespace-nowrap">Dispatch Stats</th>
-                    <th className="px-6 py-4 whitespace-nowrap text-center">Receipts Confirmed</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                  {(auditData?.logs || []).map((log: any) => {
-                    const runId = log.details?.run_id;
-                    const logReceipts = runId ? (auditData?.receipts || []).filter((r: any) => r.run_id === runId) : [];
-                    const sent = log.details?.sent || 0;
-                    const confirmed = logReceipts.length;
-                    const pct = sent > 0 ? Math.round((confirmed / sent) * 100) : 0;
-
-                    return (
-                      <tr key={log.id} className="hover:bg-slate-50 transition-colors group">
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-500 text-xs font-semibold">
-                          {new Date(log.executed_at).toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-widest">
-                            {log.cron_name}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 min-w-[250px]">
-                          <div className="font-bold text-slate-900">{log.details?.title || 'System Broadcast'}</div>
-                          <div className="text-xs text-slate-500 line-clamp-1 mt-0.5">{log.details?.body || '-'}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs">
-                          <div className="flex gap-3">
-                            <span className="text-emerald-600 font-bold">Sent: {log.details?.sent || 0}</span>
-                            <span className="text-red-500 font-bold">Failed: {log.details?.failed || 0}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {runId ? (
-                            <div className="flex flex-col items-center">
-                              <span className={`text-lg font-black tracking-tighter ${pct >= 80 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
-                                {confirmed} <span className="text-sm font-bold text-slate-400">/ {sent}</span>
-                              </span>
-                              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{pct}% Arrival</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 font-bold">No Run ID</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {(!auditData?.logs || auditData.logs.length === 0) && (
-                    <tr><td colSpan={5} className="p-8 text-center text-slate-500">No push logs found.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable 
+              columns={auditColumns} 
+              data={auditData?.logs || []} 
+              globalSearchPlaceholder="Search logs..."
+            />
           )}
         </div>
       )}

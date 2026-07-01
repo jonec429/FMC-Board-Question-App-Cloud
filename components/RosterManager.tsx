@@ -5,18 +5,17 @@ import { supabase } from '@/lib/supabase';
 import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
 import { AdminData } from '@/lib/types';
 import { deriveLabel, isGraduated, mapSelectionToFields, getRoleOptions } from '@/lib/academicYear';
-import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { formatLastNameFirst } from '@/lib/utils';
 import TransitionWizard from './TransitionWizard';
+import { DataTable } from './DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 import { useAdminData } from '@/hooks/useAdminData';
 
 export default function RosterManager() {
   const { data: adminData, loading, error, refetch } = useAdminData();
 
-  const [search, setSearch] = useState('');
   const [showGraduates, setShowGraduates] = useState(false);
-  const { sortKey, sortDir, toggle } = useSortState({ key: 'member', dir: 'asc' });
   const [showAddModal, setShowAddModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [newPerson, setNewPerson] = useState({ first_name: '', last_name: '', email: '', pgy: '', advisor: '', role: 'resident' });
@@ -140,22 +139,139 @@ export default function RosterManager() {
   };
 
   const filtered = roster.filter(m => {
-    const matchesSearch =
-      m.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      m.email?.toLowerCase().includes(search.toLowerCase());
-    const graduateOk = showGraduates || !isGraduated(m);
-    return matchesSearch && graduateOk;
+    return showGraduates || !isGraduated(m);
   });
 
-  const rosterAccessor = (m: any, key: string): string | number => {
-    switch (key) {
-      case 'member': return m.last_name || lastName(m.full_name);
-      case 'class': return deriveLabel(m);
-      case 'status': return m.has_account ? 0 : 1;
-      default: return 0;
-    }
-  };
-  const sortedRoster = sortItems(filtered, rosterAccessor, sortKey, sortDir);
+  const columns: ColumnDef<any>[] = useMemo(() => [
+    {
+      id: 'member',
+      accessorFn: row => `${row.full_name} ${row.email}`,
+      header: 'Member',
+      cell: info => {
+        const member = info.row.original;
+        return (
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black shrink-0">
+              {member.full_name?.charAt(0) || 'U'}
+            </div>
+            <div>
+              <p className="font-bold text-slate-800">{member.full_name ? formatLastNameFirst(member.full_name, member.last_name) : 'Incomplete Profile'}</p>
+              <p className="text-xs font-medium text-slate-400">{member.email}</p>
+            </div>
+          </div>
+        );
+      },
+      sortingFn: (rowA, rowB) => {
+        const a = rowA.original.last_name || '';
+        const b = rowB.original.last_name || '';
+        return a.localeCompare(b);
+      },
+    },
+    {
+      id: 'class',
+      accessorFn: row => deriveLabel(row),
+      header: 'Class / Role',
+      cell: info => {
+        const member = info.row.original;
+        const label = deriveLabel(member);
+        const isStaff = member.track === 'faculty' || member.track === 'ob_fellow' || member.track === 'academic_fellow';
+        const grad = isGraduated(member);
+        return (
+          <div className="flex flex-col gap-1 items-start">
+            <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block ${
+              grad ? 'bg-slate-100 text-slate-400' : isStaff ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {label}
+            </span>
+            {member.role === 'admin' && (
+              <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block mt-1">
+                Admin
+              </span>
+            )}
+            {member.advisor && (
+              <span className="text-[10px] font-bold text-slate-400 pl-1 italic mt-1">
+                Advisor: {member.advisor}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'status',
+      accessorFn: row => row.has_account ? 'Active' : 'Pending',
+      header: 'Account Status',
+      cell: info => {
+        const member = info.row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full shrink-0 ${member.has_account ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
+            <span className={`text-sm font-bold ${member.has_account ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {member.has_account ? 'Active Account' : 'Invite Sent (Pending)'}
+            </span>
+            {!member.has_account && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const subject = encodeURIComponent("Invitation to the FMC Board Question App");
+                  const body = encodeURIComponent(
+                    "Welcome to the FMC Board Question App!\n\nThis app is designed to help prepare for the ABFM boards by providing daily practice questions and automatically tracking weak areas over time. You can access it anytime away from work, as well as from the FMC internal site just like before!\n\nTo get started, please visit the link below and click 'Create an Account' to register. You must use your Ascension email address so we can validate that you belong to our program, but please note this app is NOT linked to your Ascension work account in any other way.\nhttps://stvfamilymed.org/brq\n\nWhen you first log in, please make sure to allow notifications so you can receive the Question of the Day (QOTD) directly on your device! (Note: You may need to click the gear settings icon inside the app to enable them.)\n\n**For Residents:**\nGamify your studying with badges and leaderboards while tracking your progress throughout the academic year.\n\n**For Faculty:**\nYour account will grant you access to the Faculty Dashboard where you can monitor resident performance, review their weak areas, and check the leaderboard. (You can also take the daily quizzes yourself if you'd like!)\n\n**How to Install the App (Optional but Recommended):**\nAdd the app to your home screen for one-tap, full-screen access — no App Store needed!\n\niPhone & iPad:\n1. Open the link above in Safari\n2. Tap the Share button (square with an arrow)\n3. Scroll down and tap 'Add to Home Screen'\n4. Tap 'Add' in the top-right corner\n\nAndroid:\n1. Open the link above in Chrome\n2. Tap the ⋮ menu in the top-right\n3. Tap 'Install app' (or 'Add to Home screen')\n4. Tap 'Install' to confirm"
+                  );
+                  window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${member.email}&su=${subject}&body=${body}`, '_blank');
+                }}
+                className="ml-2 p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                title="Resend Invitation Email"
+              >
+                <Mail className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: info => {
+        const member = info.row.original;
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingPerson({
+                  first_name: member.first_name || (member.full_name ? member.full_name.split(' ')[0] : ''),
+                  last_name: member.last_name || (member.full_name && member.full_name.includes(' ') ? member.full_name.substring(member.full_name.indexOf(' ') + 1) : ''),
+                  email: member.email,
+                  pgy: member.pgy || '',
+                  advisor: member.advisor || '',
+                  role: member.role || 'resident',
+                  has_account: member.has_account
+                });
+                setShowEditModal(true);
+              }}
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+              title="Edit Person"
+            >
+              <Edit3 className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeletePerson(member.email);
+              }}
+              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+              title="Remove Person"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
+        );
+      },
+      enableSorting: false,
+      enableColumnFilter: false,
+    },
+  ], []);
 
   if (loading) {
     return (
@@ -177,30 +293,22 @@ export default function RosterManager() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search residents or faculty..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-slate-100 shadow-sm focus:ring-2 focus:ring-blue-600 outline-none transition-all font-medium text-slate-800"
-          />
+      <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+        <div className="flex items-center gap-4 w-full lg:w-auto">
+          <label className="flex items-center gap-2 text-sm font-bold text-slate-600 cursor-pointer select-none shrink-0 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+            <input
+              type="checkbox"
+              checked={showGraduates}
+              onChange={(e) => setShowGraduates(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            Show graduates
+          </label>
         </div>
-        <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none shrink-0">
-          <input
-            type="checkbox"
-            checked={showGraduates}
-            onChange={(e) => setShowGraduates(e.target.checked)}
-            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-          />
-          Show graduates
-        </label>
-        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto mt-4 lg:mt-0">
           <button
             onClick={() => {
-              const pendingEmails = sortedRoster.filter(m => !m.has_account).map(m => m.email);
+              const pendingEmails = roster.filter(m => !m.has_account).map(m => m.email);
               if (pendingEmails.length === 0) return alert("Everyone has an active account!");
               const subject = encodeURIComponent("Invitation to the FMC Board Question App");
               const body = encodeURIComponent(
@@ -230,142 +338,11 @@ export default function RosterManager() {
         </div>
       </div>
 
-      <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-slate-50/50 border-b border-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              <SortHeader label="Member" sortKey="member" activeKey={sortKey} dir={sortDir} onSort={toggle} className="px-8 py-6 text-left" />
-              <SortHeader label="Class / Role" sortKey="class" activeKey={sortKey} dir={sortDir} onSort={toggle} className="px-8 py-6 text-left" />
-              <SortHeader label="Account Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggle} className="px-8 py-6 text-left" />
-              <th className="px-8 py-6 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {loading ? (
-              <tr>
-                <td colSpan={4} className="px-8 py-20 text-center">
-                  <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Fetching Program Roster...</p>
-                </td>
-              </tr>
-            ) : error ? (
-              <tr>
-                <td colSpan={4} className="px-8 py-20 text-center">
-                  <div className="bg-red-50 text-red-600 p-6 rounded-3xl border border-red-100 max-w-sm mx-auto shadow-sm text-center">
-                    <h3 className="text-sm font-black mb-1 text-center">Connection Error</h3>
-                    <p className="font-medium text-red-500 mb-4 text-xs text-center">{error instanceof Error ? error.message : String(error)}</p>
-                    <button 
-                      onClick={() => fetchRoster()}
-                      className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all text-xs"
-                    >
-                      Retry Fetch
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ) : sortedRoster.length > 0 ? sortedRoster.map((member) => (
-              <tr key={member.id} className="group hover:bg-slate-50/50 transition-all">
-                <td className="px-8 py-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-black">
-                      {member.full_name?.charAt(0) || 'U'}
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-800">{member.full_name ? formatLastNameFirst(member.full_name, member.last_name) : 'Incomplete Profile'}</p>
-                      <p className="text-xs font-medium text-slate-400">{member.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-8 py-6">
-                  <div className="flex flex-col gap-1">
-                    {(() => {
-                      const label = deriveLabel(member);
-                      const isStaff = member.track === 'faculty' || member.track === 'ob_fellow' || member.track === 'academic_fellow';
-                      const grad = isGraduated(member);
-                      return (
-                      <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block w-fit ${
-                        grad ? 'bg-slate-100 text-slate-400' : isStaff ? 'bg-purple-50 text-purple-600' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {label}
-                      </span>
-                    );
-                  })()}
-                  {member.role === 'admin' && (
-                    <span className="bg-red-50 text-red-600 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest inline-block w-fit mt-1">
-                      Admin
-                    </span>
-                  )}
-                  {member.advisor && (
-                    <span className="text-[10px] font-bold text-slate-400 pl-1 italic mt-1">
-                      Advisor: {member.advisor}
-                    </span>
-                  )}
-                  </div>
-                </td>
-                <td className="px-8 py-6">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${member.has_account ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
-                    <span className={`text-sm font-bold ${member.has_account ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {member.has_account ? 'Active Account' : 'Invite Sent (Pending)'}
-                    </span>
-                    {!member.has_account && (
-                      <button
-                        onClick={() => {
-                          const subject = encodeURIComponent("Invitation to the FMC Board Question App");
-                          const body = encodeURIComponent(
-                            "Welcome to the FMC Board Question App!\n\nThis app is designed to help prepare for the ABFM boards by providing daily practice questions and automatically tracking weak areas over time. You can access it anytime away from work, as well as from the FMC internal site just like before!\n\nTo get started, please visit the link below and click 'Create an Account' to register. You must use your Ascension email address so we can validate that you belong to our program, but please note this app is NOT linked to your Ascension work account in any other way.\nhttps://stvfamilymed.org/brq\n\nWhen you first log in, please make sure to allow notifications so you can receive the Question of the Day (QOTD) directly on your device! (Note: You may need to click the gear settings icon inside the app to enable them.)\n\n**For Residents:**\nGamify your studying with badges and leaderboards while tracking your progress throughout the academic year.\n\n**For Faculty:**\nYour account will grant you access to the Faculty Dashboard where you can monitor resident performance, review their weak areas, and check the leaderboard. (You can also take the daily quizzes yourself if you'd like!)\n\n**How to Install the App (Optional but Recommended):**\nAdd the app to your home screen for one-tap, full-screen access — no App Store needed!\n\niPhone & iPad:\n1. Open the link above in Safari\n2. Tap the Share button (square with an arrow)\n3. Scroll down and tap 'Add to Home Screen'\n4. Tap 'Add' in the top-right corner\n\nAndroid:\n1. Open the link above in Chrome\n2. Tap the ⋮ menu in the top-right\n3. Tap 'Install app' (or 'Add to Home screen')\n4. Tap 'Install' to confirm"
-                          );
-                          window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${member.email}&su=${subject}&body=${body}`, '_blank');
-                        }}
-                        className="ml-2 p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                        title="Resend Invitation Email"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </td>
-                <td className="px-8 py-6 text-right">
-                  <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                    <button 
-                      onClick={() => {
-                        setEditingPerson({
-                          first_name: member.first_name || (member.full_name ? member.full_name.split(' ')[0] : ''),
-                          last_name: member.last_name || (member.full_name && member.full_name.includes(' ') ? member.full_name.substring(member.full_name.indexOf(' ') + 1) : ''),
-                          email: member.email,
-                          pgy: member.pgy || '',
-                          advisor: member.advisor || '',
-                          role: member.role || 'resident',
-                          has_account: member.has_account
-                        });
-                        setShowEditModal(true);
-                      }}
-                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                      title="Edit Person"
-                    >
-                      <Edit3 className="w-5 h-5" />
-                    </button>
-                    <button 
-                      onClick={() => handleDeletePerson(member.email)}
-                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      title="Remove Person"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={4} className="px-8 py-20 text-center text-slate-400">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-20 text-center" />
-                  <p className="font-bold text-center">No members found matching your search.</p>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable 
+        columns={columns} 
+        data={filtered} 
+        globalSearchPlaceholder="Search residents or faculty..."
+      />
 
       {/* Add Person Modal */}
       {showAddModal && (

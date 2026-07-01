@@ -11,6 +11,8 @@ import QuestionHeatmap from './QuestionHeatmap';
 import RiskLegend from './RiskLegend';
 import QuizReview from './QuizReview';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
+import { DataTable } from './DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 interface ResidentStat {
   userId: string | null;
@@ -155,25 +157,166 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   };
 
   // Table sorting (shared across the resident tables; default = points desc)
-  const { sortKey, sortDir, toggle } = useSortState({ key: 'points', dir: 'desc' });
-  const residentAccessor = (r: ResidentStat, key: string): string | number => {
-    switch (key) {
-      case 'name': return r.last_name;
-      case 'pgy': return r.label;
-      case 'attempts': return r.totalAttempts;
-      case 'avg': return r.overallAvg;
-      case 'curriculumAvg': return r.curriculumAvg;
-      case 'independentAvg': return r.independentAvg || 0;
-      case 'blocks': return r.blocksCompleted;
-      case 'ontime': return r.onTimePct;
-      case 'points': return r.totalPoints;
-      case 'attendance': return r.totalAttendance;
-      case 'academicRisk': return r.academicRisk === 'red' ? 0 : r.academicRisk === 'yellow' ? 1 : r.academicRisk === 'green' ? 2 : 3;
-      case 'complianceRisk': return r.complianceRisk === 'red' ? 0 : r.complianceRisk === 'yellow' ? 1 : r.complianceRisk === 'green' ? 2 : 3;
-      default: return 0;
-    }
-  };
-  const sortRes = (list: ResidentStat[]) => sortItems(list, residentAccessor, sortKey, sortDir);
+  const columns: ColumnDef<ResidentStat>[] = useMemo(() => [
+    {
+      id: 'name',
+      accessorFn: row => `${row.name}`,
+      header: 'Resident',
+      cell: info => {
+        const r = info.row.original;
+        return (
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-800 text-sm">{formatLastNameFirst(r.name, r.last_name)}</span>
+            </div>
+            {r.riskReasons.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {r.riskReasons.map((reason, ri) => (
+                  <span
+                    key={ri}
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reason.includes('overdue') ? 'bg-red-100 text-red-700' : reason.includes('Trending') ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
+                  >
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      },
+      sortingFn: (rowA, rowB, columnId) => {
+        const a = rowA.original.last_name;
+        const b = rowB.original.last_name;
+        return a.localeCompare(b);
+      },
+    },
+    {
+      accessorKey: 'label',
+      header: 'PGY',
+      cell: info => <div className="text-center text-xs font-bold text-slate-500">{info.getValue() as string}</div>,
+    },
+    {
+      accessorKey: 'totalPoints',
+      header: 'Pts',
+      cell: info => <div className="text-center font-black text-slate-700 text-sm">{info.getValue() as number}</div>,
+    },
+    {
+      accessorKey: 'totalAttendance',
+      header: 'Attend',
+      cell: info => <div className="text-center font-black text-indigo-600 text-sm">{info.getValue() as number}</div>,
+    },
+    {
+      accessorKey: 'curriculumAvg',
+      header: 'Curr Avg',
+      cell: info => {
+        const r = info.row.original;
+        return (
+          <div className="text-center">
+            {r.curriculumAttempts > 0 ? (
+              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.curriculumAvg > 65 ? 'text-emerald-700' : r.curriculumAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                {r.curriculumAvg.toFixed(1)}%
+              </span>
+            ) : <span className="text-slate-300 font-bold">—</span>}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'independentAvg',
+      header: 'Indep Avg',
+      cell: info => {
+        const r = info.row.original;
+        return (
+          <div className="text-center">
+            {r.independentAttempts > 0 && r.independentAvg !== null ? (
+              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.independentAvg > 65 ? 'text-emerald-700' : r.independentAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                {r.independentAvg.toFixed(1)}%
+              </span>
+            ) : <span className="text-slate-300 font-bold">—</span>}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'overallAvg',
+      header: 'Total Avg',
+      cell: info => {
+        const r = info.row.original;
+        return (
+          <div className="text-center">
+            {r.totalAttempts > 0 ? (
+              <span className="text-sm font-black text-slate-600">
+                {r.overallAvg.toFixed(1)}%
+              </span>
+            ) : <span className="text-slate-300 font-bold">—</span>}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'onTimePct',
+      header: 'On-Time',
+      cell: info => {
+        const r = info.row.original;
+        return (
+          <div className="text-center">
+            {r.blocksCompleted > 0 ? (
+              <span className={`text-sm font-bold ${r.onTimePct > 65 ? 'text-emerald-600' : r.onTimePct > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                {r.onTimePct.toFixed(0)}%
+              </span>
+            ) : <span className="text-slate-300 font-bold">—</span>}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'academicRisk',
+      header: 'Academic',
+      cell: info => {
+        const val = info.getValue() as RiskLevel;
+        return (
+          <div className="text-center">
+            <span className={`text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full ${riskColors[val].badge}`}>
+              {val === 'red' ? 'At Risk' : val === 'yellow' ? 'Attention' : val === 'green' ? 'On Track' : 'Evaluating'}
+            </span>
+          </div>
+        );
+      },
+      sortingFn: (rowA, rowB, columnId) => {
+        const rank = { red: 0, yellow: 1, green: 2, gray: 3 };
+        return rank[rowA.original.academicRisk] - rank[rowB.original.academicRisk];
+      },
+    },
+    {
+      accessorKey: 'complianceRisk',
+      header: 'Participation',
+      cell: info => {
+        const val = info.getValue() as RiskLevel;
+        return (
+          <div className="text-center">
+            <span className={`text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full ${riskColors[val].badge}`}>
+              {val === 'red' ? 'At Risk' : val === 'yellow' ? 'Attention' : val === 'green' ? 'On Track' : 'Evaluating'}
+            </span>
+          </div>
+        );
+      },
+      sortingFn: (rowA, rowB, columnId) => {
+        const rank = { red: 0, yellow: 1, green: 2, gray: 3 };
+        return rank[rowA.original.complianceRisk] - rank[rowB.original.complianceRisk];
+      },
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: info => (
+        <div className="text-center">
+          <ChevronRight className="w-4 h-4 text-slate-300 inline-block" />
+        </div>
+      ),
+      enableSorting: false,
+      enableColumnFilter: false,
+    },
+  ], []);
 
   const { enriched, allEnriched, scopedRoster, emailToUserId } = useMemo(() => {
     if (!adminData) return { enriched: [], allEnriched: [], scopedRoster: [], emailToUserId: new Map<string, string>() };
@@ -407,100 +550,18 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   });
 
   const ResidentTable = ({ residents }: { residents: ResidentStat[] }) => (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-            <SortHeader label="Resident" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-left px-6 py-3" />
-            <SortHeader label="PGY" sortKey="pgy" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Pts" sortKey="points" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Attend" sortKey="attendance" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Curr Avg" sortKey="curriculumAvg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Indep Avg" sortKey="independentAvg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Total Avg" sortKey="avg" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="On-Time" sortKey="ontime" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Academic" sortKey="academicRisk" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <SortHeader label="Participation" sortKey="complianceRisk" activeKey={sortKey} dir={sortDir} onSort={toggle} className="text-center px-4 py-3" />
-            <th className="px-4 py-3" />
-          </tr>
-        </thead>
-        <tbody>
-          {residents.map((r, i) => {
-            // Overall row color uses the worse of the two risks
-            let rowColor = riskColors.green.row;
-            if (r.academicRisk === 'red' || r.complianceRisk === 'red') rowColor = riskColors.red.row;
-            else if (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) rowColor = riskColors.yellow.row;
-            else if (r.academicRisk === 'gray' || r.complianceRisk === 'gray') rowColor = riskColors.gray.row;
-
-            return (
-              <tr key={i} className={`border-b border-slate-50 transition-all hover:brightness-95 cursor-pointer ${rowColor}`} onClick={() => setSelectedResident(r)}>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800 text-sm">{formatLastNameFirst(r.name, r.last_name)}</span>
-                  </div>
-                  {r.riskReasons.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {r.riskReasons.map((reason, ri) => (
-                        <span
-                          key={ri}
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reason.includes('overdue') ? 'bg-red-100 text-red-700' : reason.includes('Trending') ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
-                        >
-                          {reason}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td className="px-4 py-4 text-center text-xs font-bold text-slate-500">{r.label}</td>
-                <td className="px-4 py-4 text-center font-black text-slate-700 text-sm">{r.totalPoints}</td>
-                <td className="px-4 py-4 text-center font-black text-indigo-600 text-sm">{r.totalAttendance}</td>
-                <td className="px-4 py-4 text-center">
-                  {r.curriculumAttempts > 0 ? (
-                    <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.curriculumAvg > 65 ? 'text-emerald-700' : r.curriculumAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                      {r.curriculumAvg.toFixed(1)}%
-                    </span>
-                  ) : <span className="text-slate-300 font-bold">—</span>}
-                </td>
-                <td className="px-4 py-4 text-center">
-                  {r.independentAttempts > 0 && r.independentAvg !== null ? (
-                    <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.independentAvg > 65 ? 'text-emerald-700' : r.independentAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                      {r.independentAvg.toFixed(1)}%
-                    </span>
-                  ) : <span className="text-slate-300 font-bold">—</span>}
-                </td>
-                <td className="px-4 py-4 text-center">
-                  {r.totalAttempts > 0 ? (
-                    <span className="text-sm font-black text-slate-600">
-                      {r.overallAvg.toFixed(1)}%
-                    </span>
-                  ) : <span className="text-slate-300 font-bold">—</span>}
-                </td>
-                <td className="px-4 py-4 text-center">
-                  {r.blocksCompleted > 0 ? (
-                    <span className={`text-sm font-bold ${r.onTimePct > 65 ? 'text-emerald-600' : r.onTimePct > 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                      {r.onTimePct.toFixed(0)}%
-                    </span>
-                  ) : <span className="text-slate-300 font-bold">—</span>}
-                </td>
-                <td className="px-4 py-4 text-center">
-                  <span className={`text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full ${riskColors[r.academicRisk].badge}`}>
-                    {r.academicRisk === 'red' ? 'At Risk' : r.academicRisk === 'yellow' ? 'Attention' : r.academicRisk === 'green' ? 'On Track' : 'Evaluating'}
-                  </span>
-                </td>
-                <td className="px-4 py-4 text-center">
-                  <span className={`text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full ${riskColors[r.complianceRisk].badge}`}>
-                    {r.complianceRisk === 'red' ? 'At Risk' : r.complianceRisk === 'yellow' ? 'Attention' : r.complianceRisk === 'green' ? 'On Track' : 'Evaluating'}
-                  </span>
-                </td>
-                <td className="px-4 py-4">
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      columns={columns}
+      data={residents}
+      globalSearchPlaceholder="Search residents..."
+      onRowClick={(row) => setSelectedResident(row)}
+      rowClassName={(r) => {
+        if (r.academicRisk === 'red' || r.complianceRisk === 'red') return riskColors.red.row;
+        if (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) return riskColors.yellow.row;
+        if (r.academicRisk === 'gray' || r.complianceRisk === 'gray') return riskColors.gray.row;
+        return riskColors.green.row;
+      }}
+    />
   );
 
   if (loading) {
@@ -673,7 +734,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             </div>
           </div>
           {myAdvisees.length > 0 ? (
-            <ResidentTable residents={sortRes(myAdvisees)} />
+            <div className="p-4"><ResidentTable residents={myAdvisees} /></div>
           ) : (
             <div className="p-12 text-center">
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
@@ -689,22 +750,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {/* Overview Tab */}
       {activeSubTab === 'overview' && (
         <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="font-black text-slate-800">All Residents</h3>
               <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search residents..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg font-medium text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 sm:w-56"
-                />
-              </div>
               <button 
               onClick={() => {
                 // Group all residents by advisor
@@ -727,20 +778,20 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 });
                 bodyStr += "\n\nLog in to the Admin Console for more details.\n\nThank you!";
                 
-                const subject = encodeURIComponent("FMC Board Review App: Program Performance Update");
+                const subject = encodeURIComponent("FMC Board Review App: Program-Wide Performance Update");
                 window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyStr)}`;
               }}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors flex items-center gap-2 text-sm"
             >
               <Mail className="w-4 h-4" /> Email Advisors
             </button>
             </div>
           </div>
-          <ResidentTable residents={sortRes(residentStats)} />
+          <div className="p-4"><ResidentTable residents={residentStats} /></div>
         </div>
       )}
 
-      {/* At Risk Tab */}
+      {/* Action Needed Tab */}
       {activeSubTab === 'at_risk' && (
         <div className="space-y-6">
           {redFlagged.length > 0 && (
@@ -748,7 +799,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               <div className="p-6 border-b border-red-50 bg-red-50/40">
                 <h3 className="font-black text-red-700">🔴 At Risk — Avg ≤50%, low on-time, or 2+ blocks overdue</h3>
               </div>
-              <ResidentTable residents={sortRes(redFlagged)} />
+              <div className="p-4"><ResidentTable residents={redFlagged} /></div>
             </div>
           )}
           {yellowFlagged.length > 0 && (
@@ -756,7 +807,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               <div className="p-6 border-b border-amber-50 bg-amber-50/40">
                 <h3 className="font-black text-amber-700">🟡 Needs Attention — Avg ≤65%, on-time below 75%, a block overdue, or recent scores sliding</h3>
               </div>
-              <ResidentTable residents={sortRes(yellowFlagged)} />
+              <div className="p-4"><ResidentTable residents={yellowFlagged} /></div>
             </div>
           )}
           {redFlagged.length === 0 && yellowFlagged.length === 0 && (
@@ -901,7 +952,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     </div>
                   </div>
                 </div>
-                <ResidentTable residents={sortRes(residents)} />
+                <div className="p-4"><ResidentTable residents={residents} /></div>
               </div>
             );
           })}
