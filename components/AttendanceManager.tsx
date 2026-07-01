@@ -304,9 +304,14 @@ export default function AttendanceManager() {
                   className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
                 >
                   <option value="" disabled>Select Block...</option>
-                  {blocks.map(b => (
-                    <option key={b.id} value={b.id}>{b.title}</option>
-                  ))}
+                  {blocks
+                    .filter(b => {
+                      const year = b.academic_year ? Number(b.academic_year) : getCurrentAcademicYear();
+                      return year === selectedYear;
+                    })
+                    .map(b => (
+                      <option key={b.id} value={b.id}>{b.title}</option>
+                    ))}
                 </select>
               </div>
             </div>
