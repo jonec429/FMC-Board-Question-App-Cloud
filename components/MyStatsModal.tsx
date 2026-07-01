@@ -338,21 +338,38 @@ export default function MyStatsModal({
                 </div>
 
                 {/* ACADEMIC POINTS TRACKER */}
-                <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
-                  <div className="flex justify-between items-end mb-2">
-                    <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">Academic Points Tracker</h3>
-                    <span className="text-xs font-bold text-white">{totalPoints} / {selectedYear === 0 ? 300 : 100} ({selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal)</span>
-                  </div>
-                  <div className="h-2 bg-indigo-900/50 rounded-full overflow-hidden flex mb-2">
-                    <div 
-                      className="h-full bg-indigo-400 transition-all" 
-                      style={{ width: `${Math.min((totalPoints / (selectedYear === 0 ? 300 : 100)) * 100, 100)}%` }} 
-                    />
-                  </div>
-                  <p className="text-[10px] text-indigo-200 text-right uppercase tracking-widest font-bold">
-                    Includes {myResults.filter(r => r.topic?.includes('[Attendance]')).length} conferences attended
-                  </p>
-                </div>
+                {(() => {
+                  const goal = selectedYear === 0 ? 300 : 100;
+                  const attendancePts = myResults.filter(r => r.topic?.includes('[Attendance]')).reduce((sum, r) => sum + (r.academic_points || 1), 0);
+                  const questionPts = Math.max(0, totalPoints - attendancePts);
+                  const attendancePct = Math.min((attendancePts / goal) * 100, 100);
+                  const questionPct = Math.min((questionPts / goal) * 100, 100 - attendancePct);
+
+                  return (
+                    <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
+                      <div className="flex justify-between items-end mb-2">
+                        <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">Academic Points Tracker</h3>
+                        <span className="text-xs font-bold text-white">{totalPoints} / {goal} ({selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal)</span>
+                      </div>
+                      <div className="h-2 bg-indigo-900/50 rounded-full overflow-hidden flex mb-1.5">
+                        <div 
+                          className="h-full bg-blue-400 transition-all" 
+                          style={{ width: `${questionPct}%` }} 
+                          title={`${questionPts} points from Questions`}
+                        />
+                        <div 
+                          className="h-full bg-purple-400 transition-all" 
+                          style={{ width: `${attendancePct}%` }} 
+                          title={`${attendancePts} points from Attendance`}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-bold mt-1.5">
+                        <span className="text-blue-300">{questionPts} Q-Points</span>
+                        <span className="text-purple-300">{attendancePts} Attendance</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* QOTD INTEGRATION */}
                 {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (
