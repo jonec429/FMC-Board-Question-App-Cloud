@@ -311,6 +311,10 @@ This file serves as the shared source of truth for development progress between 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-08-04 — HTML Table Ingestion for New Innovations Attendance (Antigravity)
+*   **HTML Attendance Export Support:** Updated the bulk attendance engine (`AttendanceManager.tsx`) with an automated `DOMParser` preprocessor. Admins can now directly paste or upload raw HTML table exports from New Innovations (containing `<table>`, `<tr>`, and `<td>` tags).
+*   **Precision Credit Calculation:** Automatically strips HTML formatting, identifies `Person` and `Present` columns, filters out total summary rows, and matches resident names against the roster to award exact attendance credits.
+
 ### 2026-06-26 — Risk Criteria Overhaul & Terminology Updates (Antigravity)
 *   **New Risk Definitions Enforced:** Residents are no longer prematurely flagged for academic or participation risk before they have completed at least 3 blocks. Once the 3-block minimum is met, strict new percentage thresholds are applied for "Needs Attention" (Yellow) and "At Risk" (Red).
 *   **Transparent Risk Legend:** Added a new, prominent `RiskLegend` to both the Admin Performance dashboard and the resident's personal stats modal. This replaces the old yellow banner and explicitly breaks down exactly what triggers Academic, Participation, and Trend flags, keeping both faculty and residents fully aligned on expectations.
