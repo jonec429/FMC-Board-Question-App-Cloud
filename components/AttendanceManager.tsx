@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, Clipboard, Check, AlertTriangle, Save, Loader2, Database, PlusCircle, Calendar, FileText } from './AppIcons';
+import { Users, Clipboard, Check, AlertTriangle, Save, Loader2, Database, PlusCircle, Calendar, FileText, Search } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import Papa from 'papaparse';
-import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
+import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel } from '@/lib/academicYear';
 
 export default function AttendanceManager() {
   const [activeTab, setActiveTab] = useState<'bulk' | 'manual'>('bulk');
@@ -18,8 +18,9 @@ export default function AttendanceManager() {
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
   const [selectedBlockId, setSelectedBlockId] = useState<string>('');
 
-  // Manual Award state
-  const [manualEmail, setManualEmail] = useState('');
+  // Manual Award state (multi-resident selection)
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [manualSearch, setManualSearch] = useState('');
   const [manualPoints, setManualPoints] = useState<number>(1);
   const [manualDate, setManualDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [manualDescription, setManualDescription] = useState<string>('');
@@ -30,11 +31,17 @@ export default function AttendanceManager() {
     async function fetchData() {
       try {
         const [rosterRes, blocksRes] = await Promise.all([
-          withTimeout(supabase.from('authorized_roster').select('email, name')),
+          withTimeout(supabase.from('authorized_roster').select('email, name, cohort_year, pgy, track, status, pgy_override, graduated_year')),
           withTimeout(supabase.from('blocks').select('*').order('sort_order', { ascending: true }))
         ]);
         if (rosterRes.data) {
-          setRoster(rosterRes.data.map((r: any) => ({ email: r.email, full_name: r.name })));
+          setRoster(rosterRes.data.map((r: any) => ({
+            email: r.email,
+            full_name: r.name,
+            class_label: deriveLabel(r, selectedYear),
+            track: r.track,
+            status: r.status
+          })));
         }
         if (blocksRes.data) {
           setBlocks(blocksRes.data);
@@ -44,13 +51,50 @@ export default function AttendanceManager() {
       }
     }
     fetchData();
-  }, []);
+  }, [selectedYear]);
 
   const sortedRoster = [...roster].sort((a, b) => {
     const nameA = a.full_name || '';
     const nameB = b.full_name || '';
     return nameA.localeCompare(nameB);
   });
+
+  const filteredManualRoster = sortedRoster.filter(r => {
+    if (!manualSearch.trim()) return true;
+    const q = manualSearch.toLowerCase();
+    return (
+      (r.full_name && r.full_name.toLowerCase().includes(q)) ||
+      (r.email && r.email.toLowerCase().includes(q)) ||
+      (r.class_label && r.class_label.toLowerCase().includes(q))
+    );
+  });
+
+  const toggleSelectEmail = (email: string) => {
+    setSelectedEmails(prev =>
+      prev.includes(email) ? prev.filter(e => e !== email) : [...prev, email]
+    );
+  };
+
+  const handleSelectAllFiltered = () => {
+    const allFilteredEmails = filteredManualRoster.map(r => r.email);
+    const isAllSelected = allFilteredEmails.length > 0 && allFilteredEmails.every(e => selectedEmails.includes(e));
+
+    if (isAllSelected) {
+      setSelectedEmails(prev => prev.filter(e => !allFilteredEmails.includes(e)));
+    } else {
+      const newSet = new Set([...selectedEmails, ...allFilteredEmails]);
+      setSelectedEmails(Array.from(newSet));
+    }
+  };
+
+  const handleSelectByClass = (classKeyword: string) => {
+    const matchingEmails = roster
+      .filter(r => (r.class_label || '').toLowerCase().includes(classKeyword.toLowerCase()))
+      .map(r => r.email);
+
+    const newSet = new Set([...selectedEmails, ...matchingEmails]);
+    setSelectedEmails(Array.from(newSet));
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -306,8 +350,8 @@ export default function AttendanceManager() {
     e.preventDefault();
     setManualSuccessMsg(null);
 
-    if (!manualEmail) {
-      alert("Please select a resident from the roster.");
+    if (selectedEmails.length === 0) {
+      alert("Please select at least one resident from the roster.");
       return;
     }
     if (!selectedBlockId) {
@@ -318,9 +362,6 @@ export default function AttendanceManager() {
     const targetBlock = blocks.find(b => b.id === selectedBlockId);
     if (!targetBlock) return;
 
-    const resident = roster.find(r => r.email === manualEmail);
-    if (!resident) return;
-
     setManualSaving(true);
 
     const baseTopic = `[AY ${selectedYear}] Block: ${targetBlock.title}`;
@@ -328,14 +369,17 @@ export default function AttendanceManager() {
       ? `${baseTopic} - ${manualDescription.trim()}`
       : baseTopic;
 
-    const validEntries = [{
-      resident_email: resident.email,
-      resident_name: resident.full_name,
-      date: manualDate || new Date().toISOString().split('T')[0],
-      status: 'Attended',
-      points: manualPoints > 0 ? manualPoints : 1,
-      topic: fullTopic
-    }];
+    const validEntries = selectedEmails.map(email => {
+      const resident = roster.find(r => r.email === email);
+      return {
+        resident_email: email,
+        resident_name: resident?.full_name || email,
+        date: manualDate || new Date().toISOString().split('T')[0],
+        status: 'Attended',
+        points: manualPoints > 0 ? manualPoints : 1,
+        topic: fullTopic
+      };
+    });
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -354,7 +398,8 @@ export default function AttendanceManager() {
         throw new Error(errorData.error || 'Failed to award attendance points');
       }
 
-      setManualSuccessMsg(`Successfully awarded ${manualPoints} attendance point(s) to ${resident.full_name}!`);
+      setManualSuccessMsg(`Successfully awarded ${manualPoints} point(s) to ${validEntries.length} resident(s)!`);
+      setSelectedEmails([]);
       setManualDescription('');
       setManualPoints(1);
     } catch (err: any) {
@@ -538,14 +583,14 @@ export default function AttendanceManager() {
         </div>
       ) : (
         /* Manual Point Award Form */
-        <div className="max-w-2xl mx-auto bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="max-w-3xl mx-auto bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2.5 bg-blue-50 text-blue-600 rounded-2xl">
               <PlusCircle className="w-6 h-6" />
             </div>
             <div>
               <h3 className="text-xl font-black text-slate-800">Manually Award Attendance Points</h3>
-              <p className="text-xs text-slate-500 font-medium">Assign customized attendance credits directly to an individual resident.</p>
+              <p className="text-xs text-slate-500 font-medium">Assign customized attendance credits to one, multiple, or all residents at once.</p>
             </div>
           </div>
 
@@ -557,21 +602,107 @@ export default function AttendanceManager() {
           )}
 
           <form onSubmit={handleManualSave} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                Select Resident <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={manualEmail}
-                onChange={(e) => setManualEmail(e.target.value)}
-                required
-                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl px-4 py-3.5 font-semibold outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
-              >
-                <option value="" disabled>Select Resident from Roster...</option>
-                {sortedRoster.map(r => (
-                  <option key={r.email} value={r.email}>{r.full_name} ({r.email})</option>
-                ))}
-              </select>
+            {/* Resident Selection Section */}
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Select Residents ({selectedEmails.length} selected) <span className="text-red-500">*</span>
+                </label>
+                
+                {/* Quick Selection Action Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllFiltered}
+                    className="px-3 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-extrabold transition-all"
+                  >
+                    {filteredManualRoster.length > 0 && filteredManualRoster.every(r => selectedEmails.includes(r.email))
+                      ? 'Deselect Filtered'
+                      : 'Select All Filtered'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectByClass('pgy1')}
+                    className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all"
+                  >
+                    + PGY 1
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectByClass('pgy2')}
+                    className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all"
+                  >
+                    + PGY 2
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectByClass('pgy3')}
+                    className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition-all"
+                  >
+                    + PGY 3
+                  </button>
+                  {selectedEmails.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEmails([])}
+                      className="px-2.5 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-xs font-bold transition-all"
+                    >
+                      Clear Selection
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Roster Search Input */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  value={manualSearch}
+                  onChange={(e) => setManualSearch(e.target.value)}
+                  placeholder="Search residents by name or class..."
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+              </div>
+
+              {/* Scrollable Checkbox List */}
+              <div className="border border-slate-200 rounded-2xl max-h-64 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50 p-1.5 scrollbar-hide">
+                {filteredManualRoster.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400 font-medium">No residents match your search filter.</div>
+                ) : (
+                  filteredManualRoster.map(r => {
+                    const isSelected = selectedEmails.includes(r.email);
+                    return (
+                      <div
+                        key={r.email}
+                        onClick={() => toggleSelectEmail(r.email)}
+                        className={`p-3 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
+                          isSelected ? 'bg-blue-50 border border-blue-200/80 shadow-xs' : 'hover:bg-slate-100/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 pointer-events-none"
+                          />
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-800 text-sm">{r.full_name}</span>
+                            <span className="text-[11px] text-slate-400 font-medium">{r.email}</span>
+                          </div>
+                        </div>
+
+                        {r.class_label && (
+                          <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-lg bg-slate-200/80 text-slate-700">
+                            {r.class_label}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -616,7 +747,7 @@ export default function AttendanceManager() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  Points / Credits to Award <span className="text-red-500">*</span>
+                  Points / Credits Per Resident <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -661,11 +792,13 @@ export default function AttendanceManager() {
 
             <button
               type="submit"
-              disabled={manualSaving || !manualEmail || !selectedBlockId}
+              disabled={manualSaving || selectedEmails.length === 0 || !selectedBlockId}
               className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-blue-700 transition-all disabled:opacity-50 shadow-xl shadow-blue-100"
             >
               {manualSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-              Award Attendance Points Now
+              {selectedEmails.length > 0
+                ? `Award Points to ${selectedEmails.length} Resident${selectedEmails.length > 1 ? 's' : ''}`
+                : 'Select Residents to Award Points'}
             </button>
           </form>
         </div>

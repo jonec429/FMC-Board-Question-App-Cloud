@@ -298,6 +298,7 @@ export default function Home() {
             user={user}
             profile={profile}
             isActive={!(showBuilder || showAdmin || activeQuiz)}
+            currentBlock={currentBlock}
             onLogout={handleLogout}
             onStartQuiz={(quiz: ActiveQuizState) => setActiveQuiz(quiz)}
             onOpenBuilder={() => setShowBuilder(true)}

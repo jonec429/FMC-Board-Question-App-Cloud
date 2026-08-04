@@ -7,7 +7,7 @@ import { canAccessAdmin } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, BookOpen, Gem, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info, Calendar
+  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info, Calendar, Users
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
@@ -22,6 +22,7 @@ interface DashboardProps {
   user: User;
   profile: Profile;
   isActive?: boolean;
+  currentBlock?: Block | null;
   onOpenAdmin: () => void;
   onLogout: () => void;
   onStartQuiz: (quiz: any) => void;
@@ -37,7 +38,7 @@ export interface LeaderboardEntry {
   totalQs: number;
 }
 
-export default function Dashboard({ user, profile, isActive = true, onOpenAdmin, onLogout, onStartQuiz, onOpenBuilder, onProfileUpdate }: DashboardProps) {
+export default function Dashboard({ user, profile, isActive = true, currentBlock, onOpenAdmin, onLogout, onStartQuiz, onOpenBuilder, onProfileUpdate }: DashboardProps) {
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
 
@@ -179,6 +180,46 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
   const avgPct = myResults.length > 0
     ? myResults.reduce((a, r) => a + (r.percentage || 0), 0) / myResults.length
     : null;
+
+  // Advisor Meeting logic
+  const [claimingAdvisorMeeting, setClaimingAdvisorMeeting] = useState(false);
+  const [advisorMeetingError, setAdvisorMeetingError] = useState<string | null>(null);
+
+  const advisorTopicStr = currentBlock ? `[Attendance] [AY ${currentBlock.academic_year || getCurrentAcademicYear()}] Block: ${currentBlock.title} - Advisor Meeting` : '';
+  const advisorMeetingCompleted = currentBlock ? myResults.some(r => r.topic === advisorTopicStr) : false;
+
+  const handleClaimAdvisorMeeting = async () => {
+    if (!currentBlock) return;
+    setClaimingAdvisorMeeting(true);
+    setAdvisorMeetingError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/resident/advisor-meeting', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          blockId: currentBlock.id,
+          blockTitle: currentBlock.title,
+          selectedYear: currentBlock.academic_year || getCurrentAcademicYear()
+        })
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || 'Failed to claim advisor meeting point');
+      }
+
+      // Re-fetch dashboard data
+      refetch();
+    } catch (err: any) {
+      setAdvisorMeetingError(err.message);
+    } finally {
+      setClaimingAdvisorMeeting(false);
+    }
+  };
 
   // === RESIDENT TOPIC-SELECT VIEW ===
   const renderTopicSelect = () => (
@@ -477,6 +518,47 @@ export default function Dashboard({ user, profile, isActive = true, onOpenAdmin,
                 </p>
               </div>
             </button>
+          )}
+
+          {/* Active Block Advisor Meeting Self-Check */}
+          {currentBlock && profile?.role !== 'faculty' && profile?.role !== 'admin' && (
+            <div className="mb-8 relative overflow-hidden bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+              <div className="flex items-start md:items-center justify-between gap-4 flex-col md:flex-row">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-2xl shrink-0 ${advisorMeetingCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                    {advisorMeetingCompleted ? <CheckCircle className="w-6 h-6" /> : <Users className="w-6 h-6" />}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base md:text-lg">
+                      {currentBlock.title} — Advisor Meeting
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      {advisorMeetingCompleted 
+                        ? 'Meeting completed. You earned 1 attendance point!' 
+                        : 'Honor system: Mark your block advisor meeting complete.'}
+                    </p>
+                    {advisorMeetingError && (
+                      <p className="text-xs text-red-500 font-bold mt-1 bg-red-50 inline-block px-2 py-1 rounded">{advisorMeetingError}</p>
+                    )}
+                  </div>
+                </div>
+                {!advisorMeetingCompleted ? (
+                  <button
+                    onClick={handleClaimAdvisorMeeting}
+                    disabled={claimingAdvisorMeeting}
+                    className="shrink-0 w-full md:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  >
+                    {claimingAdvisorMeeting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                    Mark Complete
+                  </button>
+                ) : (
+                  <div className="shrink-0 w-full md:w-auto px-5 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-black flex items-center justify-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Completed
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           <div className="flex items-center justify-between gap-2 mb-3">
