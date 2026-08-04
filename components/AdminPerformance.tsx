@@ -407,14 +407,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       let manualPoints = 0;
 
       const topicBestPts = new Map<string, number>();
-      const attendanceBestPts = new Map<string, number>();
 
       resResults
         .filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null)
         .forEach((r: Result & { email?: string | null }) => {
           if (r.topic?.includes('[Attendance]')) {
-            const cur = attendanceBestPts.get(r.topic) || 0;
-            attendanceBestPts.set(r.topic, Math.max(cur, r.academic_points || 1));
+            attendancePoints += (r.academic_points || 1);
           } else if (r.topic?.includes('[Manual]')) {
             manualPoints += (r.academic_points || 0);
           } else {
@@ -425,7 +423,6 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           }
         });
         
-      attendancePoints = Array.from(attendanceBestPts.values()).reduce((a, b) => a + b, 0);
       const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
 
       Array.from(topicBestPts.entries()).forEach(([topic, pts]) => {

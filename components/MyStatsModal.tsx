@@ -343,14 +343,9 @@ export default function MyStatsModal({
                 {/* ACADEMIC POINTS TRACKER */}
                 {(() => {
                   const goal = selectedYear === 0 ? 300 : 100;
-                  const attendanceMap = new Map<string, number>();
-                  myResults.filter(r => r.topic?.includes('[Attendance]')).forEach(r => {
-                    if (r.topic) {
-                      const cur = attendanceMap.get(r.topic) || 0;
-                      attendanceMap.set(r.topic, Math.max(cur, r.academic_points || 1));
-                    }
-                  });
-                  const attendancePts = Array.from(attendanceMap.values()).reduce((sum, pts) => sum + pts, 0);
+                  const attendancePts = myResults
+                    .filter(r => r.topic?.includes('[Attendance]'))
+                    .reduce((sum, r) => sum + (r.academic_points || 1), 0);
                   const questionPts = Math.max(0, totalPoints - attendancePts);
                   const attendancePct = Math.min((attendancePts / goal) * 100, 100);
                   const questionPct = Math.min((questionPts / goal) * 100, 100 - attendancePct);

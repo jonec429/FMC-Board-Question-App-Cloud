@@ -52,13 +52,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    // Deduplicate: Fetch existing attendance for these topics and emails
+    // Deduplicate: Fetch attendance for these topics and emails from the last 1 hour
     const emailsToFetch = Array.from(new Set(entries.map((e: any) => e.resident_email)));
     const topicsToFetch = Array.from(new Set(entries.map((e: any) => e.topic)));
+    
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
     const { data: existingAttendance } = await adminSupabase
       .from('attendance')
       .select('resident_email, topic')
+      .gte('created_at', oneHourAgo)
       .in('resident_email', emailsToFetch)
       .in('topic', topicsToFetch);
 
@@ -71,7 +74,7 @@ export async function POST(request: Request) {
     );
 
     if (newEntries.length === 0) {
-      return NextResponse.json({ success: true, message: 'No new attendance to insert (all duplicates)' });
+      return NextResponse.json({ success: true, message: 'No new attendance to insert (recently uploaded)' });
     }
 
     const { error } = await adminSupabase.from('attendance').insert(newEntries);

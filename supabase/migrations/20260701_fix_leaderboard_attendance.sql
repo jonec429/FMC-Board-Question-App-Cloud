@@ -27,18 +27,10 @@ BEGIN
         FROM max_topic_points mtp
         GROUP BY mtp.legacy_email
     ),
-    max_attendance_pts AS (
-        SELECT br.legacy_email, br.topic, MAX(br.academic_points) as max_pts
-        FROM base_results br
-        WHERE br.topic ILIKE '%[Attendance]%'
-        GROUP BY br.legacy_email, br.topic
-    ),
     combined_add_pts AS (
-        SELECT legacy_email, max_pts as pts FROM max_attendance_pts
-        UNION ALL
-        SELECT br.legacy_email, br.academic_points as pts 
-        FROM base_results br 
-        WHERE br.topic ILIKE '%[Manual]%'
+        SELECT br.legacy_email, br.academic_points as pts
+        FROM base_results br
+        WHERE br.topic ILIKE '%[Attendance]%' OR br.topic ILIKE '%[Manual]%'
     ),
     add_pts AS (
         SELECT legacy_email, SUM(pts) as total_add_pts
