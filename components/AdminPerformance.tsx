@@ -449,17 +449,20 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       // Early-warning: past-due blocks this resident hasn't completed.
       const completedTitles = new Set(Array.from(topicBestPts.keys()));
       const overdueCount = getOverdueBlocks(dueBlocks, completedTitles).length;
-      const academicRisk = getRiskLevel(curriculumAvg, assignedResults.length);
-      const complianceRisk = getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
+      
+      const isFacultyUser = resident.track === 'faculty' || resident.pgy === 'Faculty' || resident.role === 'faculty';
+      const academicRisk = isFacultyUser ? 'gray' : getRiskLevel(curriculumAvg, assignedResults.length);
+      const complianceRisk = isFacultyUser ? 'gray' : getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
 
       // Early-warning: recent scores sliding vs earlier ones (even if the average still looks OK).
       const scoresChrono = [...resResults]
         .filter((r: Result & { email?: string | null }) => typeof r.percentage === 'number')
         .sort((a: Result, b: Result) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())
         .map((r: Result & { email?: string | null }) => r.percentage);
-      const { delta: trendDelta, declining } = computeTrend(scoresChrono);
+      const { delta: trendDelta, declining: rawDeclining } = computeTrend(scoresChrono);
+      const declining = isFacultyUser ? false : rawDeclining;
 
-      const riskReasons = getRiskReasons({
+      const riskReasons = isFacultyUser ? [] : getRiskReasons({
         curriculumAvg,
         curriculumAttempts: assignedResults.length,
         onTimePct,
