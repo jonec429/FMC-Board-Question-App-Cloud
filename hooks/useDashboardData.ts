@@ -81,14 +81,14 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           ? supabase
               .from('results')
               .select('*')
-              .or(`user_id.eq.${userId},legacy_email.eq.${userEmail}`)
+              .or(`user_id.eq.${userId},legacy_email.ilike.${userEmail}`)
               .order('created_at', { ascending: false })
               .abortSignal(signal)
           : supabase
               .from('results')
               .select('*')
               .eq('academic_year', selectedYear)
-              .or(`user_id.eq.${userId},legacy_email.eq.${userEmail}`)
+              .or(`user_id.eq.${userId},legacy_email.ilike.${userEmail}`)
               .order('created_at', { ascending: false })
               .abortSignal(signal),
         supabase.rpc('get_leaderboard_stats', { p_academic_year: selectedYear }).abortSignal(signal),

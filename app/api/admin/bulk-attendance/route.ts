@@ -52,7 +52,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const { error } = await adminSupabase.from('attendance').insert(entries);
+    // Deduplicate: Fetch existing attendance for these topics and emails
+    const emailsToFetch = Array.from(new Set(entries.map((e: any) => e.resident_email)));
+    const topicsToFetch = Array.from(new Set(entries.map((e: any) => e.topic)));
+
+    const { data: existingAttendance } = await adminSupabase
+      .from('attendance')
+      .select('resident_email, topic')
+      .in('resident_email', emailsToFetch)
+      .in('topic', topicsToFetch);
+
+    const existingSet = new Set(
+      (existingAttendance || []).map((a: any) => `${a.resident_email}::${a.topic}`)
+    );
+
+    const newEntries = entries.filter(
+      (e: any) => !existingSet.has(`${e.resident_email}::${e.topic}`)
+    );
+
+    if (newEntries.length === 0) {
+      return NextResponse.json({ success: true, message: 'No new attendance to insert (all duplicates)' });
+    }
+
+    const { error } = await adminSupabase.from('attendance').insert(newEntries);
 
     if (error) {
       console.error('Error inserting bulk attendance:', error);
@@ -60,10 +82,17 @@ export async function POST(request: Request) {
     }
 
     // Also award academic points for attendance by inserting into the results table
-    const resultEntries = entries.map((entry: any) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const date = now.getDate();
+    const isRollover = month > 5 || (month === 5 && date >= 14);
+    const defaultAy = isRollover ? year + 1 : year;
+
+    const resultEntries = newEntries.map((entry: any) => {
       // Extract AY from topic, e.g. "[AY 25] Block: Gastro" -> 25
       const ayMatch = entry.topic?.match(/\[AY\s+(\d+)\]/);
-      const ay = ayMatch ? parseInt(ayMatch[1], 10) : new Date().getFullYear();
+      const ay = ayMatch ? parseInt(ayMatch[1], 10) : defaultAy;
 
       return {
         legacy_email: entry.resident_email,

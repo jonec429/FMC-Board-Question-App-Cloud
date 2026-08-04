@@ -10,29 +10,46 @@ type CoreData = Omit<AdminData, 'questions'>;
  * throttles, this will throw an error and React Query will automatically retry 
  * up to 3 times before displaying the error UI.
  */
+async function fetchAll(table: string, select: string = '*'): Promise<any[]> {
+  let allData: any[] = [];
+  let from = 0;
+  const step = 1000;
+  while (true) {
+    const { data, error } = await supabase.from(table).select(select).range(from, from + step - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allData = allData.concat(data);
+    if (data.length < step) break;
+    from += step;
+  }
+  return allData;
+}
+
 async function fetchCore(): Promise<CoreData> {
-  const [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes, attendanceRes] = await Promise.all([
+  const [blocksRes, scheduleRes, profilesRes, rosterRes] = await Promise.all([
     supabase.from('blocks').select('*'),
     supabase.from('block_schedule').select('*'),
-    supabase.from('results').select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, review_data'),
     supabase.from('profiles').select('*'),
     supabase.from('authorized_roster').select('*'),
-    supabase.from('attendance').select('*'),
   ]);
 
-  const failures = [blocksRes, scheduleRes, resultsRes, profilesRes, rosterRes, attendanceRes].filter((r) => r.error);
+  const failures = [blocksRes, scheduleRes, profilesRes, rosterRes].filter((r) => r.error);
   if (failures.length > 0) {
     const errorMessages = failures.map(f => f.error?.message).join(' | ');
     throw new Error(`Failed to load admin data: ${errorMessages}`);
   }
 
+  // Fetch potentially large tables with pagination
+  const resultsData = await fetchAll('results', 'user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, review_data');
+  const attendanceData = await fetchAll('attendance');
+
   return {
     blocks: blocksRes.data || [],
     block_schedule: scheduleRes.data || [],
-    results: (resultsRes.data as any) || [],
+    results: resultsData || [],
     profiles: profilesRes.data || [],
     roster: rosterRes.data || [],
-    attendance: attendanceRes.data || [],
+    attendance: attendanceData || [],
   };
 }
 

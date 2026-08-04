@@ -196,14 +196,25 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       cell: info => <div className="text-center text-xs font-bold text-slate-500">{info.getValue() as string}</div>,
     },
     {
-      accessorKey: 'totalPoints',
-      header: 'Pts',
+      id: 'quizPoints',
+      accessorFn: row => (row.totalPoints - row.totalAttendance),
+      header: 'Block Pts',
       cell: info => <div className="text-center font-black text-slate-700 text-sm">{info.getValue() as number}</div>,
+      sortingFn: (rowA, rowB, columnId) => {
+        const a = rowA.original.totalPoints - rowA.original.totalAttendance;
+        const b = rowB.original.totalPoints - rowB.original.totalAttendance;
+        return a - b;
+      },
     },
     {
       accessorKey: 'totalAttendance',
-      header: 'Attend',
+      header: 'Attend Pts',
       cell: info => <div className="text-center font-black text-indigo-600 text-sm">{info.getValue() as number}</div>,
+    },
+    {
+      accessorKey: 'totalPoints',
+      header: 'Total Pts',
+      cell: info => <div className="text-center font-black text-slate-900 text-sm bg-slate-100 rounded px-2 py-0.5 inline-block">{info.getValue() as number}</div>,
     },
     {
       accessorKey: 'curriculumAvg',
@@ -396,11 +407,14 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       let manualPoints = 0;
 
       const topicBestPts = new Map<string, number>();
+      const attendanceBestPts = new Map<string, number>();
+
       resResults
         .filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null)
         .forEach((r: Result & { email?: string | null }) => {
           if (r.topic?.includes('[Attendance]')) {
-            attendancePoints += (r.academic_points || 1);
+            const cur = attendanceBestPts.get(r.topic) || 0;
+            attendanceBestPts.set(r.topic, Math.max(cur, r.academic_points || 1));
           } else if (r.topic?.includes('[Manual]')) {
             manualPoints += (r.academic_points || 0);
           } else {
@@ -411,6 +425,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           }
         });
         
+      attendancePoints = Array.from(attendanceBestPts.values()).reduce((a, b) => a + b, 0);
       const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
 
       Array.from(topicBestPts.entries()).forEach(([topic, pts]) => {
@@ -471,11 +486,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         trendDelta,
       });
 
-      const resAttendance = adminData.attendance?.filter(
-        (a: any) => a.resident_email?.toLowerCase() === resident.email?.toLowerCase() &&
-                    (selectedYear === 0 || a.topic?.includes(`[AY ${selectedYear}]`))
-      ) || [];
-      const totalAttendance = resAttendance.length;
+      const totalAttendance = attendancePoints;
 
       return {
         userId: emailToUserId.get(resident.email?.toLowerCase()) || null,
