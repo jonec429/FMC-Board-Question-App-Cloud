@@ -62,151 +62,177 @@ export default function AttendanceManager() {
     processCSVContent(pasteContent);
   };
 
-  const processCSVContent = (csvString: string) => {
-    Papa.parse(csvString, {
-      header: false,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const data = results.data as string[][];
-        if (data.length === 0) {
-            alert("No data found.");
-            setLoading(false);
-            return;
+  const processCSVContent = async (csvString: string) => {
+    if (!csvString || !csvString.trim()) {
+      alert("No data found.");
+      setLoading(false);
+      return;
+    }
+
+    let data: string[][] = [];
+
+    // Check if input contains HTML table elements (e.g. <table, <tr, <td)
+    const trimmed = csvString.trim();
+    if (/<table|<tr|<td/i.test(trimmed)) {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(trimmed, 'text/html');
+        const rows = Array.from(doc.querySelectorAll('tr'));
+        if (rows.length > 0) {
+          data = rows.map(tr => {
+            const cells = Array.from(tr.querySelectorAll('td, th'));
+            return cells.map(td => td.textContent?.trim() || '');
+          }).filter(row => row.some(cell => cell.length > 0));
         }
+      } catch (e) {
+        console.warn('DOMParser failed, falling back to PapaParse', e);
+      }
+    }
 
-        const newParsedData: any[] = [];
-        const today = new Date().toISOString().split('T')[0];
+    // Fallback to PapaParse if HTML parsing didn't produce data
+    if (data.length === 0) {
+      data = await new Promise<string[][]>((resolve) => {
+        Papa.parse(csvString, {
+          header: false,
+          skipEmptyLines: true,
+          complete: (results) => resolve((results.data as string[][]) || []),
+          error: () => resolve([])
+        });
+      });
+    }
 
-        // Find header row by looking for known columns
-        let headerRowIndex = -1;
-        let format: 'granular' | 'summary' | 'unknown' = 'unknown';
+    if (data.length === 0) {
+      alert("No data found.");
+      setLoading(false);
+      return;
+    }
 
-        for (let i = 0; i < Math.min(10, data.length); i++) {
-           const row = data[i].map(c => c ? c.trim().toLowerCase() : '');
-           if (row.includes('timestamp') && row.includes('resident')) {
-               headerRowIndex = i;
-               format = 'granular';
-               break;
-           } else if (row.includes('person') && row.includes('present')) {
-               headerRowIndex = i;
-               format = 'summary';
-               break;
-           }
-        }
+    const newParsedData: any[] = [];
+    const today = new Date().toISOString().split('T')[0];
 
-        if (format === 'granular') {
-           const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
-           const residentIdx = headers.indexOf('Resident');
-           const emailIdx = headers.indexOf('Email');
-           const dateIdx = headers.indexOf('Conference Date');
-           const topicIdx = headers.indexOf('Topic');
-           const statusIdx = headers.indexOf('Status');
-           const pointsIdx = headers.indexOf('Academic Points');
+    // Find header row by looking for known columns
+    let headerRowIndex = -1;
+    let format: 'granular' | 'summary' | 'unknown' = 'unknown';
 
-           for (let i = headerRowIndex + 1; i < data.length; i++) {
-               const row = data[i];
-               const status = statusIdx >= 0 ? row[statusIdx]?.trim() : '';
-               const points = pointsIdx >= 0 ? parseInt(row[pointsIdx]) || 0 : 0;
+    for (let i = 0; i < Math.min(15, data.length); i++) {
+       const row = data[i].map(c => c ? c.trim().toLowerCase() : '');
+       if (row.includes('timestamp') && row.includes('resident')) {
+           headerRowIndex = i;
+           format = 'granular';
+           break;
+       } else if (row.includes('person') && row.includes('present')) {
+           headerRowIndex = i;
+           format = 'summary';
+           break;
+       }
+    }
+
+    if (format === 'granular') {
+       const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
+       const residentIdx = headers.indexOf('Resident');
+       const emailIdx = headers.indexOf('Email');
+       const dateIdx = headers.indexOf('Conference Date');
+       const topicIdx = headers.indexOf('Topic');
+       const statusIdx = headers.indexOf('Status');
+       const pointsIdx = headers.indexOf('Academic Points');
+
+       for (let i = headerRowIndex + 1; i < data.length; i++) {
+           const row = data[i];
+           const status = statusIdx >= 0 ? row[statusIdx]?.trim() : '';
+           const points = pointsIdx >= 0 ? parseInt(row[pointsIdx]) || 0 : 0;
+           
+           if (status === 'Attended' || points > 0) {
+               const residentName = residentIdx >= 0 ? row[residentIdx]?.trim() : '';
+               const email = emailIdx >= 0 ? row[emailIdx]?.trim() : '';
+               const rawConfDate = dateIdx >= 0 ? row[dateIdx]?.trim() : '';
+               const topic = topicIdx >= 0 ? row[topicIdx]?.trim() : '';
                
-               if (status === 'Attended' || points > 0) {
-                   const residentName = residentIdx >= 0 ? row[residentIdx]?.trim() : '';
-                   const email = emailIdx >= 0 ? row[emailIdx]?.trim() : '';
-                   const rawConfDate = dateIdx >= 0 ? row[dateIdx]?.trim() : '';
-                   const topic = topicIdx >= 0 ? row[topicIdx]?.trim() : '';
-                   
-                   let confDate = today;
-                   if (rawConfDate) {
-                       try {
-                           const parsedDate = new Date(rawConfDate);
-                           if (!isNaN(parsedDate.getTime())) {
-                               confDate = parsedDate.toISOString().split('T')[0];
-                           }
-                       } catch(e) {}
-                   }
+               let confDate = today;
+               if (rawConfDate) {
+                   try {
+                       const parsedDate = new Date(rawConfDate);
+                       if (!isNaN(parsedDate.getTime())) {
+                           confDate = parsedDate.toISOString().split('T')[0];
+                       }
+                   } catch(e) {}
+               }
 
-                   const resident = roster.find(r => 
-                       (email && r.email && email.toLowerCase() === r.email.toLowerCase()) || 
-                       (residentName && r.full_name && r.full_name.toLowerCase() === residentName.toLowerCase()) ||
-                       (residentName && r.full_name && r.full_name.toLowerCase().includes(residentName.toLowerCase()))
-                   );
-                   
+               const resident = roster.find(r => 
+                   (email && r.email && email.toLowerCase() === r.email.toLowerCase()) || 
+                   (residentName && r.full_name && r.full_name.toLowerCase() === residentName.toLowerCase()) ||
+                   (residentName && r.full_name && r.full_name.toLowerCase().includes(residentName.toLowerCase()))
+               );
+               
+               newParsedData.push({
+                   raw: `${residentName} - ${topic || 'Conference'} (${confDate})`,
+                   name: resident?.full_name || residentName,
+                   email: resident?.email || null,
+                   session_date: confDate,
+                   matched: !!resident
+               });
+           }
+       }
+    } 
+    else if (format === 'summary') {
+       const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
+       const personIdx = headers.indexOf('Person');
+       const presentIdx = headers.indexOf('Present');
+
+       for (let i = headerRowIndex + 1; i < data.length; i++) {
+           const row = data[i];
+           const person = personIdx >= 0 ? row[personIdx]?.trim() : '';
+           // Ignore totals rows & header repeats
+           if (!person || person.toLowerCase() === 'totals:' || person.toLowerCase() === 'grand totals' || person.toLowerCase() === 'person') continue;
+
+           const presentCount = presentIdx >= 0 ? parseInt(row[presentIdx]) || 0 : 0;
+           
+           if (presentCount > 0) {
+               const resident = roster.find(r => {
+                  if (!r.full_name || !person) return false;
+                  const parts = person.split(',');
+                  if (parts.length >= 2) {
+                      const last = parts[0].trim().toLowerCase();
+                      const first = parts[1].trim().toLowerCase().split(' ')[0];
+                      const rName = r.full_name.toLowerCase();
+                      return rName.includes(last) && rName.includes(first);
+                  }
+                  return r.full_name.toLowerCase().includes(person.toLowerCase());
+               });
+               
+               for(let j=0; j < presentCount; j++) {
                    newParsedData.push({
-                       raw: `${residentName} - ${topic || 'Conference'} (${confDate})`,
-                       name: resident?.full_name || residentName,
+                       raw: `${person} (Credit ${j+1}/${presentCount})`,
+                       name: resident?.full_name || person,
                        email: resident?.email || null,
-                       session_date: confDate,
+                       session_date: today,
                        matched: !!resident
                    });
                }
            }
-        } 
-        else if (format === 'summary') {
-           const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
-           const personIdx = headers.indexOf('Person');
-           const presentIdx = headers.indexOf('Present');
-
-           for (let i = headerRowIndex + 1; i < data.length; i++) {
-               const row = data[i];
-               const person = personIdx >= 0 ? row[personIdx]?.trim() : '';
-               // Ignore totals rows
-               if (!person || person.toLowerCase() === 'totals:' || person.toLowerCase() === 'grand totals') continue;
-
-               const presentCount = presentIdx >= 0 ? parseInt(row[presentIdx]) || 0 : 0;
-               
-               if (presentCount > 0) {
-                   const resident = roster.find(r => {
-                      if (!r.full_name || !person) return false;
-                      const parts = person.split(',');
-                      if (parts.length >= 2) {
-                          const last = parts[0].trim().toLowerCase();
-                          const first = parts[1].trim().toLowerCase().split(' ')[0];
-                          const rName = r.full_name.toLowerCase();
-                          return rName.includes(last) && rName.includes(first);
-                      }
-                      return r.full_name.toLowerCase().includes(person.toLowerCase());
-                   });
-                   
-                   for(let j=0; j < presentCount; j++) {
-                       newParsedData.push({
-                           raw: `${person} (Credit ${j+1}/${presentCount})`,
-                           name: resident?.full_name || person,
-                           email: resident?.email || null,
-                           session_date: today,
-                           matched: !!resident
-                       });
-                   }
-               }
-           }
-        } 
-        else {
-           // Fallback unstructured
-           const rawItems = csvString.split(/[\n,]+/).map(i => i.trim()).filter(Boolean);
-           rawItems.forEach(item => {
-              const lowerItem = item.toLowerCase();
-              const resident = roster.find(r => 
-                (r.email && lowerItem.includes(r.email.toLowerCase())) || 
-                (r.full_name && r.full_name.toLowerCase().includes(lowerItem)) ||
-                (r.full_name && lowerItem.includes(r.full_name.toLowerCase()))
-              );
-              newParsedData.push({
-                raw: item,
-                name: resident?.full_name || item,
-                email: resident?.email || null,
-                session_date: today,
-                matched: !!resident
-              });
-           });
-        }
-        
-        setParsedData(newParsedData);
-        setLoading(false);
-      },
-      error: (error) => {
-         console.error('Papaparse error:', error);
-         alert("Error parsing CSV");
-         setLoading(false);
-      }
-    });
+       }
+    } 
+    else {
+       // Fallback unstructured
+       const rawItems = csvString.split(/[\n,]+/).map(i => i.trim()).filter(Boolean);
+       rawItems.forEach(item => {
+          const lowerItem = item.toLowerCase();
+          const resident = roster.find(r => 
+            (r.email && lowerItem.includes(r.email.toLowerCase())) || 
+            (r.full_name && r.full_name.toLowerCase().includes(lowerItem)) ||
+            (r.full_name && lowerItem.includes(r.full_name.toLowerCase()))
+          );
+          newParsedData.push({
+            raw: item,
+            name: resident?.full_name || item,
+            email: resident?.email || null,
+            session_date: today,
+            matched: !!resident
+          });
+       });
+    }
+    
+    setParsedData(newParsedData);
+    setLoading(false);
   };
 
   const saveAttendance = async () => {
@@ -320,13 +346,13 @@ export default function AttendanceManager() {
               <label className="block w-full p-6 border-2 border-dashed border-blue-200 rounded-2xl flex flex-col items-center justify-center bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer group">
                 <input 
                   type="file" 
-                  accept=".csv"
+                  accept=".csv,.html,.txt"
                   className="hidden"
                   onChange={handleFileUpload} 
                 />
                 <Database className="w-8 h-8 text-blue-400 group-hover:text-blue-500 mb-2 transition-colors" />
-                <span className="font-bold text-blue-700">Select a CSV File</span>
-                <span className="text-xs text-blue-500 mt-1 font-medium">Auto-parses summary or granular exports</span>
+                <span className="font-bold text-blue-700">Select an Export File</span>
+                <span className="text-xs text-blue-500 mt-1 font-medium">Supports CSV, HTML, or raw text exports</span>
               </label>
             </div>
 
