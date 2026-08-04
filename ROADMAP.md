@@ -311,6 +311,10 @@ This file serves as the shared source of truth for development progress between 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-08-04 — Manual Attendance Point Award & Custom Description (Antigravity)
+*   **Manual Point Award Form:** Added a dedicated "Manual Point Award" tab inside Attendance Center (`AttendanceManager.tsx`), allowing admins to directly select any resident from the roster and award customized attendance points for a specific block and date.
+*   **Optional Description / Note Field:** Includes an optional description text field (e.g. *"Simulation Lab Makeup"*, *"Chief Award"*) that is logged alongside the attendance credit in the resident's point history.
+
 ### 2026-08-04 — HTML Table Ingestion for New Innovations Attendance (Antigravity)
 *   **HTML Attendance Export Support:** Updated the bulk attendance engine (`AttendanceManager.tsx`) with an automated `DOMParser` preprocessor. Admins can now directly paste or upload raw HTML table exports from New Innovations (containing `<table>`, `<tr>`, and `<td>` tags).
 *   **Precision Credit Calculation:** Automatically strips HTML formatting, identifies `Person` and `Present` columns, filters out total summary rows, and matches resident names against the roster to award exact attendance credits.
