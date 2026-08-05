@@ -365,14 +365,19 @@ export default function AttendanceManager() {
 
     setSaving(true);
     
-    const validEntries = parsedData.filter(p => p.matched).map(p => ({
-      resident_email: p.email,
-      resident_name: p.name,
-      date: p.session_date,
-      status: 'Attended',
-      points: 1,
-      topic: `[AY ${selectedYear}] Block: ${targetBlock.title}`
-    }));
+    const validEntries = parsedData.filter(p => p.matched).map(p => {
+      const topicString = p.topic_suffix 
+        ? `[AY ${selectedYear}] Block: ${targetBlock.title} - ${p.topic_suffix}`
+        : `[AY ${selectedYear}] Block: ${targetBlock.title}`;
+      return {
+        resident_email: p.email,
+        resident_name: p.name,
+        date: p.session_date,
+        status: 'Attended',
+        points: 1,
+        topic: topicString
+      };
+    });
 
     if (validEntries.length === 0) {
       alert("No matched residents to save.");
