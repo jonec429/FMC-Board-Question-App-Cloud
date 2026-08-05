@@ -169,20 +169,23 @@ export default function AttendanceManager() {
     const newParsedData: any[] = [];
     const today = new Date().toISOString().split('T')[0];
 
-    // Find header row by looking for known columns
+    // Find header row by looking for known columns. Scan deeper to prioritize granular over summary.
     let headerRowIndex = -1;
-    let format: 'granular' | 'summary' | 'unknown' = 'unknown';
+    let format: 'granular' | 'summary' | 'ni_granular' | 'unknown' = 'unknown';
 
-    for (let i = 0; i < Math.min(15, data.length); i++) {
+    for (let i = 0; i < Math.min(100, data.length); i++) {
        const row = data[i].map(c => c ? c.trim().toLowerCase() : '');
-       if (row.includes('timestamp') && row.includes('resident')) {
+       if (row.includes('person') && row.includes('conference') && row.includes('date')) {
+           headerRowIndex = i;
+           format = 'ni_granular';
+           break;
+       } else if (row.includes('timestamp') && row.includes('resident')) {
            headerRowIndex = i;
            format = 'granular';
            break;
-       } else if (row.includes('person') && row.includes('present')) {
+       } else if (row.includes('person') && row.includes('present') && format === 'unknown') {
            headerRowIndex = i;
            format = 'summary';
-           break;
        }
     }
 
@@ -227,11 +230,68 @@ export default function AttendanceManager() {
                    name: resident?.full_name || residentName,
                    email: resident?.email || null,
                    session_date: confDate,
+                   topic_suffix: topic,
                    matched: !!resident
                });
            }
        }
     } 
+    else if (format === 'ni_granular') {
+       const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
+       const personIdx = headers.indexOf('Person');
+       const confIdx = headers.indexOf('Conference');
+       const dateIdx = headers.indexOf('Date');
+       const presentIdx = headers.indexOf('Present');
+
+       for (let i = headerRowIndex + 1; i < data.length; i++) {
+           const row = data[i];
+           const person = personIdx >= 0 ? row[personIdx]?.trim() : '';
+           const conf = confIdx >= 0 ? row[confIdx]?.trim() : '';
+           const rawDate = dateIdx >= 0 ? row[dateIdx]?.trim() : '';
+           const present = presentIdx >= 0 ? row[presentIdx]?.trim().toLowerCase() : '';
+
+           if (!person || person === 'Totals:' || person.toLowerCase() === 'grand totals') continue;
+
+           if (present === 'true' || present === '1' || present === 'yes' || present === 't') {
+               const resident = roster.find(r => {
+                  if (!r.full_name || !person) return false;
+                  const parts = person.split(',');
+                  if (parts.length >= 2) {
+                      const last = parts[0].trim().toLowerCase();
+                      const first = parts[1].trim().toLowerCase().split(' ')[0];
+                      const rName = r.full_name.toLowerCase();
+                      return rName.includes(last) && rName.includes(first);
+                  }
+                  return r.full_name.toLowerCase().includes(person.toLowerCase());
+               });
+
+               let confDate = today;
+               if (rawDate) {
+                   try {
+                       const parsedDate = new Date(rawDate);
+                       if (!isNaN(parsedDate.getTime())) {
+                           confDate = parsedDate.toISOString().split('T')[0];
+                       }
+                   } catch(e) {}
+               }
+
+               let topicName = conf;
+               const separator = ':: ';
+               if (conf.includes(separator)) {
+                   topicName = conf.split(separator).pop()?.trim() || conf;
+               }
+
+               newParsedData.push({
+                   raw: `${person} - ${topicName} (${confDate})`,
+                   name: resident?.full_name || person,
+                   email: resident?.email || null,
+                   session_date: confDate,
+                   topic_suffix: topicName,
+                   matched: !!resident
+               });
+           }
+       }
+    }
     else if (format === 'summary') {
        const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
        const personIdx = headers.indexOf('Person');
@@ -264,6 +324,7 @@ export default function AttendanceManager() {
                        name: resident?.full_name || person,
                        email: resident?.email || null,
                        session_date: today,
+                       topic_suffix: '',
                        matched: !!resident
                    });
                }
