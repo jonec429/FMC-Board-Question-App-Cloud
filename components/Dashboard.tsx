@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName, withTimeout } from '@/lib/utils';
-import { canAccessAdmin } from '@/lib/roles';
+import { canAccessAdmin, getUserRole } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, BookOpen, Gem, CheckCircle, ChevronRight,
@@ -41,6 +41,7 @@ export interface LeaderboardEntry {
 export default function Dashboard({ user, profile, isActive = true, currentBlock, onOpenAdmin, onLogout, onStartQuiz, onOpenBuilder, onProfileUpdate }: DashboardProps) {
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
+  const effectiveRole = getUserRole(user, profile);
 
   // Default to 0 ("All Time / YoY Trend") as requested, since cumulative APs are the primary goal
   const [selectedYear, setSelectedYear] = useState<number>(0);
@@ -521,7 +522,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           )}
 
           {/* Active Block Advisor Meeting Self-Check */}
-          {currentBlock && profile?.role !== 'faculty' && profile?.role !== 'admin' && (
+          {currentBlock && effectiveRole !== 'faculty' && effectiveRole !== 'admin' && (
             <div className="mb-8 relative overflow-hidden bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
               <div className="flex items-start md:items-center justify-between gap-4 flex-col md:flex-row">
                 <div className="flex items-center gap-3">

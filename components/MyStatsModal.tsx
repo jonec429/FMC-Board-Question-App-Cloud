@@ -54,6 +54,8 @@ export default function MyStatsModal({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
 
+  const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
+
   // Filter missed questions by the selected topic
   const displayedMissedQuestions = selectedTopic 
     ? missedQuestions.filter(q => q.category === selectedTopic)
@@ -452,46 +454,86 @@ export default function MyStatsModal({
 
               {/* History */}
               <div>
-                <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Assessment History</h3>
-                {myResults.length > 0 ? (
-                  <div className="space-y-2">
-                    {myResults.map((r, i) => {
-                      const pts = r.academic_points || 0;
-                      const timingEmoji = r.timing_status === 'Early' ? '🚀'
-                        : r.timing_status === 'On Time' ? '✅'
-                        : r.timing_status === 'Late' ? '⏰'
-                        : r.timing_status === 'Manual' ? '✨'
-                        : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'
-                        : pts === 1 ? '⏰'
-                        : pts >= 2 ? '⚡'
-                        : '—');
-                      return (
-                        <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
-                            <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
-                              {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
-                              {timingEmoji && <span className="ml-2">{timingEmoji}</span>}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]') ? (
-                              <span className="w-8 h-6 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center" title="Attendance/Manual Credit">
-                                <Check className="w-3.5 h-3.5" />
-                              </span>
-                            ) : (
-                              <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                                {(r.percentage || 0).toFixed(1)}%
-                              </span>
-                            )}
-                            <span className="text-[10px] font-bold text-slate-400">{pts}pt</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                <div className="flex bg-slate-100/50 p-1 rounded-2xl mb-4">
+                  <button 
+                    onClick={() => setActiveListTab('questions')}
+                    className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    Questions
+                  </button>
+                  <button 
+                    onClick={() => setActiveListTab('attendance')}
+                    className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    Attendance
+                  </button>
+                </div>
+
+                {activeListTab === 'questions' ? (
+                  <>
+                    {myResults.filter(r => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]')).length > 0 ? (
+                      <div className="space-y-2">
+                        {myResults.filter(r => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]')).map((r, i) => {
+                          const pts = r.academic_points || 0;
+                          const timingEmoji = r.timing_status === 'Early' ? '🚀'
+                            : r.timing_status === 'On Time' ? '✅'
+                            : r.timing_status === 'Late' ? '⏰'
+                            : r.timing_status === 'Manual' ? '✨'
+                            : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'
+                            : pts === 1 ? '⏰'
+                            : pts >= 2 ? '⚡'
+                            : '—');
+                          return (
+                            <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
+                                <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
+                                  {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+                                  {timingEmoji && <span className="ml-2">{timingEmoji}</span>}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                  {(r.percentage || 0).toFixed(1)}%
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">{pts}pt</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-center py-8 text-slate-400 text-sm italic">No assessments completed yet.</p>
+                    )}
+                  </>
                 ) : (
-                  <p className="text-center py-8 text-slate-400 text-sm italic">No assessments completed yet.</p>
+                  <>
+                    {myResults.filter(r => r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]')).length > 0 ? (
+                      <div className="space-y-2">
+                        {myResults.filter(r => r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]')).map((r, i) => {
+                          const pts = r.academic_points || 0;
+                          return (
+                            <div key={i} className="flex items-center justify-between p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
+                                <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
+                                  {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : 'Noon Conference Attendance'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="w-8 h-6 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center" title="Attendance/Manual Credit">
+                                  <Check className="w-3.5 h-3.5" />
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">{pts}pt</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-center py-8 text-slate-400 text-sm italic">No attendance recorded.</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>

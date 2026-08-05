@@ -92,6 +92,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
   const [reviewItems, setReviewItems] = useState<any[] | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
+  
+  const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
 
   const openReview = async (r: any) => {
     setSelectedQuiz(r);
@@ -1103,95 +1105,133 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 const assigned = selectedResident.results.filter(r => (r.academic_points || 0) > 0 || r.timing_status != null);
                 const custom = selectedResident.results.filter(r => (!r.academic_points || r.academic_points === 0) && r.timing_status == null);
 
+                const assignedQuizzes = assigned.filter(r => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+                const customQuizzes = custom.filter(r => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+                const attendanceRecords = assigned.filter(r => r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]'));
+
                 return (
                   <>
-                    <div>
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Core Curriculum ({assigned.length})</h3>
-                      {assigned.length > 0 ? (
-                        <div className="space-y-3">
-                          {assigned.map((r: Result & { email?: string | null, review_data?: any }, i: number) => {
-                            const pts = r.academic_points || 0;
-                            const timingLabel = r.timing_status === 'Early' ? '🚀 Early'
-                              : r.timing_status === 'On Time' ? '✅ On Time'
-                              : r.timing_status === 'Late' ? '⏰ Late'
-                              : r.timing_status === 'Manual' ? '✨ Manual'
-                              : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
-                              : pts === 1 ? '⏰ Late'
-                              : pts >= 2 ? '⚡ Bonus'
-                              : '—');
-                            
-                            const blockAttendance = adminData.attendance?.filter(a => 
-                              a.resident_email?.toLowerCase() === selectedResident.email?.toLowerCase() &&
-                              a.topic?.includes(`Block: ${r.topic}`) &&
-                              (selectedYear === 0 || a.topic?.includes(`[AY ${selectedYear}]`))
-                            ).length || 0;
+                    <div className="flex bg-slate-100/50 p-1 rounded-2xl mb-6">
+                      <button 
+                        onClick={() => setActiveListTab('questions')}
+                        className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                      >
+                        Questions
+                      </button>
+                      <button 
+                        onClick={() => setActiveListTab('attendance')}
+                        className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                      >
+                        Attendance
+                      </button>
+                    </div>
 
-                            return (
-                              <button key={`curr-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50 group">
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-bold text-slate-800 text-sm truncate">{formatTopicDisplay(r.topic)}</p>
-                                  <p className="text-xs font-bold text-slate-400 mt-0.5">
-                                    {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
-                                    {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0">
-                                  {r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]') ? (
-                                    <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center" title="Attendance/Manual Credit">
-                                      <Check className="w-4 h-4" />
-                                    </span>
-                                  ) : (
+                    {activeListTab === 'questions' ? (
+                      <>
+                        <div className="mb-8">
+                          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Core Curriculum ({assignedQuizzes.length})</h3>
+                          {assignedQuizzes.length > 0 ? (
+                            <div className="space-y-3">
+                              {assignedQuizzes.map((r: Result & { email?: string | null, review_data?: any }, i: number) => {
+                                const pts = r.academic_points || 0;
+                                const timingLabel = r.timing_status === 'Early' ? '🚀 Early'
+                                  : r.timing_status === 'On Time' ? '✅ On Time'
+                                  : r.timing_status === 'Late' ? '⏰ Late'
+                                  : r.timing_status === 'Manual' ? '✨ Manual'
+                                  : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅ On Time'
+                                  : pts === 1 ? '⏰ Late'
+                                  : pts >= 2 ? '⚡ Bonus'
+                                  : '—');
+                                
+                                const blockAttendance = adminData.attendance?.filter(a => 
+                                  a.resident_email?.toLowerCase() === selectedResident.email?.toLowerCase() &&
+                                  a.topic?.includes(`Block: ${r.topic}`) &&
+                                  (selectedYear === 0 || a.topic?.includes(`[AY ${selectedYear}]`))
+                                ).length || 0;
+
+                                return (
+                                  <button key={`curr-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50 group">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-bold text-slate-800 text-sm truncate">{formatTopicDisplay(r.topic)}</p>
+                                      <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                        {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
+                                        {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                      <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                        {(r.percentage || 0).toFixed(1)}%
+                                      </span>
+                                      {blockAttendance > 0 && (
+                                        <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg w-12 text-center">{blockAttendance} Att</span>
+                                      )}
+                                      <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No curriculum recorded for this year.</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Independent Study ({customQuizzes.length})</h3>
+                          {customQuizzes.length > 0 ? (
+                            <div className="space-y-3">
+                              {customQuizzes.map((r: Result & { email?: string | null, review_data?: any }, i: number) => (
+                                <button key={`ind-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 transition-all border border-indigo-50/50 group">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-slate-800 text-sm truncate">{r.topic}</p>
+                                    <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                      {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
+                                      {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0">
                                     <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
                                       {(r.percentage || 0).toFixed(1)}%
                                     </span>
-                                  )}
-                                  {blockAttendance > 0 && (
-                                    <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg w-12 text-center">{blockAttendance} Att</span>
-                                  )}
-                                  <span className="text-xs font-bold text-slate-400 w-12 text-right">{pts} pt{pts !== 1 ? 's' : ''}</span>
-                                  <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <ChevronRight className="w-4 h-4 text-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No independent study recorded.</p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <h3 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-4">Attendance & Manual Credit ({attendanceRecords.length})</h3>
+                        {attendanceRecords.length > 0 ? (
+                          <div className="space-y-3">
+                            {attendanceRecords.map((r: Result & { email?: string | null, review_data?: any }, i: number) => {
+                              const pts = r.academic_points || 0;
+                              return (
+                                <div key={`att-${i}`} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-emerald-50/30 border border-emerald-100/50">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-slate-800 text-sm truncate">{formatTopicDisplay(r.topic)}</p>
+                                    <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                      {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : 'Noon Conference Attendance'}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-3 shrink-0">
+                                    <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center" title="Attendance/Manual Credit">
+                                      <Check className="w-4 h-4 mr-1" /> {pts} pt{pts !== 1 ? 's' : ''}
+                                    </span>
+                                  </div>
                                 </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No curriculum blocks completed.</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Independent Study ({custom.length})</h3>
-                      {custom.length > 0 ? (
-                        <div className="space-y-3">
-                          {custom.map((r: Result & { email?: string | null, review_data?: any }, i: number) => (
-                            <button key={`ind-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 transition-all border border-indigo-50/50 group">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-bold text-slate-800 text-sm truncate">{r.topic}</p>
-                                <p className="text-xs font-bold text-slate-400 mt-0.5">
-                                  {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
-                                  {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                {r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]') ? (
-                                  <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center" title="Attendance/Manual Credit">
-                                    <Check className="w-4 h-4" />
-                                  </span>
-                                ) : (
-                                  <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
-                                    {(r.percentage || 0).toFixed(1)}%
-                                  </span>
-                                )}
-                                <ChevronRight className="w-4 h-4 text-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No independent study recorded.</p>
-                      )}
-                    </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No attendance recorded.</p>
+                        )}
+                      </div>
+                    )}
                   </>
                 );
               })()}
