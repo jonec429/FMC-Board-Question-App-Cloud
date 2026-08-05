@@ -446,16 +446,19 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         ? (onTimeBlocks.length / nonBonusBlocks.length) * 100
         : 100;
 
-      const curriculumAvg = assignedResults.length > 0
-        ? assignedResults.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / assignedResults.length
+      const curriculumQuizzes = assignedResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+      const curriculumAvg = curriculumQuizzes.length > 0
+        ? curriculumQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / curriculumQuizzes.length
         : 0;
 
-      const independentAvg = independentResults.length > 0
-        ? independentResults.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / independentResults.length
+      const independentQuizzes = independentResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+      const independentAvg = independentQuizzes.length > 0
+        ? independentQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / independentQuizzes.length
         : null;
 
-      const overallAvg = resResults.length > 0
-        ? resResults.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / resResults.length
+      const resQuizzes = resResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+      const overallAvg = resQuizzes.length > 0
+        ? resQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / resQuizzes.length
         : 0;
 
       // Early-warning: past-due blocks this resident hasn't completed.
