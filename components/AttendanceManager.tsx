@@ -558,7 +558,7 @@ export default function AttendanceManager() {
                 <label className="block w-full p-6 border-2 border-dashed border-blue-200 rounded-2xl flex flex-col items-center justify-center bg-blue-50/50 hover:bg-blue-50 transition-colors cursor-pointer group">
                   <input 
                     type="file" 
-                    accept=".csv,.html,.txt"
+                    accept=".csv,.html,.txt,.xls,.xlsx"
                     className="hidden"
                     onChange={handleFileUpload} 
                   />
