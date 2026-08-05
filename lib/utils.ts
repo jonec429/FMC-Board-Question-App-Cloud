@@ -95,8 +95,14 @@ export function formatTopicDisplay(topic?: string | null): string {
   if (!topic) return '';
 
   if (topic.includes('[Attendance]') || topic.includes('[Manual]')) {
-    const ayMatch = topic.match(/\[(AY\s+\d+)\]/i);
-    const ay = ayMatch ? ayMatch[1] : '';
+    const ayMatch = topic.match(/\[AY\s+(\d+)\]/i);
+    let ay = '';
+    if (ayMatch && ayMatch[1]) {
+      const year = parseInt(ayMatch[1], 10);
+      const start = (year - 1).toString().slice(-2);
+      const end = year.toString().slice(-2);
+      ay = `AY${start}${end}`;
+    }
 
     const blockMatch = topic.match(/(Block\s+\d+)/i);
     const blockNum = blockMatch ? blockMatch[1] : '';
