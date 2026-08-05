@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { withTimeout, formatDisplayName } from '@/lib/utils';
+import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
 import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save } from './AppIcons';
 import { LeaderboardEntry } from '@/lib/types';
 import QuizReview from './QuizReview';
@@ -428,7 +428,7 @@ export default function MyStatsModal({
                     {topicAverages.map(({ topic, avg, attempts, qs }) => (
                       <div key={topic} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-xs text-slate-800 truncate">{topic}</p>
+                          <p className="font-bold text-xs text-slate-800 truncate">{formatTopicDisplay(topic)}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
                         </div>
                         <div className="w-32 shrink-0">
@@ -468,8 +468,8 @@ export default function MyStatsModal({
                       return (
                         <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                           <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm text-slate-800 truncate">{r.topic}</p>
-                            <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                            <p className="font-bold text-sm text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
+                            <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
                               {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
                               {timingEmoji && <span className="ml-2">{timingEmoji}</span>}
                             </p>
@@ -503,7 +503,7 @@ export default function MyStatsModal({
                   </button>
                   <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
                     <div>
-                      <h3 className="font-black text-slate-800">{selectedQuiz.topic}</h3>
+                      <h3 className="font-black text-slate-800">{formatTopicDisplay(selectedQuiz.topic)}</h3>
                       <p className="text-xs font-bold text-slate-400 mt-1">
                         {selectedQuiz.created_at ? new Date(selectedQuiz.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
                         {selectedQuiz.percentage != null ? ` · ${Number(selectedQuiz.percentage).toFixed(1)}%` : ''}
@@ -539,7 +539,7 @@ export default function MyStatsModal({
                       className="w-full text-left p-4 bg-white border border-slate-100 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-300 hover:shadow-sm transition-all"
                     >
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-800 truncate">{r.topic}</p>
+                        <p className="font-bold text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
                         <p className="text-xs font-bold text-slate-400 mt-0.5">
                           {r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                           {r.percentage != null ? ` · ${Number(r.percentage).toFixed(1)}%` : ''}

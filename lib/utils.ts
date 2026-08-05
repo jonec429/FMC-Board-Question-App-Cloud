@@ -83,3 +83,23 @@ export async function withRetry<T>(
   }
 }
 
+/**
+ * Strips out system-level prefixes from a topic name for clean UI display.
+ * E.g., "[Attendance] [AY 2027] Block: Block 1: Annual Topics - Myers-Briggs"
+ * becomes "Myers-Briggs".
+ * 
+ * @param topic - The raw topic string
+ * @returns The cleaned topic string suitable for display
+ */
+export function formatTopicDisplay(topic?: string | null): string {
+  if (!topic) return '';
+  // Try to match the suffix after the hyphen
+  const match = topic.match(/^\[(?:Attendance|Manual)\]\s*(?:\[AY \d+\]\s*)?Block:\s*.*?\s*-\s*(.*)$/i);
+  if (match && match[1]) return match[1];
+  
+  // If no hyphen, try to match just the block name by stripping the prefixes
+  const matchGeneric = topic.match(/^\[(?:Attendance|Manual)\]\s*(?:\[AY \d+\]\s*)?Block:\s*(.*)$/i);
+  if (matchGeneric && matchGeneric[1]) return matchGeneric[1];
+  
+  return topic;
+}

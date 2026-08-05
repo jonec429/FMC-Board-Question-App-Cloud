@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { formatDisplayName, formatLastNameFirst } from '@/lib/utils';
+import { formatDisplayName, formatLastNameFirst, formatTopicDisplay } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
@@ -1082,7 +1082,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     <button onClick={() => setSelectedQuiz(null)} className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors">
                       <ChevronLeft className="w-4 h-4" /> Back to Performance
                     </button>
-                    <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">{selectedQuiz.topic}</span>
+                    <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">{formatTopicDisplay(selectedQuiz.topic)}</span>
                   </div>
                   
                   {loadingReview ? (
@@ -1126,7 +1126,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                             return (
                               <button key={`curr-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50 group">
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-bold text-slate-800 text-sm truncate">{r.topic}</p>
+                                  <p className="font-bold text-slate-800 text-sm truncate">{formatTopicDisplay(r.topic)}</p>
                                   <p className="text-xs font-bold text-slate-400 mt-0.5">
                                     {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
                                     {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
