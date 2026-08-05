@@ -517,7 +517,7 @@ export default function MyStatsModal({
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-sm text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
                                 <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
-                                  {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : 'Noon Conference Attendance'}
+                                  {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : r.topic?.toLowerCase().includes('advisor meeting') ? '🗣️ Advisor Meeting' : 'Noon Conference Attendance'}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
