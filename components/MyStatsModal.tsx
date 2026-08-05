@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
-import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save } from './AppIcons';
+import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save, Check } from './AppIcons';
 import { LeaderboardEntry } from '@/lib/types';
 import QuizReview from './QuizReview';
 import { exportIncorrectToAnki, downloadCsv } from '@/lib/anki';
@@ -475,9 +475,15 @@ export default function MyStatsModal({
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                              {(r.percentage || 0).toFixed(1)}%
-                            </span>
+                            {r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]') ? (
+                              <span className="w-8 h-6 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center" title="Attendance/Manual Credit">
+                                <Check className="w-3.5 h-3.5" />
+                              </span>
+                            ) : (
+                              <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                {(r.percentage || 0).toFixed(1)}%
+                              </span>
+                            )}
                             <span className="text-[10px] font-bold text-slate-400">{pts}pt</span>
                           </div>
                         </div>

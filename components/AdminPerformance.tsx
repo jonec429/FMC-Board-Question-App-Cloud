@@ -1133,9 +1133,15 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-3 shrink-0">
-                                  <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
-                                    {(r.percentage || 0).toFixed(1)}%
-                                  </span>
+                                  {r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]') ? (
+                                    <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center" title="Attendance/Manual Credit">
+                                      <Check className="w-4 h-4" />
+                                    </span>
+                                  ) : (
+                                    <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                      {(r.percentage || 0).toFixed(1)}%
+                                    </span>
+                                  )}
                                   {blockAttendance > 0 && (
                                     <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg w-12 text-center">{blockAttendance} Att</span>
                                   )}
@@ -1165,9 +1171,15 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                 </p>
                               </div>
                               <div className="flex items-center gap-3 shrink-0">
-                                <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
-                                  {(r.percentage || 0).toFixed(1)}%
-                                </span>
+                                {r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]') ? (
+                                  <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center" title="Attendance/Manual Credit">
+                                    <Check className="w-4 h-4" />
+                                  </span>
+                                ) : (
+                                  <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                    {(r.percentage || 0).toFixed(1)}%
+                                  </span>
+                                )}
                                 <ChevronRight className="w-4 h-4 text-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
                             </button>
