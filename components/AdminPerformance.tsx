@@ -6,7 +6,7 @@ import { formatDisplayName, formatLastNameFirst, formatTopicDisplay } from '@/li
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
-import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search } from './AppIcons';
+import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
 import RiskLegend from './RiskLegend';
 import QuizReview from './QuizReview';
