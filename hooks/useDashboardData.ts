@@ -75,7 +75,8 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         { data: allResults, error: allResultsErr },
         { data: rosterData, error: rosterErr },
         { data: qotdAttemptData, error: qotdAttemptErr },
-        { data: qotdHistoryData }
+        { data: qotdHistoryData },
+        { data: attendanceData }
       ] = (await Promise.all([
         selectedYear === 0
           ? supabase
@@ -114,6 +115,11 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           .select('created_at')
           .eq('user_id', userId)
           .eq('is_qotd', true)
+          .abortSignal(signal),
+        supabase
+          .from('attendance')
+          .select('date, topic')
+          .ilike('resident_email', userEmail)
           .abortSignal(signal)
       ])) as any[];
 
@@ -125,7 +131,19 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
       
       // Process results
       const hasTakenDemo = resultsData ? resultsData.some((r: any) => r.topic?.toLowerCase().includes('demo')) : false;
-      const myResults = resultsData ? resultsData.filter((r: any) => !r.topic?.toLowerCase().includes('demo')) : [];
+      let myResults = resultsData ? resultsData.filter((r: any) => !r.topic?.toLowerCase().includes('demo')) : [];
+
+      if (attendanceData && attendanceData.length > 0) {
+        myResults = myResults.map((r: any) => {
+          if (r.topic?.includes('[Attendance]')) {
+            const att = attendanceData.find((a: any) => a.topic && r.topic?.includes(a.topic));
+            if (att && att.date) {
+              return { ...r, attendance_date: att.date };
+            }
+          }
+          return r;
+        });
+      }
 
       // Process badges
       const userBadges = badgesData ? badgesData.map((b: any) => ({ ...b.badges, earned_at: b.earned_at })) : [];

@@ -1215,7 +1215,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                   <div className="flex-1 min-w-0">
                                     <p className="font-bold text-slate-800 text-sm truncate">{formatTopicDisplay(r.topic)}</p>
                                     <p className="text-xs font-bold text-slate-400 mt-0.5">
-                                      {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : r.topic?.toLowerCase().includes('advisor meeting') ? '🗣️ Advisor Meeting' : 'Noon Conference Attendance'}
+                                      {(() => {
+                                        const att = adminData.attendance?.find(a => a.resident_email === selectedResident.email && a.topic && r.topic?.includes(a.topic));
+                                        return att?.date ? new Date(att.date + 'T12:00:00').toLocaleDateString() : (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—');
+                                      })()} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : r.topic?.toLowerCase().includes('advisor meeting') ? '🗣️ Advisor Meeting' : 'Noon Conference Attendance'}
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-3 shrink-0">
