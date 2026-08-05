@@ -86,20 +86,32 @@ export async function withRetry<T>(
 /**
  * Strips out system-level prefixes from a topic name for clean UI display.
  * E.g., "[Attendance] [AY 2027] Block: Block 1: Annual Topics - Myers-Briggs"
- * becomes "Myers-Briggs".
+ * becomes "AY 2027 Block 1: Myers-Briggs".
  * 
  * @param topic - The raw topic string
  * @returns The cleaned topic string suitable for display
  */
 export function formatTopicDisplay(topic?: string | null): string {
   if (!topic) return '';
-  // Try to match the suffix after the hyphen
-  const match = topic.match(/^\[(?:Attendance|Manual)\]\s*(?:\[AY \d+\]\s*)?Block:\s*.*?\s*-\s*(.*)$/i);
-  if (match && match[1]) return match[1];
-  
-  // If no hyphen, try to match just the block name by stripping the prefixes
-  const matchGeneric = topic.match(/^\[(?:Attendance|Manual)\]\s*(?:\[AY \d+\]\s*)?Block:\s*(.*)$/i);
-  if (matchGeneric && matchGeneric[1]) return matchGeneric[1];
+
+  if (topic.includes('[Attendance]') || topic.includes('[Manual]')) {
+    const ayMatch = topic.match(/\[(AY\s+\d+)\]/i);
+    const ay = ayMatch ? ayMatch[1] : '';
+
+    const blockMatch = topic.match(/(Block\s+\d+)/i);
+    const blockNum = blockMatch ? blockMatch[1] : '';
+
+    const parts = topic.split(' - ');
+    if (parts.length > 1) {
+      const lectureTopic = parts[parts.length - 1].trim();
+      const prefix = [ay, blockNum].filter(Boolean).join(' ');
+      return prefix ? `${prefix}: ${lectureTopic}` : lectureTopic;
+    } else {
+      const genericMatch = topic.match(/^\[(?:Attendance|Manual)\]\s*(?:\[AY \d+\]\s*)?Block:\s*(.*)$/i);
+      const lectureTopic = genericMatch ? genericMatch[1] : topic.replace(/^\[(?:Attendance|Manual)\]\s*/i, '');
+      return ay ? `${ay} ${lectureTopic}` : lectureTopic;
+    }
+  }
   
   return topic;
 }
