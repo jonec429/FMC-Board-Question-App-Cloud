@@ -26,6 +26,7 @@ export interface LeaderboardEntry {
   pgy: string;
   totalPoints: number;
   totalQs: number;
+  yoyStats?: Record<number, number>;
 }
 
 export interface AdminData {

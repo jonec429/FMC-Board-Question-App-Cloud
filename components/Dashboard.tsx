@@ -14,6 +14,7 @@ import MyStatsModal from './MyStatsModal';
 import AchievementsModal from './AchievementsModal';
 import InstallAppModal from './InstallAppModal';
 import QotdHistoryModal from './QotdHistoryModal';
+import ClassYoyModal from './ClassYoyModal';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -36,6 +37,7 @@ export interface LeaderboardEntry {
   pgy: string;
   totalPoints: number;
   totalQs: number;
+  yoyStats?: Record<number, number>;
 }
 
 export default function Dashboard({ user, profile, isActive = true, currentBlock, onOpenAdmin, onLogout, onStartQuiz, onOpenBuilder, onProfileUpdate }: DashboardProps) {
@@ -43,10 +45,11 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const isSuperAdmin = canAccessAdmin(user, profile);
   const effectiveRole = getUserRole(user, profile);
 
-  // Default to 0 ("All Time / YoY Trend") as requested, since cumulative APs are the primary goal
-  const [selectedYear, setSelectedYear] = useState<number>(0);
+  // Default to current academic year as requested, since cumulative APs are the primary goal
+  const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
   const [showAchievements, setShowAchievements] = useState(false);
   const [showInstallApp, setShowInstallApp] = useState(false);
+  const [selectedYoyClass, setSelectedYoyClass] = useState<string | null>(null);
   const [recentBadges, setRecentBadges] = useState<any[]>([]);
   
   const { data, loading, error, refetch } = useDashboardData(user.id, user.email, selectedYear);
@@ -390,11 +393,10 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             </div>
           </button>
 
-          {/* Leaderboard */}
           {leaderboard.length > 0 && (
             <div className="space-y-4">
               <LeaderboardWidget data={leaderboard} myEmail={user.email} />
-              <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} />
+              <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => setSelectedYoyClass(pgy)} />
             </div>
           )}
         </div>
@@ -728,6 +730,14 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         <QotdHistoryModal onClose={() => setShowQotdHistoryModal(false)} />
       )}
 
+      {selectedYoyClass && (
+        <ClassYoyModal 
+          selectedClass={selectedYoyClass}
+          leaderboardData={leaderboard}
+          onClose={() => setSelectedYoyClass(null)}
+        />
+      )}
+
       {showInstallApp && <InstallAppModal onClose={() => setShowInstallApp(false)} />}
 
       {/* New Badge Overlay Modal */}
@@ -816,7 +826,7 @@ function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmai
 }
 
 // === CLASS LEADERBOARD WIDGET ===
-function ClassLeaderboardWidget({ data, myPgy }: { data: LeaderboardEntry[]; myPgy?: string }) {
+function ClassLeaderboardWidget({ data, myPgy, onClassClick }: { data: LeaderboardEntry[]; myPgy?: string; onClassClick: (pgy: string) => void }) {
   const classTotals = data.reduce((acc, curr) => {
     // Only group by actual classes, ignoring empty/faculty
     if (!curr.pgy || curr.pgy === 'Faculty') return acc;
@@ -844,9 +854,10 @@ function ClassLeaderboardWidget({ data, myPgy }: { data: LeaderboardEntry[]; myP
           const isMyClass = c.pgy === myPgy;
           const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
           return (
-            <div
+            <button
               key={c.pgy}
-              className={`flex items-center justify-between py-1.5 px-2 rounded-lg ${isMyClass ? 'bg-blue-50' : ''}`}
+              onClick={() => onClassClick(c.pgy)}
+              className={`w-full text-left flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors ${isMyClass ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
             >
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs font-bold text-slate-400 w-5 shrink-0">
@@ -861,7 +872,7 @@ function ClassLeaderboardWidget({ data, myPgy }: { data: LeaderboardEntry[]; myP
               <span className={`text-xs font-black shrink-0 ml-2 ${isMyClass ? 'text-blue-700' : 'text-slate-600'}`}>
                 {c.totalPoints} pts
               </span>
-            </div>
+            </button>
           );
         })}
       </div>

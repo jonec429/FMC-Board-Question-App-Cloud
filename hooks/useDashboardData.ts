@@ -10,6 +10,7 @@ interface LeaderboardEntry {
   pgy: string;
   totalPoints: number;
   totalQs: number;
+  yoyStats?: Record<number, number>;
 }
 
 interface DashboardData {
@@ -69,6 +70,8 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
       const err1 = blockErr || sessionErr || streakErr || badgesErr;
       if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
 
+      const availableYears = [new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2, new Date().getFullYear() - 3]; // getAvailableAcademicYears equivalent logic
+
       // BATCH 2: Leaderboard & Heavy Data
       const [
         { data: resultsData, error: resultsErr },
@@ -76,7 +79,8 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         { data: rosterData, error: rosterErr },
         { data: qotdAttemptData, error: qotdAttemptErr },
         { data: qotdHistoryData },
-        { data: attendanceData }
+        { data: attendanceData },
+        ...yoyResults
       ] = (await Promise.all([
         selectedYear === 0
           ? supabase
@@ -120,7 +124,9 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           .from('attendance')
           .select('date, topic')
           .ilike('resident_email', userEmail)
-          .abortSignal(signal)
+          .abortSignal(signal),
+        // Fetch YOY breakdown
+        ...availableYears.map(yr => supabase.rpc('get_leaderboard_stats', { p_academic_year: yr }).abortSignal(signal))
       ])) as any[];
 
       const err2 = resultsErr || allResultsErr || rosterErr || qotdAttemptErr;
@@ -170,7 +176,21 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           const entry = aggregatedByEmail.get(email);
           const totalPoints = entry ? entry.totalPoints : 0;
           const totalQs = entry ? entry.totalQs : 0;
-          leaderboard.push({ email, name, pgy, totalPoints, totalQs });
+          
+          const yoyStats: Record<number, number> = {};
+          yoyResults.forEach((yrResult, idx) => {
+            const yr = availableYears[idx];
+            if (yrResult.data) {
+              const yrEntry = yrResult.data.find((r: any) => r.legacy_email?.toLowerCase() === email);
+              if (yrEntry) {
+                yoyStats[yr] = Number(yrEntry.total_points) || 0;
+              } else {
+                yoyStats[yr] = 0;
+              }
+            }
+          });
+
+          leaderboard.push({ email, name, pgy, totalPoints, totalQs, yoyStats });
         });
         leaderboard.sort((a, b) => b.totalPoints - a.totalPoints);
       }
