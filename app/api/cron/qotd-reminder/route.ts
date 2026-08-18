@@ -148,7 +148,7 @@ export async function GET(request: Request) {
         };
 
         try {
-          await webpush.sendNotification(pushSubscription, payload);
+          await webpush.sendNotification(pushSubscription, payload, { urgency: 'high' });
           sent++;
         } catch (err: unknown) {
           const status = (err as { statusCode?: number }).statusCode;

@@ -17,24 +17,38 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   const [selectedAdvisees, setSelectedAdvisees] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [qCount, setQCount] = useState(10);
+  
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [bulkCount, setBulkCount] = useState(10);
   
   const [assigning, setAssigning] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formError, setFormError] = useState('');
 
-  // 1. Determine eligible residents to assign to
+  // 1. Determine eligible residents to assign to (ALL residents, advisees sorted to top)
   const eligibleResidents = useMemo(() => {
     if (!data?.roster) return [];
     
-    // If admin and viewing as admin, they can see everyone
     const isAdmin = profile?.role === 'admin' && profile?.view_as !== 'faculty';
+    const facultyName = profile?.full_name || (profile?.first_name + ' ' + profile?.last_name);
     
     return data.roster
       .filter(r => r.role === 'resident' || r.role === 'chief')
-      .filter(r => isAdmin || r.advisor === profile?.full_name || r.advisor === (profile?.first_name + ' ' + profile?.last_name))
-      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      .sort((a, b) => {
+        if (isAdmin) return (a.name || '').localeCompare(b.name || '');
+        const aIsAdvisee = a.advisor === facultyName;
+        const bIsAdvisee = b.advisor === facultyName;
+        if (aIsAdvisee && !bIsAdvisee) return -1;
+        if (!aIsAdvisee && bIsAdvisee) return 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
   }, [data?.roster, profile]);
+
+  // Helper to check if a resident is an advisee
+  const isAdvisee = (r: RosterEntry) => {
+    const facultyName = profile?.full_name || (profile?.first_name + ' ' + profile?.last_name);
+    return r.advisor === facultyName;
+  };
 
   // 2. Extract unique categories from questions
   const availableCategories = useMemo(() => {
@@ -43,7 +57,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
     return Array.from(cats).sort();
   }, [data?.questions]);
 
-  // 3. Calculate max available questions based on filters
+  // 3. Calculate matching questions based on filters
   const matchingQuestions = useMemo(() => {
     if (!data?.questions) return [];
     return data.questions.filter(q => 
@@ -52,7 +66,22 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
     );
   }, [data?.questions, selectedCategories]);
 
-  const maxQ = matchingQuestions.length;
+  // Bulk actions
+  const handleSelectRandom = () => {
+    const count = Math.min(bulkCount, matchingQuestions.length);
+    const shuffled = [...matchingQuestions].sort(() => Math.random() - 0.5);
+    const newIds = shuffled.slice(0, count).map(q => q.id);
+    
+    // Merge with currently selected ids, avoiding duplicates
+    const combined = Array.from(new Set([...selectedQuestionIds, ...newIds]));
+    setSelectedQuestionIds(combined);
+  };
+
+  const handleSelectAllFiltered = () => {
+    const newIds = matchingQuestions.map(q => q.id);
+    const combined = Array.from(new Set([...selectedQuestionIds, ...newIds]));
+    setSelectedQuestionIds(combined);
+  };
 
   const handleAssign = async () => {
     if (!user) return;
@@ -67,20 +96,15 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
       setFormError('Please provide a title for the assignment.');
       return;
     }
-    if (qCount < 1 || qCount > maxQ) {
-      setFormError(`Please select a valid question count (1-${maxQ}).`);
+    if (selectedQuestionIds.length === 0) {
+      setFormError('Please select at least one question for the quiz.');
       return;
     }
 
     setAssigning(true);
 
     try {
-      // 1. Pick random questions
-      const shuffled = [...matchingQuestions].sort(() => Math.random() - 0.5);
-      const selectedIds = shuffled.slice(0, qCount).map(q => q.id);
-
-      // 2. We only have their name/email in the roster. We need their user IDs from `profiles`.
-      // Fortunately `data.profiles` has this.
+      // 1. We only have their name/email in the roster. We need their user IDs from `profiles`.
       const assignedToIds = selectedAdvisees.map(name => {
         const rosterEntry = data?.roster.find(r => (r.name || r.email) === name);
         const p = data?.profiles.find(p => p.email?.toLowerCase() === rosterEntry?.email.toLowerCase());
@@ -93,12 +117,12 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
         return;
       }
 
-      // 3. Insert into assigned_quizzes
+      // 2. Insert into assigned_quizzes
       const inserts = assignedToIds.map(targetId => ({
         assigned_by: user.id,
         assigned_to: targetId,
         title: title.trim(),
-        question_ids: selectedIds
+        question_ids: selectedQuestionIds
       }));
 
       const { error: insertError } = await supabase.from('assigned_quizzes').insert(inserts);
@@ -108,7 +132,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
       setSuccess(true);
       setTitle('');
       setSelectedAdvisees([]);
-      setQCount(10);
+      setSelectedQuestionIds([]);
       setSelectedCategories([]);
 
     } catch (err: any) {
@@ -139,14 +163,14 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div>
         <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3 mb-2">
           <Sparkles className="w-6 h-6 text-indigo-500" />
           Assign Targeted Quizzes
         </h1>
-        <p className="text-slate-500 text-sm md:text-base max-w-2xl">
-          Build custom quizzes focused on specific categories and assign them directly to your advisees for focused remediation or extra practice.
+        <p className="text-slate-500 text-sm md:text-base max-w-3xl">
+          Build custom quizzes focused on specific categories and assign them directly to any resident. Your direct advisees are pinned to the top of the list.
         </p>
       </div>
 
@@ -164,51 +188,58 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
         
         {/* LEFT COLUMN: Resident Selection */}
-        <div className="space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2 mb-4">
+        <div className="space-y-4 md:col-span-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[600px]">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2 mb-4 shrink-0">
               <Users className="w-5 h-5 text-blue-500" />
               1. Select Residents
             </h2>
             
             {eligibleResidents.length === 0 ? (
-              <p className="text-sm text-slate-500 italic">No residents assigned to you.</p>
+              <p className="text-sm text-slate-500 italic">No residents found.</p>
             ) : (
-              <div className="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                {eligibleResidents.map(r => (
-                  <label key={r.email} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer border border-transparent hover:border-slate-200 transition-colors">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                      checked={selectedAdvisees.includes(r.name || r.email)}
-                      onChange={(e) => {
-                        const val = r.name || r.email;
-                        if (e.target.checked) setSelectedAdvisees(prev => [...prev, val]);
-                        else setSelectedAdvisees(prev => prev.filter(n => n !== val));
-                      }}
-                    />
-                    <span className="text-sm font-medium text-slate-700">
-                      {r.name || r.email} <span className="text-slate-400 text-xs ml-1">({r.pgy_override || 'Resident'})</span>
-                    </span>
-                  </label>
-                ))}
+              <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar flex-1">
+                {eligibleResidents.map(r => {
+                  const advisee = isAdvisee(r);
+                  return (
+                    <label key={r.email} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer border border-transparent hover:border-slate-200 transition-colors">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                        checked={selectedAdvisees.includes(r.name || r.email)}
+                        onChange={(e) => {
+                          const val = r.name || r.email;
+                          if (e.target.checked) setSelectedAdvisees(prev => [...prev, val]);
+                          else setSelectedAdvisees(prev => prev.filter(n => n !== val));
+                        }}
+                      />
+                      <span className="text-sm font-medium text-slate-700 flex flex-col">
+                        <span className="flex items-center gap-2">
+                          {r.name || r.email}
+                          {advisee && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded-md">Advisee</span>}
+                        </span>
+                        <span className="text-slate-400 text-xs">PGY: {r.pgy_override || 'Resident'}</span>
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
 
         {/* RIGHT COLUMN: Quiz Config */}
-        <div className="space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
+        <div className="space-y-4 md:col-span-8 flex flex-col h-[600px]">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5 flex-1 flex flex-col min-h-0">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2 shrink-0">
               <BookOpen className="w-5 h-5 text-amber-500" />
-              2. Configure Quiz
+              2. Quiz Builder
             </h2>
 
-            <div>
+            <div className="shrink-0">
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assignment Title</label>
               <input 
                 type="text" 
@@ -219,9 +250,9 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Filter by Category (Optional)</label>
-              <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto custom-scrollbar p-1">
+            <div className="shrink-0">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Filter by Category</label>
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
                 {availableCategories.map(cat => (
                   <button
                     key={cat}
@@ -243,44 +274,86 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                     onClick={() => setSelectedCategories([])}
                     className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-500 hover:text-slate-700 underline"
                   >
-                    Clear All
+                    Clear Filters
                   </button>
                 )}
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Number of Questions</label>
-              <div className="flex items-center gap-4">
-                <input 
-                  type="range" 
-                  min="1" 
-                  max={Math.min(maxQ, 100)} 
-                  value={qCount}
-                  onChange={e => setQCount(parseInt(e.target.value))}
-                  className="flex-1 accent-indigo-600"
-                />
-                <input 
-                  type="number" 
-                  min="1" 
-                  max={Math.min(maxQ, 100)} 
-                  value={qCount}
-                  onChange={e => setQCount(parseInt(e.target.value) || 10)}
-                  className="w-20 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-center font-bold text-indigo-600"
-                />
+            <div className="flex-1 min-h-0 flex flex-col mt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2 shrink-0">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Select Questions <span className={selectedQuestionIds.length > 0 ? "text-indigo-600 font-black" : ""}>({selectedQuestionIds.length} chosen)</span>
+                </label>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max={matchingQuestions.length} 
+                    value={bulkCount} 
+                    onChange={e => setBulkCount(parseInt(e.target.value) || 1)} 
+                    className="w-16 px-2 py-1 text-xs border border-slate-200 rounded-md bg-slate-50" 
+                  />
+                  <button onClick={handleSelectRandom} className="text-xs bg-slate-100 px-3 py-1.5 rounded-md font-medium text-slate-700 hover:bg-slate-200 transition-colors">
+                    Add Random
+                  </button>
+                  <button onClick={handleSelectAllFiltered} className="text-xs bg-slate-100 px-3 py-1.5 rounded-md font-medium text-slate-700 hover:bg-slate-200 transition-colors">
+                    Add All Filtered
+                  </button>
+                  {selectedQuestionIds.length > 0 && (
+                    <button onClick={() => setSelectedQuestionIds([])} className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-md font-medium hover:bg-red-100 transition-colors">
+                      Clear Selection
+                    </button>
+                  )}
+                </div>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">Available matching pool: {maxQ} questions</p>
+              
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar border border-slate-200 rounded-xl p-2 bg-slate-50/50">
+                {matchingQuestions.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+                    No questions match the selected filters.
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {matchingQuestions.map(q => (
+                      <label key={q.id} className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer border transition-colors ${
+                        selectedQuestionIds.includes(q.id) 
+                          ? 'bg-white border-indigo-200 shadow-sm ring-1 ring-indigo-500/10' 
+                          : 'bg-white border-transparent hover:border-slate-200'
+                      }`}>
+                        <input 
+                          type="checkbox" 
+                          checked={selectedQuestionIds.includes(q.id)} 
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedQuestionIds(p => [...p, q.id]);
+                            else setSelectedQuestionIds(p => p.filter(id => id !== q.id));
+                          }} 
+                          className="mt-0.5 w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" 
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium line-clamp-2 ${selectedQuestionIds.includes(q.id) ? 'text-slate-900' : 'text-slate-600'}`}>
+                            {q.question_text}
+                          </p>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 mt-1 inline-block">
+                            {q.category}
+                          </span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
 
           <button
             onClick={handleAssign}
-            disabled={assigning || eligibleResidents.length === 0}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm md:text-base flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:pointer-events-none shadow-md"
+            disabled={assigning || eligibleResidents.length === 0 || selectedQuestionIds.length === 0 || !title.trim()}
+            className="w-full shrink-0 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm md:text-base flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 disabled:pointer-events-none shadow-md"
           >
             {assigning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-            Assign Quiz to {selectedAdvisees.length} {selectedAdvisees.length === 1 ? 'Resident' : 'Residents'}
+            Assign {selectedQuestionIds.length} {selectedQuestionIds.length === 1 ? 'Question' : 'Questions'} to {selectedAdvisees.length} {selectedAdvisees.length === 1 ? 'Resident' : 'Residents'}
           </button>
         </div>
       </div>
