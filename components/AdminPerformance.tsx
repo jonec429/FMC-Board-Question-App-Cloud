@@ -1012,7 +1012,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 
                 const blockAttendance = adminData.attendance?.filter(a => 
                   (selectedYear === 0 && a.topic?.includes(`Block: ${block.title}`)) ||
-                  a.topic === `[AY ${selectedYear}] Block: ${block.title}`
+                  a.topic?.startsWith(`[AY ${selectedYear}] Block: ${block.title}`)
                 ).length || 0;
 
                 return (
