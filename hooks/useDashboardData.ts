@@ -70,9 +70,12 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         })
       ])) as any[];
 
-      const err1 = blockErr || sessionErr || streakErr || badgesErr || assignedQuizzesErr;
+      const err1 = blockErr || sessionErr || streakErr || badgesErr;
       if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
       
+      if (assignedQuizzesErr) {
+        console.warn('Failed to fetch assigned quizzes:', assignedQuizzesErr);
+      }
       const assignedQuizzes = assignedQuizzesData || [];
 
       const availableYears = [new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2, new Date().getFullYear() - 3]; // getAvailableAcademicYears equivalent logic
