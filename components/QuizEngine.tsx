@@ -67,6 +67,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [isTimed, setIsTimed] = useState(timerEnabled);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [newBadgesEarned, setNewBadgesEarned] = useState(false);
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   const confettiFiredRef = useRef(false);
 
@@ -721,6 +722,126 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     onCancel();
   };
 
+  // Global Desktop Keyboard Navigation
+  useEffect(() => {
+    // Only listen when actively in a quiz (not loading, not results screen, not pre-start)
+    if (loading || error || showResults || (!started && !isQotd && !((topic || '').toLowerCase().includes('demo')))) {
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Do not trigger if typing in an input, textarea, or contentEditable
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Modifier keys (Ctrl, Alt, Meta) - don't intercept browser shortcuts like Ctrl+R
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      const key = e.key.toUpperCase();
+
+      // Navigation: Left / P
+      if (e.key === 'ArrowLeft' || key === 'P') {
+        e.preventDefault();
+        setCurrentIndex(prev => Math.max(0, prev - 1));
+        return;
+      }
+
+      // Navigation: Right / N
+      if (e.key === 'ArrowRight' || key === 'N') {
+        e.preventDefault();
+        const isLast = currentIndex === questions.length - 1;
+        if (!isLast) {
+          setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1));
+        }
+        return;
+      }
+
+      // Options: A / 1 -> 0, B / 2 -> 1, C / 3 -> 2, D / 4 -> 3, E / 5 -> 4
+      const keyToOptionMap: Record<string, number> = {
+        'A': 0, '1': 0,
+        'B': 1, '2': 1,
+        'C': 2, '3': 2,
+        'D': 3, '4': 3,
+        'E': 4, '5': 4,
+      };
+
+      if (key in keyToOptionMap) {
+        const optionIdx = keyToOptionMap[key];
+        const numOptions = currentQuestion?.options?.length || 0;
+        if (optionIdx < numOptions) {
+          e.preventDefault();
+          // Check if struck out
+          const struckSet = new Set(questionTools[currentQuestion?.id]?.strikethroughs || EMPTY_ARRAY);
+          if (!struckSet.has(optionIdx)) {
+            handleSelectOption(optionIdx);
+          }
+        }
+        return;
+      }
+
+      // Enter key: Submit in practice mode if staged, or next question if answered
+      if (e.key === 'Enter') {
+        const hasAnswered = answers[currentIndex] !== undefined;
+        const hasStaged = stagedAnswers[currentIndex] !== undefined;
+        const needsSubmit = (mode === 'practice' || isQotd) && !hasAnswered;
+
+        if (needsSubmit && hasStaged && !submitting) {
+          e.preventDefault();
+          const newAnswers = { ...answers, [currentIndex]: stagedAnswers[currentIndex] };
+          setAnswers(newAnswers);
+          if (isQotd) {
+            submitQuiz(true, newAnswers);
+          }
+        } else if (!needsSubmit) {
+          e.preventDefault();
+          const isLast = currentIndex === questions.length - 1;
+          if (isLast && !submitting) {
+            handleFinish();
+          } else if (!isLast) {
+            setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1));
+          }
+        }
+        return;
+      }
+
+      // Shortcuts Modal Toggle: '?'
+      if (e.key === '?') {
+        e.preventDefault();
+        setShowShortcutsHelp(prev => !prev);
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    loading,
+    error,
+    showResults,
+    started,
+    isQotd,
+    topic,
+    currentIndex,
+    questions.length,
+    currentQuestion,
+    questionTools,
+    handleSelectOption,
+    answers,
+    stagedAnswers,
+    mode,
+    submitting,
+    handleFinish,
+    submitQuiz,
+  ]);
+
   // RESULTS SCREEN
   if (showResults && resultData) {
     const { score, total, percentage, academic_points, timing_status, missedQuestions } = resultData;
@@ -1255,7 +1376,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           </div>
           <div className="flex items-center gap-2">
             {/* Text-resize toolbar (A- / A+) */}
-            <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 mr-2" title="Adjust text size">
+            <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 mr-1" title="Adjust text size">
               <button
                 onClick={decreaseFont}
                 disabled={fontIndex === 0}
@@ -1276,6 +1397,16 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 A+
               </button>
             </div>
+
+            {/* Keyboard Shortcuts Trigger */}
+            <button
+              onClick={() => setShowShortcutsHelp(true)}
+              className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all"
+              title="Keyboard Shortcuts (?)"
+            >
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono shadow-2xs text-slate-700">⌨️ Shortcuts</kbd>
+            </button>
+
             {syncing && <Loader2 className="w-4 h-4 text-slate-300 animate-spin" />}
             {!syncing && (
               <span className="hidden md:flex text-[10px] font-black text-slate-300 uppercase tracking-widest items-center gap-1">
@@ -1435,6 +1566,56 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           })()}
         </div>
       </nav>
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcutsHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-[32px] p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⌨️</span>
+                <h3 className="font-black text-slate-800 text-lg">Keyboard Shortcuts</h3>
+              </div>
+              <button
+                onClick={() => setShowShortcutsHelp(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2.5 text-sm">
+              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Select Options A – E</span>
+                <div className="flex items-center gap-1">
+                  <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">A – E</kbd>
+                  <span className="text-slate-300 text-xs font-bold">or</span>
+                  <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">1 – 5</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Previous / Next Question</span>
+                <div className="flex items-center gap-1">
+                  <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">← / P</kbd>
+                  <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">→ / N</kbd>
+                </div>
+              </div>
+              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-600 font-medium">Submit / Next Question</span>
+                <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">Enter</kbd>
+              </div>
+              <div className="flex items-center justify-between py-1.5">
+                <span className="text-slate-600 font-medium">Toggle Shortcuts Help</span>
+                <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">?</kbd>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowShortcutsHelp(false)}
+              className="w-full py-3 bg-slate-900 text-white font-black text-sm rounded-xl hover:bg-slate-800 transition-all shadow-md"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

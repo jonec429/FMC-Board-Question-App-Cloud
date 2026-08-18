@@ -140,15 +140,17 @@ export async function processGamification(
       }).eq('user_id', userId);
 
       // --- BADGE EVALUATION (QOTD) ---
-      await evaluateBadge('QOTD 5x Streak', current_qotd_streak >= 5);
-      await evaluateBadge('QOTD 10x Streak', current_qotd_streak >= 10);
-      await evaluateBadge('QOTD 30x Streak', current_qotd_streak >= 30);
+      await evaluateBadge('QOTD 5x Streak', current_qotd_streak >= 5, { description: 'Completed 5 Question of the Day challenges in a row.', icon: '🔥', type: 'qotd' });
+      await evaluateBadge('QOTD 10x Streak', current_qotd_streak >= 10, { description: 'Completed 10 Question of the Day challenges in a row.', icon: '⚡', type: 'qotd' });
+      await evaluateBadge('QOTD 30x Streak', current_qotd_streak >= 30, { description: 'Completed 30 Question of the Day challenges in a row. Legendary dedication!', icon: '🌟', type: 'qotd' });
+      await evaluateBadge('Streak Master', current_qotd_streak >= 10, { description: 'Achieved a double-digit daily QOTD streak.', icon: '👑', type: 'qotd' });
+      
       // Sharpshooter — correct QOTD answers on consecutive days (correct-streak, not just participation).
-      await evaluateBadge('Sharpshooter', current_qotd_correct_streak >= 5);
+      await evaluateBadge('Sharpshooter', current_qotd_correct_streak >= 5, { description: 'Answered QOTD correctly 5 consecutive days in a row.', icon: '🎯', type: 'qotd' });
 
       // Check "Just in Time" — answered in the 5 minutes before the 12:30 PM unlock
       if (estHour === 12 && estMinute >= 25 && estMinute <= 29) {
-        await evaluateBadge('Just in Time', true);
+        await evaluateBadge('Just in Time', true, { description: 'Answered QOTD in the final 5 minutes before the noon reveal.', icon: '⏳', type: 'qotd' });
       }
 
       // Check "First to Answer"
@@ -162,8 +164,16 @@ export async function processGamification(
 
         // if count is exactly 1 (meaning the one they just inserted is the ONLY one)
         if (count === 1) {
-          await evaluateBadge('First to Answer', true);
+          await evaluateBadge('First to Answer', true, { description: 'First resident in the residency to answer today\'s Question of the Day!', icon: '🥇', type: 'qotd' });
         }
+      }
+
+      // Time-of-day badges for QOTD
+      if (estHour >= 22 || estHour < 4) {
+        await evaluateBadge('Night Owl', true, { description: 'Completed questions late at night (10 PM – 4 AM).', icon: '🦉', type: 'general' });
+      }
+      if (estHour < 7) {
+        await evaluateBadge('Early Bird', true, { description: 'Answered questions early in the morning before 7 AM.', icon: '🌅', type: 'general' });
       }
     }
 
@@ -186,46 +196,50 @@ export async function processGamification(
       }).eq('user_id', userId);
 
       // On-time block-streak ladder
-      await evaluateBadge('On a Roll', current_block_streak >= 3);
-      await evaluateBadge('Locked In', current_block_streak >= 5);
-      await evaluateBadge('Unstoppable', current_block_streak >= 10);
-
-      // 3b. Badges
-      await evaluateBadge('First Step', true); // Everyone who submits gets this if they don't have it
-
-      if (blockScorePercentage === 100) {
-        await evaluateBadge('Perfect Block', true);
+      await evaluateBadge('On a Roll', current_block_streak >= 3, { description: 'Completed 3 consecutive assigned blocks on time.', icon: '🚀', type: 'streak' });
+      await evaluateBadge('Locked In', current_block_streak >= 5, { description: 'Completed 5 consecutive assigned blocks on time.', icon: '🔒', type: 'streak' });
+      await evaluateBadge('Unstoppable', current_block_streak >= 10, { description: 'Completed 10 consecutive assigned blocks on time!', icon: '⚡', type: 'streak' });
+      if (current_block_streak >= 5) {
+        await evaluateBadge('Streak Master', true, { description: 'Maintained a 5-block on-time streak or 10-day QOTD streak.', icon: '👑', type: 'streak' });
       }
 
-      // Comeback Kid — improved by >= 20% compared to previous block
-      const { data: previousBlocks } = await supabase
-        .from('results')
-        .select('percentage')
-        .eq('user_id', userId)
-        .not('topic', 'ilike', '%demo%')
-        .order('created_at', { ascending: false })
-        .limit(2); // index 0 is the one just inserted, index 1 is the previous
+      // 3b. Badges
+      await evaluateBadge('First Step', true, { description: 'Completed your very first quiz block in the application.', icon: '🌱', type: 'block' });
 
-      if (previousBlocks && previousBlocks.length === 2) {
-        const prevPercentage = previousBlocks[1].percentage;
-        if (blockScorePercentage - prevPercentage >= 20) {
-          await evaluateBadge('Comeback Kid', true);
+      if (blockScorePercentage === 100) {
+        await evaluateBadge('Perfect Block', true, { description: 'Achieved a flawless 100% score on a completed block!', icon: '💯', type: 'block' });
+      }
+
+      // Comeback Kid — improved by >= 15% compared to previous block
+      if (blockScorePercentage !== undefined && blockScorePercentage !== null) {
+        const { data: previousBlocks } = await supabase
+          .from('results')
+          .select('percentage')
+          .eq('user_id', userId)
+          .not('topic', 'ilike', '%demo%')
+          .order('created_at', { ascending: false })
+          .limit(2); // index 0 is current inserted result, index 1 is previous
+
+        if (previousBlocks && previousBlocks.length === 2) {
+          const prevPercentage = previousBlocks[1].percentage;
+          if (blockScorePercentage - prevPercentage >= 15) {
+            await evaluateBadge('Comeback Kid', true, { description: 'Improved your block score by 15% or more compared to your last block!', icon: '🏆', type: 'block' });
+          }
         }
       }
 
-      if (estHour >= 0 && estHour < 4) {
-        await evaluateBadge('Night Owl', true);
+      if (estHour >= 22 || estHour < 4) {
+        await evaluateBadge('Night Owl', true, { description: 'Completed questions late at night (10 PM – 4 AM).', icon: '🦉', type: 'general' });
       }
 
-      // Early Bird — block wrapped up in the early-morning hours (4–6am EST)
-      if (estHour >= 4 && estHour < 6) {
-        await evaluateBadge('Early Bird', true);
+      if (estHour < 7) {
+        await evaluateBadge('Early Bird', true, { description: 'Answered questions early in the morning before 7 AM.', icon: '🌅', type: 'general' });
       }
 
       // Weekend Warrior — block completed on a weekend (EST)
       const estDay = estNow.getDay(); // 0 = Sunday, 6 = Saturday
       if (estDay === 0 || estDay === 6) {
-        await evaluateBadge('Weekend Warrior', true);
+        await evaluateBadge('Weekend Warrior', true, { description: 'Completed a quiz block on the weekend.', icon: '⚔️', type: 'block' });
       }
 
       // Check Clubs (100 - 1000 questions)

@@ -234,9 +234,9 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Feature]** Review Filters: Added "All Questions" | "Missed / Incorrect" | "Correct" toggle filter bar with badge counts in `QuizReview.tsx`.
 - [x] **[Feature]** One-Click CSV Exports: Added CSV download buttons to the By-Block Drill-Down modal and Admin Overview table.
 - [x] **[Feature]** Admin Overview Search & PGY Filter: Added real-time search input (by resident or advisor) and quick PGY class filter pills (`All`, `PGY-1`, `PGY-2`, `PGY-3`).
-- [x] **[Feature]** "Next Unanswered" Fast Jump: Added quick-jump action button in the bottom navigation bar and Question Navigator to jump directly to the next unanswered question.
 - [x] **[Feature]** "Practice Missed Questions" One-Click Retake: Added prominent action on quiz results screen to immediately launch a practice session containing only missed questions.
-- [ ] **[Feature / Backlog]** Keyboard Navigation Shortcuts (`A`–`E`, `1`–`5`, `←`/`→`, `H`, `S`).
+- [x] **[Feature]** Keyboard Navigation Shortcuts (`A`–`E`, `1`–`5`, `←`/`→`, `Enter`, `?`): Full desktop keyboard shortcuts with built-in modal guide in `QuizEngine.tsx`.
+- [x] **[Feature]** Gamification Achievements: Expanded badge ecosystem with rich metadata (*Comeback Kid*, *Streak Master*, *Night Owl*, *Early Bird*, *Sharpshooter*) in `lib/gamification.ts`.
 - [ ] **[Bug / Reliability]** Push Notification Timeliness & Delivery: Push notifications (morning QOTD, noon release, reminders) are reported as frequently delayed/late and occasionally missing entirely. Investigate Supabase `pg_cron` jobs, VAPID delivery responses, and push subscription staleness handling.
 
 ## 📍 Phase 3: Notifications & Intelligence
@@ -325,7 +325,10 @@ This file serves as the shared source of truth for development progress between 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
-### 2026-08-18 — Admin Block Drill-Down, Quiz Exam Tools & QoL Enhancements (Antigravity)
+### 2026-08-18 — Desktop Keyboard Shortcuts, New Badges & Stability Enhancements (Antigravity)
+*   **Desktop Keyboard Navigation:** Added full keyboard navigation in exam/practice modes (`A`–`E` or `1`–`5` to select options, `←`/`→` for previous/next questions, `Enter` to submit, and `?` to view the shortcuts guide modal).
+*   **Expanded Gamification Badges:** Added *Comeback Kid* (15%+ block score improvement), *Streak Master* (double-digit streaks), *Night Owl*, and *Early Bird* with rich badge metadata.
+*   **ESLint Rules of Hooks CI:** Configured automated React hooks rule checking (`react-hooks/rules-of-hooks: error`) across all builds to guarantee stability.
 *   **Admin "By Block" Drill-Down Modal:** Clicking any block row in the Admin Performance dashboard opens a detailed completion modal listing every resident in the cohort, their completion status (🚀 On-Time, ⏰ Late, or Incomplete), test date, score breakdown, attendance count, and instant quiz review access.
 *   **One-Click CSV Exports:** Added direct spreadsheet export on both the By-Block Drill-Down modal and the Admin Performance Overview table for instant ACGME and CCC reporting.
 *   **Admin Overview Search & PGY Filters:** Added real-time search and PGY pills (`All`, `PGY-1`, `PGY-2`, `PGY-3`) to the main admin performance table.
