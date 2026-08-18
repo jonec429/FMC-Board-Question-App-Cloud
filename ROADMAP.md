@@ -237,7 +237,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Feature]** "Practice Missed Questions" One-Click Retake: Added prominent action on quiz results screen to immediately launch a practice session containing only missed questions.
 - [x] **[Feature]** Keyboard Navigation Shortcuts (`A`–`E`, `1`–`5`, `←`/`→`, `Enter`, `?`): Full desktop keyboard shortcuts with built-in modal guide in `QuizEngine.tsx`.
 - [x] **[Feature]** Gamification Achievements: Expanded badge ecosystem with rich metadata (*Comeback Kid*, *Streak Master*, *Night Owl*, *Early Bird*, *Sharpshooter*) in `lib/gamification.ts`.
-- [ ] **[Bug / Reliability]** Push Notification Timeliness & Delivery: Push notifications (morning QOTD, noon release, reminders) are reported as frequently delayed/late and occasionally missing entirely. Investigate Supabase `pg_cron` jobs, VAPID delivery responses, and push subscription staleness handling.
+- [x] **[Bug / Reliability]** Push Notification Timeliness & Delivery: Push notifications (morning QOTD, noon release, reminders) are reported as frequently delayed/late and occasionally missing entirely. Investigate Supabase `pg_cron` jobs, VAPID delivery responses, and push subscription staleness handling.
 
 ## 📍 Phase 3: Notifications & Intelligence
 *Goal: Engagement and advanced analytics.*
