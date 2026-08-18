@@ -7,6 +7,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
   const privateKey = process.env.VAPID_PRIVATE_KEY || '';
@@ -94,37 +97,49 @@ export async function GET(request: Request) {
     let expired = 0;
     let skipped = 0;
 
-    const notifications = subs.map(async (sub) => {
-      // Validate required fields
-      if (!sub.p256dh || !sub.auth || !sub.endpoint) {
-        skipped++;
-        return;
-      }
+    const BATCH_SIZE = 10;
+    const BATCH_DELAY_MS = 200;
 
-      const pushSubscription = {
-        endpoint: sub.endpoint,
-        keys: {
-          auth: sub.auth,
-          p256dh: sub.p256dh
+    for (let i = 0; i < subs.length; i += BATCH_SIZE) {
+      const batch = subs.slice(i, i + BATCH_SIZE);
+      
+      const batchPromises = batch.map(async (sub) => {
+        if (!sub.p256dh || !sub.auth || !sub.endpoint) {
+          skipped++;
+          return;
         }
-      };
 
-      try {
-        await webpush.sendNotification(pushSubscription, payload);
-        sent++;
-      } catch (err: unknown) {
-        if ((err as any).statusCode === 404 || (err as any).statusCode === 410) {
-          console.log(`[faculty-digest] Subscription expired (${(err as any).statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
-          await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
-          expired++;
-        } else {
-          console.error(`[faculty-digest] Push failed for ${sub.endpoint.slice(0, 60)}...:`, (err as any).statusCode, (err as any).body || (err instanceof Error ? err.message : String(err)));
-          failed++;
+        const pushSubscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            auth: sub.auth,
+            p256dh: sub.p256dh
+          }
+        };
+
+        try {
+          await webpush.sendNotification(pushSubscription, payload);
+          sent++;
+        } catch (err: unknown) {
+          const status = (err as any).statusCode;
+          if (status === 401 || status === 403 || status === 404 || status === 410) {
+            console.log(`[faculty-digest] Subscription invalid/expired (${status}), deleting: ${sub.endpoint.slice(0, 60)}...`);
+            await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+            expired++;
+          } else {
+            console.error(`[faculty-digest] Push failed for ${sub.endpoint.slice(0, 60)}...:`, status, (err as any).body || (err instanceof Error ? err.message : String(err)));
+            failed++;
+          }
         }
-      }
-    });
+      });
 
-    await Promise.allSettled(notifications);
+      await Promise.allSettled(batchPromises);
+
+      // Sleep before next batch to prevent rate-limiting/socket congestion
+      if (i + BATCH_SIZE < subs.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+    }
 
     const summary = { total: subs.length, sent, failed, expired, skipped };
     console.log('[faculty-digest] Complete:', JSON.stringify(summary));

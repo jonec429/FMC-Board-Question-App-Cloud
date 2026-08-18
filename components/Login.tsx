@@ -18,7 +18,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
   const [showAI, setShowAI] = useState(false);
   const [showNews, setShowNews] = useState(false);
   const [showInstall, setShowInstall] = useState(false);
-  const [changelog, setChangelog] = useState<string[]>([]);
+  const [changelog, setChangelog] = useState<{date: string, title: string, items: string[]}[]>([]);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
       try {
         const res = await fetch('/api/changelog');
         const data = await res.json();
-        if (data.updates) setChangelog(data.updates);
+        if (data.releases) setChangelog(data.releases);
       } catch (err) {
         console.error('Failed to fetch changelog');
       }
@@ -391,17 +391,27 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-3 text-sm text-slate-600 mb-6 max-h-96 overflow-y-auto">
-              <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Latest Updates</div>
+            <div className="space-y-3 text-sm text-slate-600 mb-6 max-h-[60vh] overflow-y-auto pr-2">
+              <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest sticky top-0 bg-white py-2 mb-2 border-b border-slate-100 z-10">Latest Updates</div>
               {changelog.length > 0 ? (
-                <ul className="space-y-3">
-                  {changelog.map((update, i) => (
-                    <li key={i} className="flex gap-2 items-start">
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full shrink-0 mt-1.5" />
-                      <span className="leading-snug">{update}</span>
-                    </li>
+                <div className="space-y-6">
+                  {changelog.map((release, i) => (
+                    <div key={i} className="relative">
+                      <div className="flex flex-col mb-2">
+                        <div className="text-sm font-black text-slate-800">{release.date}</div>
+                        {release.title && <div className="text-xs font-bold text-blue-600/70 truncate">{release.title}</div>}
+                      </div>
+                      <ul className="space-y-2">
+                        {release.items.map((item, j) => (
+                          <li key={j} className="flex gap-2 items-start text-xs">
+                            <div className="w-1.5 h-1.5 bg-blue-500/50 rounded-full shrink-0 mt-1.5" />
+                            <span className="leading-relaxed text-slate-600" dangerouslySetInnerHTML={{ __html: item.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-slate-800">$1</strong>') }} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   ))}
-                </ul>
+                </div>
               ) : (
                 <p>Loading latest improvements...</p>
               )}

@@ -4,6 +4,7 @@ import { Resend } from 'resend';
 import webpush from 'web-push';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
 
@@ -158,7 +159,8 @@ export async function GET(request: Request) {
               try {
                 await webpush.sendNotification(pushSubscription, pushPayload);
               } catch (pushErr: any) {
-                if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+                const status = pushErr.statusCode;
+                if (status === 401 || status === 403 || status === 404 || status === 410) {
                   // Subscription expired or invalid, remove it
                   await supabase.from('web_push_subscriptions').delete().eq('id', sub.id);
                 }
