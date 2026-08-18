@@ -6,7 +6,7 @@ import QuestionCard from './QuestionCard';
 import QotdHistory from './QotdHistory';
 import QuizReview from './QuizReview';
 import QuestionNavigator from './QuestionNavigator';
-import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X, CheckCircle } from './AppIcons';
+import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X, CheckCircle, Sparkles } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { getTodayDateString, isPastNoon } from '@/lib/qotd';
@@ -677,6 +677,23 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     const { score, total, percentage, academic_points, timing_status, missedQuestions } = resultData;
     const passed = percentage >= 70;
 
+    const handleRetakeMissed = () => {
+      if (!missedQuestions) return;
+      const missedList = missedQuestions.map((mq: any) => mq.q).filter(Boolean);
+      if (missedList.length === 0) return;
+      setQuestions(missedList);
+      setAnswers({});
+      setStagedAnswers({});
+      setViewedQuestions(new Set([0]));
+      setCurrentIndex(0);
+      setMode('practice');
+      setStarted(true);
+      setShowResults(false);
+      setResultData(null);
+      setSessionId(null);
+      setTimeLeft(missedList.length * 90);
+    };
+
     const handleReaction = async (emoji: string) => {
       const previousReaction = qotdReaction;
       if (previousReaction === emoji) return; // Already reacted with this emoji
@@ -922,24 +939,16 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           {/* Review Section */}
           {!isQotd && (
             <div>
-              <div className="flex items-center justify-between mb-4 ml-2">
+              <div className="mb-4 ml-2">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
-                  Review Questions
+                  Review Questions &amp; Explanations
                 </h3>
-                <button
-                  onClick={() => setShowAllReview(!showAllReview)}
-                  className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-all shadow-sm"
-                >
-                  {showAllReview ? 'Show Incorrect Only' : 'Show All Questions'}
-                </button>
-              </div>
-              <div className="mb-2">
               </div>
               <QuizReview items={
-                (showAllReview ? questions : missedQuestions.map((mq: any) => mq.q)).map((q: any) => {
-                  const idx = questions.findIndex(orig => orig.id === q.id);
-                  return { question: q, selected: answers[idx] };
-                })
+                questions.map((q: any, idx: number) => ({
+                  question: q,
+                  selected: answers[idx]
+                }))
               } />
             </div>
           )}
@@ -985,12 +994,24 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             </div>
           )}
 
-          <button
-            onClick={() => onComplete(resultData)}
-            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
-          >
-            Back to Dashboard
-          </button>
+          <div className="space-y-3 pt-2">
+            {!isQotd && missedQuestions && missedQuestions.length > 0 && (
+              <button
+                onClick={handleRetakeMissed}
+                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-5 h-5" />
+                Practice {missedQuestions.length} Missed Question{missedQuestions.length !== 1 ? 's' : ''}
+              </button>
+            )}
+
+            <button
+              onClick={() => onComplete(resultData)}
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+            >
+              Back to Dashboard
+            </button>
+          </div>
           </>
           )}
         </div>
@@ -1331,8 +1352,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         )}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-4 pb-8 md:pb-4 shadow-2xl">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-4 pb-8 md:pb-4 shadow-2xl z-20">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
           <button
             onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
             disabled={currentIndex === 0}
@@ -1341,6 +1362,38 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             <ChevronLeft className="w-5 h-5 pointer-events-none" />
             Prev
           </button>
+
+          {/* Next Unanswered Jump Button */}
+          {(() => {
+            if (isQotd || questions.length <= 1) return null;
+            const unanswered = questions.filter((_, idx) => answers[idx] === undefined && stagedAnswers[idx] === undefined).length;
+            if (unanswered === 0) return null;
+
+            let nextUnansweredIndex = -1;
+            for (let i = 1; i < questions.length; i++) {
+              const candidate = (currentIndex + i) % questions.length;
+              if (answers[candidate] === undefined && stagedAnswers[candidate] === undefined) {
+                nextUnansweredIndex = candidate;
+                break;
+              }
+            }
+
+            if (nextUnansweredIndex === -1) return null;
+
+            return (
+              <button
+                type="button"
+                onClick={() => setCurrentIndex(nextUnansweredIndex)}
+                className="px-3.5 py-4 bg-blue-50 hover:bg-blue-100 text-blue-700 font-black rounded-2xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shrink-0 shadow-xs"
+                title={`Jump to next unanswered question (${unanswered} remaining)`}
+              >
+                <span>Unanswered</span>
+                <span className="bg-blue-200/80 text-blue-800 text-[10px] px-1.5 py-0.5 rounded-full font-black">
+                  {unanswered}
+                </span>
+              </button>
+            );
+          })()}
           {(() => {
             const isLast = currentIndex === questions.length - 1;
             const hasAnswered = answers[currentIndex] !== undefined;

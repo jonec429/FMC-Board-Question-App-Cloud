@@ -6,7 +6,7 @@ import { formatDisplayName, formatLastNameFirst, formatTopicDisplay } from '@/li
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
-import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check } from './AppIcons';
+import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
 import RiskLegend from './RiskLegend';
 import QuizReview from './QuizReview';
@@ -96,6 +96,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [selectedBlockDrilldown, setSelectedBlockDrilldown] = useState<any | null>(null);
   const [blockDrilldownSearch, setBlockDrilldownSearch] = useState('');
   
+  const [overviewSearch, setOverviewSearch] = useState('');
+  const [overviewPgyFilter, setOverviewPgyFilter] = useState<'ALL' | 'PGY-1' | 'PGY-2' | 'PGY-3'>('ALL');
+
   const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
 
   const openReview = async (r: any) => {
@@ -529,18 +532,63 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     });
 
     return stats.sort((a, b) => b.totalPoints - a.totalPoints);
-  }, [adminData, showGraduates, selectedYear]);
+  }, [adminData, showGraduates, selectedYear, scopedRoster, enriched, emailToUserId]);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const residentStats = useMemo(() => {
-    if (!searchQuery.trim()) return rawResidentStats;
-    const lower = searchQuery.toLowerCase();
-    return rawResidentStats.filter(r => 
-      r.name.toLowerCase().includes(lower) || 
-      (r.email && r.email.toLowerCase().includes(lower)) ||
-      (r.pgy && r.pgy.toLowerCase().includes(lower))
-    );
-  }, [rawResidentStats, searchQuery]);
+  const residentStats = rawResidentStats;
+
+  const overviewFilteredResidents = useMemo(() => {
+    return residentStats.filter(r => {
+      if (overviewPgyFilter !== 'ALL') {
+        if (overviewPgyFilter === 'PGY-1' && !r.label.includes('PGY-1')) return false;
+        if (overviewPgyFilter === 'PGY-2' && !r.label.includes('PGY-2')) return false;
+        if (overviewPgyFilter === 'PGY-3' && !r.label.includes('PGY-3')) return false;
+      }
+      if (overviewSearch.trim()) {
+        const q = overviewSearch.toLowerCase();
+        return r.name.toLowerCase().includes(q) || 
+               (r.last_name && r.last_name.toLowerCase().includes(q)) || 
+               r.email.toLowerCase().includes(q) ||
+               (r.advisor && r.advisor.toLowerCase().includes(q));
+      }
+      return true;
+    });
+  }, [residentStats, overviewSearch, overviewPgyFilter]);
+
+  const exportOverviewToCSV = () => {
+    const yearLabel = selectedYear === 0 ? 'All_Years' : `AY_${selectedYear}`;
+    const headers = ['Resident Name', 'Email', 'PGY', 'Advisor', 'Curriculum Avg %', 'Independent Avg %', 'Overall Avg %', 'Blocks Completed', 'On-Time %', 'Total Points', 'Attendance', 'Academic Status', 'Participation Status'];
+    
+    const rows = overviewFilteredResidents.map(r => {
+      const acadStatus = r.academicRisk === 'red' ? 'At Risk' : r.academicRisk === 'yellow' ? 'Needs Attention' : r.academicRisk === 'green' ? 'On Track' : 'Evaluating';
+      const partStatus = r.complianceRisk === 'red' ? 'At Risk' : r.complianceRisk === 'yellow' ? 'Needs Attention' : r.complianceRisk === 'green' ? 'On Track' : 'Evaluating';
+
+      return [
+        `"${formatLastNameFirst(r.name, r.last_name).replace(/"/g, '""')}"`,
+        `"${r.email}"`,
+        `"${r.label}"`,
+        `"${(r.advisor || '').replace(/"/g, '""')}"`,
+        r.curriculumAttempts > 0 ? r.curriculumAvg.toFixed(1) : '',
+        r.independentAttempts > 0 && r.independentAvg !== null ? r.independentAvg.toFixed(1) : '',
+        r.totalAttempts > 0 ? r.overallAvg.toFixed(1) : '',
+        String(r.blocksCompleted),
+        r.blocksCompleted > 0 ? r.onTimePct.toFixed(0) : '',
+        String(r.totalPoints),
+        String(r.totalAttendance),
+        `"${acadStatus}"`,
+        `"${partStatus}"`
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `FMC_Resident_Performance_${yearLabel}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Residents this faculty advises — matched by `authorized_roster.advisor == profile.full_name`
   const myAdvisees = useMemo(() => {
@@ -676,7 +724,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               key={id}
               onClick={() => {
                 setActiveSubTab(id);
-                setSearchQuery('');
+                setOverviewSearch('');
               }}
               className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
             >
@@ -769,44 +817,84 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {/* Overview Tab */}
       {activeSubTab === 'overview' && (
         <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-black text-slate-800">All Residents</h3>
-              <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-black text-slate-800">All Residents</h3>
+                <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <button 
+                  onClick={exportOverviewToCSV}
+                  className="px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs sm:text-sm shadow-sm"
+                  title="Download full resident performance table as CSV"
+                >
+                  <Download className="w-4 h-4 text-slate-500" /> Export CSV
+                </button>
+                <button 
+                  onClick={() => {
+                    // Group all residents by advisor
+                    const groups: Record<string, ResidentStat[]> = {};
+                    residentStats.forEach(r => {
+                      const adv = r.advisor || 'Unassigned';
+                      if (!groups[adv]) groups[adv] = [];
+                      groups[adv].push(r);
+                    });
+                    
+                    let bodyStr = "Hello Faculty,\n\nHere is a summary of resident performance in the FMC Board Review App grouped by advisor:\n\n";
+                    Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).forEach(([adv, resList]) => {
+                      bodyStr += `\n=== ${adv} ===\n`;
+                      resList.forEach(r => {
+                        const status = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'AT RISK' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) ? 'NEEDS ATTENTION' : 'ON TRACK';
+                        const flags = r.riskReasons.length > 0 ? ` | Flags: ${r.riskReasons.join(', ')}` : '';
+                        const mark = status !== 'ON TRACK' ? '⚠ ' : '';
+                        bodyStr += `- ${mark}${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${status}${flags}\n`;
+                      });
+                    });
+                    bodyStr += "\n\nLog in to the Admin Console for more details.\n\nThank you!";
+                    
+                    const subject = encodeURIComponent("FMC Board Review App: Program-Wide Performance Update");
+                    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyStr)}`;
+                  }}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors flex items-center gap-1.5 text-xs sm:text-sm"
+                >
+                  <Mail className="w-4 h-4" /> Email Advisors
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button 
-              onClick={() => {
-                // Group all residents by advisor
-                const groups: Record<string, ResidentStat[]> = {};
-                residentStats.forEach(r => {
-                  const adv = r.advisor || 'Unassigned';
-                  if (!groups[adv]) groups[adv] = [];
-                  groups[adv].push(r);
-                });
-                
-                let bodyStr = "Hello Faculty,\n\nHere is a summary of resident performance in the FMC Board Review App grouped by advisor:\n\n";
-                Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).forEach(([adv, resList]) => {
-                  bodyStr += `\n=== ${adv} ===\n`;
-                  resList.forEach(r => {
-                    const status = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'AT RISK' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) ? 'NEEDS ATTENTION' : 'ON TRACK';
-                    const flags = r.riskReasons.length > 0 ? ` | Flags: ${r.riskReasons.join(', ')}` : '';
-                    const mark = status !== 'ON TRACK' ? '⚠ ' : '';
-                    bodyStr += `- ${mark}${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${status}${flags}\n`;
-                  });
-                });
-                bodyStr += "\n\nLog in to the Admin Console for more details.\n\nThank you!";
-                
-                const subject = encodeURIComponent("FMC Board Review App: Program-Wide Performance Update");
-                window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyStr)}`;
-              }}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors flex items-center gap-2 text-sm"
-            >
-              <Mail className="w-4 h-4" /> Email Advisors
-            </button>
+
+            {/* Overview Filter Bar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={overviewSearch}
+                  onChange={(e) => setOverviewSearch(e.target.value)}
+                  placeholder="Search resident or advisor..."
+                  className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                {(['ALL', 'PGY-1', 'PGY-2', 'PGY-3'] as const).map(pgy => (
+                  <button
+                    key={pgy}
+                    type="button"
+                    onClick={() => setOverviewPgyFilter(pgy)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      overviewPgyFilter === pgy
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {pgy === 'ALL' ? 'All PGYs' : pgy}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="p-4"><ResidentTable residents={residentStats} /></div>
+          <div className="p-4"><ResidentTable residents={overviewFilteredResidents} /></div>
         </div>
       )}
 
@@ -1339,9 +1427,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 </button>
               </div>
 
-              {/* Search bar */}
-              <div className="p-4 md:px-8 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between gap-4">
-                <div className="relative flex-1 max-w-sm">
+              {/* Search bar & CSV Export */}
+              <div className="p-4 md:px-8 bg-slate-50/50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+                <div className="relative flex-1 min-w-[200px] max-w-sm">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
@@ -1351,8 +1439,59 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
-                <div className="text-xs font-bold text-slate-400">
-                  Showing {filteredResidents.length} of {residentStats.length} residents
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-400 hidden sm:inline">
+                    Showing {filteredResidents.length} of {residentStats.length} residents
+                  </span>
+                  <button
+                    onClick={() => {
+                      const yearLabel = selectedYear === 0 ? 'All_Years' : `AY_${selectedYear}`;
+                      const headers = ['Resident Name', 'Email', 'PGY', 'Advisor', 'Status', 'Completion Date', 'Score %', 'Score Raw', 'Total Questions', 'Academic Points'];
+                      const rows = filteredResidents.map(resident => {
+                        const result = (resident.userId ? userBestPts.get(resident.userId.toLowerCase()) : null) || 
+                                       userBestPts.get(resident.email.toLowerCase()) ||
+                                       blockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
+                        
+                        const isCompleted = !!result;
+                        const pts = result?.academic_points || 0;
+                        const isOnTime = result?.timing_status === 'Early' || result?.timing_status === 'On Time' || (pts >= 2 && !result?.topic?.toLowerCase().includes('bonus'));
+                        const isLate = result?.timing_status === 'Late' || pts === 1;
+                        const status = isCompleted ? (isOnTime ? 'On Time' : isLate ? 'Late' : 'Completed') : 'Not Completed';
+                        const dateStr = result?.created_at ? new Date(result.created_at).toISOString().split('T')[0] : '';
+                        const scorePct = isCompleted ? (result.percentage || 0).toFixed(1) : '';
+                        const scoreRaw = isCompleted ? String(result.score || 0) : '';
+                        const totalQ = String(result?.total || block.question_count || 40);
+
+                        return [
+                          `"${formatLastNameFirst(resident.name, resident.last_name).replace(/"/g, '""')}"`,
+                          `"${resident.email}"`,
+                          `"${resident.label}"`,
+                          `"${(resident.advisor || '').replace(/"/g, '""')}"`,
+                          `"${status}"`,
+                          `"${dateStr}"`,
+                          scorePct,
+                          scoreRaw,
+                          totalQ,
+                          String(pts)
+                        ].join(',');
+                      });
+
+                      const csvContent = [headers.join(','), ...rows].join('\n');
+                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.setAttribute('href', url);
+                      const cleanTitle = block.title.replace(/[^a-zA-Z0-9_-]/g, '_');
+                      link.setAttribute('download', `FMC_Block_${cleanTitle}_${yearLabel}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs shadow-sm"
+                    title="Export block completions to CSV"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
+                  </button>
                 </div>
               </div>
 

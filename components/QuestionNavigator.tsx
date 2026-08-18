@@ -32,6 +32,25 @@ export default function QuestionNavigator({
     }
   }, [currentIndex]);
 
+  // Find next unanswered question starting from currentIndex + 1
+  let nextUnansweredIndex = -1;
+  let unansweredCount = 0;
+  for (let i = 0; i < totalQuestions; i++) {
+    if (answers[i] === undefined && stagedAnswers[i] === undefined) {
+      unansweredCount++;
+    }
+  }
+
+  if (unansweredCount > 0) {
+    for (let i = 1; i < totalQuestions; i++) {
+      const candidate = (currentIndex + i) % totalQuestions;
+      if (answers[candidate] === undefined && stagedAnswers[candidate] === undefined) {
+        nextUnansweredIndex = candidate;
+        break;
+      }
+    }
+  }
+
   return (
     <div className="bg-white p-3.5 sm:p-4 rounded-3xl shadow-xl border border-slate-100 max-h-[calc(100vh-14rem)] sm:max-h-[75vh] overflow-y-auto animate-in fade-in slide-in-from-top-2">
       <div className="flex items-center justify-between mb-3">
@@ -45,6 +64,22 @@ export default function QuestionNavigator({
           </button>
         )}
       </div>
+
+      {!reviewMode && nextUnansweredIndex !== -1 && (
+        <button
+          type="button"
+          onClick={() => {
+            onSelect(nextUnansweredIndex);
+            if (onClose) onClose();
+          }}
+          className="w-full mb-3 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-black rounded-xl transition-all flex items-center justify-between shadow-xs"
+        >
+          <span>Next Unanswered (Q{nextUnansweredIndex + 1})</span>
+          <span className="bg-blue-200/80 text-blue-800 text-[10px] px-1.5 py-0.5 rounded-md font-black">
+            {unansweredCount} left
+          </span>
+        </button>
+      )}
 
       <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 sm:gap-2">
         {Array.from({ length: totalQuestions }).map((_, idx) => {

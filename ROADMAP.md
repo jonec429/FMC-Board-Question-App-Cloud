@@ -231,6 +231,12 @@ This file serves as the shared source of truth for development progress between 
 - [x] **[Bug Fix]** Cloud sync auto-save selection glitch: Memoized `QuestionCard` and stabilized callbacks/props in `QuizEngine.tsx` so autosave ticks and timer countdowns no longer reset active DOM text selections.
 - [x] **[Bug Fix]** Highlighter tool boundary drag: Improved drag & intersection handling so dragging across the question stem bounds captures selection accurately without cancelling.
 - [x] **[Feature]** Admin Dashboard ("By Block" view): Clickable block rows with full resident completion drill-down modal showing status (On-Time, Late, Incomplete), score, completion date, points, and direct quiz review.
+- [x] **[Feature]** Review Filters: Added "All Questions" | "Missed / Incorrect" | "Correct" toggle filter bar with badge counts in `QuizReview.tsx`.
+- [x] **[Feature]** One-Click CSV Exports: Added CSV download buttons to the By-Block Drill-Down modal and Admin Overview table.
+- [x] **[Feature]** Admin Overview Search & PGY Filter: Added real-time search input (by resident or advisor) and quick PGY class filter pills (`All`, `PGY-1`, `PGY-2`, `PGY-3`).
+- [x] **[Feature]** "Next Unanswered" Fast Jump: Added quick-jump action button in the bottom navigation bar and Question Navigator to jump directly to the next unanswered question.
+- [x] **[Feature]** "Practice Missed Questions" One-Click Retake: Added prominent action on quiz results screen to immediately launch a practice session containing only missed questions.
+- [ ] **[Feature / Backlog]** Keyboard Navigation Shortcuts (`A`–`E`, `1`–`5`, `←`/`→`, `H`, `S`).
 - [ ] **[Bug / Reliability]** Push Notification Timeliness & Delivery: Push notifications (morning QOTD, noon release, reminders) are reported as frequently delayed/late and occasionally missing entirely. Investigate Supabase `pg_cron` jobs, VAPID delivery responses, and push subscription staleness handling.
 
 ## 📍 Phase 3: Notifications & Intelligence
@@ -319,8 +325,13 @@ This file serves as the shared source of truth for development progress between 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
-### 2026-08-18 — Admin Block Drill-Down, Quiz Exam Tools & Stability Enhancements (Antigravity)
+### 2026-08-18 — Admin Block Drill-Down, Quiz Exam Tools & QoL Enhancements (Antigravity)
 *   **Admin "By Block" Drill-Down Modal:** Clicking any block row in the Admin Performance dashboard opens a detailed completion modal listing every resident in the cohort, their completion status (🚀 On-Time, ⏰ Late, or Incomplete), test date, score breakdown, attendance count, and instant quiz review access.
+*   **One-Click CSV Exports:** Added direct spreadsheet export on both the By-Block Drill-Down modal and the Admin Performance Overview table for instant ACGME and CCC reporting.
+*   **Admin Overview Search & PGY Filters:** Added real-time search and PGY pills (`All`, `PGY-1`, `PGY-2`, `PGY-3`) to the main admin performance table.
+*   **Quiz Review Filter ("All" | "Missed Only" | "Correct"):** Added filter buttons with counters at the top of the post-quiz review screen to quickly isolate and review missed questions.
+*   **"Practice Missed Questions" One-Click Retake:** Completed quizzes now display a one-click button to instantly start a targeted practice session with explanations for only the missed items.
+*   **"Next Unanswered" Fast Jump:** Added quick-action buttons in the bottom toolbar and question navigator to instantly navigate between unanswered questions.
 *   **Highlighter Precision & Character Selection:** Removed word-boundary locks to allow character-level text highlighting. Added support for cross-boundary selection gestures.
 *   **Strikeout vs. Selection Synchronization:** Struck options can no longer be mistakenly selected, and striking an already selected option automatically unselects it.
 *   **Autosave Text Selection Stability:** Memoized QuestionCard and stabilized event callbacks in QuizEngine so cloud sync background ticks and timer countdowns no longer reset active DOM text selections mid-drag.
