@@ -123,6 +123,55 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // Per-question highlights and strikethroughs, keyed by question.id — session-only
   const [questionTools, setQuestionTools] = useState<Record<string, { highlights: string[]; strikethroughs: number[] }>>({});
 
+  const currentQuestion = questions[currentIndex];
+
+  const handleSelectOption = useCallback((idx: number) => {
+    if (idx === -1) {
+      setStagedAnswers(prev => {
+        const next = { ...prev };
+        delete next[currentIndex];
+        return next;
+      });
+      if (mode === 'quiz') {
+        setAnswers(prev => {
+          const next = { ...prev };
+          delete next[currentIndex];
+          return next;
+        });
+      }
+    } else {
+      setStagedAnswers(prev => ({ ...prev, [currentIndex]: idx }));
+      if (mode === 'quiz') {
+        setAnswers(prev => ({ ...prev, [currentIndex]: idx }));
+      }
+    }
+  }, [currentIndex, mode]);
+
+  const handleToolsChange = useCallback((tools: { highlights: string[]; strikethroughs: number[] }) => {
+    if (!currentQuestion?.id) return;
+    setQuestionTools(prev => ({
+      ...prev,
+      [currentQuestion.id]: tools,
+    }));
+  }, [currentQuestion?.id]);
+
+  const handleRetakeMissed = useCallback(() => {
+    if (!resultData?.missedQuestions) return;
+    const missedList = resultData.missedQuestions.map((mq: any) => mq.q).filter(Boolean);
+    if (missedList.length === 0) return;
+    setQuestions(missedList);
+    setAnswers({});
+    setStagedAnswers({});
+    setViewedQuestions(new Set([0]));
+    setCurrentIndex(0);
+    setMode('practice');
+    setStarted(true);
+    setShowResults(false);
+    setResultData(null);
+    setSessionId(null);
+    setTimeLeft(missedList.length * 90);
+  }, [resultData?.missedQuestions]);
+
   const persistFontIndex = (idx: number) => {
     setFontIndex(idx);
     if (typeof window !== 'undefined') {
@@ -677,23 +726,6 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     const { score, total, percentage, academic_points, timing_status, missedQuestions } = resultData;
     const passed = percentage >= 70;
 
-    const handleRetakeMissed = () => {
-      if (!missedQuestions) return;
-      const missedList = missedQuestions.map((mq: any) => mq.q).filter(Boolean);
-      if (missedList.length === 0) return;
-      setQuestions(missedList);
-      setAnswers({});
-      setStagedAnswers({});
-      setViewedQuestions(new Set([0]));
-      setCurrentIndex(0);
-      setMode('practice');
-      setStarted(true);
-      setShowResults(false);
-      setResultData(null);
-      setSessionId(null);
-      setTimeLeft(missedList.length * 90);
-    };
-
     const handleReaction = async (emoji: string) => {
       const previousReaction = qotdReaction;
       if (previousReaction === emoji) return; // Already reacted with this emoji
@@ -1050,40 +1082,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     );
   }
 
-  const currentQuestion = questions[currentIndex];
-  const progress = ((currentIndex + 1) / questions.length) * 100;
+  const progress = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
   const answeredCount = Object.keys(answers).length;
   const isTimeLow = timeLeft > 0 && timeLeft < 300;
-
-  const handleSelectOption = useCallback((idx: number) => {
-    if (idx === -1) {
-      setStagedAnswers(prev => {
-        const next = { ...prev };
-        delete next[currentIndex];
-        return next;
-      });
-      if (mode === 'quiz') {
-        setAnswers(prev => {
-          const next = { ...prev };
-          delete next[currentIndex];
-          return next;
-        });
-      }
-    } else {
-      setStagedAnswers(prev => ({ ...prev, [currentIndex]: idx }));
-      if (mode === 'quiz') {
-        setAnswers(prev => ({ ...prev, [currentIndex]: idx }));
-      }
-    }
-  }, [currentIndex, mode]);
-
-  const handleToolsChange = useCallback((tools: { highlights: string[]; strikethroughs: number[] }) => {
-    if (!currentQuestion?.id) return;
-    setQuestionTools(prev => ({
-      ...prev,
-      [currentQuestion.id]: tools,
-    }));
-  }, [currentQuestion?.id]);
 
   // Pre-start screen: choose Practice vs Quiz before a non-QOTD, non-demo quiz begins.
   if (!isQotd && !((topic || '').toLowerCase().includes('demo')) && !started && currentQuestion) {

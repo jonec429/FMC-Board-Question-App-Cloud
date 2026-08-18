@@ -14,11 +14,11 @@ interface QuestionNavigatorProps {
 }
 
 export default function QuestionNavigator({
-  totalQuestions,
-  currentIndex,
-  answers,
-  stagedAnswers,
-  viewedQuestions,
+  totalQuestions = 0,
+  currentIndex = 0,
+  answers = {},
+  stagedAnswers = {},
+  viewedQuestions = new Set(),
   onSelect,
   reviewMode = false,
   questions = [],
@@ -36,15 +36,15 @@ export default function QuestionNavigator({
   let nextUnansweredIndex = -1;
   let unansweredCount = 0;
   for (let i = 0; i < totalQuestions; i++) {
-    if (answers[i] === undefined && stagedAnswers[i] === undefined) {
+    if (answers?.[i] === undefined && stagedAnswers?.[i] === undefined) {
       unansweredCount++;
     }
   }
 
-  if (unansweredCount > 0) {
+  if (unansweredCount > 0 && totalQuestions > 0) {
     for (let i = 1; i < totalQuestions; i++) {
       const candidate = (currentIndex + i) % totalQuestions;
-      if (answers[candidate] === undefined && stagedAnswers[candidate] === undefined) {
+      if (answers?.[candidate] === undefined && stagedAnswers?.[candidate] === undefined) {
         nextUnansweredIndex = candidate;
         break;
       }
