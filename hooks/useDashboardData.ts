@@ -23,6 +23,7 @@ interface DashboardData {
   qotdAttempt: Result | null;
   userStreak: any;
   userBadges: any[];
+  assignedQuizzes: any[];
 }
 
 function getBlockSortKey(block: any): number {
@@ -47,6 +48,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         { data: sessionData, error: sessionErr },
         { data: streakData, error: streakErr },
         { data: badgesData, error: badgesErr },
+        { data: assignedQuizzesData, error: assignedQuizzesErr },
         qotd
       ] = (await Promise.all([
         selectedYear === 0 
@@ -61,14 +63,17 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           .abortSignal(signal),
         supabase.from('user_streaks').select('*').eq('user_id', userId).abortSignal(signal).maybeSingle(),
         supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', userId).abortSignal(signal),
+        supabase.from('assigned_quizzes').select('*').eq('assigned_to', userId).eq('is_completed', false).abortSignal(signal),
         getQotdQuestion(signal).catch(e => {
           console.warn('QOTD fetch failed:', e);
           return null;
         })
       ])) as any[];
 
-      const err1 = blockErr || sessionErr || streakErr || badgesErr;
+      const err1 = blockErr || sessionErr || streakErr || badgesErr || assignedQuizzesErr;
       if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
+      
+      const assignedQuizzes = assignedQuizzesData || [];
 
       const availableYears = [new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2, new Date().getFullYear() - 3]; // getAvailableAcademicYears equivalent logic
 
@@ -230,6 +235,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
             : null,
         userStreak: mergedStreak,
         userBadges,
+        assignedQuizzes,
       };
     },
     staleTime: 60000, // Data is fresh for 60 seconds

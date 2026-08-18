@@ -52,3 +52,13 @@ export interface QuizSession {
   last_updated?: string;
 }
 
+export interface AssignedQuiz {
+  id: string;
+  created_at?: string;
+  assigned_by: string;
+  assigned_to: string;
+  title: string;
+  question_ids: string[];
+  is_completed: boolean;
+  completed_at?: string | null;
+}

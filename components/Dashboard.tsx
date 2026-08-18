@@ -500,6 +500,32 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             </div>
           </button>
 
+          {/* Assigned Quizzes */}
+          {data?.assignedQuizzes && data.assignedQuizzes.length > 0 && data.assignedQuizzes.map((aq: any) => (
+            <button
+              key={aq.id}
+              onClick={() => {
+                onStartQuiz({
+                  topic: aq.title || 'Assigned Quiz',
+                  quizId: `assigned-${aq.id}`,
+                  questionIds: aq.question_ids,
+                  count: aq.question_ids.length,
+                  timerEnabled: true,
+                });
+              }}
+              className="w-full mb-6 text-left p-4 md:p-5 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-3xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 bg-purple-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl z-10 uppercase tracking-wider">Assigned</div>
+              <Sparkles className="w-6 h-6 shrink-0 text-purple-500" />
+              <div className="text-left flex-1 min-w-0 pr-16">
+                <p className="font-bold text-lg text-purple-900">{aq.title}</p>
+                <p className="text-xs font-medium text-purple-600 opacity-80 truncate">
+                  {aq.question_ids?.length} Questions • Assigned by your advisor
+                </p>
+              </div>
+            </button>
+          ))}
+
           {/* Resume Saved Block */}
           {mostRecentSession && (
             <button

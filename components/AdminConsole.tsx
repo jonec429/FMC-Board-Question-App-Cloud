@@ -12,6 +12,7 @@ import QuestionBankManager from './QuestionBankManager';
 import NotificationManager from './NotificationManager';
 import AdminReporting from './AdminReporting';
 import AnnualRollover from './AnnualRollover';
+import AssignQuizManager from './AssignQuizManager';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -23,7 +24,7 @@ interface AdminConsoleProps {
   onExit: () => void;
 }
 
-type TabId = 'performance' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications' | 'rollover';
+type TabId = 'performance' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications' | 'rollover' | 'assign';
 
 export default function AdminConsole({ user, profile, onExit }: AdminConsoleProps) {
   const role = getUserRole(user, profile);
@@ -49,6 +50,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
       heading: 'Reports',
       items: [
         { id: 'performance', label: 'Performance', icon: BarChartIcon, description: 'Resident progress & risk flags' },
+        { id: 'assign', label: 'Assign Quizzes', icon: Sparkles, description: 'Assign targeted practice' },
         { id: 'reporting', label: 'Export & PDF', icon: Database, adminOnly: true, description: 'Download CSVs and PDFs' },
       ],
     },
@@ -174,6 +176,7 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
             {activeTab === 'builder' && <CurriculumManager />}
             {activeTab === 'notifications' && <NotificationManager user={user} profile={profile} />}
             {activeTab === 'rollover' && <AnnualRollover user={user} onNavigate={(t) => setActiveTab(t as TabId)} />}
+            {activeTab === 'assign' && <AssignQuizManager user={user} profile={profile} />}
           </main>
         </div>
       </div>
@@ -182,4 +185,3 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
 }
 
 // (End of file)
-

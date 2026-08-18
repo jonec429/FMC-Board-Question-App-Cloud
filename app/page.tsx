@@ -327,7 +327,17 @@ export default function Home() {
             timerEnabled={activeQuiz.timerEnabled}
             forceNew={activeQuiz.forceNew}
             currentBlock={currentBlock}
-            onComplete={() => setActiveQuiz(null)}
+            onComplete={async () => {
+              if (activeQuiz.quizId?.startsWith('assigned-')) {
+                const assignedId = activeQuiz.quizId.replace('assigned-', '');
+                try {
+                  await supabase.from('assigned_quizzes').update({ is_completed: true, completed_at: new Date().toISOString() }).eq('id', assignedId);
+                } catch (e) {
+                  console.error('Failed to mark assigned quiz complete:', e);
+                }
+              }
+              setActiveQuiz(null);
+            }}
             onCancel={() => setActiveQuiz(null)}
           />
         </ErrorBoundary>

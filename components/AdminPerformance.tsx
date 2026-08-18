@@ -777,16 +777,26 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 <button 
                   onClick={() => {
                     const subject = encodeURIComponent("FMC Board Review App: Advisee Performance Update");
-                    const body = encodeURIComponent(
-                      "Hello,\n\nHere is a summary of your advisees' current performance in the FMC Board Review App:\n\n" + 
-                      myAdvisees.map(r => {
-                        const status = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'AT RISK' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) ? 'NEEDS ATTENTION' : 'ON TRACK';
-                        const flags = r.riskReasons.length > 0 ? ` | Flags: ${r.riskReasons.join(', ')}` : '';
-                        const mark = status !== 'ON TRACK' ? '⚠ ' : '';
-                        return `- ${mark}${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${status}${flags}`;
-                      }).join('\n') +
-                      "\n\nPlease reach out if you have any questions.\n\nThank you!"
-                    );
+                    let bodyStr = "Hello,\r\n\r\nHere is a summary of your advisees' current performance in the FMC Board Review App. Please log in to the Faculty Console for a full breakdown.\r\n\r\n";
+                    myAdvisees.forEach(r => {
+                      const isAtRisk = r.academicRisk === 'red' || r.complianceRisk === 'red';
+                      const isAttention = r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining;
+                      
+                      const status = isAtRisk ? '🚨 AT RISK' : isAttention ? '⚠️ NEEDS ATTENTION' : '✅ ON TRACK';
+                      
+                      bodyStr += `\r\n👤 ${r.name} (${r.label})\r\n`;
+                      bodyStr += `   Status: ${status}\r\n`;
+                      bodyStr += `   Scores: ${r.overallAvg.toFixed(1)}% Avg (${r.totalAttempts} total attempts)\r\n`;
+                      bodyStr += `   Compliance: ${r.blocksCompleted} blocks completed (${r.onTimePct.toFixed(0)}% on time)\r\n`;
+                      if (r.riskReasons.length > 0) {
+                        bodyStr += `   Flags: ${r.riskReasons.join(' | ')}\r\n`;
+                      }
+                    });
+                    
+                    const appUrl = window.location.origin + '/?admin=performance';
+                    bodyStr += `\r\n\r\nView Full Dashboard & Deep Dive Here:\r\n${appUrl}\r\n\r\nThank you for supporting our residents!`;
+                    
+                    const body = encodeURIComponent(bodyStr);
                     window.location.href = `mailto:?subject=${subject}&body=${body}`;
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm"
@@ -841,17 +851,27 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       groups[adv].push(r);
                     });
                     
-                    let bodyStr = "Hello Faculty,\n\nHere is a summary of resident performance in the FMC Board Review App grouped by advisor:\n\n";
+                    let bodyStr = "Hello Faculty,\r\n\r\nHere is a summary of resident performance in the FMC Board Review App for your advisees. Please log in to the Faculty Console for a full breakdown.\r\n\r\n";
                     Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).forEach(([adv, resList]) => {
-                      bodyStr += `\n=== ${adv} ===\n`;
+                      bodyStr += `\r\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n👨‍⚕️ ADVISOR: ${adv}\r\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n`;
                       resList.forEach(r => {
-                        const status = (r.academicRisk === 'red' || r.complianceRisk === 'red') ? 'AT RISK' : (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) ? 'NEEDS ATTENTION' : 'ON TRACK';
-                        const flags = r.riskReasons.length > 0 ? ` | Flags: ${r.riskReasons.join(', ')}` : '';
-                        const mark = status !== 'ON TRACK' ? '⚠ ' : '';
-                        bodyStr += `- ${mark}${r.name}: ${r.overallAvg.toFixed(1)}% Avg | ${r.onTimePct.toFixed(0)}% On-Time | Status: ${status}${flags}\n`;
+                        const isAtRisk = r.academicRisk === 'red' || r.complianceRisk === 'red';
+                        const isAttention = r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining;
+                        
+                        const status = isAtRisk ? '🚨 AT RISK' : isAttention ? '⚠️ NEEDS ATTENTION' : '✅ ON TRACK';
+                        
+                        bodyStr += `\r\n👤 ${r.name} (${r.label})\r\n`;
+                        bodyStr += `   Status: ${status}\r\n`;
+                        bodyStr += `   Scores: ${r.overallAvg.toFixed(1)}% Avg (${r.totalAttempts} total attempts)\r\n`;
+                        bodyStr += `   Compliance: ${r.blocksCompleted} blocks completed (${r.onTimePct.toFixed(0)}% on time)\r\n`;
+                        if (r.riskReasons.length > 0) {
+                          bodyStr += `   Flags: ${r.riskReasons.join(' | ')}\r\n`;
+                        }
                       });
                     });
-                    bodyStr += "\n\nLog in to the Admin Console for more details.\n\nThank you!";
+                    
+                    const appUrl = window.location.origin + '/?admin=performance';
+                    bodyStr += `\r\n\r\nView Full Dashboard & Deep Dive Here:\r\n${appUrl}\r\n\r\nThank you for supporting our residents!`;
                     
                     const subject = encodeURIComponent("FMC Board Review App: Program-Wide Performance Update");
                     window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyStr)}`;
