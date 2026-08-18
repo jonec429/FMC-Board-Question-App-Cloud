@@ -243,16 +243,16 @@ export default function NotificationManager({ user, profile }: NotificationManag
 
   const registrationColumns: ColumnDef<any>[] = useMemo(() => [
     {
-      accessorKey: 'full_name',
+      accessorKey: 'name',
       header: 'Name',
-      cell: info => info.row.original.full_name || info.row.original.email,
+      cell: info => info.row.original.name || info.row.original.email,
     },
     {
-      accessorKey: 'pgy_level',
+      accessorKey: 'pgy_override',
       header: 'PGY',
       cell: info => (
         <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold">
-          {info.getValue() as string}
+          {info.getValue() ? `PGY-${info.getValue()}` : '-'}
         </span>
       ),
     },

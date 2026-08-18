@@ -83,8 +83,8 @@ export async function GET(request: Request) {
     try {
       const { data, error } = await supabase
         .from('authorized_roster')
-        .select('email, full_name, pgy_level')
-        .eq('is_active', true);
+        .select('email, name, pgy_override')
+        .eq('status', 'Active');
       if (!error && data) roster = data;
     } catch (e) { console.warn('Failed to fetch roster'); }
 
