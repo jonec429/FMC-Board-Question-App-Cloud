@@ -30,7 +30,7 @@ export async function GET() {
         }
         
         // H3 header (e.g., "### 2026-08-18 — Title (Author)")
-        const h3Match = line.match(/^###\s+(.*?)\s*[—-]\s*(.*)/);
+        const h3Match = line.match(/^###\s+(.*?)\s+[—-]\s+(.*)/);
         if (h3Match) {
           if (currentRelease && currentRelease.items.length > 0) {
             structuredUpdates.push(currentRelease);
