@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     }
 
     // Supabase types relation as array or single object depending on constraints
-    const blocksData: any = scheduleData.blocks;
+    const blocksData = scheduleData.blocks as { title?: string } | { title?: string }[];
     const blockTitle = (Array.isArray(blocksData) ? blocksData[0]?.title : blocksData?.title) || 'the current block';
 
     // Get all residents from authorized_roster
@@ -140,7 +140,7 @@ export async function GET(request: Request) {
           .maybeSingle();
 
         if (profile?.id) {
-          const prefs: any = profile.notification_preferences || {};
+          const prefs = (profile.notification_preferences as Record<string, unknown>) || {};
           if (prefs.block_reminders !== false) {
             const { data: subs } = await supabase
             .from('web_push_subscriptions')
@@ -158,8 +158,8 @@ export async function GET(request: Request) {
               };
               try {
                 await webpush.sendNotification(pushSubscription, pushPayload);
-              } catch (pushErr: any) {
-                const status = pushErr.statusCode;
+              } catch (pushErr: unknown) {
+                const status = (pushErr as { statusCode?: number }).statusCode;
                 if (status === 401 || status === 403 || status === 404 || status === 410) {
                   // Subscription expired or invalid, remove it
                   await supabase.from('web_push_subscriptions').delete().eq('id', sub.id);
@@ -179,8 +179,8 @@ export async function GET(request: Request) {
       message: `Sent reminders for ${blockTitle}`
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Cron block-reminders error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }

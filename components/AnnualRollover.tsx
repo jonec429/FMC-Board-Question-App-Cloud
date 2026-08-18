@@ -7,7 +7,7 @@ import { partitionYears } from '@/lib/questionFilters';
 import { Database, PlusCircle, Sparkles, Loader2, CheckCircle, ChevronRight } from './AppIcons';
 
 interface AnnualRolloverProps {
-  user?: any;
+  user?: import('@/lib/types').User;
   onNavigate: (tab: string) => void;
 }
 
@@ -31,7 +31,7 @@ export default function AnnualRollover({ onNavigate }: AnnualRolloverProps) {
     ]);
 
     const counts = new Map<string, number>();
-    ((qRes.data as any[]) || []).forEach((q) => {
+    ((qRes.data as { year?: string; created_at?: string | null }[]) || []).forEach((q) => {
       if (!q.year || q.year === 'Demo' || q.year === 'Unspecified') return;
       counts.set(q.year, (counts.get(q.year) || 0) + 1);
     });
@@ -40,8 +40,8 @@ export default function AnnualRollover({ onNavigate }: AnnualRolloverProps) {
         .map(([year, count]) => ({ year, count }))
         .sort((a, b) => (a.year < b.year ? 1 : -1))
     );
-    setRunwayDays((runwayRes as any).count ?? 0);
-    setLastDay((lastRes.data as any)?.schedule_date ?? null);
+    setRunwayDays((runwayRes as { count?: number }).count ?? 0);
+    setLastDay((lastRes.data as { schedule_date?: string } | null)?.schedule_date ?? null);
     setLoading(false);
   };
 
@@ -63,8 +63,8 @@ export default function AnnualRollover({ onNavigate }: AnnualRolloverProps) {
       if (!res.ok) throw new Error(json.error || 'Top-up failed');
       setTopupResult({ added: json.added, last_day: json.last_day });
       await loadStatus();
-    } catch (e: any) {
-      setTopupError(e?.message || 'Top-up failed');
+    } catch (e: unknown) {
+      setTopupError(e instanceof Error ? e.message : String(e));
     } finally {
       setToppingUp(false);
     }

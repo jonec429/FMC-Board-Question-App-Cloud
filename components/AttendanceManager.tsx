@@ -10,11 +10,18 @@ import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, 
 export default function AttendanceManager() {
   const [activeTab, setActiveTab] = useState<'bulk' | 'manual'>('bulk');
   const [pasteContent, setPasteContent] = useState('');
-  const [parsedData, setParsedData] = useState<any[]>([]);
+  const [parsedData, setParsedData] = useState<{
+    raw: string;
+    name: string;
+    email: string | null;
+    session_date: string;
+    topic_suffix: string;
+    matched: boolean;
+  }[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [roster, setRoster] = useState<any[]>([]);
-  const [blocks, setBlocks] = useState<any[]>([]);
+  const [roster, setRoster] = useState<{ email: string; full_name: string; class_label: string; matched_label: string }[]>([]);
+  const [blocks, setBlocks] = useState<import('@/lib/types').Block[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
   const [selectedBlockId, setSelectedBlockId] = useState<string>('');
 
@@ -35,10 +42,11 @@ export default function AttendanceManager() {
           withTimeout(supabase.from('blocks').select('*').order('sort_order', { ascending: true }))
         ]);
         if (rosterRes.data) {
-          setRoster(rosterRes.data.map((r: any) => ({
+          setRoster(rosterRes.data.map((r: { email: string; name: string; cohort_year: number; pgy: string; track?: string; status?: string; pgy_override?: number; graduated_year?: number; }) => ({
             email: r.email,
             full_name: r.name,
             class_label: deriveLabel(r, selectedYear),
+            matched_label: '', // Added to satisfy type
             track: r.track,
             status: r.status
           })));
@@ -166,7 +174,14 @@ export default function AttendanceManager() {
       return;
     }
 
-    const newParsedData: any[] = [];
+    const newParsedData: {
+      raw: string;
+      name: string;
+      email: string | null;
+      session_date: string;
+      topic_suffix: string;
+      matched: boolean;
+    }[] = [];
     const today = new Date().toISOString().split('T')[0];
 
     // Find header row by looking for known columns. Scan deeper to prioritize granular over summary.
@@ -346,6 +361,7 @@ export default function AttendanceManager() {
             name: resident?.full_name || item,
             email: resident?.email || null,
             session_date: today,
+            topic_suffix: '',
             matched: !!resident
           });
        });
@@ -405,8 +421,8 @@ export default function AttendanceManager() {
       alert(`Successfully saved ${validEntries.length} attendance credits to ${targetBlock.title}!`);
       setParsedData([]);
       setPasteContent('');
-    } catch (e: any) {
-      alert('Error saving attendance: ' + e.message);
+    } catch (e: unknown) {
+      alert('Error saving attendance: ' + (e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
     }
@@ -468,8 +484,8 @@ export default function AttendanceManager() {
       setSelectedEmails([]);
       setManualDescription('');
       setManualPoints(1);
-    } catch (err: any) {
-      alert('Error awarding manual attendance: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error awarding manual attendance: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setManualSaving(false);
     }

@@ -1407,13 +1407,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-mono shadow-2xs text-slate-700">⌨️ Shortcuts</kbd>
             </button>
 
-            {syncing && <Loader2 className="w-4 h-4 text-slate-300 animate-spin" />}
-            {!syncing && (
-              <span className="hidden md:flex text-[10px] font-black text-slate-300 uppercase tracking-widest items-center gap-1">
-                <Save className="w-3 h-3" />
-                Cloud Sync
-              </span>
-            )}
+
             <button
               onClick={handleResumeLater}
               disabled={resumingLater}

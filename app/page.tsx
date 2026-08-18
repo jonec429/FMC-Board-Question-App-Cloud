@@ -110,7 +110,7 @@ export default function Home() {
       setCurrentBlock({
         ...bData.blocks,
         end_date: bData.end_date,
-        topic: (bData.blocks as any).title // Alias title to topic for QuizEngine
+        topic: (bData.blocks as { title: string }).title // Alias title to topic for QuizEngine
       });
     } else {
       setCurrentBlock(null);

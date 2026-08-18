@@ -96,7 +96,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Punctual QOTD Notifications (pg_cron)** ✅ *(2026-06-05)*: `migrate_qotd_pgcron.sql` run + verified in Supabase (`pg_cron` + `pg_net` enabled; test push returned `200 "Morning QOTD notifications processed."`). The redundant Vercel cron (`vercel.json`) and GitHub Actions workflow were removed in the same deploy — **pg_cron is now the single scheduler.** Note: `CRON_SECRET` was rotated to a new value on this date.
 - [x] **2026-06-08 — QOTD Top-Up Engine**: `20260608_qotd_topup.sql` — adds a `UNIQUE(question_id)` recycle guardrail to `qotd_schedule` plus the `qotd_topup()` function that powers the Annual Rollover "Update Daily Question pool" button. ✅ **Run by admin 2026-06-08.**
 - [x] **2026-06-08 — Badge Catalog Expansion**: `20260608_badges_expansion.sql` — seeds the 9 new achievement badges (Ironman, block-streak ladder, Sharpshooter, Early Bird, Weekend Warrior, Perfectionist, Procrastinator) and removes the duplicate "Marathoner". ✅ **Run by admin 2026-06-08 — new badges now live.**
-- [ ] **NEXT — Over Achiever Badge**: `20260611_over_achiever_badge.sql` — seeds the new "Over Achiever" milestone badge to the catalog so it shows as locked in the UI. **Admin must run it in Supabase.**
+- [x] **NEXT — Over Achiever Badge**: `20260611_over_achiever_badge.sql` — seeds the new "Over Achiever" milestone badge to the catalog so it shows as locked in the UI. **Admin must run it in Supabase.** ✅ *(Run by admin 2026-08-17)*
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Phase 2 — Final Items ✅
@@ -126,8 +126,8 @@ This file serves as the shared source of truth for development progress between 
 - [x] **9. Gamification fires 20+ sequential DB calls per submit.** `lib/gamification.ts` does a select-then-insert for every badge/club threshold. Move into one Postgres function (or batch + upsert).
 - [x] **10. `SUPER_ADMIN_EMAILS` is duplicated in ~7 places** (`lib/roles.ts`, four API routes, a component, the SQL helper). Centralize so adding/removing an admin can't drift out of sync.
 - [x] **11. Re-enable build-time type/lint checks.** `next.config.js` sets `ignoreBuildErrors`/`ignoreDuringBuilds: true`. `tsc` passes clean today, so flip them back on to restore the safety net.
-- [ ] **12. Replace pervasive `any` types** (`user`, `profile`, `question`, …) with the interfaces already in `lib/types.ts`, so the `tsc` gate actually protects those paths.
-- [ ] **13. Improve highlighter function and stability.**
+- [x] **12. Replace pervasive `any` types** (`user`, `profile`, `question`, …) with the interfaces already in `lib/types.ts`, so the `tsc` gate actually protects those paths.
+- [x] **13. Improve highlighter function and stability.**
 - [x] **14. Consolidate loose SQL files.** ~30 ad-hoc `*.sql` files + large data dumps sit in the repo root; only 2 are in `supabase/migrations/`. Move into one ordered migrations folder so it's clear what's been applied.
 
 ---
@@ -286,7 +286,8 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Question-level Analytics**: More granular tracking of individual question performance (distractor analysis heatmap).
 - [x] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
 - [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Alerts:** ✅ in-app "needs attention" banner (Tier 1) + ✅ manual advisor-email digest now carries the overdue/trend/why-flagged reasons. **Remaining (parked):** scheduled Web-Push digest (Tier 2).
-- [x] **Advisor Email Reports**: Automated email summaries sent to faculty advisors detailing their specific advisees' performance and completion rates.
+- [!] **Advisor Email Reports (Fix Required)**: The automated email push is currently not working. Needs a deep dive into the reporting architecture for faculty advisors.
+- [ ] **Faculty Advisor Tools**: Add more faculty-specific tools with a lower barrier of entry to make reporting and advisee tracking more useful and accessible.
 
 ### Transition & Infrastructure
 - [x] **"Academic Year Transition" Tool**: Handle PGY bumps, archiving old data, and resetting for July 1st (Completed in Phase 4).

@@ -52,9 +52,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
+    interface BulkAttendanceEntry {
+      resident_email: string;
+      topic: string;
+      points?: number;
+    }
+
     // Deduplicate: Fetch attendance for these topics and emails from the last 1 hour
-    const emailsToFetch = Array.from(new Set(entries.map((e: any) => e.resident_email)));
-    const topicsToFetch = Array.from(new Set(entries.map((e: any) => e.topic)));
+    const emailsToFetch = Array.from(new Set(entries.map((e: BulkAttendanceEntry) => e.resident_email)));
+    const topicsToFetch = Array.from(new Set(entries.map((e: BulkAttendanceEntry) => e.topic)));
     
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
@@ -66,11 +72,11 @@ export async function POST(request: Request) {
       .in('topic', topicsToFetch);
 
     const existingSet = new Set(
-      (existingAttendance || []).map((a: any) => `${a.resident_email}::${a.topic}`)
+      (existingAttendance || []).map((a: { resident_email: string; topic: string }) => `${a.resident_email}::${a.topic}`)
     );
 
     const newEntries = entries.filter(
-      (e: any) => !existingSet.has(`${e.resident_email}::${e.topic}`)
+      (e: BulkAttendanceEntry) => !existingSet.has(`${e.resident_email}::${e.topic}`)
     );
 
     if (newEntries.length === 0) {
@@ -92,7 +98,7 @@ export async function POST(request: Request) {
     const isRollover = month > 5 || (month === 5 && date >= 14);
     const defaultAy = isRollover ? year + 1 : year;
 
-    const resultEntries = newEntries.map((entry: any) => {
+    const resultEntries = newEntries.map((entry: BulkAttendanceEntry) => {
       // Extract AY from topic, e.g. "[AY 25] Block: Gastro" -> 25
       const ayMatch = entry.topic?.match(/\[AY\s+(\d+)\]/);
       const ay = ayMatch ? parseInt(ayMatch[1], 10) : defaultAy;
@@ -100,7 +106,7 @@ export async function POST(request: Request) {
       return {
         legacy_email: entry.resident_email,
         topic: `[Attendance] ${entry.topic}`,
-        academic_points: entry.points || 1,
+        academic_points: Number(entry.points) || 1,
         timing_status: 'Manual',
         academic_year: ay
       };

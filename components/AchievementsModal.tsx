@@ -14,7 +14,7 @@ interface BadgeRow {
 
 interface AchievementsModalProps {
   /** The user's earned badges (already loaded on the dashboard). */
-  userBadges: any[];
+  userBadges: (import('@/lib/types').Badge & { earned_at: string })[];
   onClose: () => void;
 }
 

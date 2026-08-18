@@ -125,12 +125,12 @@ export async function POST(request: Request) {
         await webpush.sendNotification(pushSubscription, payload);
         sent++;
       } catch (err: unknown) {
-        if ((err as any).statusCode === 404 || (err as any).statusCode === 410) {
-          console.log(`[web-push/send] Subscription expired (${(err as any).statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
+        if ((err as { statusCode?: number }).statusCode === 404 || (err as { statusCode?: number }).statusCode === 410) {
+          console.log(`[web-push/send] Subscription expired (${(err as { statusCode?: number }).statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
           await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
           expired++;
         } else {
-          console.error(`[web-push/send] Push failed for ${sub.endpoint.slice(0, 60)}...:`, (err as any).statusCode, (err as any).body || (err instanceof Error ? err.message : String(err)));
+          console.error(`[web-push/send] Push failed for ${sub.endpoint.slice(0, 60)}...:`, (err as { statusCode?: number }).statusCode, (err as { body?: string }).body || (err instanceof Error ? err.message : String(err)));
           failed++;
         }
       }

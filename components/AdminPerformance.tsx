@@ -101,7 +101,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
   const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
 
-  const openReview = async (r: any) => {
+  const openReview = async (r: import('@/lib/types').Result & { review_data?: unknown }) => {
     setSelectedQuiz(r);
     setLoadingReview(true);
     setReviewItems(null);
@@ -114,11 +114,11 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         return;
       }
       
-      const qIds = rd.map((item: any) => item.q);
+      const qIds = rd.map((item: { q: string }) => item.q);
       const { data, error } = await supabase.from('questions').select('*').in('id', qIds);
       if (error) throw error;
       
-      const hydrated = rd.map((item: any) => {
+      const hydrated = rd.map((item: { q: string; status: string; explanation?: string; submitted_answer?: string; a?: string }) => {
         const qData = data?.find(x => x.id === item.q);
         return qData ? { question: qData, selected: item.a } : null;
       }).filter(Boolean);
@@ -947,7 +947,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   if (selectedYear === 0) return true;
                   let year = b.academic_year ? Number(b.academic_year) : 0;
                   if (!year || isNaN(year) || year === 0) {
-                    const sched = block_schedule.find((s: any) => s.block_id === b.id);
+                    const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id);
                     if (sched?.end_date) {
                       const d = new Date(sched.end_date + "T12:00:00Z");
                       year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0); // Approx getCurrentAcademicYear logic
@@ -958,8 +958,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   return year === selectedYear;
                 })
                 .sort((a, b) => {
-                  const da = block_schedule.find((s: any) => s.block_id === a.id)?.end_date || '';
-                  const db = block_schedule.find((s: any) => s.block_id === b.id)?.end_date || '';
+                  const da = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === a.id)?.end_date || '';
+                  const db = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id)?.end_date || '';
                   if (!da && !db) return (a.sort_order || 1000) - (b.sort_order || 1000);
                   if (!da) return 1;
                   if (!db) return -1;
@@ -1235,7 +1235,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Core Curriculum ({assignedQuizzes.length})</h3>
                           {assignedQuizzes.length > 0 ? (
                             <div className="space-y-3">
-                              {assignedQuizzes.map((r: Result & { email?: string | null, review_data?: any }, i: number) => {
+                              {assignedQuizzes.map((r: Result & { email?: string | null, review_data?: unknown }, i: number) => {
                                 const pts = r.academic_points || 0;
                                 const timingLabel = r.timing_status === 'Early' ? '🚀 Early'
                                   : r.timing_status === 'On Time' ? '✅ On Time'
@@ -1283,7 +1283,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Independent Study ({customQuizzes.length})</h3>
                           {customQuizzes.length > 0 ? (
                             <div className="space-y-3">
-                              {customQuizzes.map((r: Result & { email?: string | null, review_data?: any }, i: number) => (
+                              {customQuizzes.map((r: Result & { email?: string | null, review_data?: unknown }, i: number) => (
                                 <button key={`ind-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 transition-all border border-indigo-50/50 group">
                                   <div className="flex-1 min-w-0">
                                     <p className="font-bold text-slate-800 text-sm truncate">{r.topic}</p>
@@ -1311,7 +1311,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                         <h3 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-4">Attendance & Manual Credit ({attendanceRecords.length})</h3>
                         {attendanceRecords.length > 0 ? (
                           <div className="space-y-3">
-                            {attendanceRecords.map((r: Result & { email?: string | null, review_data?: any }, i: number) => {
+                            {attendanceRecords.map((r: Result & { email?: string | null, review_data?: unknown }, i: number) => {
                               const pts = r.academic_points || 0;
                               return (
                                 <div key={`att-${i}`} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-emerald-50/30 border border-emerald-100/50">
@@ -1348,7 +1348,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {/* Block Drilldown Modal */}
       {selectedBlockDrilldown && (() => {
         const block = selectedBlockDrilldown;
-        const sched = block_schedule.find((s: any) => s.block_id === block.id);
+        const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === block.id);
         const blockResults = allEnriched.filter(r => r.topic === block.title && (!r.academic_year || r.academic_year === selectedYear));
         
         // Find highest academic points / best completion attempt per resident

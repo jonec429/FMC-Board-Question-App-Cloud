@@ -85,7 +85,7 @@ export async function GET(request: Request) {
     }
 
     let targetSubs = subs.filter(sub => {
-      const prefs: any = prefsMap.get(sub.user_id) || {};
+      const prefs = (prefsMap.get(sub.user_id) as Record<string, unknown>) || {};
       return prefs.qotd !== false;
     });
 
@@ -141,13 +141,13 @@ export async function GET(request: Request) {
           await webpush.sendNotification(pushSubscription, payload);
           sent++;
         } catch (err: unknown) {
-          const status = (err as any).statusCode;
+          const status = (err as { statusCode?: number }).statusCode;
           if (status === 401 || status === 403 || status === 404 || status === 410) {
             console.log(`[qotd-noon] Subscription invalid/expired (${status}), deleting: ${sub.endpoint.slice(0, 60)}...`);
             await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
             expired++;
           } else {
-            console.error(`[qotd-noon] Push failed for ${sub.endpoint.slice(0, 60)}...:`, status, (err as any).body || (err instanceof Error ? err.message : String(err)));
+            console.error(`[qotd-noon] Push failed for ${sub.endpoint.slice(0, 60)}...:`, status, (err as { body?: string }).body || (err instanceof Error ? err.message : String(err)));
             failed++;
           }
         }

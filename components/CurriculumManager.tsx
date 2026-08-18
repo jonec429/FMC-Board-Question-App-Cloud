@@ -37,13 +37,13 @@ export default function CurriculumManager() {
   // Derived data
   const resultsCount = useMemo(() => {
     const counts = new Map<string, number>();
-    results.forEach((r: any) => {
+    results.forEach((r: import('@/lib/types').Result) => {
       counts.set(r.topic, (counts.get(r.topic) || 0) + 1);
     });
     return counts;
   }, [results]);
 
-  const blockSortKey = (b: any): number => {
+  const blockSortKey = (b: import('@/lib/types').Block): number => {
     if (b.sort_order) return b.sort_order; // 0 or null = unset → fall through to title-based order
     const t = b.title || '';
     if (/^demo/i.test(t)) return 9999;
@@ -61,7 +61,7 @@ export default function CurriculumManager() {
     blocks.forEach(b => {
       let year = b.academic_year ? Number(b.academic_year) : 0;
       if (!year || isNaN(year) || year === 0) {
-        const sched = block_schedule.find((s: any) => s.block_id === b.id);
+        const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id);
         if (sched?.end_date) {
           const d = new Date(sched.end_date + "T12:00:00Z");
           year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0);
@@ -79,7 +79,7 @@ export default function CurriculumManager() {
     const filtered = [...blocks].filter(b => {
       let year = b.academic_year ? Number(b.academic_year) : 0;
       if (!year || isNaN(year) || year === 0) {
-        const sched = block_schedule.find((s: any) => s.block_id === b.id);
+        const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id);
         if (sched?.end_date) {
           const d = new Date(sched.end_date + "T12:00:00Z");
           year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0);
@@ -188,15 +188,15 @@ export default function CurriculumManager() {
       
       await onRefresh();
       setEditingDates(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("App Crash during save:", err);
-      alert("App Crash saving dates: " + err.message);
+      alert("App Crash saving dates: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDuplicateBlock = async (block: any) => {
+  const handleDuplicateBlock = async (block: import('@/lib/types').Block) => {
     const targetYearStr = window.prompt(`Copy '${block.title}' to which Academic Year? (Enter the ending year, e.g. 2025 for 2024-2025)`, String(selectedYear));
     if (!targetYearStr || isNaN(Number(targetYearStr))) return;
     const targetYear = Number(targetYearStr);
@@ -275,7 +275,7 @@ export default function CurriculumManager() {
     await onRefresh();
   };
 
-  const handleToggleArchive = async (block: any) => {
+  const handleToggleArchive = async (block: import('@/lib/types').Block) => {
     const isArchived = block.is_archived;
     const action = isArchived ? 'Unarchive' : 'Archive';
     if (!window.confirm(`${action} '${block.title}'? ${isArchived ? 'It will be visible to residents again.' : 'It will be hidden from residents, but existing scores will be kept.'}`)) return;
