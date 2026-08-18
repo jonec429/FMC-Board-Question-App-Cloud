@@ -391,7 +391,7 @@ export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-3 text-sm text-slate-600 mb-6 max-h-[60vh] overflow-y-auto pr-2">
+            <div className="space-y-3 text-sm text-slate-600 mb-6 max-h-[60vh] overflow-y-auto overflow-x-hidden pr-2">
               <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest sticky top-0 bg-white py-2 mb-2 border-b border-slate-100 z-10">Latest Updates</div>
               {changelog.length > 0 ? (
                 <div className="space-y-6">
