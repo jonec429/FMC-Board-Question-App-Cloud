@@ -57,22 +57,14 @@ function applyHighlights(html: string, highlights: string[]): string {
 
     if (!textToHighlight || textToHighlight.length < 2) return;
     
-    // Check if the highlight string starts or ends with a word character
-    const startsWithWordChar = /^\w/.test(textToHighlight);
-    const endsWithWordChar = /\w$/.test(textToHighlight);
-    
-    // Add word boundaries conditionally to avoid substring matches (e.g. 'in' matching inside 'incase')
-    const prefix = startsWithWordChar ? '\\b' : '';
-    const suffix = endsWithWordChar ? '\\b' : '';
-    
-    // Only match text outside of HTML tags
-    const regex = new RegExp(`${prefix}(${escapeRegex(textToHighlight)})${suffix}(?![^<]*>)`, 'gi');
+    // Character-level match outside of HTML tags without enforcing whole-word boundaries
+    const regex = new RegExp(`(${escapeRegex(textToHighlight)})(?![^<]*>)`, 'gi');
     
     if (targetIndex === -1) {
         // Legacy: highlight all occurrences
         result = result.replace(regex, `<mark class="highlight-marker cursor-pointer hover:bg-red-200 transition-colors" style="background-color:#fef08a;color:inherit;" title="Click to remove highlight" data-id="${h}">$1</mark>`);
     } else {
-        // New: highlight specific occurrence
+        // Highlight specific occurrence
         let currentMatch = 0;
         result = result.replace(regex, (fullMatch, group1) => {
             if (currentMatch === targetIndex) {
@@ -87,7 +79,7 @@ function applyHighlights(html: string, highlights: string[]): string {
   return result;
 }
 
-export default function QuestionCard({
+function QuestionCard({
   question,
   userAnswer,
   onSelectOption,
@@ -139,31 +131,34 @@ export default function QuestionCard({
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
 
     const range = selection.getRangeAt(0);
-    if (!stemRef.current?.contains(range.startContainer) && !stemRef.current?.contains(range.endContainer)) {
-      return;
-    }
+    if (!stemRef.current) return;
+
+    const stemNode = stemRef.current;
+    const intersects = stemNode.contains(range.startContainer) || 
+                       stemNode.contains(range.endContainer) || 
+                       (range.commonAncestorContainer && stemNode.contains(range.commonAncestorContainer));
+    if (!intersects) return;
 
     const text = selection.toString().trim();
     if (text.length < 2) return;
 
     // Calculate which occurrence this is in the text
     let highlightId = text;
-    if (stemRef.current) {
+    try {
       const preSelectionRange = range.cloneRange();
-      preSelectionRange.selectNodeContents(stemRef.current);
-      preSelectionRange.setEnd(range.startContainer, range.startOffset);
+      preSelectionRange.selectNodeContents(stemNode);
+      if (stemNode.contains(range.startContainer)) {
+        preSelectionRange.setEnd(range.startContainer, range.startOffset);
+      }
       const preSelectionText = preSelectionRange.toString();
       
-      const startsWithWordChar = /^\w/.test(text);
-      const endsWithWordChar = /\w$/.test(text);
-      const prefix = startsWithWordChar ? '\\b' : '';
-      const suffix = endsWithWordChar ? '\\b' : '';
-      
-      const regex = new RegExp(`${prefix}(${escapeRegex(text)})${suffix}`, 'gi');
+      const regex = new RegExp(escapeRegex(text), 'gi');
       const matches = preSelectionText.match(regex);
       const matchIndex = matches ? matches.length : 0;
       
       highlightId = `${matchIndex}|${text}`;
+    } catch (e) {
+      highlightId = text;
     }
 
     // Save the highlighted text string so it survives re-renders
@@ -202,8 +197,16 @@ export default function QuestionCard({
   const toggleStrikethrough = (e: React.MouseEvent, index: number) => {
     e.stopPropagation();
     const newSet = new Set(strikethroughs);
-    if (newSet.has(index)) newSet.delete(index);
-    else newSet.add(index);
+    if (newSet.has(index)) {
+      newSet.delete(index);
+    } else {
+      newSet.add(index);
+      // Auto-unselect if the struck option was selected
+      if (selectedOption === index) {
+        setSelectedOption(undefined);
+        if (onSelectOption) onSelectOption(-1);
+      }
+    }
     setStrikethroughs(newSet);
   };
 
@@ -392,3 +395,5 @@ export default function QuestionCard({
     </div>
   );
 }
+
+export default React.memo(QuestionCard);

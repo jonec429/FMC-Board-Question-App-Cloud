@@ -39,6 +39,7 @@ interface QuizEngineProps {
 // Font-size scale options for the A-/A+ toolbar
 const FONT_SIZES = [14, 16, 18, 20, 22, 24];
 const DEFAULT_FONT_INDEX = 1; // 16px
+const EMPTY_ARRAY: any[] = [];
 
 export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted, qotdAttempt, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, forceNew = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
   const queryClient = useQueryClient();
@@ -1033,6 +1034,36 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const answeredCount = Object.keys(answers).length;
   const isTimeLow = timeLeft > 0 && timeLeft < 300;
 
+  const handleSelectOption = useCallback((idx: number) => {
+    if (idx === -1) {
+      setStagedAnswers(prev => {
+        const next = { ...prev };
+        delete next[currentIndex];
+        return next;
+      });
+      if (mode === 'quiz') {
+        setAnswers(prev => {
+          const next = { ...prev };
+          delete next[currentIndex];
+          return next;
+        });
+      }
+    } else {
+      setStagedAnswers(prev => ({ ...prev, [currentIndex]: idx }));
+      if (mode === 'quiz') {
+        setAnswers(prev => ({ ...prev, [currentIndex]: idx }));
+      }
+    }
+  }, [currentIndex, mode]);
+
+  const handleToolsChange = useCallback((tools: { highlights: string[]; strikethroughs: number[] }) => {
+    if (!currentQuestion?.id) return;
+    setQuestionTools(prev => ({
+      ...prev,
+      [currentQuestion.id]: tools,
+    }));
+  }, [currentQuestion?.id]);
+
   // Pre-start screen: choose Practice vs Quiz before a non-QOTD, non-demo quiz begins.
   if (!isQotd && !((topic || '').toLowerCase().includes('demo')) && !started && currentQuestion) {
     const hasProgress = sessionId !== null && answeredCount > 0;
@@ -1289,23 +1320,13 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           <QuestionCard
             question={currentQuestion}
             userAnswer={answers[currentIndex] ?? stagedAnswers[currentIndex]}
-            onSelectOption={(idx) => {
-              setStagedAnswers(prev => ({ ...prev, [currentIndex]: idx }));
-              if (mode === 'quiz') {
-                const newAnswers = { ...answers, [currentIndex]: idx };
-                setAnswers(newAnswers);
-              }
-            }}
+            onSelectOption={handleSelectOption}
             showExplanation={!isQotd && mode === 'practice' && answers[currentIndex] !== undefined}
             fontSize={fontSize}
-            initialHighlights={questionTools[currentQuestion.id]?.highlights || []}
-            initialStrikethroughs={questionTools[currentQuestion.id]?.strikethroughs || []}
-            onToolsChange={(tools) => {
-              setQuestionTools(prev => ({
-                ...prev,
-                [currentQuestion.id]: tools,
-              }));
-            }}
+            initialHighlights={questionTools[currentQuestion.id]?.highlights || EMPTY_ARRAY}
+            initialStrikethroughs={questionTools[currentQuestion.id]?.strikethroughs || EMPTY_ARRAY}
+            onToolsChange={handleToolsChange}
+            userEmail={user?.email}
           />
         )}
       </main>

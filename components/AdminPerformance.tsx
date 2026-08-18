@@ -93,6 +93,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [reviewItems, setReviewItems] = useState<any[] | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
   
+  const [selectedBlockDrilldown, setSelectedBlockDrilldown] = useState<any | null>(null);
+  const [blockDrilldownSearch, setBlockDrilldownSearch] = useState('');
+  
   const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
 
   const openReview = async (r: any) => {
@@ -905,9 +908,21 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 ).length || 0;
 
                 return (
-                  <tr key={block.id} className="hover:bg-slate-50 transition-colors">
+                  <tr 
+                    key={block.id} 
+                    onClick={() => {
+                      setSelectedBlockDrilldown(block);
+                      setBlockDrilldownSearch('');
+                      setSelectedQuiz(null);
+                    }}
+                    className="hover:bg-indigo-50/40 cursor-pointer transition-colors group"
+                    title="Click to view resident completion drilldown"
+                  >
                     <td className="px-6 py-4">
-                      <div className="font-bold text-slate-800">{block.title}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{block.title}</div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-all shrink-0" />
+                      </div>
                       <div className="text-xs text-slate-500 mt-1">{block.question_count || 40} questions</div>
                     </td>
                     <td className="px-4 py-4 text-center font-bold text-slate-600">
@@ -1242,6 +1257,225 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           </div>
         </div>
       )}
+      {/* Block Drilldown Modal */}
+      {selectedBlockDrilldown && (() => {
+        const block = selectedBlockDrilldown;
+        const sched = block_schedule.find((s: any) => s.block_id === block.id);
+        const blockResults = allEnriched.filter(r => r.topic === block.title && (!r.academic_year || r.academic_year === selectedYear));
+        
+        // Find highest academic points / best completion attempt per resident
+        const userBestPts = new Map<string, Result & { email?: string | null }>();
+        blockResults.forEach(r => {
+          const uid = (r.user_id || r.legacy_email || r.email || '').toLowerCase();
+          if (!uid) return;
+          const cur = userBestPts.get(uid);
+          if (!cur || (r.academic_points || 0) > (cur.academic_points || 0) || (r.percentage || 0) > (cur.percentage || 0)) {
+            userBestPts.set(uid, r);
+          }
+        });
+
+        const uniqueCompletions = Array.from(userBestPts.values());
+        const onTimeCount = uniqueCompletions.filter(r => (r.academic_points || 0) >= 2 || r.timing_status === 'On Time' || r.timing_status === 'Early').length;
+        const completedCount = uniqueCompletions.length;
+        const avgScore = completedCount > 0
+          ? uniqueCompletions.reduce((acc, r) => acc + (r.percentage || 0), 0) / completedCount
+          : 0;
+        const onTimePct = completedCount > 0 ? (onTimeCount / completedCount) * 100 : 0;
+        const blockAttendance = adminData?.attendance?.filter(a => 
+          (selectedYear === 0 && a.topic?.includes(`Block: ${block.title}`)) ||
+          a.topic === `[AY ${selectedYear}] Block: ${block.title}`
+        ).length || 0;
+
+        const filteredResidents = residentStats.filter(r => {
+          if (!blockDrilldownSearch) return true;
+          const q = blockDrilldownSearch.toLowerCase();
+          return r.name.toLowerCase().includes(q) || (r.last_name && r.last_name.toLowerCase().includes(q)) || r.email.toLowerCase().includes(q);
+        });
+
+        return (
+          <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white rounded-[40px] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-start">
+                <div className="w-full">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-black rounded-full uppercase tracking-wider">
+                      {selectedYear === 0 ? 'All Years' : `AY ${selectedYear}`}
+                    </span>
+                    <h2 className="text-xl md:text-2xl font-black text-slate-800">{block.title}</h2>
+                  </div>
+                  <p className="text-sm font-bold text-slate-400 mb-6">
+                    {block.question_count || 40} Questions {sched?.start_date && sched?.end_date ? `· ${sched.start_date} to ${sched.end_date}` : ''}
+                  </p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
+                      <div className="text-xl font-black text-slate-800">{residentStats.length}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Assigned</div>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
+                      <div className="text-xl font-black text-slate-800">{completedCount} <span className="text-xs text-slate-400 font-bold">/ {residentStats.length}</span></div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Completed</div>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
+                      <div className={`text-xl font-black ${onTimePct > 65 ? 'text-emerald-600' : onTimePct > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                        {completedCount > 0 ? `${onTimePct.toFixed(0)}%` : '—'}
+                      </div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">On-Time %</div>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
+                      <div className="text-xl font-black text-slate-800">
+                        {completedCount > 0 ? `${avgScore.toFixed(1)}%` : '—'}
+                      </div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Cohort Avg</div>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
+                      <div className="text-xl font-black text-indigo-600">{blockAttendance}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attendance</div>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={() => { setSelectedBlockDrilldown(null); setSelectedQuiz(null); }} className="p-2 hover:bg-slate-100 rounded-xl transition-all ml-4 shrink-0">
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+
+              {/* Search bar */}
+              <div className="p-4 md:px-8 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between gap-4">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={blockDrilldownSearch}
+                    onChange={(e) => setBlockDrilldownSearch(e.target.value)}
+                    placeholder="Search resident by name..."
+                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+                <div className="text-xs font-bold text-slate-400">
+                  Showing {filteredResidents.length} of {residentStats.length} residents
+                </div>
+              </div>
+
+              {/* Resident List Table or Quiz Review */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                {selectedQuiz ? (
+                  <div className="space-y-6 animate-fade-in">
+                    <div className="flex items-center justify-between mb-2">
+                      <button onClick={() => setSelectedQuiz(null)} className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors">
+                        <ChevronLeft className="w-4 h-4" /> Back to Resident List
+                      </button>
+                      <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">{formatTopicDisplay(selectedQuiz.topic)}</span>
+                    </div>
+                    
+                    {loadingReview ? (
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                        <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
+                        <p className="font-bold text-sm tracking-widest uppercase">Loading Responses...</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                        <QuizReview items={reviewItems || []} />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100 uppercase tracking-widest text-[10px] font-black text-slate-400">
+                          <th className="px-4 py-3">Resident</th>
+                          <th className="px-3 py-3 text-center">PGY</th>
+                          <th className="px-3 py-3 text-center">Status</th>
+                          <th className="px-3 py-3 text-center">Date</th>
+                          <th className="px-3 py-3 text-center">Score</th>
+                          <th className="px-3 py-3 text-center">Points</th>
+                          <th className="px-3 py-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-sm">
+                        {filteredResidents.map(resident => {
+                          const result = (resident.userId ? userBestPts.get(resident.userId.toLowerCase()) : null) || 
+                                         userBestPts.get(resident.email.toLowerCase()) ||
+                                         blockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
+                          
+                          const isCompleted = !!result;
+                          const pts = result?.academic_points || 0;
+                          const isOnTime = result?.timing_status === 'Early' || result?.timing_status === 'On Time' || (pts >= 2 && !result?.topic?.toLowerCase().includes('bonus'));
+                          const isLate = result?.timing_status === 'Late' || pts === 1;
+
+                          return (
+                            <tr key={resident.email || resident.name} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="px-4 py-3 font-bold text-slate-800">
+                                {formatLastNameFirst(resident.name, resident.last_name)}
+                              </td>
+                              <td className="px-3 py-3 text-center text-xs font-bold text-slate-500">
+                                {resident.label}
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                {isCompleted ? (
+                                  isOnTime ? (
+                                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-black rounded-md">
+                                      🚀 On-Time
+                                    </span>
+                                  ) : isLate ? (
+                                    <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-xs font-black rounded-md">
+                                      ⏰ Late
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-black rounded-md">
+                                      Completed
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-xs font-bold rounded-md">
+                                    Not Completed
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-center text-xs text-slate-500 font-medium">
+                                {result?.created_at ? new Date(result.created_at).toLocaleDateString() : '—'}
+                              </td>
+                              <td className="px-3 py-3 text-center font-bold">
+                                {isCompleted ? (
+                                  <span className={`text-xs px-2 py-0.5 rounded-md font-black ${(result.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (result.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                    {(result.percentage || 0).toFixed(0)}% <span className="font-normal text-[11px] opacity-75">({result.score || 0}/{result.total || block.question_count || 40})</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-center font-black text-slate-700 text-xs">
+                                {isCompleted ? `${pts} pt${pts !== 1 ? 's' : ''}` : '0 pts'}
+                              </td>
+                              <td className="px-3 py-3 text-right">
+                                {isCompleted && result && (
+                                  <button
+                                    onClick={() => openReview(result)}
+                                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg transition-all"
+                                  >
+                                    Review
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {filteredResidents.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-bold text-sm">
+                              No residents match your search.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

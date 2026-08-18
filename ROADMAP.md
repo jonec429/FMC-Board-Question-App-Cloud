@@ -58,7 +58,7 @@ This file serves as the shared source of truth for development progress between 
 | **Phase 2 — Admin Overhaul & Logic Engine** | ✅ Complete | Fixed blocks, Curriculum Manager, RLS write-lockdown, TanStack Query data layer |
 | **Phase 3 — Notifications & Intelligence** | ✅ Complete | QOTD ecosystem, Web Push, Analytics Heatmap, Resident Review |
 | **Phase 4 — Year-over-Year Transition** | ✅ Complete | YoY schema, derived-PGY model, Academic-Year filtering, Annual Rollover |
-| **Phase 5 — Feature Wishlist** | 🔄 Ongoing | Resident Risk shipped; RFID kiosk still parked. See section below. |
+| **Phase 5 — Feature Wishlist** | 🔄 Ongoing | Resident Risk shipped; RFID kiosk scrapped. See section below. |
 
 **Deployment:** still pre-launch (no residents yet), so pushing straight to `main` is acceptable for now — but **must** switch to preview-branch testing before rollout (see Deployment Workflow). The app is **deploy-blind for AI agents**: every screen sits behind Supabase login, so changes are verified with `tsc` + `next build`, then the user tests on the live site (`brq.stvfamilymed.org`).
 
@@ -224,6 +224,14 @@ This file serves as the shared source of truth for development progress between 
     4. The `profiles` table already has `last_name`; could be joined, but `authorized_roster` is the source of truth for names pre-signup, so adding the columns there is cleaner.
 - [x] **[Security 2026-05-19, flagged Claude]** **`migrate_admin_fixes.sql` is destructive if re-run**: First statement is `DROP TABLE IF EXISTS public.block_schedule CASCADE` with no guard. File now carries a "DO NOT RE-RUN" header, but the safer fix is to split it into idempotent steps (`CREATE TABLE IF NOT EXISTS …`, conditional ALTERs) before reusing any of it as a template for future migrations.
 - [x] **[Perf 2026-05-19 → done 2026-05-20]** ~~`sessionStorage`-backed cache for `useAdminData`~~ **Superseded by the TanStack Query refactor** (2026-05-20) — React Query provides caching, stale-while-revalidate, retries, and dedup, which covers this item and more.
+- [x] **[Content Fix]** ITE ID: `4b8bdd70-8355-465d-934c-921776aa375b` (Year: 2023) — Option D has a typo ("Intracutaneous scalp corticosteroid injections 18 Item #49 Item #49 19"). Fixed in database and parsed dataset.
+- [x] **[UI/UX Fix]** Highlighting/selection: Character-level selection and highlighting enabled by replacing word-boundary regex with exact match and handling cross-boundary drags.
+- [x] **[UI/UX Fix]** Question Tracker (left sidebar in quiz): Compacted grid to 4/5 columns with compact tiles, expanded container height, and auto-scroll into view for active question.
+- [x] **[UI/UX Fix]** Strikeout Tool: Prevent users from selecting an answer that is struck out. If an answer is currently selected and then struck out, it is automatically unselected.
+- [x] **[Bug Fix]** Cloud sync auto-save selection glitch: Memoized `QuestionCard` and stabilized callbacks/props in `QuizEngine.tsx` so autosave ticks and timer countdowns no longer reset active DOM text selections.
+- [x] **[Bug Fix]** Highlighter tool boundary drag: Improved drag & intersection handling so dragging across the question stem bounds captures selection accurately without cancelling.
+- [x] **[Feature]** Admin Dashboard ("By Block" view): Clickable block rows with full resident completion drill-down modal showing status (On-Time, Late, Incomplete), score, completion date, points, and direct quiz review.
+- [ ] **[Bug / Reliability]** Push Notification Timeliness & Delivery: Push notifications (morning QOTD, noon release, reminders) are reported as frequently delayed/late and occasionally missing entirely. Investigate Supabase `pg_cron` jobs, VAPID delivery responses, and push subscription staleness handling.
 
 ## 📍 Phase 3: Notifications & Intelligence
 *Goal: Engagement and advanced analytics.*
@@ -277,7 +285,7 @@ This file serves as the shared source of truth for development progress between 
 ### Transition & Infrastructure
 - [x] **"Academic Year Transition" Tool**: Handle PGY bumps, archiving old data, and resetting for July 1st (Completed in Phase 4).
 - [x] ~~**Migrate Study Materials**: Move PDFs and docs from personal Google Drive to **Supabase Storage**~~ — **Scrapped 2026-06-08 (user decision):** keeping a Supabase Storage mirror in sync with the live Google Drive would be ongoing maintenance for little benefit. Study materials stay on Google Drive.
-- [ ] **RFID Kiosk Attendance System:** Build a dedicated iPad kiosk mode (`/kiosk`) that uses a hidden input field to accept badge taps via a USB RFID keyboard-emulating reader. Admins can register badges and monitor a live attendance roster.
+- [x] ~~**RFID Kiosk Attendance System**~~ — **Scrapped (user decision):** Will not be implemented. Bulk HTML/CSV New Innovations import and manual point awards in Attendance Center serve program needs.
 
 ### Learning Features
 - [x] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
@@ -310,6 +318,14 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-08-18 — Admin Block Drill-Down, Quiz Exam Tools & Stability Enhancements (Antigravity)
+*   **Admin "By Block" Drill-Down Modal:** Clicking any block row in the Admin Performance dashboard opens a detailed completion modal listing every resident in the cohort, their completion status (🚀 On-Time, ⏰ Late, or Incomplete), test date, score breakdown, attendance count, and instant quiz review access.
+*   **Highlighter Precision & Character Selection:** Removed word-boundary locks to allow character-level text highlighting. Added support for cross-boundary selection gestures.
+*   **Strikeout vs. Selection Synchronization:** Struck options can no longer be mistakenly selected, and striking an already selected option automatically unselects it.
+*   **Autosave Text Selection Stability:** Memoized QuestionCard and stabilized event callbacks in QuizEngine so cloud sync background ticks and timer countdowns no longer reset active DOM text selections mid-drag.
+*   **Compact Question Navigator & Auto-Scroll:** Streamlined question number grid to 4/5 columns with compact button heights and enabled automatic scroll-into-view for the currently active question.
+*   **Content Fix:** Corrected OCR artifact typo in 2023 ITE Question 50 Option D.
 
 ### 2026-08-04 — Manual Attendance Point Award & Custom Description (Antigravity)
 *   **Manual Point Award Form:** Added a dedicated "Manual Point Award" tab inside Attendance Center (`AttendanceManager.tsx`), allowing admins to directly select any resident from the roster and award customized attendance points for a specific block and date.
