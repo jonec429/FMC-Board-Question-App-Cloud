@@ -34,7 +34,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
     const facultyName = profile?.full_name || (profile?.first_name + ' ' + profile?.last_name);
     
     return data.roster
-      .filter(r => r.role === 'resident' || r.role === 'chief')
+      .filter(r => (r.role === 'resident' || r.role === 'chief') && r.status !== 'graduated')
       .sort((a, b) => {
         if (isAdmin) return (a.name || '').localeCompare(b.name || '');
         const aIsAdvisee = a.advisor === facultyName;
