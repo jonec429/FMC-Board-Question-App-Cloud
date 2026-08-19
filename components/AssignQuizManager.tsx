@@ -195,7 +195,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
         
         {/* LEFT COLUMN: Resident Selection */}
         <div className="space-y-4 md:col-span-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[600px]">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[800px]">
             <h2 className="font-bold text-slate-800 flex items-center gap-2 mb-4 shrink-0">
               <Users className="w-5 h-5 text-blue-500" />
               1. Select Residents
@@ -235,7 +235,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
         </div>
 
         {/* RIGHT COLUMN: Quiz Config */}
-        <div className="space-y-4 md:col-span-8 flex flex-col h-[600px]">
+        <div className="space-y-4 md:col-span-8 flex flex-col h-[800px]">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5 flex-1 flex flex-col min-h-0">
             <h2 className="font-bold text-slate-800 flex items-center gap-2 shrink-0">
               <BookOpen className="w-5 h-5 text-amber-500" />
