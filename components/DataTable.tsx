@@ -56,7 +56,7 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     initialState: {
       pagination: {
-        pageSize: pageSize ?? (hidePagination ? 10000 : 50),
+        pageSize: pageSize ?? (hidePagination ? 10000 : 100),
       },
     }
   });
