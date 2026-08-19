@@ -616,10 +616,11 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     pgyGroups[r.label].push(r);
   });
 
-  const ResidentTable = ({ residents }: { residents: ResidentStat[] }) => (
+  const ResidentTable = ({ residents, hidePagination }: { residents: ResidentStat[], hidePagination?: boolean }) => (
     <DataTable
       columns={columns}
       data={residents}
+      hidePagination={hidePagination}
       globalSearchPlaceholder="Search residents..."
       onRowClick={(row) => setSelectedResident(row)}
       rowClassName={(r) => {
@@ -914,7 +915,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               </div>
             </div>
           </div>
-          <div className="p-4"><ResidentTable residents={overviewFilteredResidents} /></div>
+          <div className="p-4"><ResidentTable residents={overviewFilteredResidents} hidePagination={true} /></div>
         </div>
       )}
 

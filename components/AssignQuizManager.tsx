@@ -20,6 +20,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [bulkCount, setBulkCount] = useState(10);
+  const [searchKeyword, setSearchKeyword] = useState('');
   
   const [assigning, setAssigning] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -60,11 +61,13 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   // 3. Calculate matching questions based on filters
   const matchingQuestions = useMemo(() => {
     if (!data?.questions) return [];
+    const lowerKeyword = searchKeyword.toLowerCase().trim();
     return data.questions.filter(q => 
       q.category !== 'Demo' && 
-      (selectedCategories.length === 0 || selectedCategories.includes(q.category))
+      (selectedCategories.length === 0 || selectedCategories.includes(q.category)) &&
+      (!lowerKeyword || (q.question_text || '').toLowerCase().includes(lowerKeyword))
     );
-  }, [data?.questions, selectedCategories]);
+  }, [data?.questions, selectedCategories, searchKeyword]);
 
   // Bulk actions
   const handleSelectRandom = () => {
@@ -250,8 +253,20 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
               />
             </div>
 
-            <div className="shrink-0">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Filter by Category</label>
+            <div className="shrink-0 flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Search Questions</label>
+                <input 
+                  type="text" 
+                  placeholder="Search keywords..."
+                  value={searchKeyword}
+                  onChange={e => setSearchKeyword(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Filter by Category</label>
               <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
                 {availableCategories.map(cat => (
                   <button
@@ -278,6 +293,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                   </button>
                 )}
               </div>
+            </div>
             </div>
 
             <div className="flex-1 min-h-0 flex flex-col mt-2">

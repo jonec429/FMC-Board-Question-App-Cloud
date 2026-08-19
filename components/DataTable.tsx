@@ -22,6 +22,7 @@ interface DataTableProps<TData, TValue> {
   rowClassName?: (row: TData) => string;
   onRowClick?: (row: TData) => void;
   hidePagination?: boolean;
+  pageSize?: number;
 }
 
 export function DataTable<TData, TValue>({
@@ -32,6 +33,7 @@ export function DataTable<TData, TValue>({
   rowClassName,
   onRowClick,
   hidePagination = false,
+  pageSize,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -52,10 +54,9 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    // Increase default page size
     initialState: {
       pagination: {
-        pageSize: 50,
+        pageSize: pageSize ?? (hidePagination ? 10000 : 50),
       },
     }
   });
