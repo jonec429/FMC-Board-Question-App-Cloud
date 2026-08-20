@@ -259,15 +259,22 @@ export default function CurriculumManager() {
     const newTitle = titleForm.trim();
     if (!newTitle) { alert('Block title cannot be empty.'); return; }
     if (newTitle === oldTitle) { setEditingTitle(null); return; }
-    // A block's title is the key that links completions + in-progress sessions to it,
-    // so renaming is only safe before anyone has taken it. (For planning + fixing
-    // accidental "(Copy)" names.)
+    
     const usageCount = resultsCount.get(oldTitle) || 0;
     if (usageCount > 0) {
-      alert(`Cannot rename: ${usageCount} resident(s) already have completions recorded under "${oldTitle}". Renaming would orphan their scores. Renaming is meant for planning before a block is used — duplicate or archive it instead.`);
-      return;
+      if (!window.confirm(`Warning: ${usageCount} resident(s) already have completions or sessions recorded under "${oldTitle}". Renaming this block will also update their completion data to use the new name. Do you want to proceed?`)) {
+        return;
+      }
     }
+
     setSaving(true);
+    
+    if (usageCount > 0) {
+      // Update associated completion data and in-progress sessions so they aren't orphaned
+      await supabase.from('results').update({ topic: newTitle }).eq('topic', oldTitle);
+      await supabase.from('quiz_sessions').update({ topic: newTitle }).eq('topic', oldTitle);
+    }
+
     const { error } = await supabase.from('blocks').update({ title: newTitle }).eq('id', blockId);
     setSaving(false);
     if (error) { alert('Error renaming block: ' + error.message); return; }
