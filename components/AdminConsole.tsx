@@ -18,19 +18,20 @@ import { useAdminData } from '@/hooks/useAdminData';
 
 import { User, Profile } from '@/lib/types';
 
+export type TabId = 'performance' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications' | 'rollover' | 'assign';
+
 interface AdminConsoleProps {
   user?: User | null;
   profile?: Profile | null;
   onExit: () => void;
+  initialTab?: TabId;
 }
 
-type TabId = 'performance' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications' | 'rollover' | 'assign';
-
-export default function AdminConsole({ user, profile, onExit }: AdminConsoleProps) {
+export default function AdminConsole({ user, profile, onExit, initialTab }: AdminConsoleProps) {
   const role = getUserRole(user, profile);
   const userIsAdmin = isAdmin(user, profile);
-  // Faculty land directly on Performance; admins start on Performance too (most-used tab)
-  const [activeTab, setActiveTab] = useState<TabId>('performance');
+  // Faculty land directly on Performance (or initialTab); admins start on Performance too (most-used tab)
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab || 'performance');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Hoist the hook call to the top level to avoid React Rules of Hooks violations.
@@ -38,9 +39,6 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
   const adminDataResult = useAdminData({ 
     includeQuestions: activeTab === 'questions' || activeTab === 'builder' 
   });
-
-  // The data loading has been pushed down into the individual tabs so the console 
-  // shell loads instantly and tabs can be navigated without waiting on heavy queries.
 
   // Sidebar groups — ordered by likely-use frequency
   // `adminOnly: true` tabs are hidden from faculty users
@@ -183,5 +181,3 @@ export default function AdminConsole({ user, profile, onExit }: AdminConsoleProp
     </div>
   );
 }
-
-// (End of file)

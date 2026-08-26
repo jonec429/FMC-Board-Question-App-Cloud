@@ -295,7 +295,7 @@ This file serves as the shared source of truth for development progress between 
 ### Learning Features
 - [x] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
 - [x] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
-- [ ] **Faculty-Assigned Custom Quizzes**: Allow advisors or faculty department heads to create custom quizzes and explicitly assign them to specific residents (e.g., for remediation or individual improvement plans).
+- [x] **Faculty-Assigned Custom Quizzes**: Allow advisors or faculty department heads to create custom quizzes and explicitly assign them to specific residents (e.g., for remediation or individual improvement plans). Shipped via `AssignQuizManager.tsx` + `assigned_quizzes` DB table.
 
 ### UI & UX
 - [ ] **Dark Mode Toggle**: Implement a dark mode theme using `next-themes` and Tailwind `dark:` variants. Requires systematically updating all hardcoded Tailwind color classes across the app to prevent visual bugs.
@@ -323,6 +323,12 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-08-26 — Faculty Advisee Hub & Quick-Access Reporting (Antigravity)
+*   **Dedicated "My Advisees Hub" Widget:** Added a prominent, live tracking card to the main dashboard for faculty members and program leadership. Surfaces assigned advisees, PGY level, core curriculum averages, block completion status, and real-time risk indicators (`✅ On Track`, `⚠️ Needs Attention`, `🚨 At Risk`).
+*   **Direct Reporting Tools (Email & CCC Copy):** Added one-click **"Email Advisees"** (`mailto:` with pre-composed progress metrics and flags) and **"Copy CCC Notes"** (formatted Markdown table for 1-on-1s and Clinical Competency Committee reviews).
+*   **Targeted Assignment Integration & AP Policy Badge:** Direct shortcuts to the quiz assigner with explicit reminders across all UI surfaces that custom assigned quizzes are for targeted remediation and practice (0 APs awarded).
+*   **Direct Console Navigation:** Integrated tab-specific deep links so clicking *"Assign Practice Quiz"* or *"Full Faculty Console"* opens the admin console directly on the requested tab.
 
 ### 2026-08-26 — Timezone Precision & Date Alignment (Antigravity)
 *   **Curriculum Date Display Fix:** Added ISO midday parsing to curriculum block schedules in `CurriculumManager.tsx`, eliminating UTC midnight rollover shifts that caused schedule dates to render a day behind in American timezones.

@@ -15,6 +15,7 @@ import AchievementsModal from './AchievementsModal';
 import InstallAppModal from './InstallAppModal';
 import QotdHistoryModal from './QotdHistoryModal';
 import ClassYoyModal from './ClassYoyModal';
+import AdviseeQuickAccessCard from './AdviseeQuickAccessCard';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -24,7 +25,7 @@ interface DashboardProps {
   profile: Profile;
   isActive?: boolean;
   currentBlock?: Block | null;
-  onOpenAdmin: () => void;
+  onOpenAdmin: (tabId?: string) => void;
   onLogout: () => void;
   onStartQuiz: (quiz: any) => void;
   onOpenBuilder: () => void;
@@ -255,7 +256,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         <div className="flex items-center gap-1 sm:gap-2 relative z-20 shrink-0">
           {isSuperAdmin && (
             <button
-              onClick={onOpenAdmin}
+              onClick={() => onOpenAdmin()}
               className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
               title="Admin Console"
             >
@@ -404,6 +405,16 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         {/* RIGHT MAIN */}
         <div className="flex-1 flex flex-col min-w-0">
           
+          {/* Advisee Hub for Faculty and Admins */}
+          {isSuperAdmin && (
+            <AdviseeQuickAccessCard
+              user={user}
+              profile={profile}
+              selectedYear={selectedYear}
+              onOpenAdmin={onOpenAdmin}
+            />
+          )}
+
           {/* QOTD Card */}
           <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 group mb-6">
              <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
@@ -518,9 +529,12 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
               <div className="absolute top-0 right-0 bg-purple-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl z-10 uppercase tracking-wider">Assigned</div>
               <Sparkles className="w-6 h-6 shrink-0 text-purple-500" />
               <div className="text-left flex-1 min-w-0 pr-16">
-                <p className="font-bold text-lg text-purple-900">{aq.title}</p>
-                <p className="text-xs font-medium text-purple-600 opacity-80 truncate">
-                  {aq.question_ids?.length} Questions • Assigned by your advisor
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-lg text-purple-900">{aq.title}</p>
+                  <span className="px-2 py-0.5 bg-purple-200/70 text-purple-800 text-[10px] font-bold rounded-md">Practice (0 AP)</span>
+                </div>
+                <p className="text-xs font-medium text-purple-600 opacity-80 truncate mt-0.5">
+                  {aq.question_ids?.length} Questions • Assigned by your advisor • Practice & Remediation
                 </p>
               </div>
             </button>

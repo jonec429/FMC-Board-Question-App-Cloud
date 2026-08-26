@@ -6,7 +6,7 @@ import Login from '@/components/Login';
 import Dashboard from '@/components/Dashboard';
 import QuizEngine from '@/components/QuizEngine';
 import CustomBuilderScreen from '@/components/CustomBuilderScreen';
-import AdminConsole from '@/components/AdminConsole';
+import AdminConsole, { TabId } from '@/components/AdminConsole';
 import { Loader2 } from '@/components/AppIcons';
 import { withTimeout, withRetry } from '@/lib/utils';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -41,6 +41,7 @@ export default function Home() {
   const [currentBlock, setCurrentBlock] = useState<Block | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [adminTab, setAdminTab] = useState<TabId | undefined>(undefined);
   const [showReset, setShowReset] = useState(false);
 
   // Reload the app when it returns to the foreground stale (new day or hidden > 4h)
@@ -303,7 +304,10 @@ export default function Home() {
             onLogout={handleLogout}
             onStartQuiz={(quiz: ActiveQuizState) => setActiveQuiz(quiz)}
             onOpenBuilder={() => setShowBuilder(true)}
-            onOpenAdmin={() => setShowAdmin(true)}
+            onOpenAdmin={(tabId?: string) => {
+              setAdminTab(tabId as TabId | undefined);
+              setShowAdmin(true);
+            }}
             onProfileUpdate={(updatedProfile: Profile) => setProfile(updatedProfile)}
           />
         </ErrorBoundary>
@@ -367,7 +371,15 @@ export default function Home() {
 
       {showAdmin && (
         <ErrorBoundary fallbackMessage="The admin console encountered an error.">
-          <AdminConsole user={user} profile={profile} onExit={() => setShowAdmin(false)} />
+          <AdminConsole
+            user={user}
+            profile={profile}
+            initialTab={adminTab}
+            onExit={() => {
+              setShowAdmin(false);
+              setAdminTab(undefined);
+            }}
+          />
         </ErrorBoundary>
       )}
     </>

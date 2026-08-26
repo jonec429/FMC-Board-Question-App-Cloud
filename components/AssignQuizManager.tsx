@@ -168,12 +168,17 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3 mb-2">
-          <Sparkles className="w-6 h-6 text-indigo-500" />
-          Assign Targeted Quizzes
-        </h1>
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
+          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+            <Sparkles className="w-6 h-6 text-indigo-500" />
+            Assign Targeted Quizzes
+          </h1>
+          <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-black rounded-full border border-purple-200">
+            Practice & Remediation • 0 APs
+          </span>
+        </div>
         <p className="text-slate-500 text-sm md:text-base max-w-3xl">
-          Build custom quizzes focused on specific categories and assign them directly to any resident. Your direct advisees are pinned to the top of the list.
+          Build targeted question sets for specific categories or topics and assign them directly to any resident. Direct advisees are pinned to the top of your list. Assigned quizzes are for practice and do not award Academic Points.
         </p>
       </div>
 
