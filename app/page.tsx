@@ -12,6 +12,7 @@ import { withTimeout, withRetry } from '@/lib/utils';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useDayChangeReload } from '@/hooks/useDayChangeReload';
 import { User, Profile, Block, Question, Result } from '@/lib/types';
+import { getTodayDateString } from '@/lib/qotd';
 import { Session } from '@supabase/supabase-js';
 
 interface ActiveQuizState {
@@ -92,7 +93,7 @@ export default function Home() {
   };
 
   const loadCurrentBlock = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateString();
     const { data: bData, error } = await supabase
       .from('block_schedule')
       .select('*, blocks(*)')

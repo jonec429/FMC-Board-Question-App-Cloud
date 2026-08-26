@@ -482,7 +482,7 @@ export default function CurriculumManager() {
                       {schedule ? (
                         <div className="text-center">
                           <p className="font-bold text-slate-700 text-sm">
-                            {new Date(schedule.start_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric'})} - {new Date(schedule.end_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric'})}
+                            {new Date(schedule.start_date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric'})} - {new Date(schedule.end_date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric'})}
                           </p>
                         </div>
                       ) : (

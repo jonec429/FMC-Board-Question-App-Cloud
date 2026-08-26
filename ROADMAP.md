@@ -37,20 +37,18 @@ This file serves as the shared source of truth for development progress between 
 
 **⚠️ AI Rule (MUST FOLLOW):** ALWAYS ask the user for permission before executing a `git push` to trigger a Vercel deployment. Do not push code autonomously to prevent miscommunications and confusion when testing.
 
-**Current (pre-launch):** Pushing directly to `main` is OK because no residents are using the app yet — fast iteration matters more than preview safety.
-
-**Once we roll out to users (REQUIRED — do not skip this transition):**
-- ❌ Stop pushing untested changes straight to `main`.
-- ✅ Use one of:
-    - **Local dev** (`npm run dev` → http://localhost:3000) for unverified changes, OR
-    - **Vercel preview deployments**: push to a feature branch → Vercel auto-generates a unique preview URL → test there with real Supabase → merge to `main` only after verifying.
-- The "push to main = instantly live for residents" model is acceptable now and unacceptable later. Whichever AI agent is in the seat at launch must enforce this.
+**🔴 PRODUCTION STATUS: LIVE & ACTIVE (Residents In-App)**
+- ❌ **Do NOT push untested changes directly to `main`.**
+- ✅ All changes must be verified:
+    - **Local dev** (`npm run dev` → http://localhost:3000) or
+    - **Vercel preview deployments / feature branches** before merging to `main`.
+    - Always gate changes with `npx tsc --noEmit` and `npm run build`.
 
 ---
 
-## 📊 Current Status (Snapshot — 2026-06-08)
+## 📊 Current Status (Active Production)
 
-**All planned phases are shipped; the app is in pre-launch hardening.** The active work queue is the **🔧 Code Review — Tech Debt & Hardening** section below (security → bugs → maintainability), being worked top-to-bottom.
+**The app is live and actively used by residents in the residency program.** Main development focuses on ongoing faculty tools, maintenance, stability, and wishlist items.
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -58,9 +56,9 @@ This file serves as the shared source of truth for development progress between 
 | **Phase 2 — Admin Overhaul & Logic Engine** | ✅ Complete | Fixed blocks, Curriculum Manager, RLS write-lockdown, TanStack Query data layer |
 | **Phase 3 — Notifications & Intelligence** | ✅ Complete | QOTD ecosystem, Web Push, Analytics Heatmap, Resident Review |
 | **Phase 4 — Year-over-Year Transition** | ✅ Complete | YoY schema, derived-PGY model, Academic-Year filtering, Annual Rollover |
-| **Phase 5 — Feature Wishlist** | 🔄 Ongoing | Resident Risk shipped; RFID kiosk scrapped. See section below. |
+| **Phase 5 — Feature Wishlist** | 🔄 Ongoing | Faculty tools, resident risk, dark mode, custom assignments |
 
-**Deployment:** still pre-launch (no residents yet), so pushing straight to `main` is acceptable for now — but **must** switch to preview-branch testing before rollout (see Deployment Workflow). The app is **deploy-blind for AI agents**: every screen sits behind Supabase login, so changes are verified with `tsc` + `next build`, then the user tests on the live site (`brq.stvfamilymed.org`).
+**Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
 ### ▶️ Session Handoff — 2026-06-16 (Antigravity)
 **Shipped & pushed to `main` this session**: 
@@ -325,6 +323,11 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-08-26 — Timezone Precision & Date Alignment (Antigravity)
+*   **Curriculum Date Display Fix:** Added ISO midday parsing to curriculum block schedules in `CurriculumManager.tsx`, eliminating UTC midnight rollover shifts that caused schedule dates to render a day behind in American timezones.
+*   **Eastern Time Quiz Timing & Points:** Standardized deadline and point award calculations in `QuizEngine.tsx` to evaluate submission dates against Eastern Time (`America/New_York`), ensuring on-time/early points are consistently and accurately credited.
+*   **Active Block Fetch Alignment:** Updated current block detection in `app/page.tsx` to query active dates using Eastern Time (`getTodayDateString()`).
 
 ### 2026-08-18 — Desktop Keyboard Shortcuts, New Badges & Stability Enhancements (Antigravity)
 *   **Desktop Keyboard Navigation:** Added full keyboard navigation in exam/practice modes (`A`–`E` or `1`–`5` to select options, `←`/`→` for previous/next questions, `Enter` to submit, and `?` to view the shortcuts guide modal).

@@ -551,13 +551,19 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             
             if (bSched) {
               const now = new Date();
-              const startDate = new Date(bSched.start_date + 'T00:00:00Z');
-              const endDate = new Date(bSched.end_date + 'T23:59:59Z');
+              // Format current time in Eastern Time as YYYY-MM-DD
+              const estFormatter = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/New_York',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+              });
+              const todayEstStr = estFormatter.format(now);
               
-              if (now < startDate) {
+              if (todayEstStr < bSched.start_date) {
                 points = 2;
                 timingStatus = 'Early';
-              } else if (now <= endDate) {
+              } else if (todayEstStr <= bSched.end_date) {
                 points = 2;
                 timingStatus = 'On Time';
               }
