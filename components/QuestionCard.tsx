@@ -62,14 +62,14 @@ function applyHighlights(html: string, highlights: string[]): string {
     
     if (targetIndex === -1) {
         // Legacy: highlight all occurrences
-        result = result.replace(regex, `<mark class="highlight-marker cursor-pointer hover:bg-red-200 transition-colors" style="background-color:#fef08a;color:inherit;" title="Click to remove highlight" data-id="${h}">$1</mark>`);
+        result = result.replace(regex, `<mark class="highlight-marker cursor-pointer transition-colors" title="Click to remove highlight" data-id="${h}">$1</mark>`);
     } else {
         // Highlight specific occurrence
         let currentMatch = 0;
         result = result.replace(regex, (fullMatch, group1) => {
             if (currentMatch === targetIndex) {
                 currentMatch++;
-                return `<mark class="highlight-marker cursor-pointer hover:bg-red-200 transition-colors" style="background-color:#fef08a;color:inherit;" title="Click to remove highlight" data-id="${h}">${group1}</mark>`;
+                return `<mark class="highlight-marker cursor-pointer transition-colors" title="Click to remove highlight" data-id="${h}">${group1}</mark>`;
             }
             currentMatch++;
             return fullMatch;
@@ -212,7 +212,9 @@ function QuestionCard({
 
   const isCorrect = userAnswer === question.correct_index;
   const renderedStemHtmlRaw = applyHighlights(question.question_text, highlights);
-  const renderedStemHtml = typeof window !== 'undefined' ? DOMPurify.sanitize(renderedStemHtmlRaw) : renderedStemHtmlRaw;
+  const renderedStemHtml = typeof window !== 'undefined'
+    ? DOMPurify.sanitize(renderedStemHtmlRaw, { ADD_TAGS: ['mark'], ADD_ATTR: ['data-id', 'title'] })
+    : renderedStemHtmlRaw;
   const optionFontSize = Math.max(14, fontSize - 2);
 
   return (
@@ -235,7 +237,11 @@ function QuestionCard({
             )}
             <button
               onClick={() => setHighlightMode(!highlightMode)}
-              className={`p-2 rounded-xl transition-all ${highlightMode ? 'text-yellow-600 bg-yellow-100 dark:bg-yellow-950/50 dark:text-yellow-300 shadow-inner' : 'text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-slate-800'}`}
+              className={`p-2 rounded-xl transition-all ${
+                highlightMode
+                  ? 'text-yellow-600 bg-yellow-100 dark:text-blue-300 dark:bg-blue-950/70 shadow-inner ring-1 ring-yellow-400/40 dark:ring-blue-500/40'
+                  : 'text-slate-400 hover:text-yellow-500 dark:hover:text-blue-400 hover:bg-yellow-50 dark:hover:bg-slate-800'
+              }`}
               title="Toggle Highlight Mode"
             >
               <Highlighter className="w-5 h-5" />
@@ -246,7 +252,7 @@ function QuestionCard({
         <div
           ref={stemRef}
           onClick={handleStemClick}
-          className={`font-bold leading-relaxed text-slate-800 dark:text-slate-100 ${highlightMode ? 'cursor-text selection:bg-yellow-200 dark:selection:bg-yellow-900/60' : ''}`}
+          className={`font-bold leading-relaxed text-slate-800 dark:text-slate-100 ${highlightMode ? 'cursor-text selection:bg-yellow-200 dark:selection:bg-blue-600 dark:selection:text-white' : ''}`}
           style={{ fontSize: `${fontSize}px` }}
           dangerouslySetInnerHTML={{ __html: renderedStemHtml }}
         />
@@ -285,7 +291,7 @@ function QuestionCard({
                 className={`w-full text-left py-2.5 md:py-3 pl-3 pr-10 rounded-2xl border-2 transition-all duration-200 flex items-center gap-3 ${stateStyles}`}
                 style={{ fontSize: `${optionFontSize}px` }}
               >
-                <div className={`w-7 h-7 text-sm rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 text-slate-400'}`}>
+                <div className={`w-7 h-7 text-sm rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700'}`}>
                   {String.fromCharCode(65 + index)}
                 </div>
                 <span className={`font-bold leading-snug flex-1 min-w-0 break-words ${isStruck ? 'line-through decoration-2' : ''}`}>
@@ -303,7 +309,7 @@ function QuestionCard({
               {!showExplanation && !readOnly && (
                 <button
                   onClick={(e) => toggleStrikethrough(e, index)}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 ${isStruck ? 'text-slate-800 bg-slate-200' : 'text-slate-300 hover:text-slate-600 hover:bg-slate-100'}`}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 ${isStruck ? 'text-slate-800 dark:text-slate-200 bg-slate-200 dark:bg-slate-700' : 'text-slate-300 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                   title="Strike-through"
                 >
                   <Strikethrough className="w-5 h-5" />

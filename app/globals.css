@@ -41,6 +41,149 @@ html.dark body {
   color: var(--text-main);
 }
 
+/* ==========================================================================
+   TEXT HIGHLIGHTER SYSTEM
+   Light mode: Vibrant yellow with dark charcoal font for maximum contrast.
+   Dark & Midnight mode: Electric blue with crisp bold white font.
+   ========================================================================== */
+mark.highlight-marker {
+  background-color: #fde047 !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  border-radius: 3px;
+  padding: 1px 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+mark.highlight-marker:hover {
+  background-color: #fecaca !important;
+  color: #991b1b !important;
+}
+
+html.dark mark.highlight-marker,
+html.midnight mark.highlight-marker {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+html.dark mark.highlight-marker:hover,
+html.midnight mark.highlight-marker:hover {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   MIDNIGHT THEME: TRUE OLED PITCH-BLACK & DEEP MIDNIGHT STYLING
+   Enforces deep ink-black backgrounds (#000000) and distinct navy surfaces
+   so that Midnight is clearly distinct from Slate Dark Mode.
+   ========================================================================== */
+html.midnight {
+  color-scheme: dark;
+}
+
+html.midnight body {
+  background-color: #000000 !important;
+  color: #f8fafc !important;
+}
+
+/* Base App Canvas / Background */
+html.midnight .dark\:bg-slate-950,
+html.midnight [class*="dark:bg-slate-950"] {
+  background-color: #000000 !important;
+}
+
+/* Primary Card Surfaces */
+html.midnight .dark\:bg-slate-900,
+html.midnight [class*="dark:bg-slate-900"] {
+  background-color: #070b14 !important;
+}
+
+html.midnight .dark\:bg-slate-900\/90,
+html.midnight [class*="dark:bg-slate-900/90"] {
+  background-color: rgba(7, 11, 20, 0.9) !important;
+}
+
+html.midnight .dark\:bg-slate-900\/95,
+html.midnight [class*="dark:bg-slate-900/95"] {
+  background-color: rgba(7, 11, 20, 0.95) !important;
+}
+
+html.midnight .dark\:bg-slate-900\/60,
+html.midnight [class*="dark:bg-slate-900/60"] {
+  background-color: rgba(7, 11, 20, 0.6) !important;
+}
+
+html.midnight .dark\:bg-slate-900\/50,
+html.midnight [class*="dark:bg-slate-900/50"] {
+  background-color: rgba(7, 11, 20, 0.5) !important;
+}
+
+/* Secondary / Elevated Surfaces */
+html.midnight .dark\:bg-slate-800,
+html.midnight [class*="dark:bg-slate-800"] {
+  background-color: #0d1322 !important;
+}
+
+html.midnight .dark\:bg-slate-800\/80,
+html.midnight [class*="dark:bg-slate-800/80"] {
+  background-color: rgba(13, 19, 34, 0.8) !important;
+}
+
+html.midnight .dark\:bg-slate-800\/60,
+html.midnight [class*="dark:bg-slate-800/60"] {
+  background-color: rgba(13, 19, 34, 0.6) !important;
+}
+
+html.midnight .dark\:bg-slate-800\/50,
+html.midnight [class*="dark:bg-slate-800/50"] {
+  background-color: rgba(13, 19, 34, 0.5) !important;
+}
+
+/* Sub-elements / Inactive States */
+html.midnight .dark\:bg-slate-700,
+html.midnight [class*="dark:bg-slate-700"] {
+  background-color: #151d32 !important;
+}
+
+/* Hover States for Midnight */
+html.midnight .dark\:hover\:bg-slate-800:hover,
+html.midnight [class*="dark:hover:bg-slate-800"]:hover {
+  background-color: #151d32 !important;
+}
+
+html.midnight .dark\:hover\:bg-slate-700:hover,
+html.midnight [class*="dark:hover:bg-slate-700"]:hover {
+  background-color: #1f2b48 !important;
+}
+
+/* Borders for Midnight */
+html.midnight .dark\:border-slate-800,
+html.midnight [class*="dark:border-slate-800"] {
+  border-color: #151d32 !important;
+}
+
+html.midnight .dark\:border-slate-700,
+html.midnight [class*="dark:border-slate-700"] {
+  border-color: #1f2b48 !important;
+}
+
+html.midnight .dark\:border-slate-600,
+html.midnight [class*="dark:border-slate-600"] {
+  border-color: #27375e !important;
+}
+
+html.midnight .dark\:ring-slate-800,
+html.midnight [class*="dark:ring-slate-800"] {
+  --tw-ring-color: #151d32 !important;
+}
+
+html.midnight .dark\:ring-offset-slate-900,
+html.midnight [class*="dark:ring-offset-slate-900"] {
+  --tw-ring-offset-color: #070b14 !important;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }

@@ -901,19 +901,19 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
     if (isQotd && !isPastNoon()) {
       return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-          <div className="bg-white p-6 md:p-10 rounded-[40px] shadow-2xl border border-slate-100 max-w-lg w-full text-center space-y-8 animate-in fade-in zoom-in duration-300">
-            <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors">
+          <div className="bg-white dark:bg-slate-900 p-6 md:p-10 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-lg w-full text-center space-y-8 animate-in fade-in zoom-in duration-300 transition-colors">
+            <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4">
               <Save className="w-10 h-10" />
             </div>
             <div>
-              <h2 className="text-3xl font-black text-slate-800">Answer Recorded!</h2>
-              <p className="text-slate-500 mt-3 text-lg leading-relaxed">
+              <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100">Answer Recorded!</h2>
+              <p className="text-slate-500 dark:text-slate-400 mt-3 text-lg leading-relaxed">
                 The correct answer, explanation, and cohort statistics will be revealed at <strong>12:30 PM EST</strong>.
               </p>
             </div>
             
-            <div className="bg-slate-50 rounded-3xl p-4 md:p-6 border border-slate-100">
+            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-3xl p-4 md:p-6 border border-slate-100 dark:border-slate-700/60">
               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">How did you feel about this question?</h3>
               <div className="flex justify-center gap-2 sm:gap-4">
                 {[
@@ -927,15 +927,15 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                     key={e}
                     onClick={() => handleReaction(e)}
                     disabled={!!qotdReaction}
-                    className={`flex flex-col items-center gap-2 p-2 sm:p-3 rounded-2xl transition-all ${qotdReaction === e ? 'bg-indigo-100 scale-110 shadow-lg' : qotdReaction ? 'opacity-30 grayscale' : 'hover:bg-slate-200 hover:scale-105 active:scale-95'}`}
+                    className={`flex flex-col items-center gap-2 p-2 sm:p-3 rounded-2xl transition-all ${qotdReaction === e ? 'bg-indigo-100 dark:bg-indigo-900/60 scale-110 shadow-lg' : qotdReaction ? 'opacity-30 grayscale' : 'hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-105 active:scale-95'}`}
                   >
                     <span className="text-3xl">{e}</span>
-                    <span className={`text-xs font-bold ${qotdReaction === e ? 'text-indigo-700' : 'text-slate-500'}`}>{l}</span>
+                    <span className={`text-xs font-bold ${qotdReaction === e ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-500 dark:text-slate-400'}`}>{l}</span>
                   </button>
                 ))}
               </div>
               {qotdReaction && (
-                <p className="text-sm font-bold text-indigo-600 mt-6 animate-fade-in">
+                <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400 mt-6 animate-fade-in">
                   Thanks for voting! Check back at 12:30 PM to see how everyone else did.
                 </p>
               )}
@@ -943,13 +943,13 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
             <button
               onClick={() => setShowResults(false)}
-              className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all shadow-sm mb-3"
+              className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 rounded-2xl font-black text-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-sm mb-3"
             >
               Review Question
             </button>
             <button
               onClick={() => onComplete(resultData)}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+              className="w-full py-4 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-slate-200 dark:shadow-none"
             >
               Back to Dashboard
             </button>
@@ -959,7 +959,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     }
 
     return (
-      <div className="min-h-screen bg-slate-50 pb-20">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 text-slate-800 dark:text-slate-100 transition-colors">
         <div className="max-w-3xl mx-auto pt-12 px-4 space-y-8 relative">
           {/* Navigator Sidebar */}
           {!isQotd && questions.length > 1 && (
@@ -993,13 +993,13 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           {/* QOTD Tab Bar */}
           {isQotd && (
             <div className="flex items-center gap-3">
-              <div className="flex-1 flex bg-white rounded-2xl border border-slate-100 p-1 shadow-sm">
+              <div className="flex-1 flex bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-1 shadow-sm">
                 <button
                   onClick={() => setQotdTab('today')}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-black transition-all ${
                     qotdTab === 'today'
                       ? 'bg-indigo-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                      : 'text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
                   QOTD
@@ -1009,7 +1009,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   className={`flex-1 py-2.5 rounded-xl text-sm font-black transition-all ${
                     qotdTab === 'history'
                       ? 'bg-indigo-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                      : 'text-slate-400 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
                 >
                   Past QOTDs
@@ -1017,7 +1017,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               </div>
               <button
                 onClick={() => onComplete(resultData)}
-                className="w-11 h-11 shrink-0 flex items-center justify-center bg-white rounded-2xl border border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-all shadow-sm"
+                className="w-11 h-11 shrink-0 flex items-center justify-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-all shadow-sm"
                 title="Return to Dashboard"
               >
                 <X className="w-5 h-5" />
@@ -1031,7 +1031,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               <QotdHistory onBack={() => setQotdTab('today')} />
               <button
                 onClick={() => onComplete(resultData)}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+                className="w-full py-4 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-slate-200 dark:shadow-none"
               >
                 Back to Dashboard
               </button>
@@ -1117,9 +1117,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             <div className="space-y-6">
               {/* Noon Conference Box */}
               <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-1 rounded-3xl shadow-lg">
-                <div className="bg-white rounded-[20px] p-6 text-center">
-                  <h3 className="text-xl font-black text-slate-800 mb-2">Noon Conference Reminder</h3>
-                  <p className="text-slate-600 font-medium text-sm">
+                <div className="bg-white dark:bg-slate-900 rounded-[20px] p-6 text-center transition-colors">
+                  <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">Noon Conference Reminder</h3>
+                  <p className="text-slate-600 dark:text-slate-400 font-medium text-sm">
                     We will discuss this question and its learning points at today's Noon Conference! Be ready to share your thoughts.
                   </p>
                 </div>
@@ -1127,7 +1127,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
               {/* Social Aggregates */}
               {qotdAggregates && (
-                <div className="bg-white rounded-3xl p-4 md:p-6 border border-slate-100 shadow-sm text-center">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 md:p-6 border border-slate-100 dark:border-slate-800 shadow-sm text-center transition-colors">
                   <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6">Co-Residents' Reactions</h3>
                   <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-8">
                     {[
@@ -1140,11 +1140,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                       <button 
                         key={e} 
                         onClick={() => handleReaction(e)}
-                        className={`flex flex-col items-center gap-2 transition-all p-2 rounded-xl ${qotdReaction === e ? 'bg-indigo-50 scale-110' : 'hover:bg-slate-100 hover:scale-105 active:scale-95'}`}
+                        className={`flex flex-col items-center gap-2 transition-all p-2 rounded-xl ${qotdReaction === e ? 'bg-indigo-50 dark:bg-indigo-950/60 scale-110' : 'hover:bg-slate-100 dark:hover:bg-slate-800 hover:scale-105 active:scale-95'}`}
                       >
                         <span className="text-3xl md:text-4xl">{e}</span>
-                        <span className={`text-xl font-black ${qotdReaction === e ? 'text-indigo-600' : 'text-slate-700'}`}>{qotdAggregates[e] || 0}</span>
-                        <span className={`text-xs font-bold uppercase tracking-widest ${qotdReaction === e ? 'text-indigo-400' : 'text-slate-400'}`}>{l}</span>
+                        <span className={`text-xl font-black ${qotdReaction === e ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-200'}`}>{qotdAggregates[e] || 0}</span>
+                        <span className={`text-xs font-bold uppercase tracking-widest ${qotdReaction === e ? 'text-indigo-400 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500'}`}>{l}</span>
                       </button>
                     ))}
                   </div>
@@ -1157,7 +1157,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             {!isQotd && missedQuestions && missedQuestions.length > 0 && (
               <button
                 onClick={handleRetakeMissed}
-                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 flex items-center justify-center gap-2"
+                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2"
               >
                 <Sparkles className="w-5 h-5" />
                 Practice {missedQuestions.length} Missed Question{missedQuestions.length !== 1 ? 's' : ''}
@@ -1166,7 +1166,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
             <button
               onClick={() => onComplete(resultData)}
-              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+              className="w-full py-4 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-slate-200 dark:shadow-none"
             >
               Back to Dashboard
             </button>
@@ -1180,28 +1180,28 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
   if (loading || error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-        <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 max-w-sm w-full text-center space-y-6">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6 transition-colors">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-sm w-full text-center space-y-6 transition-colors">
           {error ? (
             <>
-              <div className="w-16 h-16 bg-red-50 text-red-500 rounded-[24px] flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 bg-red-50 dark:bg-red-950/60 text-red-500 dark:text-red-400 rounded-[24px] flex items-center justify-center mx-auto">
                 <X className="w-8 h-8" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-slate-800">Block Error</h3>
-                <p className="text-slate-500 text-sm mt-1 font-bold">{error}</p>
+                <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">Block Error</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-bold">{error}</p>
               </div>
             </>
           ) : (
             <>
-              <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto" />
+              <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mx-auto" />
               <div>
-                <h3 className="text-xl font-black text-slate-800">Assembling Block</h3>
-                <p className="text-slate-500 text-sm mt-1 uppercase tracking-widest font-black opacity-30">Loading Questions...</p>
+                <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">Assembling Block</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 uppercase tracking-widest font-black opacity-60">Loading Questions...</p>
               </div>
             </>
           )}
-          <button onClick={onCancel} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl shadow-slate-200">
+          <button onClick={onCancel} className="w-full py-4 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-2xl font-black transition-all shadow-xl shadow-slate-200 dark:shadow-none">
             Exit to Dashboard
           </button>
         </div>
@@ -1219,13 +1219,13 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
     if (showAbandonConfirm) {
       return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 max-w-md w-full space-y-6 animate-fade-in text-center">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full space-y-6 animate-fade-in text-center transition-colors">
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-950/60 text-red-500 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
               <X className="w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-black text-slate-800">Abandon Quiz?</h2>
-            <p className="text-slate-500 font-medium leading-relaxed">
+            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">Abandon Quiz?</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
               By abandoning this quiz you will lose progress and it will not count towards streaks or achievements.
             </p>
             <div className="space-y-3 pt-4">
@@ -1255,7 +1255,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               </button>
               <button
                 onClick={() => setShowAbandonConfirm(false)}
-                className="w-full py-4 bg-slate-100 text-slate-700 rounded-2xl font-black text-lg hover:bg-slate-200 transition-all"
+                className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl font-black text-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
               >
                 Go Back
               </button>
@@ -1266,63 +1266,63 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     }
 
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 max-w-md w-full space-y-6 animate-fade-in">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full space-y-6 animate-fade-in transition-colors">
           <div className="text-center">
-            <h2 className="text-2xl font-black text-slate-800 leading-tight">{topic || 'Quiz'}</h2>
-            <p className="text-slate-500 font-medium mt-2">{questions.length} question{questions.length === 1 ? '' : 's'}</p>
+            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-tight">{topic || 'Quiz'}</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium mt-2">{questions.length} question{questions.length === 1 ? '' : 's'}</p>
           </div>
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/60">
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Choose mode</p>
-            <div className="flex bg-white rounded-xl border border-slate-200 p-1">
+            <div className="flex bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 p-1">
               <button
                 onClick={() => setMode('practice')}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'practice' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'practice' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
               >
                 Practice
               </button>
               <button
                 onClick={() => setMode('quiz')}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'quiz' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === 'quiz' ? 'bg-blue-600 text-white shadow' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
               >
                 Quiz
               </button>
             </div>
-            <p className="text-xs text-slate-500 mt-3 text-center leading-relaxed">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 text-center leading-relaxed">
               {mode === 'practice'
                 ? 'The correct answer and explanation appear right after each question.'
                 : 'Answers stay hidden until you finish — then you get a full review.'}
             </p>
           </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-800/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
                 Exam Timer
               </label>
-              <p className="text-xs text-slate-500 font-medium">Enable 90-second countdown per question</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Enable 90-second countdown per question</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" className="sr-only peer" checked={isTimed} onChange={() => setIsTimed(!isTimed)} />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
             </label>
           </div>
           <button
             onClick={() => setStarted(true)}
-            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg hover:bg-slate-800 transition-all shadow-xl"
+            className="w-full py-4 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl dark:shadow-none"
           >
             {hasProgress ? 'Resume' : 'Start'}
           </button>
           <div className="space-y-2 pt-2">
             <button
               onClick={onCancel}
-              className="w-full py-2 text-slate-400 font-bold text-sm hover:text-slate-600 transition-all"
+              className="w-full py-2 text-slate-400 font-bold text-sm hover:text-slate-600 dark:hover:text-slate-200 transition-all"
             >
               Cancel
             </button>
             {hasProgress && (
               <button
                 onClick={() => setShowAbandonConfirm(true)}
-                className="w-full py-2 text-red-400 font-bold text-sm hover:text-red-600 transition-all"
+                className="w-full py-2 text-red-400 font-bold text-sm hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-all"
               >
                 Abandon Quiz
               </button>
@@ -1516,11 +1516,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               <button
                 type="button"
                 onClick={() => setCurrentIndex(nextUnansweredIndex)}
-                className="px-3.5 py-4 bg-blue-50 hover:bg-blue-100 text-blue-700 font-black rounded-2xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shrink-0 shadow-xs"
+                className="px-3.5 py-4 bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-slate-700 font-black rounded-2xl text-xs sm:text-sm transition-all flex items-center gap-1.5 shrink-0 shadow-xs"
                 title={`Jump to next unanswered question (${unanswered} remaining)`}
               >
                 <span>Unanswered</span>
-                <span className="bg-blue-200/80 text-blue-800 text-[10px] px-1.5 py-0.5 rounded-full font-black">
+                <span className="bg-blue-200/80 dark:bg-slate-700 text-blue-800 dark:text-blue-200 text-[10px] px-1.5 py-0.5 rounded-full font-black">
                   {unanswered}
                 </span>
               </button>
@@ -1569,47 +1569,47 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       {/* Keyboard Shortcuts Modal */}
       {showShortcutsHelp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-[32px] p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[32px] p-6 max-w-md w-full shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xl">⌨️</span>
-                <h3 className="font-black text-slate-800 text-lg">Keyboard Shortcuts</h3>
+                <h3 className="font-black text-slate-800 dark:text-slate-100 text-lg">Keyboard Shortcuts</h3>
               </div>
               <button
                 onClick={() => setShowShortcutsHelp(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition-all"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-2.5 text-sm">
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-600 font-medium">Select Options A – E</span>
+              <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-slate-600 dark:text-slate-300 font-medium">Select Options A – E</span>
                 <div className="flex items-center gap-1">
-                  <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">A – E</kbd>
-                  <span className="text-slate-300 text-xs font-bold">or</span>
-                  <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">1 – 5</kbd>
+                  <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold text-slate-700 dark:text-slate-300">A – E</kbd>
+                  <span className="text-slate-300 dark:text-slate-500 text-xs font-bold">or</span>
+                  <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold text-slate-700 dark:text-slate-300">1 – 5</kbd>
                 </div>
               </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-600 font-medium">Previous / Next Question</span>
+              <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-slate-600 dark:text-slate-300 font-medium">Previous / Next Question</span>
                 <div className="flex items-center gap-1">
-                  <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">← / P</kbd>
-                  <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">→ / N</kbd>
+                  <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold text-slate-700 dark:text-slate-300">← / P</kbd>
+                  <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold text-slate-700 dark:text-slate-300">→ / N</kbd>
                 </div>
               </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-slate-100">
-                <span className="text-slate-600 font-medium">Submit / Next Question</span>
-                <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">Enter</kbd>
+              <div className="flex items-center justify-between py-1.5 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-slate-600 dark:text-slate-300 font-medium">Submit / Next Question</span>
+                <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold text-slate-700 dark:text-slate-300">Enter</kbd>
               </div>
               <div className="flex items-center justify-between py-1.5">
-                <span className="text-slate-600 font-medium">Toggle Shortcuts Help</span>
-                <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded text-xs font-mono font-bold text-slate-700">?</kbd>
+                <span className="text-slate-600 dark:text-slate-300 font-medium">Toggle Shortcuts Help</span>
+                <kbd className="px-2 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-xs font-mono font-bold text-slate-700 dark:text-slate-300">?</kbd>
               </div>
             </div>
             <button
               onClick={() => setShowShortcutsHelp(false)}
-              className="w-full py-3 bg-slate-900 text-white font-black text-sm rounded-xl hover:bg-slate-800 transition-all shadow-md"
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-black text-sm rounded-xl transition-all shadow-md dark:shadow-none"
             >
               Got it
             </button>
