@@ -153,6 +153,16 @@ export default function Home() {
           // Run sequentially with step labels so a single hung query is identifiable
           await runStep('loadProfile', () => loadProfile(session.user));
           await runStep('loadCurrentBlock', () => loadCurrentBlock());
+
+          // Deep link support: ?admin=performance opens Admin Console directly to requested tab
+          if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const adminParam = params.get('admin');
+            if (adminParam) {
+              setAdminTab(adminParam as TabId);
+              setShowAdmin(true);
+            }
+          }
         }
       } catch (err: unknown) {
         console.error('App init error:', err);

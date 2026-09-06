@@ -5,6 +5,13 @@ export type User = SupabaseUser;
 
 export type Profile = Database['public']['Tables']['profiles']['Row'] & {
   view_as?: 'resident' | 'faculty' | 'admin' | null;
+  notification_preferences?: {
+    qotd?: boolean;
+    qotd_reminder?: boolean;
+    block_reminders?: boolean;
+    faculty_digest?: boolean;
+    [key: string]: boolean | undefined;
+  } | null;
 };
 export type RosterEntry = Database['public']['Tables']['authorized_roster']['Row'];
 export type Question = Omit<Database['public']['Tables']['questions']['Row'], 'options'> & { options: string[] };

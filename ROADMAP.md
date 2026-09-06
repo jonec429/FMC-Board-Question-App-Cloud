@@ -61,12 +61,16 @@ This file serves as the shared source of truth for development progress between 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
 ### ▶️ Session Handoff — 2026-09-06 (Antigravity)
-**Shipped & pushed to `main` this session**: 
-1. **Anki Deck Export Fix**: Resolved PostgREST `400 Bad Request` foreign key error by decoupling query and batch fetching questions in safe chunks of 50. Added Anki header directives (`#separator:Comma`, `#html:true`, `#tags column:3`), UTF-8 BOM, OpenEvidence/Gemini resource links, and instant category-filtered export.
-2. **Tri-Theme Dark Mode System**: Complete Light, Dark, and Midnight OLED themes with custom `ThemeContext`, anti-flicker pre-render script, CSS variables, and persistent `localStorage`. Fully themed all screens, quiz engines, admin console, and modals (`CustomBuilderScreen`, `MyStatsModal`, `AchievementsModal`, `InstallAppModal`, `ClassYoyModal`, `QotdHistoryModal`).
-3. **Changelog & Roadmap**: Documented the release in `ROADMAP.md` and checked off `Dark Mode Toggle` under Phase 5.
+**Shipped this session**: 
+1. **Repository Housekeeping**: Cleaned up the project root by moving 5 untracked diagnostic/scratch scripts into `scripts/` (`check_cron_logs.js`, `check_keisha.js`, `fix_late_results.js`, `insert_badge.js`, `list_crons.js`).
+2. **Resident Risk Tier 2 Web Push Notifications**: Fully implemented automated push digests in `/api/cron/faculty-digest`. Connects to live curriculum completions and evaluates risk via `lib/residentRisk.ts` (due blocks, overdue counts, curriculum averages, on-time rates, declining score trends).
+3. **Personalized Advisor & Program Alerts**: Formats tailored push messages:
+   - For Faculty Advisors: Pinpoints specific advisees needing attention with exact triggers (e.g. `Dr. Roland (1 block overdue), Dr. Miller (Avg 60%). Tap to review advisees.`) or confirms all advisees are on track.
+   - For Program Leadership: Delivers an executive cohort summary (`🚨 Program Risk: N Residents Flagged`).
+4. **Deep Linking & Developer Control**: Enhanced `app/page.tsx` to automatically open the Admin Console Performance tab when arriving via push notification (`/?admin=performance`). Added `?dryRun=true` and `?force=true` query parameters for testing.
+5. **Anki Deck Export & Tri-Theme Dark Mode**: Decoupled question joins with batch queries for Anki export; full Light, Dark, and Midnight OLED themes across all components.
 
-**Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass at this commit (`11e9e9d`).
+**Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass cleanly.
 
 ### ▶️ Session Handoff — 2026-06-16 (Antigravity)
 **Shipped & pushed to `main` this session**: 
@@ -291,7 +295,7 @@ This file serves as the shared source of truth for development progress between 
 ### Analytics & Reporting
 - [x] **Question-level Analytics**: More granular tracking of individual question performance (distractor analysis heatmap).
 - [x] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
-- [ ] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Alerts:** ✅ in-app "needs attention" banner (Tier 1) + ✅ manual advisor-email digest now carries the overdue/trend/why-flagged reasons. **Remaining (parked):** scheduled Web-Push digest (Tier 2).
+- [x] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Alerts:** ✅ in-app "needs attention" banner (Tier 1) + ✅ manual advisor-email digest now carries the overdue/trend/why-flagged reasons. ✅ *2026-09-06:* **Scheduled Web-Push digest (Tier 2)** implemented in `/api/cron/faculty-digest` with tailored advisee alerts for advisors and cohort summaries for leadership.
 - [!] **Advisor Email Reports (Fix Required)**: The automated email push is currently not working. Needs a deep dive into the reporting architecture for faculty advisors.
 - [ ] **Faculty Advisor Tools**: Add more faculty-specific tools with a lower barrier of entry to make reporting and advisee tracking more useful and accessible.
 
@@ -331,6 +335,12 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-09-06 — Resident Risk Tier 2 Web Push Alerts & Workspace Cleanup (Antigravity)
+*   **Resident Risk Tier 2 Push Digest:** Fully implemented automated Web Push notifications for resident risk in `/api/cron/faculty-digest`. The engine evaluates live curriculum completions against due dates using `lib/residentRisk.ts`, identifying overdue blocks, substandard averages (<65%), low on-time completion (<75%), and declining trends (≥10% drop).
+*   **Tailored Advisor & Program Alerts:** Advisors receive concise notifications listing their specific advisees and the primary reason for the flag (e.g., `⚠️ Advisee Alert: 2 Need Attention — Dr. Roland (1 block overdue), Dr. Miller (Avg 60%)`). Program admins receive cohort-wide executive digests.
+*   **Performance Deep Link:** Clicking the push notification opens the app directly to the Admin Console Performance overview via `/?admin=performance`.
+*   **Workspace Housekeeping:** Consolidated loose root scripts into `scripts/` and added `?dryRun=true` preview and `?force=true` test capabilities to the digest endpoint.
 
 ### 2026-09-06 — Anki Deck Export Fix & Full-App Dark Mode Completion (Antigravity)
 *   **Anki Deck Export Fix:** Resolved bug report where Anki deck export was failing with a PostgREST foreign key error. Decoupled attempts from question joins to perform batched question lookups, added explicit Anki format directives (`#separator:Comma`, `#html:true`, `#tags column:3`), embedded OpenEvidence/Gemini resource links, added UTF-8 BOM encoding for Excel/Anki import compatibility, and added instantaneous category-filtered Anki export from the Weak Areas review tab.
