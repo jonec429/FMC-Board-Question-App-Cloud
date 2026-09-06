@@ -17,7 +17,7 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
   const [filter, setFilter] = useState<'all' | 'incorrect' | 'correct'>('all');
 
   if (!items || items.length === 0) {
-    return <p className="text-center text-slate-400 text-sm italic py-6">No questions to review.</p>;
+    return <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-6">No questions to review.</p>;
   }
 
   const incorrectCount = items.filter(({ question: q, selected }) => {
@@ -47,12 +47,12 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
           onClick={() => setFilter('all')}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             filter === 'all'
-              ? 'bg-slate-800 text-white shadow-sm'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-sm'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
           }`}
         >
           All Questions
-          <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${filter === 'all' ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'}`}>
+          <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${filter === 'all' ? 'bg-slate-700 dark:bg-blue-700 text-slate-200' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>
             {items.length}
           </span>
         </button>
@@ -62,12 +62,12 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
           onClick={() => setFilter('incorrect')}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             filter === 'incorrect'
-              ? 'bg-red-600 text-white shadow-sm shadow-red-200'
-              : 'bg-red-50 text-red-700 hover:bg-red-100'
+              ? 'bg-red-600 text-white shadow-sm shadow-red-200 dark:shadow-none'
+              : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50'
           }`}
         >
           Missed / Incorrect
-          <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${filter === 'incorrect' ? 'bg-red-700 text-white' : 'bg-red-200/80 text-red-800'}`}>
+          <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${filter === 'incorrect' ? 'bg-red-700 text-white' : 'bg-red-200/80 dark:bg-red-900/60 text-red-800 dark:text-red-200'}`}>
             {incorrectCount}
           </span>
         </button>
@@ -77,20 +77,20 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
           onClick={() => setFilter('correct')}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             filter === 'correct'
-              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200'
-              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+              ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-200 dark:shadow-none'
+              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
           }`}
         >
           Correct
-          <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${filter === 'correct' ? 'bg-emerald-700 text-white' : 'bg-emerald-200/80 text-emerald-800'}`}>
+          <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${filter === 'correct' ? 'bg-emerald-700 text-white' : 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'}`}>
             {correctCount}
           </span>
         </button>
       </div>
 
       {filteredItems.length === 0 && (
-        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-8 text-center">
-          <p className="text-sm font-bold text-slate-600">
+        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-8 text-center">
+          <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
             {filter === 'incorrect' ? '🎉 Perfect Score! No missed questions to review.' : 'No matching questions found.'}
           </p>
         </div>
@@ -99,7 +99,7 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
       {filteredItems.map(({ question: q, selected, originalIndex }) => {
         if (!q) {
           return (
-            <div key={originalIndex} className="bg-white rounded-2xl border border-slate-200 p-6 text-sm text-slate-400 italic">
+            <div key={originalIndex} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-sm text-slate-400 dark:text-slate-500 italic">
               {originalIndex + 1}. This question is no longer available.
             </div>
           );
@@ -112,12 +112,24 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
           <div
             key={q.id || originalIndex}
             id={`review-question-${originalIndex}`}
-            className={`bg-white rounded-2xl border p-6 ${skipped ? 'border-slate-200' : isCorrect ? 'border-emerald-100' : 'border-red-100'}`}
+            className={`bg-white dark:bg-slate-900 rounded-2xl border p-6 transition-colors ${
+              skipped
+                ? 'border-slate-200 dark:border-slate-800'
+                : isCorrect
+                ? 'border-emerald-200 dark:border-emerald-900/50'
+                : 'border-red-200 dark:border-red-900/50'
+            }`}
           >
             <div className="flex items-start justify-between gap-3 mb-3">
-              <p className="font-bold text-slate-800 text-sm">{originalIndex + 1}. {q.question_text}</p>
+              <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{originalIndex + 1}. {q.question_text}</p>
               <span
-                className={`shrink-0 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${skipped ? 'bg-slate-100 text-slate-500' : isCorrect ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}
+                className={`shrink-0 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${
+                  skipped
+                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                    : isCorrect
+                    ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'
+                }`}
               >
                 {skipped ? 'Skipped' : isCorrect ? 'Correct' : 'Incorrect'}
               </span>
@@ -129,7 +141,13 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
                 return (
                   <div
                     key={oi}
-                    className={`px-3 py-2 rounded-xl text-sm font-medium flex items-start gap-2 ${isAns ? 'bg-emerald-50 text-emerald-700 font-bold' : isPicked ? 'bg-red-50 text-red-600' : 'text-slate-500'}`}
+                    className={`px-3 py-2 rounded-xl text-sm font-medium flex items-start gap-2 ${
+                      isAns
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 font-bold'
+                        : isPicked
+                        ? 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
                   >
                     <span className="shrink-0">{String.fromCharCode(65 + oi)}.</span>
                     <span className="flex-1">{opt}</span>
@@ -140,7 +158,9 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
               })}
             </div>
             {q.explanation && (
-              <div className="mt-4 text-sm text-slate-600 bg-slate-50 p-3 rounded-xl whitespace-pre-wrap leading-relaxed">{q.explanation}</div>
+              <div className="mt-4 text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl whitespace-pre-wrap leading-relaxed border border-slate-100 dark:border-slate-800">
+                {q.explanation}
+              </div>
             )}
           </div>
         );
@@ -148,4 +168,3 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
     </div>
   );
 }
-

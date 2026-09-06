@@ -8,22 +8,22 @@ interface QotdHistoryModalProps {
 
 export default function QotdHistoryModal({ onClose }: QotdHistoryModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
         className="absolute inset-0"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-2xl max-h-[85vh] bg-slate-50 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-300">
+      <div className="relative w-full max-w-2xl max-h-[85vh] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 duration-300 transition-colors">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-6 bg-white border-b border-slate-200 shrink-0">
+        <div className="flex items-center justify-between p-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0 transition-colors">
           <div>
-            <h2 className="text-xl font-black text-slate-900">Past QOTDs</h2>
-            <p className="text-slate-500 text-sm mt-1">Review previous questions and cohort stats</p>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white">Past QOTDs</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Review previous questions and cohort stats</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400 dark:text-slate-500 transition-colors"
           >
             <X className="w-6 h-6" />
           </button>

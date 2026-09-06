@@ -6,7 +6,7 @@ import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils'
 import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save, Check } from './AppIcons';
 import { LeaderboardEntry } from '@/lib/types';
 import QuizReview from './QuizReview';
-import { exportIncorrectToAnki, downloadCsv } from '@/lib/anki';
+import { exportIncorrectToAnki, exportQuestionsToAnki, downloadCsv } from '@/lib/anki';
 import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import RiskLegend from './RiskLegend';
 
@@ -219,18 +219,33 @@ export default function MyStatsModal({
     if (currentIndex < displayedMissedQuestions.length - 1) setCurrentIndex(currentIndex + 1);
   };
 
-  const handleExportAnki = async () => {
+  const handleExportAnki = async (categoryFilter?: string) => {
     try {
       setExportingAnki(true);
-      const csv = await exportIncorrectToAnki(userId);
-      if (csv) {
-        downloadCsv('fmc_board_prep_incorrect_qs_anki.csv', csv);
+      const targetCategory = typeof categoryFilter === 'string' ? categoryFilter : selectedTopic;
+
+      let csv = '';
+      const candidateQuestions = targetCategory
+        ? missedQuestions.filter(q => q.category === targetCategory)
+        : missedQuestions;
+
+      if (candidateQuestions.length > 0) {
+        csv = exportQuestionsToAnki(candidateQuestions);
       } else {
-        alert('No incorrect questions to export.');
+        csv = await exportIncorrectToAnki(userId, targetCategory || undefined);
+      }
+
+      if (csv) {
+        const cleanName = targetCategory
+          ? `fmc_anki_${targetCategory.toLowerCase().replace(/[^a-z0-9]+/g, '_')}.csv`
+          : 'fmc_board_prep_missed_questions_anki.csv';
+        downloadCsv(cleanName, csv);
+      } else {
+        alert(targetCategory ? `No incorrect questions found in "${targetCategory}" to export.` : 'No incorrect questions to export.');
       }
     } catch (err) {
-      console.error(err);
-      alert('Failed to export Anki flashcards.');
+      console.error('Failed to export Anki flashcards:', err);
+      alert('Failed to export Anki flashcards. Please try again.');
     } finally {
       setExportingAnki(false);
     }
@@ -238,32 +253,32 @@ export default function MyStatsModal({
 
   return (
     <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-start">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col transition-colors">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center shrink-0">
-              <Trophy className="w-5 h-5 text-yellow-500" />
+            <div className="w-10 h-10 bg-yellow-50 dark:bg-yellow-950/40 rounded-xl flex items-center justify-center shrink-0">
+              <Trophy className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-xl font-black text-slate-800 truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
-              <p className="text-xs font-bold text-slate-400 mt-0.5 truncate">
+              <h2 className="text-xl font-black text-slate-800 dark:text-white truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                 {profile?.pgy || 'No Designation Set'}{profile?.advisor ? ` · Advisor: ${profile.advisor}` : ''}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl shrink-0">
-            <X className="w-5 h-5 text-slate-400" />
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl shrink-0 transition-colors">
+            <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           </button>
         </div>
 
         {/* QOTD Performance was moved into the snapshot card */}
-        <div className="flex border-b border-slate-100 bg-slate-50/50">
+        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <button
             onClick={() => setActiveTab('stats')}
             className={`flex-1 py-4 text-sm font-black uppercase tracking-widest transition-colors ${
               activeTab === 'stats' 
-                ? 'text-blue-600 border-b-2 border-blue-500 bg-blue-50/50' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
+                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
             Stats & Badges
@@ -272,8 +287,8 @@ export default function MyStatsModal({
             onClick={() => setActiveTab('weakAreas')}
             className={`flex-1 py-4 text-sm font-black uppercase tracking-widest transition-colors ${
               activeTab === 'weakAreas' 
-                ? 'text-blue-600 border-b-2 border-blue-500 bg-blue-50/50' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
+                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
             Review Weak Areas
@@ -282,8 +297,8 @@ export default function MyStatsModal({
             onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
             className={`flex-1 py-4 text-sm font-black uppercase tracking-widest transition-colors ${
               activeTab === 'pastQuizzes'
-                ? 'text-blue-600 border-b-2 border-blue-500 bg-blue-50/50'
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
+                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
             Past Quizzes
@@ -294,7 +309,7 @@ export default function MyStatsModal({
           {activeTab === 'stats' && (
             <div className="space-y-6 animate-fade-in">
               {/* Unified Snapshot Widget */}
-              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 space-y-8">
+              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 dark:shadow-none space-y-8">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
@@ -425,23 +440,23 @@ export default function MyStatsModal({
               {/* Block Performance */}
               {topicAverages.length > 0 && (
                 <div>
-                  <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest mb-3">Block Performance</h3>
+                  <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Block Performance</h3>
                   <div className="space-y-2">
                     {topicAverages.map(({ topic, avg, attempts, qs }) => (
-                      <div key={topic} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                      <div key={topic} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 border border-transparent dark:border-slate-800 rounded-xl transition-colors">
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-xs text-slate-800 truncate">{formatTopicDisplay(topic)}</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
+                          <p className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">{formatTopicDisplay(topic)}</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
                         </div>
                         <div className="w-32 shrink-0">
-                          <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                             <div
                               className={`h-full transition-all ${avg >= 70 ? 'bg-emerald-500' : avg >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
                               style={{ width: `${Math.max(0, Math.min(100, avg))}%` }}
                             />
                           </div>
                         </div>
-                        <span className={`text-xs font-black shrink-0 w-12 text-right ${avg >= 70 ? 'text-emerald-700' : avg >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
+                        <span className={`text-xs font-black shrink-0 w-12 text-right ${avg >= 70 ? 'text-emerald-700 dark:text-emerald-400' : avg >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                           {avg.toFixed(1)}%
                         </span>
                       </div>
@@ -454,16 +469,16 @@ export default function MyStatsModal({
 
               {/* History */}
               <div>
-                <div className="flex bg-slate-100/50 p-1 rounded-2xl mb-4">
+                <div className="flex bg-slate-100/50 dark:bg-slate-800/60 p-1 rounded-2xl mb-4 transition-colors">
                   <button 
                     onClick={() => setActiveListTab('questions')}
-                    className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                    className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
                   >
                     Questions
                   </button>
                   <button 
                     onClick={() => setActiveListTab('attendance')}
-                    className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                    className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
                   >
                     Attendance
                   </button>
@@ -484,26 +499,26 @@ export default function MyStatsModal({
                             : pts >= 2 ? '⚡'
                             : '—');
                           return (
-                            <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                            <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 border border-transparent dark:border-slate-800 rounded-xl transition-colors">
                               <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
-                                <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
+                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">{formatTopicDisplay(r.topic)}</p>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-2">
                                   {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
                                   {timingEmoji && <span className="ml-2">{timingEmoji}</span>}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                                <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400'}`}>
                                   {(r.percentage || 0).toFixed(1)}%
                                 </span>
-                                <span className="text-[10px] font-bold text-slate-400">{pts}pt</span>
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{pts}pt</span>
                               </div>
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      <p className="text-center py-8 text-slate-400 text-sm italic">No assessments completed yet.</p>
+                      <p className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm italic">No assessments completed yet.</p>
                     )}
                   </>
                 ) : (
@@ -513,25 +528,25 @@ export default function MyStatsModal({
                         {myResults.filter(r => r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]')).map((r, i) => {
                           const pts = r.academic_points || 0;
                           return (
-                            <div key={i} className="flex items-center justify-between p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl">
+                            <div key={i} className="flex items-center justify-between p-3 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/40 rounded-xl transition-colors">
                               <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
-                                <p className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
+                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">{formatTopicDisplay(r.topic)}</p>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-2">
                                   {r.attendance_date ? new Date(r.attendance_date + 'T12:00:00').toLocaleDateString() : (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—')} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : r.topic?.toLowerCase().includes('advisor meeting') ? '🗣️ Advisor Meeting' : 'Noon Conference Attendance'}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
-                                <span className="w-8 h-6 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center" title="Attendance/Manual Credit">
+                                <span className="w-8 h-6 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center" title="Attendance/Manual Credit">
                                   <Check className="w-3.5 h-3.5" />
                                 </span>
-                                <span className="text-[10px] font-bold text-slate-400">{pts}pt</span>
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{pts}pt</span>
                               </div>
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      <p className="text-center py-8 text-slate-400 text-sm italic">No attendance recorded.</p>
+                      <p className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm italic">No attendance recorded.</p>
                     )}
                   </>
                 )}
@@ -545,14 +560,14 @@ export default function MyStatsModal({
                 <div className="space-y-4">
                   <button
                     onClick={() => { setSelectedQuiz(null); setReviewItems(null); }}
-                    className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700"
+                    className="flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                   >
                     <ChevronLeft className="w-4 h-4" /> All quizzes
                   </button>
-                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 flex items-center justify-between transition-colors">
                     <div>
-                      <h3 className="font-black text-slate-800">{formatTopicDisplay(selectedQuiz.topic)}</h3>
-                      <p className="text-xs font-bold text-slate-400 mt-1">
+                      <h3 className="font-black text-slate-800 dark:text-white">{formatTopicDisplay(selectedQuiz.topic)}</h3>
+                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1">
                         {selectedQuiz.created_at ? new Date(selectedQuiz.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
                         {selectedQuiz.percentage != null ? ` · ${Number(selectedQuiz.percentage).toFixed(1)}%` : ''}
                       </p>
@@ -560,7 +575,7 @@ export default function MyStatsModal({
                     {reviewItems && reviewItems.length > 0 && (
                       <button
                         onClick={() => setShowAllReview(!showAllReview)}
-                        className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 hover:border-slate-300 transition-all shadow-sm"
+                        className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:border-slate-300 transition-all shadow-sm"
                       >
                         {showAllReview ? 'Show Incorrect Only' : 'Show All Questions'}
                       </button>
@@ -571,7 +586,7 @@ export default function MyStatsModal({
                   ) : reviewItems && reviewItems.length > 0 ? (
                     <QuizReview items={showAllReview ? reviewItems : reviewItems.filter((i: any) => i.selected !== i.question?.correct_index)} />
                   ) : (
-                    <p className="text-center text-slate-400 text-sm italic py-10">
+                    <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-10">
                       A reviewable copy of this quiz wasn't saved — it was taken before review was added.
                     </p>
                   )}
@@ -579,22 +594,22 @@ export default function MyStatsModal({
               ) : (
                 <div className="space-y-2">
                   {pastQuizzes.length === 0 ? (
-                    <p className="text-center text-slate-400 text-sm italic py-10">No completed quizzes yet.</p>
+                    <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-10">No completed quizzes yet.</p>
                   ) : pastQuizzes.map((r: any) => (
                     <button
                       key={r.id}
                       onClick={() => openReview(r)}
-                      className="w-full text-left p-4 bg-white border border-slate-100 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-300 hover:shadow-sm transition-all"
+                      className="w-full text-left p-4 bg-white dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-sm transition-all"
                     >
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-800 truncate">{formatTopicDisplay(r.topic)}</p>
-                        <p className="text-xs font-bold text-slate-400 mt-0.5">
+                        <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{formatTopicDisplay(r.topic)}</p>
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                           {r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
                           {r.percentage != null ? ` · ${Number(r.percentage).toFixed(1)}%` : ''}
                           {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
                         </p>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 shrink-0" />
+                      <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 shrink-0" />
                     </button>
                   ))}
                 </div>
@@ -605,17 +620,17 @@ export default function MyStatsModal({
           {activeTab === 'weakAreas' && (
             <div className="space-y-6 animate-fade-in h-full flex flex-col">
               {loadingWeakAreas ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
                   <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" />
                   <p className="font-bold text-sm tracking-widest uppercase">Loading Weak Areas...</p>
                 </div>
               ) : missedQuestions.length === 0 ? (
-                <div className="bg-slate-50 rounded-3xl p-12 text-center border border-slate-100">
-                  <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-3xl p-12 text-center border border-slate-100 dark:border-slate-800 transition-colors">
+                  <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Target className="w-8 h-8" />
                   </div>
-                  <h3 className="text-lg font-black text-slate-800">All Caught Up!</h3>
-                  <p className="text-slate-500 mt-2 text-sm max-w-sm mx-auto">
+                  <h3 className="text-lg font-black text-slate-800 dark:text-white">All Caught Up!</h3>
+                  <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm max-w-sm mx-auto">
                     You have no pending missed questions to review. Keep up the great work!
                   </p>
                 </div>
@@ -625,11 +640,11 @@ export default function MyStatsModal({
                   {!selectedTopic ? (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">Select a Category to Review</h3>
+                        <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">Select a Category to Review</h3>
                         <button 
-                          onClick={handleExportAnki}
+                          onClick={() => handleExportAnki()}
                           disabled={exportingAnki}
-                          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-indigo-200 shadow-sm disabled:opacity-50"
+                          className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-indigo-200 dark:border-indigo-800 shadow-sm disabled:opacity-50"
                         >
                           {exportingAnki ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                           Export Anki Deck (CSV)
@@ -642,18 +657,18 @@ export default function MyStatsModal({
                             <button 
                               key={cat} 
                               onClick={() => setSelectedTopic(cat)}
-                              className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-indigo-50 border border-transparent hover:border-indigo-100 transition-all group text-left"
+                              className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800 transition-all group text-left"
                             >
                               <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-black text-sm group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black text-sm group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
                                   {count}
                                 </div>
                                 <div>
-                                  <div className="font-bold text-slate-800 text-sm">{cat}</div>
-                                  <div className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">{count} Missed Question{count !== 1 ? 's' : ''}</div>
+                                  <div className="font-bold text-slate-800 dark:text-slate-200 text-sm">{cat}</div>
+                                  <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase tracking-widest">{count} Missed Question{count !== 1 ? 's' : ''}</div>
                                 </div>
                               </div>
-                              <ChevronLeft className="w-5 h-5 text-slate-300 group-hover:text-indigo-400 rotate-180 transition-colors" />
+                              <ChevronLeft className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-indigo-400 rotate-180 transition-colors" />
                             </button>
                           );
                         })}
@@ -662,12 +677,23 @@ export default function MyStatsModal({
                   ) : (
                     <div className="flex-1 flex flex-col space-y-6">
                       <div className="flex items-center justify-between">
-                        <button onClick={() => setSelectedTopic(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-800 hover:border-slate-300 hover:shadow-sm flex items-center gap-2 transition-all">
+                        <button onClick={() => setSelectedTopic(null)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:border-slate-300 hover:shadow-sm flex items-center gap-2 transition-all">
                           <ChevronLeft className="w-4 h-4" /> Back to Categories
                         </button>
-                        <h3 className="font-bold text-[10px] text-blue-500 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">{selectedTopic} ({displayedMissedQuestions.length} Missed)</h3>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleExportAnki(selectedTopic)}
+                            disabled={exportingAnki}
+                            className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-indigo-200 dark:border-indigo-800 shadow-sm disabled:opacity-50"
+                            title={`Export ${selectedTopic} flashcards to Anki CSV`}
+                          >
+                            {exportingAnki ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            Export Anki CSV
+                          </button>
+                          <h3 className="font-bold text-[10px] text-blue-500 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/40">{selectedTopic} ({displayedMissedQuestions.length} Missed)</h3>
+                        </div>
                       </div>
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6 relative overflow-hidden flex-1">
+                  <div className="bg-white dark:bg-slate-850 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-6 relative overflow-hidden flex-1 transition-colors">
                     {(() => {
                       const q = displayedMissedQuestions[currentIndex];
                       if (!q) return null;
@@ -678,27 +704,27 @@ export default function MyStatsModal({
                               ✓ Review Completed: You recently answered this correctly!
                             </div>
                           ) : (
-                            <div className="absolute top-0 right-0 p-3 bg-rose-50 text-rose-600 font-black text-[10px] rounded-bl-3xl border-l border-b border-rose-100 uppercase tracking-widest">
+                            <div className="absolute top-0 right-0 p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-black text-[10px] rounded-bl-3xl border-l border-b border-rose-100 dark:border-rose-900/40 uppercase tracking-widest">
                               Review Mode
                             </div>
                           )}
 
-                          <div className={`flex items-center gap-3 text-[10px] font-black text-slate-400 uppercase tracking-widest ${latestStatus.get(q.id) ? 'mt-8' : ''}`}>
+                          <div className={`flex items-center gap-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ${latestStatus.get(q.id) ? 'mt-8' : ''}`}>
                             <span>Question {currentIndex + 1} of {displayedMissedQuestions.length}</span>
                             <span className="opacity-30">·</span>
                             <span>{q.category}</span>
-                            {q.year && <span className="text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md">ITE {q.year}</span>}
+                            {q.year && <span className="text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md">ITE {q.year}</span>}
                           </div>
 
-                          <p className="text-slate-800 font-bold text-sm leading-relaxed">{q.question_text}</p>
+                          <p className="text-slate-800 dark:text-slate-200 font-bold text-sm leading-relaxed">{q.question_text}</p>
                           
-                          <div className="space-y-2 pt-4 border-t border-slate-100">
+                          <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
                             {(q.options as string[]).map((opt, idx) => (
                               <div
                                 key={idx}
-                                className={`px-4 py-2.5 rounded-xl text-xs font-medium border-2 flex items-center gap-3 ${idx === q.correct_index ? 'border-emerald-500 bg-emerald-50 text-emerald-800 font-bold' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-50'}`}
+                                className={`px-4 py-2.5 rounded-xl text-xs font-medium border-2 flex items-center gap-3 ${idx === q.correct_index ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-bold' : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 opacity-50'}`}
                               >
-                                <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black ${idx === q.correct_index ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black ${idx === q.correct_index ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
                                   {String.fromCharCode(65 + idx)}
                                 </div>
                                 {opt}
@@ -707,7 +733,7 @@ export default function MyStatsModal({
                           </div>
 
                           {q.explanation && (
-                            <div className="mt-6 bg-slate-900 text-slate-100 rounded-2xl p-6 shadow-xl">
+                            <div className="mt-6 bg-slate-900 dark:bg-slate-950 text-slate-100 rounded-2xl p-6 shadow-xl border border-transparent dark:border-slate-800">
                               <div className="flex items-center gap-3 mb-4">
                                 <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
                                   <ExternalLink className="w-4 h-4 text-white" />
@@ -745,14 +771,14 @@ export default function MyStatsModal({
                     <button
                       onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                       disabled={currentIndex === 0}
-                      className="flex-1 py-3 rounded-xl text-sm font-black text-slate-600 hover:bg-slate-100 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                      className="flex-1 py-3 rounded-xl text-sm font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
                     >
                       <ChevronLeft className="w-4 h-4" /> Prev
                     </button>
                     <button
                       onClick={handleNext}
                       disabled={currentIndex === displayedMissedQuestions.length - 1}
-                      className="flex-1 py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-lg shadow-slate-200"
+                      className="flex-1 py-3 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-slate-800 dark:hover:bg-indigo-700 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-lg shadow-slate-200 dark:shadow-none"
                     >
                       Next <ChevronRight className="w-4 h-4" />
                     </button>

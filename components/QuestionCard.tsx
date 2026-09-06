@@ -218,9 +218,9 @@ function QuestionCard({
   return (
     <div className="w-full max-w-3xl mx-auto space-y-2 md:space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Stem */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-3 md:p-5 border border-slate-100 relative group">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none p-3 md:p-5 border border-slate-100 dark:border-slate-800 relative group transition-colors">
         <div className="flex flex-wrap justify-between items-start mb-3 gap-2">
-          <span className="px-3 py-1 bg-slate-100 text-slate-500 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
+          <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
             {question.category || 'General Medicine'}
           </span>
           <div className="flex items-center gap-1">
@@ -235,7 +235,7 @@ function QuestionCard({
             )}
             <button
               onClick={() => setHighlightMode(!highlightMode)}
-              className={`p-2 rounded-xl transition-all ${highlightMode ? 'text-yellow-600 bg-yellow-100 shadow-inner' : 'text-slate-400 hover:text-yellow-500 hover:bg-yellow-50'}`}
+              className={`p-2 rounded-xl transition-all ${highlightMode ? 'text-yellow-600 bg-yellow-100 dark:bg-yellow-950/50 dark:text-yellow-300 shadow-inner' : 'text-slate-400 hover:text-yellow-500 hover:bg-yellow-50 dark:hover:bg-slate-800'}`}
               title="Toggle Highlight Mode"
             >
               <Highlighter className="w-5 h-5" />
@@ -246,7 +246,7 @@ function QuestionCard({
         <div
           ref={stemRef}
           onClick={handleStemClick}
-          className={`font-bold leading-relaxed text-slate-800 ${highlightMode ? 'cursor-text selection:bg-yellow-200' : ''}`}
+          className={`font-bold leading-relaxed text-slate-800 dark:text-slate-100 ${highlightMode ? 'cursor-text selection:bg-yellow-200 dark:selection:bg-yellow-900/60' : ''}`}
           style={{ fontSize: `${fontSize}px` }}
           dangerouslySetInnerHTML={{ __html: renderedStemHtml }}
         />
@@ -259,17 +259,17 @@ function QuestionCard({
           const isCorrectOption = index === question.correct_index;
           const isStruck = strikethroughs.has(index);
           
-          let stateStyles = "bg-white border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50/30 hover:-translate-y-1 hover:shadow-md hover:scale-[1.01]";
+          let stateStyles = "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-slate-800/80 hover:-translate-y-1 hover:shadow-md hover:scale-[1.01]";
           
           if (showExplanation) {
-            if (isCorrectOption) stateStyles = "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20";
-            else if (isSelected && !isCorrectOption) stateStyles = "bg-red-50 border-red-500 text-red-900 opacity-80";
-            else if (isStruck) stateStyles = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
-            else stateStyles = "bg-white border-slate-100 text-slate-400 opacity-60";
+            if (isCorrectOption) stateStyles = "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-900 dark:text-emerald-200 ring-2 ring-emerald-500/20";
+            else if (isSelected && !isCorrectOption) stateStyles = "bg-red-50 dark:bg-red-950/40 border-red-500 text-red-900 dark:text-red-200 opacity-80";
+            else if (isStruck) stateStyles = "bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 opacity-50";
+            else stateStyles = "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 opacity-60";
           } else if (isSelected) {
-            stateStyles = "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200 scale-[1.02] -translate-y-1";
+            stateStyles = "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/30 scale-[1.02] -translate-y-1";
           } else if (isStruck) {
-            stateStyles = "bg-slate-50 border-slate-200 text-slate-400 opacity-50 grayscale";
+            stateStyles = "bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-600 opacity-50 grayscale";
           }
 
           return (

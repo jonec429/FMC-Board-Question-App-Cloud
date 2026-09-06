@@ -2,14 +2,43 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
-:root {
-  --foreground-rgb: 15, 23, 42;
-  --background-start-rgb: 248, 250, 252;
-  --background-end-rgb: 241, 245, 249;
+:root, [data-theme="light"] {
+  --bg-app: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f1f5f9;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-subtle: #e2e8f0;
+}
+
+[data-theme="dark"] {
+  --bg-app: #0f172a;
+  --bg-card: #1e293b;
+  --bg-card-subtle: #334155;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-subtle: #334155;
+}
+
+[data-theme="midnight"] {
+  --bg-app: #02040a;
+  --bg-card: #070b14;
+  --bg-card-subtle: #0d1322;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border-subtle: #151d32;
 }
 
 body {
   font-family: var(--font-poppins), sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark body {
+  background-color: var(--bg-app);
+  color: var(--text-main);
 }
 
 .animate-fade-in {
@@ -20,6 +49,14 @@ body {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+html.dark .glass-panel {
+  background: rgba(30, 41, 59, 0.85);
+}
+
+html.midnight .glass-panel {
+  background: rgba(7, 11, 20, 0.85);
 }
 
 .premium-shadow {

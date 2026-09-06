@@ -47,40 +47,40 @@ export default function ClassYoyModal({ onClose, selectedClass, leaderboardData 
   return (
     <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col transition-colors"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start bg-slate-50 dark:bg-slate-850 transition-colors">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center shrink-0">
               <Trophy className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-xl font-black text-slate-800 truncate">
+              <h2 className="text-xl font-black text-slate-800 dark:text-white truncate">
                 {selectedClass.replace('Class of ', 'Class ')}
               </h2>
-              <p className="text-xs font-bold text-slate-400 mt-0.5 uppercase tracking-widest">
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase tracking-widest">
                 Year-Over-Year Points
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-xl shrink-0 transition-colors">
-            <X className="w-5 h-5 text-slate-400" />
+          <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl shrink-0 transition-colors">
+            <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           </button>
         </div>
 
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <p className="text-3xl font-black text-slate-800">{currentTotal}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Cumulative Points</p>
+              <p className="text-3xl font-black text-slate-800 dark:text-white">{currentTotal}</p>
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Cumulative Points</p>
             </div>
           </div>
 
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.3} />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
@@ -94,8 +94,8 @@ export default function ClassYoyModal({ onClose, selectedClass, leaderboardData 
                   tick={{ fill: '#64748B', fontSize: 12, fontWeight: 'bold' }}
                 />
                 <Tooltip 
-                  cursor={{ fill: '#F1F5F9' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', fontWeight: 'bold', color: '#1E293B' }}
+                  cursor={{ fill: 'currentColor', opacity: 0.05 }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: '#0f172a', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', fontWeight: 'bold', color: '#f8fafc' }}
                   formatter={(value: number) => [`${value} pts`, 'Points']}
                 />
                 <Bar 

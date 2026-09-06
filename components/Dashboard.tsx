@@ -7,7 +7,7 @@ import { canAccessAdmin, getUserRole } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   LogOut, Lock, Trophy, BookOpen, Gem, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info, Calendar, Users
+  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info, Calendar, Users, Sun, Moon
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
@@ -16,6 +16,7 @@ import InstallAppModal from './InstallAppModal';
 import QotdHistoryModal from './QotdHistoryModal';
 import ClassYoyModal from './ClassYoyModal';
 import AdviseeQuickAccessCard from './AdviseeQuickAccessCard';
+import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { User, Profile, Block, Result, Question } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
@@ -42,6 +43,7 @@ export interface LeaderboardEntry {
 }
 
 export default function Dashboard({ user, profile, isActive = true, currentBlock, onOpenAdmin, onLogout, onStartQuiz, onOpenBuilder, onProfileUpdate }: DashboardProps) {
+  const { theme, toggleTheme } = useTheme();
   // Use centralized role helper (3-tier: resident / faculty / admin)
   const isSuperAdmin = canAccessAdmin(user, profile);
   const effectiveRole = getUserRole(user, profile);
@@ -231,19 +233,19 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
       {/* Header */}
       <div className="mb-8 flex justify-between items-start gap-2 relative">
-        <div className="absolute -top-10 -left-10 w-64 h-64 bg-blue-100/30 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-10 -left-10 w-64 h-64 bg-blue-100/30 dark:bg-blue-900/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex-1 min-w-0 pr-2 flex items-center gap-3">
-          <AbfmShield className="w-10 h-10 text-blue-600 hidden sm:block shrink-0" />
+          <AbfmShield className="w-10 h-10 text-blue-600 dark:text-blue-500 hidden sm:block shrink-0" />
           <div className="min-w-0">
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight truncate">FMC Board Review App</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">FMC Board Review App</h2>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
-            <p className="text-slate-500 font-bold text-[10px] md:text-xs tracking-wide uppercase opacity-60 truncate">
+            <p className="text-slate-500 dark:text-slate-400 font-bold text-[10px] md:text-xs tracking-wide uppercase opacity-60 truncate">
               Ascension St. Vincent's FM Residency · {formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : user.email}
             </p>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-              className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 self-start sm:self-auto"
+              className="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg font-bold text-slate-700 dark:text-slate-200 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 self-start sm:self-auto"
             >
               <option value={0}>All Time (YoY Trend)</option>
               {getAvailableAcademicYears().map(year => (
@@ -263,10 +265,23 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
               <Lock className="w-5 h-5" />
             </button>
           )}
-          <button onClick={() => setShowInstallApp(true)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors" title="Install app on your phone">
+          <button
+            onClick={toggleTheme}
+            className="p-2 text-slate-400 dark:text-slate-300 hover:text-amber-500 dark:hover:text-yellow-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+            title={`Current Theme: ${theme.toUpperCase()} (Click to cycle Light / Dark / Midnight)`}
+          >
+            {theme === 'light' ? (
+              <Sun className="w-5 h-5 text-amber-500" />
+            ) : theme === 'dark' ? (
+              <Moon className="w-5 h-5 text-blue-400" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+            )}
+          </button>
+          <button onClick={() => setShowInstallApp(true)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors" title="Install app on your phone">
             <Smartphone className="w-5 h-5" />
           </button>
-          <button onClick={() => setShowSettings(true)} className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors" title="Profile Settings">
+          <button onClick={() => setShowSettings(true)} className="p-2 text-slate-300 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors" title="Profile Settings">
             <Settings className="w-5 h-5" />
           </button>
           <a
@@ -286,16 +301,16 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
       {/* Onboarding Banner for New Users */}
       {!hasTakenDemo && !mostRecentSession && !loading && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden animate-fade-in">
+        <div className="mb-6 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden animate-fade-in">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className="p-2 bg-blue-100 rounded-xl shrink-0">
-              <Sparkles className="w-5 h-5 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/60 rounded-xl shrink-0">
+              <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base font-bold text-blue-900 mb-0.5">
+              <h3 className="text-base font-bold text-blue-900 dark:text-blue-100 mb-0.5">
                 Welcome to the FMC Board Review App!
               </h3>
-              <p className="text-blue-700 text-sm font-medium pr-2">
+              <p className="text-blue-700 dark:text-blue-300 text-sm font-medium pr-2">
                 We recommend taking the Demo Quiz first to get familiar with the interface, tools, and question formats. It's only 3 questions and won't affect your stats.
               </p>
             </div>
@@ -323,12 +338,12 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         <div className="md:w-80 flex flex-col gap-4 shrink-0">
           
           {/* Achievements */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm animate-fade-in">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in transition-colors">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Achievements</h3>
+                <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Achievements</h3>
                 <button
                   onClick={() => setShowAchievements(true)}
-                  className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                  className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                 >
                   <Info className="w-3.5 h-3.5" /> View all
                 </button>
@@ -336,7 +351,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
               
               {userStreak?.current_qotd_streak > 0 && (
                 <div 
-                  className="flex items-center gap-3 mb-4 p-3 bg-orange-50 text-orange-700 rounded-xl border border-orange-100 cursor-help transition-all hover:bg-orange-100"
+                  className="flex items-center gap-3 mb-4 p-3 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-xl border border-orange-100 dark:border-orange-900/40 cursor-help transition-all hover:bg-orange-100 dark:hover:bg-orange-900/60"
                   title={`You've answered the Question of the Day for ${userStreak.current_qotd_streak} consecutive weekdays!`}
                 >
                   <div className="text-2xl animate-pulse">🔥</div>
@@ -349,7 +364,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
               {userStreak?.current_block_streak > 0 && (
                 <div 
-                  className="flex items-center gap-3 mb-4 p-3 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-help transition-all hover:bg-blue-100"
+                  className="flex items-center gap-3 mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl border border-blue-100 dark:border-blue-900/40 cursor-help transition-all hover:bg-blue-100 dark:hover:bg-blue-900/60"
                   title={`You've submitted ${userStreak.current_block_streak} consecutive practice blocks On Time!`}
                 >
                   <div className="text-2xl animate-pulse">⚡</div>
@@ -363,7 +378,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
               {userBadges.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {userBadges.map((badge, idx) => (
-                    <div key={idx} title={badge.name + ' - ' + badge.description} className="flex items-center justify-center w-10 h-10 bg-slate-50 border border-slate-100 rounded-full text-xl cursor-help hover:bg-slate-100 transition-colors shadow-sm">
+                    <div key={idx} title={badge.name + ' - ' + badge.description} className="flex items-center justify-center w-10 h-10 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full text-xl cursor-help hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm">
                       {badge.icon}
                     </div>
                   ))}
@@ -373,7 +388,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
               {!(userStreak?.current_qotd_streak > 0) && !(userStreak?.current_block_streak > 0) && userBadges.length === 0 && (
                 <button
                   onClick={() => setShowAchievements(true)}
-                  className="w-full text-left text-xs font-medium text-slate-400 hover:text-blue-600 transition-colors"
+                  className="w-full text-left text-xs font-medium text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
                   No badges yet — tap &ldquo;View all&rdquo; to see what you can earn.
                 </button>
@@ -383,14 +398,14 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           {/* My Performance — yellow gradient */}
           <button
             onClick={() => setShowMyStats(true)}
-            className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 text-yellow-800 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
+            className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-amber-950/30 dark:to-yellow-950/20 border border-yellow-200 dark:border-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
           >
-            <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 transition-transform">
+            <div className="p-3 bg-white/60 dark:bg-white/10 rounded-2xl group-hover:scale-110 transition-transform">
               <Trophy className="w-6 h-6 text-yellow-500" />
             </div>
             <div className="text-left">
               <p className="font-bold text-base">My Performance</p>
-              <p className="text-xs text-yellow-600">Stats, badges &amp; history</p>
+              <p className="text-xs text-yellow-600 dark:text-yellow-400">Stats, badges &amp; history</p>
             </div>
           </button>
 
@@ -500,14 +515,14 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           {/* Quiz Builder — indigo gradient */}
           <button
             onClick={onOpenBuilder}
-            className="w-full mb-6 flex items-center justify-center gap-4 p-5 bg-gradient-to-br from-indigo-50 to-blue-50 text-indigo-700 border border-indigo-200 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
+            className="w-full mb-6 flex items-center justify-center gap-4 p-5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/40 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
           >
-            <div className="p-3 bg-white/60 rounded-2xl group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300">
+            <div className="p-3 bg-white/60 dark:bg-white/10 rounded-2xl group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300">
               <Sparkles className="w-7 h-7 text-indigo-500" />
             </div>
             <div className="text-left">
               <p className="font-bold text-lg">Quiz Builder</p>
-              <p className="text-xs text-indigo-500/80">Custom filters or quick mixed review</p>
+              <p className="text-xs text-indigo-500/80 dark:text-indigo-400/80">Custom filters or quick mixed review</p>
             </div>
           </button>
 
@@ -524,16 +539,16 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                   timerEnabled: true,
                 });
               }}
-              className="w-full mb-6 text-left p-4 md:p-5 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-3xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group relative overflow-hidden"
+              className="w-full mb-6 text-left p-4 md:p-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/20 border border-purple-200 dark:border-purple-900/40 rounded-3xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group relative overflow-hidden"
             >
               <div className="absolute top-0 right-0 bg-purple-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl z-10 uppercase tracking-wider">Assigned</div>
               <Sparkles className="w-6 h-6 shrink-0 text-purple-500" />
               <div className="text-left flex-1 min-w-0 pr-16">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-bold text-lg text-purple-900">{aq.title}</p>
-                  <span className="px-2 py-0.5 bg-purple-200/70 text-purple-800 text-[10px] font-bold rounded-md">Practice (0 AP)</span>
+                  <p className="font-bold text-lg text-purple-900 dark:text-purple-100">{aq.title}</p>
+                  <span className="px-2 py-0.5 bg-purple-200/70 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 text-[10px] font-bold rounded-md">Practice (0 AP)</span>
                 </div>
-                <p className="text-xs font-medium text-purple-600 opacity-80 truncate mt-0.5">
+                <p className="text-xs font-medium text-purple-600 dark:text-purple-400 opacity-80 truncate mt-0.5">
                   {aq.question_ids?.length} Questions • Assigned by your advisor • Practice & Remediation
                 </p>
               </div>
@@ -551,12 +566,12 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                   count: 40,
                 });
               }}
-              className="w-full mb-6 text-left p-4 md:p-5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-3xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group"
+              className="w-full mb-6 text-left p-4 md:p-5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border border-amber-200 dark:border-amber-900/40 rounded-3xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group"
             >
               <PlayCircle className="w-6 h-6 shrink-0 text-amber-500" />
               <div className="text-left flex-1 min-w-0">
-                <p className="font-bold text-lg">Resume Saved Block</p>
-                <p className="text-xs font-medium text-amber-600 opacity-80 truncate">
+                <p className="font-bold text-lg text-amber-900 dark:text-amber-100">Resume Saved Block</p>
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400 opacity-80 truncate">
                   {mostRecentSession.topic} · Q{(mostRecentSession.current_index || 0) + 1}
                 </p>
               </div>
@@ -565,23 +580,23 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
           {/* Active Block Advisor Meeting Self-Check */}
           {currentBlock && effectiveRole !== 'faculty' && effectiveRole !== 'admin' && (
-            <div className="mb-8 relative overflow-hidden bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+            <div className="mb-8 relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
               <div className="flex items-start md:items-center justify-between gap-4 flex-col md:flex-row">
                 <div className="flex items-center gap-3">
                   <div className={`p-2.5 rounded-2xl shrink-0 ${advisorMeetingCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
                     {advisorMeetingCompleted ? <CheckCircle className="w-6 h-6" /> : <Users className="w-6 h-6" />}
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-800 text-base md:text-lg">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg">
                       {currentBlock.title} — Advisor Meeting
                     </h3>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                       {advisorMeetingCompleted 
                         ? 'Meeting completed. You earned 1 attendance point!' 
                         : 'Honor system: Mark your block advisor meeting complete.'}
                     </p>
                     {advisorMeetingError && (
-                      <p className="text-xs text-red-500 font-bold mt-1 bg-red-50 inline-block px-2 py-1 rounded">{advisorMeetingError}</p>
+                      <p className="text-xs text-red-500 font-bold mt-1 bg-red-50 dark:bg-red-950/40 inline-block px-2 py-1 rounded">{advisorMeetingError}</p>
                     )}
                   </div>
                 </div>
@@ -595,7 +610,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     Mark Complete
                   </button>
                 ) : (
-                  <div className="shrink-0 w-full md:w-auto px-5 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl font-black flex items-center justify-center gap-2">
+                  <div className="shrink-0 w-full md:w-auto px-5 py-2.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/50 rounded-xl font-black flex items-center justify-center gap-2">
                     <CheckCircle className="w-4 h-4" />
                     Completed
                   </div>
@@ -605,12 +620,12 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           )}
 
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className="font-bold text-slate-400 uppercase tracking-widest text-xs">Board Review Blocks</h3>
+            <h3 className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-xs">Board Review Blocks</h3>
             {blocks.length > 1 && (
               <select
                 value={blockSort}
                 onChange={e => changeBlockSort(e.target.value as 'curriculum' | 'name' | 'status')}
-                className="text-[11px] font-bold text-slate-500 bg-white border border-slate-200 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                className="text-[11px] font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
                 title="Sort blocks"
               >
                 <option value="curriculum">Curriculum order</option>
@@ -673,12 +688,12 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                 const BlockIcon = isCompleted ? CheckCircle : isDemoBlock ? PlayCircle : isBonusBlock ? Gem : BookOpen;
                 
                 const blockIconBadge = isCompleted 
-                    ? 'bg-green-50 text-green-600'
+                    ? 'bg-green-50 dark:bg-emerald-950/50 text-green-600 dark:text-emerald-400'
                     : hasResume
-                    ? 'bg-amber-50 text-amber-600'
+                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400'
                     : isDemoBlock
-                    ? 'bg-violet-50 text-violet-600'
-                    : 'bg-blue-50 text-blue-600';
+                    ? 'bg-violet-50 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400'
+                    : 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400';
                 return (
                   <div
                     key={block.id}
@@ -690,10 +705,10 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                       keywords: !hasFixedSet && block.keyword_filters && block.keyword_filters.length > 0 ? block.keyword_filters : undefined,
                       count: displayCount,
                     })}
-                    className="shrink-0 p-4 bg-white border border-slate-100 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group relative overflow-hidden ring-1 ring-slate-200/50 hover:ring-blue-400"
+                    className="shrink-0 p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group relative overflow-hidden ring-1 ring-slate-200/50 dark:ring-slate-800/80 hover:ring-blue-400 dark:hover:ring-blue-500"
                   >
                     {hasResume && !isCompleted && (
-                      <div className="absolute top-0 right-0 bg-amber-100 text-amber-700 font-black text-[10px] px-2 py-0.5 rounded-bl-xl shadow-sm border-b border-l border-amber-200">
+                      <div className="absolute top-0 right-0 bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-bl-xl shadow-sm border-b border-l border-amber-200 dark:border-amber-900/50">
                         In Progress
                       </div>
                     )}
@@ -702,25 +717,25 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                         <BlockIcon className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-bold text-base text-slate-800 truncate flex items-center gap-2">
+                        <p className="font-bold text-base text-slate-800 dark:text-slate-100 truncate flex items-center gap-2">
                           {block.title}
                           {isCompleted && (
-                            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full border border-green-200 uppercase tracking-wider shrink-0">
+                            <span className="text-[10px] bg-green-100 dark:bg-emerald-950/60 text-green-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full border border-green-200 dark:border-emerald-900/50 uppercase tracking-wider shrink-0">
                               Done
                             </span>
                           )}
                         </p>
-                        <p className="text-xs text-slate-400 font-medium">
+                        <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
                           {result ? `Best: ${(result.percentage || 0).toFixed(1)}%` : `${displayCount} Questions`}
                           {!isCompleted && hasResume && (
-                            <span className="ml-2 text-amber-600 font-bold">
+                            <span className="ml-2 text-amber-600 dark:text-amber-400 font-bold">
                               • In Progress (Q{(activeSession.current_index || 0) + 1}/{displayCount})
                             </span>
                           )}
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0" />
+                    <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 shrink-0" />
                   </div>
                 );
               })}
@@ -783,24 +798,24 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       {/* New Badge Overlay Modal */}
       {recentBadges.length > 0 && (
         <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setRecentBadges([])}>
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-500" onClick={e => e.stopPropagation()}>
-            <button onClick={() => setRecentBadges([])} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors">
+          <div className="bg-white dark:bg-slate-900 border border-transparent dark:border-slate-800 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-500" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setRecentBadges([])} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
               <X className="w-6 h-6" />
             </button>
-            <h2 className="text-3xl font-black text-slate-800 mb-2">Achievement Unlocked!</h2>
-            <p className="text-slate-500 font-medium mb-8">You've earned {recentBadges.length === 1 ? 'a new badge' : 'new badges'}!</p>
+            <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-2">Achievement Unlocked!</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium mb-8">You've earned {recentBadges.length === 1 ? 'a new badge' : 'new badges'}!</p>
             
             <div className="space-y-4">
               {recentBadges.map((badge, idx) => (
-                <div key={idx} className="flex flex-col items-center justify-center p-6 bg-gradient-to-b from-amber-50 to-orange-50 border border-amber-200/50 rounded-2xl shadow-inner">
+                <div key={idx} className="flex flex-col items-center justify-center p-6 bg-gradient-to-b from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200/50 dark:border-amber-900/40 rounded-2xl shadow-inner">
                   <div className="text-7xl mb-4 drop-shadow-md animate-bounce">{badge.icon || '🏆'}</div>
-                  <h3 className="text-xl font-bold text-amber-900">{badge.name}</h3>
-                  {badge.description && <p className="text-sm text-amber-700/80 mt-2 font-medium leading-relaxed">{badge.description}</p>}
+                  <h3 className="text-xl font-bold text-amber-900 dark:text-amber-200">{badge.name}</h3>
+                  {badge.description && <p className="text-sm text-amber-700/80 dark:text-amber-300/80 mt-2 font-medium leading-relaxed">{badge.description}</p>}
                 </div>
               ))}
             </div>
             
-            <button onClick={() => setRecentBadges([])} className="mt-8 w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all transform active:scale-95 shadow-lg flex justify-center items-center gap-2">
+            <button onClick={() => setRecentBadges([])} className="mt-8 w-full py-4 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-2xl font-bold transition-all transform active:scale-95 shadow-lg flex justify-center items-center gap-2">
               <Trophy className="w-5 h-5 text-amber-400" />
               Awesome!
             </button>
@@ -811,7 +826,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans flex flex-col text-slate-900 dark:text-slate-100 transition-colors">
       {renderTopicSelect()}
     </div>
   );
@@ -824,13 +839,13 @@ function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmai
   const myRank = myEntry ? data.findIndex(d => d.email === myEntry.email) + 1 : null;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm transition-colors">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-slate-400" />
-          <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">Academic Points Leaderboard</h3>
+          <Trophy className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">Academic Points Leaderboard</h3>
         </div>
-        {myRank && <span className="text-[10px] font-bold text-blue-600">You: #{myRank}</span>}
+        {myRank && <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>}
       </div>
       <div className="space-y-1">
         {top.map((r, i) => {
@@ -839,22 +854,22 @@ function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmai
           return (
             <div
               key={r.email}
-              className={`flex items-center justify-between py-1.5 px-2 rounded-lg ${isMe ? 'bg-blue-50' : ''}`}
+              className={`flex items-center justify-between py-1.5 px-2 rounded-lg transition-colors ${isMe ? 'bg-blue-50 dark:bg-blue-950/50' : ''}`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold text-slate-400 w-5 shrink-0">
+                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 w-5 shrink-0">
                   {medal || `#${i + 1}`}
                 </span>
                 <div className="min-w-0">
-                  <p className={`text-xs font-bold truncate ${isMe ? 'text-blue-700' : 'text-slate-700'}`}>
+                  <p className={`text-xs font-bold truncate ${isMe ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
                     {formatDisplayName(r.name)}
                   </p>
-                  <p className="text-[10px] text-slate-400 truncate">
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
                     {r.pgy.replace('Class of ', "'")}
                   </p>
                 </div>
               </div>
-              <span className={`text-xs font-black shrink-0 ml-2 ${isMe ? 'text-blue-700' : 'text-slate-600'}`}>
+              <span className={`text-xs font-black shrink-0 ml-2 ${isMe ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}`}>
                 {r.totalPoints} pts
               </span>
             </div>
@@ -882,11 +897,11 @@ function ClassLeaderboardWidget({ data, myPgy, onClassClick }: { data: Leaderboa
   if (classes.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm transition-colors">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-slate-400" />
-          <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">Class Leaderboard</h3>
+          <Trophy className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">Class Leaderboard</h3>
         </div>
       </div>
       <div className="space-y-1">
@@ -897,19 +912,19 @@ function ClassLeaderboardWidget({ data, myPgy, onClassClick }: { data: Leaderboa
             <button
               key={c.pgy}
               onClick={() => onClassClick(c.pgy)}
-              className={`w-full text-left flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors ${isMyClass ? 'bg-blue-50 hover:bg-blue-100' : ''}`}
+              className={`w-full text-left flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors ${isMyClass ? 'bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50' : ''}`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold text-slate-400 w-5 shrink-0">
+                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 w-5 shrink-0">
                   {medal || `#${i + 1}`}
                 </span>
                 <div className="min-w-0">
-                  <p className={`text-xs font-bold truncate ${isMyClass ? 'text-blue-700' : 'text-slate-700'}`}>
+                  <p className={`text-xs font-bold truncate ${isMyClass ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
                     {c.pgy.replace('Class of ', 'Class ')}
                   </p>
                 </div>
               </div>
-              <span className={`text-xs font-black shrink-0 ml-2 ${isMyClass ? 'text-blue-700' : 'text-slate-600'}`}>
+              <span className={`text-xs font-black shrink-0 ml-2 ${isMyClass ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}`}>
                 {c.totalPoints} pts
               </span>
             </button>

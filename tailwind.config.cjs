@@ -1,9 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // Global Scanner: Look everywhere!
+  darkMode: 'class',
   content: [
-    "./**/*.{js,ts,jsx,tsx,mdx}",
-    "!./node_modules/**/*",
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./context/**/*.{js,ts,jsx,tsx,mdx}",
+    "./hooks/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -15,6 +18,14 @@ module.exports = {
           600: '#1e3a8a',
           700: '#1d357b',
         },
+        midnight: {
+          950: '#02040a',
+          900: '#070b14',
+          800: '#0d1322',
+          700: '#151d32',
+          600: '#1f2b48',
+          500: '#324268',
+        }
       },
     },
   },

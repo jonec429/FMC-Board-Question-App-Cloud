@@ -84,7 +84,7 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
         return (
           <div
             key={`${item.question.id}-${item.index}`}
-            className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all hover:shadow-md"
+            className="bg-white dark:bg-slate-850 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-all hover:shadow-md"
           >
             {/* Collapsed Card */}
             <button
@@ -94,11 +94,11 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-xs font-black text-indigo-500">{item.displayDate}</span>
+                    <span className="text-xs font-black text-indigo-500 dark:text-indigo-400">{item.displayDate}</span>
                     {topReactions.length > 0 && (
                       <div className="flex items-center gap-1 text-xs">
                         {topReactions.map(([emoji, count]) => (
-                          <span key={emoji} className="flex items-center gap-0.5 text-slate-400">
+                          <span key={emoji} className="flex items-center gap-0.5 text-slate-400 dark:text-slate-500">
                             <span className="text-sm">{emoji}</span>
                             <span className="font-bold">{count}</span>
                           </span>
@@ -106,17 +106,17 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
                       </div>
                     )}
                   </div>
-                  <p className={`text-sm font-bold text-slate-700 leading-snug ${!isExpanded ? 'line-clamp-2' : ''}`}>
+                  <p className={`text-sm font-bold text-slate-700 dark:text-slate-200 leading-snug ${!isExpanded ? 'line-clamp-2' : ''}`}>
                     {item.question.question_text}
                   </p>
                   <div className="flex items-center gap-3 mt-2">
                     {/* Correct answer inline */}
-                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-100 dark:border-emerald-900/40">
                       ✓ {String.fromCharCode(65 + item.question.correct_index)}. {(item.question.options as string[])[item.question.correct_index]?.substring(0, 60)}{((item.question.options as string[])[item.question.correct_index]?.length || 0) > 60 ? '...' : ''}
                     </span>
                     {/* Stats */}
                     {correctPct !== null && (
-                      <span className="text-xs font-bold text-slate-400">
+                      <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
                         {correctPct}% correct · {item.stats!.total} responses
                       </span>
                     )}
@@ -124,8 +124,8 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
                 </div>
                 <div className="shrink-0 mt-1">
                   {isExpanded
-                    ? <ChevronUp className="w-4 h-4 text-slate-300" />
-                    : <ChevronDown className="w-4 h-4 text-slate-300" />
+                    ? <ChevronUp className="w-4 h-4 text-slate-300 dark:text-slate-600" />
+                    : <ChevronDown className="w-4 h-4 text-slate-300 dark:text-slate-600" />
                   }
                 </div>
               </div>
@@ -133,7 +133,7 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
 
             {/* Expanded Content */}
             {isExpanded && (
-              <div className="px-4 pb-4 space-y-3 animate-fade-in border-t border-slate-50">
+              <div className="px-4 pb-4 space-y-3 animate-fade-in border-t border-slate-50 dark:border-slate-800">
                 {/* All answer choices */}
                 <div className="space-y-1.5 pt-3">
                   {(item.question.options as string[]).map((opt: string, oi: number) => (
@@ -141,8 +141,8 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
                       key={oi}
                       className={`px-3 py-2 rounded-xl text-sm font-medium ${
                         oi === item.question.correct_index
-                          ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-100'
-                          : 'text-slate-500 bg-slate-50'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-100 dark:border-emerald-900/40'
+                          : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60'
                       }`}
                     >
                       {String.fromCharCode(65 + oi)}. {opt}
@@ -152,28 +152,28 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
 
                 {/* Explanation */}
                 {item.question.explanation && (
-                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Explanation</p>
-                    <p className="text-sm text-slate-600 leading-relaxed">{item.question.explanation}</p>
+                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
+                    <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Explanation</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{item.question.explanation}</p>
                   </div>
                 )}
 
                 {/* Stats bar */}
                 {item.stats && item.stats.total > 0 && (
-                  <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Cohort Performance</p>
+                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
+                    <p className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Cohort Performance</p>
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="flex-1 h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-emerald-500 rounded-full transition-all"
                           style={{ width: `${Math.round((item.stats.correct / item.stats.total) * 100)}%` }}
                         />
                       </div>
-                      <span className="text-xs font-black text-slate-600 tabular-nums">
+                      <span className="text-xs font-black text-slate-600 dark:text-slate-300 tabular-nums">
                         {Math.round((item.stats.correct / item.stats.total) * 100)}%
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                       {item.stats.correct} correct · {item.stats.incorrect} incorrect · {item.stats.total} total
                     </p>
                   </div>
@@ -188,10 +188,10 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
                       return (
                         <span
                           key={emoji}
-                          className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-full px-2.5 py-1 text-xs"
+                          className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-full px-2.5 py-1 text-xs"
                         >
                           <span>{emoji}</span>
-                          <span className="font-bold text-slate-600">{count}</span>
+                          <span className="font-bold text-slate-600 dark:text-slate-300">{count}</span>
                         </span>
                       );
                     })}
@@ -208,7 +208,7 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
         <button
           onClick={loadMore}
           disabled={loadingMore}
-          className="w-full py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-3 bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loadingMore ? (
             <>

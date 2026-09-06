@@ -42,8 +42,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${poppins.variable} font-sans bg-slate-50 text-slate-800`}>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var t = localStorage.getItem('fmc_theme');
+                if (!t) {
+                  t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', t);
+                if (t === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else if (t === 'midnight') {
+                  document.documentElement.classList.add('dark', 'midnight');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
+      <body className={`${poppins.variable} font-sans bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200`}>
         <Providers>{children}</Providers>
       </body>
     </html>

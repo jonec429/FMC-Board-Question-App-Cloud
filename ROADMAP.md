@@ -298,7 +298,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Faculty-Assigned Custom Quizzes**: Allow advisors or faculty department heads to create custom quizzes and explicitly assign them to specific residents (e.g., for remediation or individual improvement plans). Shipped via `AssignQuizManager.tsx` + `assigned_quizzes` DB table.
 
 ### UI & UX
-- [ ] **Dark Mode Toggle**: Implement a dark mode theme using `next-themes` and Tailwind `dark:` variants. Requires systematically updating all hardcoded Tailwind color classes across the app to prevent visual bugs.
+- [x] **Dark Mode Toggle**: Implement a tri-theme system (Light, Dark, Midnight) using custom ThemeContext, CSS variables, and Tailwind `dark:` variants. Systematically updated all hardcoded Tailwind color classes across all screens, modals, quiz engines, and admin views.
 
 ---
 
@@ -323,6 +323,22 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-09-05 — Anki Deck Export Fix & Full-App Dark Mode Completion (Antigravity)
+*   **Anki Deck Export Fix:** Resolved bug report where Anki deck export was failing with a PostgREST foreign key error. Decoupled attempts from question joins to perform batched question lookups, added explicit Anki format directives (`#separator:Comma`, `#html:true`, `#tags column:3`), embedded OpenEvidence/Gemini resource links, added UTF-8 BOM encoding for Excel/Anki import compatibility, and added instantaneous category-filtered Anki export from the Weak Areas review tab.
+*   **Complete Tri-Theme Dark Mode Coverage:** Finalized dark & midnight theme support across all remaining surfaces:
+    *   **Custom Quiz Builder:** Themed pool selection, legacy ITE years warnings, topic filter grids, number input, and capacity indicators.
+    *   **Performance & Weak Areas:** Themed `MyStatsModal`, KPI snapshot tiles, block performance progress bars, history tabs, and missed question review cards.
+    *   **Modals & Overlays:** Themed `AchievementsModal`, `InstallAppModal` (PWA instructions), `ClassYoyModal` (Recharts integration), and `QotdHistoryModal` / `QotdHistory`.
+
+### 2026-08-26 — Tri-Theme System: Light, Dark & Midnight Modes (Antigravity)
+*   **Tri-Theme Support:** Added support for three distinct, tailored display themes:
+    *   ☀️ **Light Mode (Default):** Classic, crisp medical aesthetic with slate-50 backgrounds, clean white cards, and high contrast slate-800 text.
+    *   🌙 **Dark Mode:** Gentle low-light theme with charcoal and slate-900 surfaces for comfortable evening reading and question review.
+    *   🌌 **Midnight Mode:** True OLED pitch-black / deep navy theme (`#02040a`) with indigo accents, maximizing contrast and battery savings on mobile OLED displays.
+*   **Persistent & Anti-Flicker:** Theme preferences persist automatically in `localStorage`, sync system preference (`prefers-color-scheme`) by default, and utilize an inline pre-render script to eliminate white flashes on page loads.
+*   **Quick-Toggle & Settings Cards:** Added a quick-cycle theme toggle button in the dashboard top navigation and interactive preview cards inside **Profile & Settings**.
+*   **App-Wide Theming:** Fully themed all question engines (`QuestionCard`, `QuizEngine`, `QuizReview`), navigation bars, modals, and the Admin Console.
 
 ### 2026-08-26 — Faculty Advisee Hub & Quick-Access Reporting (Antigravity)
 *   **Dedicated "My Advisees Hub" Widget:** Added a prominent, live tracking card to the main dashboard for faculty members and program leadership. Surfaces assigned advisees, PGY level, core curriculum averages, block completion status, and real-time risk indicators (`✅ On Track`, `⚠️ Needs Attention`, `🚨 At Risk`).
