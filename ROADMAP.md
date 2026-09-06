@@ -60,6 +60,14 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-09-06 (Antigravity)
+**Shipped & pushed to `main` this session**: 
+1. **Anki Deck Export Fix**: Resolved PostgREST `400 Bad Request` foreign key error by decoupling query and batch fetching questions in safe chunks of 50. Added Anki header directives (`#separator:Comma`, `#html:true`, `#tags column:3`), UTF-8 BOM, OpenEvidence/Gemini resource links, and instant category-filtered export.
+2. **Tri-Theme Dark Mode System**: Complete Light, Dark, and Midnight OLED themes with custom `ThemeContext`, anti-flicker pre-render script, CSS variables, and persistent `localStorage`. Fully themed all screens, quiz engines, admin console, and modals (`CustomBuilderScreen`, `MyStatsModal`, `AchievementsModal`, `InstallAppModal`, `ClassYoyModal`, `QotdHistoryModal`).
+3. **Changelog & Roadmap**: Documented the release in `ROADMAP.md` and checked off `Dark Mode Toggle` under Phase 5.
+
+**Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass at this commit (`11e9e9d`).
+
 ### ▶️ Session Handoff — 2026-06-16 (Antigravity)
 **Shipped & pushed to `main` this session**: 
 1. **Gamification Fixes & Improvements**: Adjusted the resident point structure to strictly award 2 points for blocks completed on time or early, removed bonus block points, and stopped negative logic. 
@@ -324,7 +332,7 @@ This file serves as the shared source of truth for development progress between 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
-### 2026-09-05 — Anki Deck Export Fix & Full-App Dark Mode Completion (Antigravity)
+### 2026-09-06 — Anki Deck Export Fix & Full-App Dark Mode Completion (Antigravity)
 *   **Anki Deck Export Fix:** Resolved bug report where Anki deck export was failing with a PostgREST foreign key error. Decoupled attempts from question joins to perform batched question lookups, added explicit Anki format directives (`#separator:Comma`, `#html:true`, `#tags column:3`), embedded OpenEvidence/Gemini resource links, added UTF-8 BOM encoding for Excel/Anki import compatibility, and added instantaneous category-filtered Anki export from the Weak Areas review tab.
 *   **Complete Tri-Theme Dark Mode Coverage:** Finalized dark & midnight theme support across all remaining surfaces:
     *   **Custom Quiz Builder:** Themed pool selection, legacy ITE years warnings, topic filter grids, number input, and capacity indicators.
