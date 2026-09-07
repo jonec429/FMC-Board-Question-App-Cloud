@@ -40,7 +40,7 @@ async function fetchCore(): Promise<CoreData> {
   }
 
   // Fetch potentially large tables with pagination
-  const resultsData = await fetchAll('results', 'user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, review_data');
+  const resultsData = await fetchAll('results', 'user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, category_stats, review_data');
   const attendanceData = await fetchAll('attendance');
 
   return {

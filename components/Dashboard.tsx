@@ -337,65 +337,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         {/* LEFT SIDEBAR */}
         <div className="md:w-80 flex flex-col gap-4 shrink-0">
           
-          {/* Achievements */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Achievements</h3>
-                <button
-                  onClick={() => setShowAchievements(true)}
-                  className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                >
-                  <Info className="w-3.5 h-3.5" /> View all
-                </button>
-              </div>
-              
-              {userStreak?.current_qotd_streak > 0 && (
-                <div 
-                  className="flex items-center gap-3 mb-4 p-3 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-xl border border-orange-100 dark:border-orange-900/40 cursor-help transition-all hover:bg-orange-100 dark:hover:bg-orange-900/60"
-                  title={`You've answered the Question of the Day for ${userStreak.current_qotd_streak} consecutive weekdays!`}
-                >
-                  <div className="text-2xl animate-pulse">🔥</div>
-                  <div>
-                    <div className="font-black text-lg">{userStreak.current_qotd_streak} Day Streak</div>
-                    <div className="text-xs font-bold opacity-80">Question of the Day</div>
-                  </div>
-                </div>
-              )}
-
-              {userStreak?.current_block_streak > 0 && (
-                <div 
-                  className="flex items-center gap-3 mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl border border-blue-100 dark:border-blue-900/40 cursor-help transition-all hover:bg-blue-100 dark:hover:bg-blue-900/60"
-                  title={`You've submitted ${userStreak.current_block_streak} consecutive practice blocks On Time!`}
-                >
-                  <div className="text-2xl animate-pulse">⚡</div>
-                  <div>
-                    <div className="font-black text-lg">{userStreak.current_block_streak} Block Streak</div>
-                    <div className="text-xs font-bold opacity-80">On-Time Submissions</div>
-                  </div>
-                </div>
-              )}
-
-              {userBadges.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {userBadges.map((badge, idx) => (
-                    <div key={idx} title={badge.name + ' - ' + badge.description} className="flex items-center justify-center w-10 h-10 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full text-xl cursor-help hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm">
-                      {badge.icon}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!(userStreak?.current_qotd_streak > 0) && !(userStreak?.current_block_streak > 0) && userBadges.length === 0 && (
-                <button
-                  onClick={() => setShowAchievements(true)}
-                  className="w-full text-left text-xs font-medium text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  No badges yet — tap &ldquo;View all&rdquo; to see what you can earn.
-                </button>
-              )}
-            </div>
-
-          {/* My Performance — yellow gradient */}
+          {/* My Performance — yellow gradient (Positioned on top per user request) */}
           <button
             onClick={() => setShowMyStats(true)}
             className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-amber-950/30 dark:to-yellow-950/20 border border-yellow-200 dark:border-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
@@ -409,6 +351,64 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             </div>
           </button>
 
+          {/* Achievements */}
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in transition-colors">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Achievements</h3>
+              <button
+                onClick={() => setShowAchievements(true)}
+                className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+              >
+                <Info className="w-3.5 h-3.5" /> View all
+              </button>
+            </div>
+            
+            {userStreak?.current_qotd_streak > 0 && (
+              <div 
+                className="flex items-center gap-3 mb-4 p-3 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-xl border border-orange-100 dark:border-orange-900/40 cursor-help transition-all hover:bg-orange-100 dark:hover:bg-orange-900/60"
+                title={`You've answered the Question of the Day for ${userStreak.current_qotd_streak} consecutive weekdays!`}
+              >
+                <div className="text-2xl animate-pulse">🔥</div>
+                <div>
+                  <div className="font-black text-lg">{userStreak.current_qotd_streak} Day Streak</div>
+                  <div className="text-xs font-bold opacity-80">Question of the Day</div>
+                </div>
+              </div>
+            )}
+
+            {userStreak?.current_block_streak > 0 && (
+              <div 
+                className="flex items-center gap-3 mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl border border-blue-100 dark:border-blue-900/40 cursor-help transition-all hover:bg-blue-100 dark:hover:bg-blue-900/60"
+                title={`You've submitted ${userStreak.current_block_streak} consecutive practice blocks On Time!`}
+              >
+                <div className="text-2xl animate-pulse">⚡</div>
+                <div>
+                  <div className="font-black text-lg">{userStreak.current_block_streak} Block Streak</div>
+                  <div className="text-xs font-bold opacity-80">On-Time Submissions</div>
+                </div>
+              </div>
+            )}
+
+            {userBadges.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {userBadges.map((badge, idx) => (
+                  <div key={idx} title={badge.name + ' - ' + badge.description} className="flex items-center justify-center w-10 h-10 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full text-xl cursor-help hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm">
+                    {badge.icon}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!(userStreak?.current_qotd_streak > 0) && !(userStreak?.current_block_streak > 0) && userBadges.length === 0 && (
+              <button
+                onClick={() => setShowAchievements(true)}
+                className="w-full text-left text-xs font-medium text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                No badges yet — tap &ldquo;View all&rdquo; to see what you can earn.
+              </button>
+            )}
+          </div>
+
           {leaderboard.length > 0 && (
             <div className="space-y-4">
               <LeaderboardWidget data={leaderboard} myEmail={user.email} />
@@ -420,162 +420,244 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         {/* RIGHT MAIN */}
         <div className="flex-1 flex flex-col min-w-0">
           
-          {/* Advisee Hub for Faculty and Admins */}
+          {/* TOP ROW: 3 Compact Square-Styled Blocks (QOTD, Quiz Builder, Resume Block / Active Jump) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
+            
+            {/* Block 1: Question of the Day */}
+            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 sm:p-5 text-white shadow-md relative overflow-hidden flex flex-col justify-between hover:-translate-y-0.5 transition-all group min-h-[170px]">
+              <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-white">
+                    <Sparkles className="w-4 h-4 text-yellow-300" />
+                    QOTD
+                  </span>
+                  {userStreak?.current_qotd_streak > 0 && (
+                    <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-black text-amber-200 flex items-center gap-0.5">
+                      🔥 {userStreak.current_qotd_streak}d
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-indigo-100 text-xs line-clamp-2 mb-3 leading-snug">
+                  {qotdQuestion ? (
+                    qotdAttempt || isPastNoon() ? (
+                      qotdAttempt ? (
+                        isPastNoon()
+                          ? qotdStats && qotdStats.total > 0
+                            ? `${qotdStats.total} answered · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct`
+                            : 'Results and stats are now available!'
+                          : 'Answer saved. Stats at 12:30 PM!'
+                      ) : (
+                        qotdStats && qotdStats.total > 0
+                          ? `Missed today's QOTD (${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct).`
+                          : "Missed today's QOTD. Answer available."
+                      )
+                    ) : (
+                      'A new high-yield board review question is ready.'
+                    )
+                  ) : (
+                    'Enjoy your weekend! No QOTD scheduled today.'
+                  )}
+                </p>
+              </div>
+
+              <div className="relative z-10 flex items-center gap-1.5 mt-auto">
+                {qotdQuestion ? (
+                  qotdAttempt || isPastNoon() ? (
+                    <>
+                      <button
+                        onClick={() => onStartQuiz({ 
+                          isQotd: true, 
+                          qotdQuestion, 
+                          topic: 'Question of the Day', 
+                          isQotdCompleted: true, 
+                          qotdAttempt: qotdAttempt || { is_skipped: true } 
+                        })}
+                        className="flex-1 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-xs backdrop-blur-sm border border-white/20 text-center truncate"
+                      >
+                        {qotdAttempt ? (isPastNoon() ? 'Results' : 'Review') : 'Answer'}
+                      </button>
+                      <button
+                        onClick={() => setShowQotdHistoryModal(true)}
+                        className="px-2.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all text-xs backdrop-blur-sm border border-white/10 shrink-0"
+                        title="Past QOTDs"
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', count: 1 })}
+                        className="flex-1 py-2 bg-white text-indigo-600 rounded-xl font-black transition-all hover:scale-[1.02] active:scale-95 shadow-sm flex items-center justify-center gap-1 text-xs"
+                      >
+                        Take QOTD <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setShowQotdHistoryModal(true)}
+                        className="px-2.5 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-xs backdrop-blur-sm border border-white/20 shrink-0"
+                        title="Past QOTDs"
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </button>
+                    </>
+                  )
+                ) : (
+                  <button
+                    onClick={() => setShowQotdHistoryModal(true)}
+                    className="w-full py-2 bg-white text-indigo-600 rounded-xl font-black transition-all hover:scale-[1.02] active:scale-95 shadow-sm flex items-center justify-center gap-1.5 text-xs"
+                  >
+                    <Calendar className="w-3.5 h-3.5" /> Past QOTDs
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Block 2: Quiz Builder */}
+            <button
+              onClick={onOpenBuilder}
+              className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2 w-full">
+                <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-indigo-900 dark:text-indigo-100">
+                  <div className="p-1.5 bg-indigo-600 text-white rounded-lg group-hover:rotate-6 transition-transform">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                  Quiz Builder
+                </span>
+                <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-full text-[10px] font-bold">
+                  Custom
+                </span>
+              </div>
+
+              <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 font-medium line-clamp-2 mb-3">
+                Target weak areas, filter by difficulty, or start a mixed review quiz.
+              </p>
+
+              <div className="flex items-center gap-1 text-xs font-black text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform mt-auto">
+                Launch Builder <ChevronRight className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* Block 3: Resume Saved Block or Active Curriculum Jump */}
+            {mostRecentSession ? (
+              <button
+                onClick={() => {
+                  const matchedBlock = blocks.find(b => b.title === mostRecentSession.topic || b.id === mostRecentSession.quiz_id);
+                  onStartQuiz({
+                    topic: mostRecentSession.topic,
+                    quizId: mostRecentSession.quiz_id || matchedBlock?.id,
+                    count: 40,
+                  });
+                }}
+                className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+              >
+                <div className="flex items-center justify-between gap-2 mb-2 w-full">
+                  <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-amber-900 dark:text-amber-100">
+                    <div className="p-1.5 bg-amber-500 text-white rounded-lg group-hover:scale-110 transition-transform">
+                      <PlayCircle className="w-3.5 h-3.5" />
+                    </div>
+                    Resume Block
+                  </span>
+                  <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-bold">
+                    In Progress
+                  </span>
+                </div>
+
+                <p className="text-xs text-amber-800/80 dark:text-amber-300/80 font-medium truncate mb-3" title={mostRecentSession.topic}>
+                  {mostRecentSession.topic} · Q{(mostRecentSession.current_index || 0) + 1}
+                </p>
+
+                <div className="flex items-center gap-1 text-xs font-black text-amber-700 dark:text-amber-300 group-hover:translate-x-0.5 transition-transform mt-auto">
+                  Continue Block <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </button>
+            ) : currentBlock ? (
+              <button
+                onClick={() => onStartQuiz({ topic: currentBlock.title, quizId: currentBlock.id, count: 40 })}
+                className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+              >
+                <div className="flex items-center justify-between gap-2 mb-2 w-full">
+                  <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-emerald-900 dark:text-emerald-100">
+                    <div className="p-1.5 bg-emerald-600 text-white rounded-lg group-hover:scale-110 transition-transform">
+                      <BookOpen className="w-3.5 h-3.5" />
+                    </div>
+                    Active Block
+                  </span>
+                  <span className="px-2 py-0.5 bg-emerald-200/80 dark:bg-emerald-900/70 text-emerald-800 dark:text-emerald-200 rounded-full text-[10px] font-bold">
+                    Scheduled
+                  </span>
+                </div>
+
+                <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80 font-medium truncate mb-3" title={currentBlock.title}>
+                  {currentBlock.title}
+                </p>
+
+                <div className="flex items-center gap-1 text-xs font-black text-emerald-700 dark:text-emerald-300 group-hover:translate-x-0.5 transition-transform mt-auto">
+                  Start Block <ChevronRight className="w-3.5 h-3.5" />
+                </div>
+              </button>
+            ) : (
+              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between text-left min-h-[170px]">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    Up to Date
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-3">
+                  No paused sessions. All submitted quizzes are saved.
+                </p>
+                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-auto">
+                  Ready for review
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Advisee Hub for Faculty and Admins (Moved Below Top 3 Blocks, Default Collapsed) */}
           {isSuperAdmin && (
             <AdviseeQuickAccessCard
               user={user}
               profile={profile}
               selectedYear={selectedYear}
               onOpenAdmin={onOpenAdmin}
+              currentBlock={currentBlock}
             />
           )}
 
-          {/* QOTD Card */}
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden animate-fade-in hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/30 transition-all duration-300 group mb-6">
-             <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
-             <div className="relative z-10">
-               <h3 className="font-black text-lg flex items-center gap-2 mb-2">
-                 <Sparkles className="w-5 h-5 text-yellow-300" />
-                 Question of the Day
-               </h3>
-               {qotdQuestion ? (
-                 qotdAttempt || isPastNoon() ? (
-                   <div>
-                     <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">
-                       {qotdAttempt ? (
-                         isPastNoon() ? (
-                           qotdStats && qotdStats.total > 0
-                             ? `${qotdStats.total} responders · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct`
-                             : 'Results and stats are now available!'
-                         ) : (
-                           'Answer recorded. Come back at 12:30 PM for results!'
-                         )
-                       ) : (
-                         qotdStats && qotdStats.total > 0
-                           ? `You missed today's QOTD. ${qotdStats.total} responders · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct.`
-                           : "You missed today's QOTD. The answer and stats are now available."
-                       )}
-                     </p>
-                     <div className="flex items-center gap-2">
-                       <button
-                         onClick={() => onStartQuiz({ 
-                           isQotd: true, 
-                           qotdQuestion, 
-                           topic: 'Question of the Day', 
-                           isQotdCompleted: true, 
-                           qotdAttempt: qotdAttempt || { is_skipped: true } 
-                         })}
-                         className="flex-1 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/20"
-                       >
-                         {qotdAttempt ? (isPastNoon() ? 'View Results & Stats' : 'Review Selection') : 'View Answer & Stats'}
-                       </button>
-                       <button
-                         onClick={() => setShowQotdHistoryModal(true)}
-                         className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/10"
-                         title="Past QOTDs"
-                       >
-                         <Calendar className="w-5 h-5" />
-                       </button>
-                     </div>
-                   </div>
-                 ) : (
-                   <div>
-                     <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">A new high-yield question is ready for you.</p>
-                     <div className="flex items-center gap-2">
-                       <button
-                         onClick={() => onStartQuiz({ isQotd: true, qotdQuestion, topic: 'Question of the Day', count: 1 })}
-                         className="flex-1 py-3 bg-white text-indigo-600 rounded-xl font-black transition-all hover:scale-105 active:scale-95 shadow-md flex items-center justify-center gap-2"
-                       >
-                         Take QOTD <ChevronRight className="w-4 h-4" />
-                       </button>
-                       <button
-                         onClick={() => setShowQotdHistoryModal(true)}
-                         className="px-4 py-3 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-sm backdrop-blur-sm border border-white/20"
-                         title="Past QOTDs"
-                       >
-                         <Calendar className="w-5 h-5" />
-                       </button>
-                     </div>
-                   </div>
-                 )
-               ) : (
-                 <div>
-                   <p className="text-indigo-100 text-sm mb-5 leading-relaxed font-medium">Enjoy your weekend! There is no Question of the Day today. Check out previous questions or come back Monday!</p>
-                   <button
-                     onClick={() => setShowQotdHistoryModal(true)}
-                     className="w-full py-3 bg-white text-indigo-600 rounded-xl font-black transition-all hover:scale-105 active:scale-95 shadow-md flex items-center justify-center gap-2"
-                   >
-                     <Calendar className="w-5 h-5" /> Past QOTDs
-                   </button>
-                 </div>
-               )}
-             </div>
-          </div>
-
-          {/* Quiz Builder — indigo gradient */}
-          <button
-            onClick={onOpenBuilder}
-            className="w-full mb-6 flex items-center justify-center gap-4 p-5 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/40 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
-          >
-            <div className="p-3 bg-white/60 dark:bg-white/10 rounded-2xl group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300">
-              <Sparkles className="w-7 h-7 text-indigo-500" />
+          {/* Assigned Quizzes (Row below Advisee Hub) */}
+          {data?.assignedQuizzes && data.assignedQuizzes.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {data.assignedQuizzes.map((aq: any) => (
+                <button
+                  key={aq.id}
+                  onClick={() => {
+                    onStartQuiz({
+                      topic: aq.title || 'Assigned Quiz',
+                      quizId: `assigned-${aq.id}`,
+                      questionIds: aq.question_ids,
+                      count: aq.question_ids.length,
+                      timerEnabled: true,
+                    });
+                  }}
+                  className="w-full text-left p-3.5 sm:p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/20 border border-purple-200 dark:border-purple-900/40 rounded-2xl flex items-center gap-3.5 hover:-translate-y-0.5 hover:shadow-md transition-all group relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 bg-purple-500 text-white text-[9px] font-black px-2.5 py-0.5 rounded-bl-lg uppercase tracking-wider">Assigned</div>
+                  <Sparkles className="w-5 h-5 shrink-0 text-purple-500" />
+                  <div className="text-left flex-1 min-w-0 pr-14">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-sm sm:text-base text-purple-900 dark:text-purple-100">{aq.title}</p>
+                      <span className="px-2 py-0.5 bg-purple-200/70 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 text-[10px] font-bold rounded">Practice (0 AP)</span>
+                    </div>
+                    <p className="text-xs font-medium text-purple-600 dark:text-purple-400 opacity-80 truncate mt-0.5">
+                      {aq.question_ids?.length} Questions • Assigned by your advisor • Practice &amp; Remediation
+                    </p>
+                  </div>
+                </button>
+              ))}
             </div>
-            <div className="text-left">
-              <p className="font-bold text-lg">Quiz Builder</p>
-              <p className="text-xs text-indigo-500/80 dark:text-indigo-400/80">Custom filters or quick mixed review</p>
-            </div>
-          </button>
-
-          {/* Assigned Quizzes */}
-          {data?.assignedQuizzes && data.assignedQuizzes.length > 0 && data.assignedQuizzes.map((aq: any) => (
-            <button
-              key={aq.id}
-              onClick={() => {
-                onStartQuiz({
-                  topic: aq.title || 'Assigned Quiz',
-                  quizId: `assigned-${aq.id}`,
-                  questionIds: aq.question_ids,
-                  count: aq.question_ids.length,
-                  timerEnabled: true,
-                });
-              }}
-              className="w-full mb-6 text-left p-4 md:p-5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/20 border border-purple-200 dark:border-purple-900/40 rounded-3xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group relative overflow-hidden"
-            >
-              <div className="absolute top-0 right-0 bg-purple-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl z-10 uppercase tracking-wider">Assigned</div>
-              <Sparkles className="w-6 h-6 shrink-0 text-purple-500" />
-              <div className="text-left flex-1 min-w-0 pr-16">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-bold text-lg text-purple-900 dark:text-purple-100">{aq.title}</p>
-                  <span className="px-2 py-0.5 bg-purple-200/70 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200 text-[10px] font-bold rounded-md">Practice (0 AP)</span>
-                </div>
-                <p className="text-xs font-medium text-purple-600 dark:text-purple-400 opacity-80 truncate mt-0.5">
-                  {aq.question_ids?.length} Questions • Assigned by your advisor • Practice & Remediation
-                </p>
-              </div>
-            </button>
-          ))}
-
-          {/* Resume Saved Block */}
-          {mostRecentSession && (
-            <button
-              onClick={() => {
-                const matchedBlock = blocks.find(b => b.title === mostRecentSession.topic || b.id === mostRecentSession.quiz_id);
-                onStartQuiz({
-                  topic: mostRecentSession.topic,
-                  quizId: mostRecentSession.quiz_id || matchedBlock?.id,
-                  count: 40,
-                });
-              }}
-              className="w-full mb-6 text-left p-4 md:p-5 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border border-amber-200 dark:border-amber-900/40 rounded-3xl flex items-center gap-4 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group"
-            >
-              <PlayCircle className="w-6 h-6 shrink-0 text-amber-500" />
-              <div className="text-left flex-1 min-w-0">
-                <p className="font-bold text-lg text-amber-900 dark:text-amber-100">Resume Saved Block</p>
-                <p className="text-xs font-medium text-amber-600 dark:text-amber-400 opacity-80 truncate">
-                  {mostRecentSession.topic} · Q{(mostRecentSession.current_index || 0) + 1}
-                </p>
-              </div>
-            </button>
           )}
 
           {/* Active Block Advisor Meeting Self-Check */}
