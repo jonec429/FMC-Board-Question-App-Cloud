@@ -60,6 +60,20 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-09-07 (Antigravity)
+**Shipped this session**:
+1. **Faculty Advisor Suite & Weak Category Drilldown**: Loaded per-quiz `category_stats` across results in `useAdminData` to compute real-time category performance for each advisee. Advisee cards feature color-coded accuracy pills (<50% red, 50–65% amber, ≥65% emerald) with a 1-click **Target (`🎯`)** shortcut that pre-configures remediation practice quizzes.
+2. **Advisor Meeting Confirmation Log (+1 AP)**: Built `/api/faculty/advisor-meeting` to allow faculty advisors to verify and log 1-on-1 block review meetings directly from the Advisee Hub, record discussion notes, and award 1 Academic Point to the advisee while preventing duplicate block claims.
+3. **1-Click Printable Advisee Dossier (PDF)**: Created `AdviseeDossierModal.tsx` for semi-annual faculty review meetings and Clinical Competency Committee (CCC) portfolios, featuring Ascension St. Vincent's branding, cohort overview matrices, KPI scorecards, weak areas, block submission and meeting logs, and dual signature lines.
+4. **Dashboard Layout Optimization & Decluttering**:
+   - Swapped **My Performance** to the very top of the left sidebar above Achievements.
+   - Restructured the top of the right column into 3 compact, squarish cards (**QOTD**, **Quiz Builder**, and **Resume Saved Block / Active Scheduled Block Jump**).
+   - Positioned the **Advisee Hub** directly beneath the 3 top blocks with a default-collapsed sleek banner and persistent `localStorage` toggle.
+   - Protected the resident view (Advisee Hub is completely hidden for non-faculty/non-admins), elevating assigned quizzes and scheduled curriculum blocks high above the fold.
+5. **Theme & Highlighter Refinement**: Finalized pitch-black OLED Midnight Mode (`#000000`), electric blue dark mode highlighter (`#2563eb`) with bold text, and dark theme consistency across all pre-quiz and setup modals.
+
+**Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass cleanly.
+
 ### ▶️ Session Handoff — 2026-09-06 (Antigravity)
 **Shipped this session**: 
 1. **Repository Housekeeping**: Cleaned up the project root by moving 5 untracked diagnostic/scratch scripts into `scripts/` (`check_cron_logs.js`, `check_keisha.js`, `fix_late_results.js`, `insert_badge.js`, `list_crons.js`).
@@ -323,7 +337,10 @@ This file serves as the shared source of truth for development progress between 
 - **Review prior quizzes** *(now the primary completion record — replaces the dropped email below)*: Let residents revisit **any** past quiz — assigned blocks and custom builds — to review the questions, their own answers, the correct answers, and explanations at any later date.
 - **Quiz Mode vs Practice Mode** *(any block EXCEPT QOTD; chosen on a screen right before the quiz starts)*: *Practice mode* reveals the answer + explanation right after each question (current behavior); *Quiz mode* hides them until the whole quiz is submitted, then shows the full review. Applies to assigned blocks AND custom builds.
 - ~~**Assigned-block submission email (failsafe)**~~ — **DROPPED 2026-06-05 (user decision):** can't legitimately send *from* the program's `@ascension.org` address (Ascension's domain isn't controllable in Resend → would be spoofing/spam). The **"Review prior quizzes"** history above replaces it as the completion failsafe. The existing (silently-failing) `fetch('/api/email')` in `QuizEngine.tsx` will be removed during the Quiz/Practice + review rework.
-- **Advisor/Faculty Assigned Quizzes**: Allow advisors or faculty department heads to create custom quizzes and assign them directly to specific residents. This would be particularly useful in the setting of a resident improvement plan or remediation situation.
+- **Advisor/Faculty Assigned Quizzes & Remediation** *(✅ Shipped 2026-09-07)*: Allow advisors to create custom targeted practice quizzes (0 AP) and assign them directly to specific residents. Expanded with real-time advisee category weak area drilldowns directly in the Advisee Hub.
+- **Advisor Meeting Confirmation Log (+1 AP)** *(✅ Shipped 2026-09-07)*: Faculty advisors can directly verify and log 1-on-1 block review meetings with discussion notes and award 1 Academic Point to the advisee.
+- **1-Click Printable Advisee Dossier (PDF)** *(✅ Shipped 2026-09-07)*: Publication-ready PDF printable summary for Clinical Competency Committee (CCC) and semi-annual reviews with cohort matrix and signature blocks.
+- **Dashboard Layout Optimization & Decluttering** *(✅ Shipped 2026-09-07)*: Swapped My Performance above Achievements in left sidebar; top row of 3 compact squarish blocks (QOTD, Quiz Builder, Resume Block / Active Scheduled Block Jump); Advisee Hub default-collapsed with persistent state.
 - **New Achievements (Badges)**:
   - *Top of the Class*: Maintain the most academic points in the program for 3 consecutive months.
   - *Comeback Kid*: Improve performance in a block by 20% compared to the last block completed.
@@ -335,6 +352,16 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-09-07 — Faculty Advisor Suite, Printable Dossier (PDF), & Dashboard Optimization (Antigravity)
+*   **Advisee Category Weak Areas & 1-Click Remediation:** Real-time analysis of per-category accuracy computed directly from `category_stats` across all completed resident blocks. Advisee cards feature color-coded accuracy pills (<50% red, 50–65% amber, ≥65% emerald) with a 1-click **Target** shortcut (`🎯`) to configure custom remediation practice quizzes.
+*   **Advisor Meeting Confirmation Log (+1 AP):** Direct meeting logging workflow for faculty advisors. Evaluates active scheduled block status (`✅ Logged` with date vs. `⏰ Meeting pending`). Faculty can click **"Log Meeting (+1 AP)"** to record optional discussion notes and instantly award 1 Academic Point to the advisee via `/api/faculty/advisor-meeting`, preventing duplicate block claims.
+*   **1-Click Printable Advisee Dossier (PDF):** Added a publication-ready printable summary (`AdviseeDossierModal.tsx`) tailored for semi-annual faculty review meetings and Clinical Competency Committee (CCC) folders. Features Ascension St. Vincent's FM Residency branding, cohort performance matrix, individual resident scorecards (Core Avg, On-Time %, total points, weak areas, block/meeting logs), action plan notes, and dual signature lines (Resident & Faculty Advisor).
+*   **Dashboard Right-Column Top 3 Compact Blocks:** Moved **Question of the Day (QOTD)**, **Quiz Builder**, and **Resume Saved Block / Active Curriculum Jump** into a unified 3-column top row of sleek, squarish cards.
+*   **Advisee Hub Streamlined & Default-Collapsed:** Repositioned the Advisee Hub directly beneath the 3 cards and defaulted it to a streamlined, low-profile banner with live risk summary pills and quick action shortcuts. Open/collapsed preference persists across sessions via `localStorage`.
+*   **Elevated Board Review Blocks for Residents:** Resident view is significantly decluttered, bringing assigned quizzes and scheduled curriculum blocks directly above the fold without extra scrolling.
+*   **Left Sidebar Optimization:** Swapped the positions of **My Performance** and **Achievements**, placing personal stats, radar charts, and score history at the very top of the sidebar.
+*   **Theme & Highlighter Polish:** Pitch-black OLED Midnight Mode (`#000000`), royal blue dark mode highlighter (`#2563eb`) with bold text, and dark theme consistency across all pre-quiz and setup modals.
 
 ### 2026-09-06 — Resident Risk Tier 2 Web Push Alerts & Workspace Cleanup (Antigravity)
 *   **Resident Risk Tier 2 Push Digest:** Fully implemented automated Web Push notifications for resident risk in `/api/cron/faculty-digest`. The engine evaluates live curriculum completions against due dates using `lib/residentRisk.ts`, identifying overdue blocks, substandard averages (<65%), low on-time completion (<75%), and declining trends (≥10% drop).
