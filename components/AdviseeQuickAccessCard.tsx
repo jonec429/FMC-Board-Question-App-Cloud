@@ -8,6 +8,7 @@ import { formatDisplayName } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { supabase } from '@/lib/supabase';
 import AdviseeDossierModal, { DossierAdviseeData } from './AdviseeDossierModal';
+import { openEmailCompose, generateIndividualAdviseeEmail, generateAllAdviseesEmail } from '@/lib/emailHelper';
 import {
   Users, Mail, Copy, Sparkles, BarChartIcon, CheckCircle, AlertTriangle, AlertCircle,
   ChevronDown, ChevronUp, Check, ExternalLink, Printer, Target, Clock, Loader2, X
@@ -24,6 +25,7 @@ interface AdviseeQuickAccessCardProps {
 interface AdviseeStat {
   resident: RosterEntry;
   name: string;
+  surname?: string;
   pgy: string;
   overallAvg: number;
   curriculumAvg: number;
@@ -285,6 +287,7 @@ export default function AdviseeQuickAccessCard({
       return {
         resident,
         name: resident.name || resident.email,
+        surname: resident.last_name || (resident.name ? resident.name.split(' ').slice(-1)[0] : 'Resident'),
         pgy: String(resident.pgy_override || resident.pgy || 'Resident'),
         overallAvg,
         curriculumAvg,
@@ -336,30 +339,41 @@ export default function AdviseeQuickAccessCard({
   };
 
   const handleEmailAdvisees = () => {
-    const subject = encodeURIComponent(`FMC Board Review App: Advisee Progress Update`);
-    let bodyStr = `Hello,\r\n\r\nHere is your current progress summary in the FMC Board Review App:\r\n\r\n`;
-
-    adviseeStats.forEach((a) => {
-      const status = a.isAtRisk ? '🚨 AT RISK' : a.isAttention ? '⚠️ NEEDS ATTENTION' : '✅ ON TRACK';
-      bodyStr += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\r\n`;
-      bodyStr += `👤 ${a.name} (${a.pgy})\r\n`;
-      bodyStr += `   Status: ${status}\r\n`;
-      bodyStr += `   Core Curriculum Avg: ${a.curriculumAvg.toFixed(1)}% (${a.curriculumAttempts} blocks completed)\r\n`;
-      bodyStr += `   Compliance: ${a.onTimePct.toFixed(0)}% on time\r\n`;
-      if (a.riskReasons.length > 0) {
-        bodyStr += `   Flags: ${a.riskReasons.join(' | ')}\r\n`;
-      }
-      if (a.weakCategories.length > 0) {
-        const topWeak = a.weakCategories.slice(0, 2).map((w) => `${w.category} (${w.percentage.toFixed(0)}%)`).join(', ');
-        bodyStr += `   Areas for Review: ${topWeak}\r\n`;
-      }
-      bodyStr += `\r\n`;
+    if (adviseeStats.length === 0) return;
+    const advisorName = profile?.full_name || user?.user_metadata?.full_name || '';
+    const emailData = generateAllAdviseesEmail({
+      advisees: adviseeStats.map((a) => ({
+        name: a.name,
+        pgy: a.pgy,
+        email: a.resident.email,
+        curriculumAvg: a.curriculumAvg,
+        curriculumAttempts: a.curriculumAttempts,
+        onTimePct: a.onTimePct,
+        isAtRisk: a.isAtRisk,
+        isAttention: a.isAttention,
+        riskReasons: a.riskReasons,
+        weakCategories: a.weakCategories,
+      })),
+      advisorName,
     });
+    openEmailCompose(emailData);
+  };
 
-    const appUrl = window.location.origin;
-    bodyStr += `Log in to practice questions and review explanations:\r\n${appUrl}\r\n\r\nKeep up the great work!`;
-
-    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyStr)}`;
+  const handleEmailIndividualAdvisee = (advisee: AdviseeStat) => {
+    const advisorName = profile?.full_name || user?.user_metadata?.full_name || '';
+    const emailData = generateIndividualAdviseeEmail({
+      name: advisee.name,
+      surname: advisee.surname,
+      email: advisee.resident.email,
+      curriculumAvg: advisee.curriculumAvg,
+      curriculumAttempts: advisee.curriculumAttempts,
+      onTimePct: advisee.onTimePct,
+      overdueCount: advisee.overdueCount,
+      riskReasons: advisee.riskReasons,
+      weakCategories: advisee.weakCategories,
+      advisorName,
+    });
+    openEmailCompose(emailData);
   };
 
   const handleLogMeetingSubmit = async () => {
@@ -538,6 +552,13 @@ export default function AdviseeQuickAccessCard({
                         </div>
                         <div className="flex items-center gap-1.5">
                           {statusBadge}
+                          <button
+                            onClick={() => handleEmailIndividualAdvisee(a)}
+                            className="p-1 text-indigo-300 hover:text-white hover:bg-white/10 rounded-md transition-colors"
+                            title={`Email Dr. ${a.surname || a.name}`}
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </button>
                           <button
                             onClick={() => {
                               setDossierSelectedEmail(a.resident.email);

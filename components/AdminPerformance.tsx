@@ -13,6 +13,7 @@ import QuizReview from './QuizReview';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
 import { DataTable } from './DataTable';
 import { ColumnDef } from '@tanstack/react-table';
+import { openEmailCompose, generateBlockReminderEmail } from '@/lib/emailHelper';
 
 interface ResidentStat {
   userId: string | null;
@@ -777,7 +778,6 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               {myAdvisees.length > 0 && (
                 <button 
                   onClick={() => {
-                    const subject = encodeURIComponent("FMC Board Review App: Advisee Performance Update");
                     let bodyStr = "Hello,\r\n\r\nHere is a summary of your advisees' current performance in the FMC Board Review App. Please log in to the Faculty Console for a full breakdown.\r\n\r\n";
                     myAdvisees.forEach(r => {
                       const isAtRisk = r.academicRisk === 'red' || r.complianceRisk === 'red';
@@ -797,8 +797,11 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     const appUrl = window.location.origin + '/?admin=performance';
                     bodyStr += `\r\n\r\nView Full Dashboard & Deep Dive Here:\r\n${appUrl}\r\n\r\nThank you for supporting our residents!`;
                     
-                    const body = encodeURIComponent(bodyStr);
-                    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+                    openEmailCompose({
+                      bcc: myAdvisees.map(r => r.email).filter(Boolean),
+                      subject: "FMC Board Review App: Advisee Performance Update",
+                      body: bodyStr,
+                    });
                   }}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors flex items-center gap-2 text-sm shadow-sm"
                 >
@@ -874,8 +877,21 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     const appUrl = window.location.origin + '/?admin=performance';
                     bodyStr += `\r\n\r\nView Full Dashboard & Deep Dive Here:\r\n${appUrl}\r\n\r\nThank you for supporting our residents!`;
                     
-                    const subject = encodeURIComponent("FMC Board Review App: Program-Wide Performance Update");
-                    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyStr)}`;
+                    const facultyEmails = (adminData?.roster || [])
+                      .filter((r: import('@/lib/types').RosterEntry) => {
+                        const role = (r.role || '').toLowerCase();
+                        const pgy = (r.pgy || '').toLowerCase();
+                        const track = (r.track || '').toLowerCase();
+                        return role === 'faculty' || pgy === 'faculty' || track === 'faculty';
+                      })
+                      .map((r: import('@/lib/types').RosterEntry) => r.email)
+                      .filter(Boolean);
+
+                    openEmailCompose({
+                      bcc: facultyEmails,
+                      subject: "FMC Board Review App: Program-Wide Performance Update",
+                      body: bodyStr,
+                    });
                   }}
                   className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors flex items-center gap-1.5 text-xs sm:text-sm"
                 >
@@ -1401,6 +1417,13 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           return r.name.toLowerCase().includes(q) || (r.last_name && r.last_name.toLowerCase().includes(q)) || r.email.toLowerCase().includes(q);
         });
 
+        const allIncompleteResidents = residentStats.filter(resident => {
+          const result = (resident.userId ? userBestPts.get(resident.userId.toLowerCase()) : null) || 
+                         userBestPts.get(resident.email.toLowerCase()) ||
+                         blockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
+          return !result;
+        });
+
         return (
           <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
             <div className="bg-white rounded-[40px] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
@@ -1464,6 +1487,23 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   <span className="text-xs font-bold text-slate-400 hidden sm:inline">
                     Showing {filteredResidents.length} of {residentStats.length} residents
                   </span>
+                  {allIncompleteResidents.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const emailData = generateBlockReminderEmail({
+                          blockTitle: block.title,
+                          dueDateStr: sched?.end_date ? `${sched.end_date}` : 'this Sunday',
+                          emails: allIncompleteResidents.map(r => r.email).filter(Boolean),
+                          senderName: 'FMC Program Leadership',
+                        });
+                        openEmailCompose(emailData);
+                      }}
+                      className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs shadow-sm active:scale-95"
+                      title={`Send 1-click reminder to ${allIncompleteResidents.length} incomplete residents via Gmail`}
+                    >
+                      <Mail className="w-3.5 h-3.5" /> Remind Incomplete ({allIncompleteResidents.length})
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       const yearLabel = selectedYear === 0 ? 'All_Years' : `AY_${selectedYear}`;
@@ -1608,12 +1648,28 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                 {isCompleted ? `${pts} pt${pts !== 1 ? 's' : ''}` : '0 pts'}
                               </td>
                               <td className="px-3 py-3 text-right">
-                                {isCompleted && result && (
+                                {isCompleted && result ? (
                                   <button
                                     onClick={() => openReview(result)}
                                     className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg transition-all"
                                   >
                                     Review
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      const emailData = generateBlockReminderEmail({
+                                        blockTitle: block.title,
+                                        dueDateStr: sched?.end_date ? `${sched.end_date}` : 'this Sunday',
+                                        emails: [resident.email],
+                                        senderName: 'FMC Program Leadership',
+                                      });
+                                      openEmailCompose(emailData);
+                                    }}
+                                    className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors inline-flex items-center gap-1"
+                                    title={`Send reminder to ${resident.name}`}
+                                  >
+                                    <Mail className="w-3.5 h-3.5" />
                                   </button>
                                 )}
                               </td>

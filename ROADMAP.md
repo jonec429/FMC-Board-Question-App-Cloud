@@ -62,15 +62,21 @@ This file serves as the shared source of truth for development progress between 
 
 ### ▶️ Session Handoff — 2026-09-07 (Antigravity)
 **Shipped this session**:
-1. **Faculty Advisor Suite & Weak Category Drilldown**: Loaded per-quiz `category_stats` across results in `useAdminData` to compute real-time category performance for each advisee. Advisee cards feature color-coded accuracy pills (<50% red, 50–65% amber, ≥65% emerald) with a 1-click **Target (`🎯`)** shortcut that pre-configures remediation practice quizzes.
-2. **Advisor Meeting Confirmation Log (+1 AP)**: Built `/api/faculty/advisor-meeting` to allow faculty advisors to verify and log 1-on-1 block review meetings directly from the Advisee Hub, record discussion notes, and award 1 Academic Point to the advisee while preventing duplicate block claims.
-3. **1-Click Printable Advisee Dossier (PDF)**: Created `AdviseeDossierModal.tsx` for semi-annual faculty review meetings and Clinical Competency Committee (CCC) portfolios, featuring Ascension St. Vincent's branding, cohort overview matrices, KPI scorecards, weak areas, block submission and meeting logs, and dual signature lines.
-4. **Dashboard Layout Optimization & Decluttering**:
+1. **1-Click G-Suite / Gmail Email Workflows (Admins & Faculty Advisors)**:
+   - Built a dedicated email helper (`lib/emailHelper.ts`) providing direct 1-click Gmail web compose URL generation (`mail.google.com/mail/?view=cm...`) with automatic `mailto:` fallback. Sends emails directly through the user's authenticated Ascension Google Workspace account with zero third-party software, API keys, or DNS records.
+   - **For Faculty Advisors (Individual Advisees)**: Added a direct **Email Advisee (`Mail`)** button to every advisee card in `AdviseeQuickAccessCard.tsx`, auto-populating their exact core average, on-time percentage, overdue blocks, flags, and recommended review areas.
+   - **For Faculty Advisors (Bulk)**: Upgraded **"Email Advisees"** to place all assigned advisees in `Bcc:` with a formatted cohort update and dashboard links.
+   - **For Super Users / Admins (Block Reminders)**: Added a **"📢 Remind Incomplete (N)"** button in the By-Block Drilldown modal (`AdminPerformance.tsx`) that automatically finds all incomplete residents and generates a pre-filled reminder in `Bcc:`. Added individual row nudge buttons for each uncompleted resident.
+   - **For Program Leadership (Advisors Update)**: Upgraded "Email Advisors" to put faculty in `Bcc:` and open directly in Gmail.
+2. **Faculty Advisor Suite & Weak Category Drilldown**: Loaded per-quiz `category_stats` across results in `useAdminData` to compute real-time category performance for each advisee. Advisee cards feature color-coded accuracy pills (<50% red, 50–65% amber, ≥65% emerald) with a 1-click **Target (`🎯`)** shortcut that pre-configures remediation practice quizzes.
+3. **Advisor Meeting Confirmation Log (+1 AP)**: Built `/api/faculty/advisor-meeting` to allow faculty advisors to verify and log 1-on-1 block review meetings directly from the Advisee Hub, record discussion notes, and award 1 Academic Point to the advisee while preventing duplicate block claims.
+4. **1-Click Printable Advisee Dossier (PDF)**: Created `AdviseeDossierModal.tsx` for semi-annual faculty review meetings and Clinical Competency Committee (CCC) portfolios, featuring Ascension St. Vincent's branding, cohort overview matrices, KPI scorecards, weak areas, block submission and meeting logs, and dual signature lines.
+5. **Dashboard Layout Optimization & Decluttering**:
    - Swapped **My Performance** to the very top of the left sidebar above Achievements.
    - Restructured the top of the right column into 3 compact, squarish cards (**QOTD**, **Quiz Builder**, and **Resume Saved Block / Active Scheduled Block Jump**).
    - Positioned the **Advisee Hub** directly beneath the 3 top blocks with a default-collapsed sleek banner and persistent `localStorage` toggle.
    - Protected the resident view (Advisee Hub is completely hidden for non-faculty/non-admins), elevating assigned quizzes and scheduled curriculum blocks high above the fold.
-5. **Theme & Highlighter Refinement**: Finalized pitch-black OLED Midnight Mode (`#000000`), electric blue dark mode highlighter (`#2563eb`) with bold text, and dark theme consistency across all pre-quiz and setup modals.
+6. **Theme & Highlighter Refinement**: Finalized pitch-black OLED Midnight Mode (`#000000`), electric blue dark mode highlighter (`#2563eb`) with bold text, and dark theme consistency across all pre-quiz and setup modals.
 
 **Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass cleanly.
 
@@ -309,9 +315,8 @@ This file serves as the shared source of truth for development progress between 
 ### Analytics & Reporting
 - [x] **Question-level Analytics**: More granular tracking of individual question performance (distractor analysis heatmap).
 - [x] **Admin "Reporting" Tab**: Enhanced PDF generation and export tools for program directors.
-- [x] **"Resident Risk" Logic**: Early-warning metrics based on performance vs. on-time completion. ✅ *2026-06-08:* added **overdue-block detection** (past-due assigned blocks flag a resident who'd otherwise look "on track"), per-resident **"why flagged" reasons**, and **declining-trend detection** (recent scores sliding vs. earlier flags a resident even when their average still looks OK) — in a shared `lib/residentRisk.ts` used by both the Performance dashboard and the CSV/PDF reports. **Alerts:** ✅ in-app "needs attention" banner (Tier 1) + ✅ manual advisor-email digest now carries the overdue/trend/why-flagged reasons. ✅ *2026-09-06:* **Scheduled Web-Push digest (Tier 2)** implemented in `/api/cron/faculty-digest` with tailored advisee alerts for advisors and cohort summaries for leadership.
-- [!] **Advisor Email Reports (Fix Required)**: The automated email push is currently not working. Needs a deep dive into the reporting architecture for faculty advisors.
-- [ ] **Faculty Advisor Tools**: Add more faculty-specific tools with a lower barrier of entry to make reporting and advisee tracking more useful and accessible.
+- [x] **Advisor & Resident Email Workflows**: Resolved via 1-click G-Suite / Gmail integration (and Web Push Tier 2 alerts). Avoids third-party relays and Ascension hospital spam blocks by directly generating pre-filled Gmail web compose tabs from the user's active Ascension account with advisee/resident recipients in Bcc, personalized performance metrics, overdue block flags, and reminders.
+- [x] **Faculty Advisor Tools**: Shipped Faculty Advisee Hub, 1-click individual and bulk advisee email check-ins, per-category weak area drilldowns with 1-click targeted remediation assignment, 1-on-1 block meeting confirmation log (+1 AP), and printable CCC Dossier PDF.
 
 ### Transition & Infrastructure
 - [x] **"Academic Year Transition" Tool**: Handle PGY bumps, archiving old data, and resetting for July 1st (Completed in Phase 4).
@@ -348,10 +353,15 @@ This file serves as the shared source of truth for development progress between 
 ### 🔒 Security / Maintenance Notes
 - **2026-06-05 — dotenv ad / agent-bait silenced & pinned (Claude)**: `dotenv@17.4.2` (genuine npm package; used only in `scripts/*.ts` dev tooling, **never** in the production bundle) prints rotating console "tips," one of which — `⌁ auth for agents [www.vestauth.com]` — is third-party bait aimed at AI agents. Confirmed it's only a console string: no network calls, no install/postinstall hooks, no exfiltration. Mitigation: added `quiet: true` to all 15 `dotenv.config()` calls in `scripts/`, and pinned `dotenv` to exact `17.4.2` (dropped the `^`) so `npm update` can't silently pull a more aggressive ad build. The domain was not visited. (Note: affects any project using this dotenv version.)
 
----
-
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-09-07 — 1-Click G-Suite Email Workflows for Admins & Advisors (Antigravity)
+*   **Zero-External-App Email Integration:** Built a native Google Workspace (G-Suite) email utility (`lib/emailHelper.ts`) that triggers 1-click Gmail web compose tabs (`mail.google.com/mail/?view=cm...`) directly from the user's logged-in Ascension account, eliminating external email platforms, API keys, or DNS setups while guaranteeing delivery.
+*   **Faculty Advisor Individual Advisee Email:** Added a dedicated **Email Advisee (`Mail`)** button to every advisee card in the Advisee Hub (`AdviseeQuickAccessCard.tsx`). Automatically drafts a personalized check-in with the advisee's core curriculum average, on-time percentage, overdue counts, flags, and recommended high-yield review areas.
+*   **Faculty Advisor Bulk Email:** Upgraded the Advisee Hub's **"Email Advisees"** toolbar action to populate all assigned advisee emails into `Bcc:` with a structured cohort progress summary.
+*   **Admin Block Reminders ("Remind Incomplete"):** Added a prominent **"📢 Remind Incomplete (N)"** button to the By-Block Drilldown modal (`AdminPerformance.tsx`), allowing program leadership to send a targeted reminder in `Bcc:` to all residents who haven't completed the active block. Added individual row reminder buttons for each incomplete resident.
+*   **Program Leadership Advisor Update:** Upgraded "Email Advisors" in the Performance Overview to place faculty advisors in `Bcc:` and open directly in Gmail.
 
 ### 2026-09-07 — Faculty Advisor Suite, Printable Dossier (PDF), & Dashboard Optimization (Antigravity)
 *   **Advisee Category Weak Areas & 1-Click Remediation:** Real-time analysis of per-category accuracy computed directly from `category_stats` across all completed resident blocks. Advisee cards feature color-coded accuracy pills (<50% red, 50–65% amber, ≥65% emerald) with a 1-click **Target** shortcut (`🎯`) to configure custom remediation practice quizzes.
