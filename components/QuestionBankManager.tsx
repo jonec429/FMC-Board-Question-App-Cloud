@@ -22,7 +22,7 @@ export default function QuestionBankManager() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm animate-fade-in">
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm animate-fade-in">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
         <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Question Bank...</p>
       </div>
@@ -31,7 +31,7 @@ export default function QuestionBankManager() {
 
   if (error || !adminData) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm animate-fade-in">
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-950/20 shadow-sm animate-fade-in">
         <p className="text-red-500 font-bold">{error?.toString() || 'Failed to load data.'}</p>
         <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
       </div>
@@ -41,16 +41,16 @@ export default function QuestionBankManager() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Tab Navigation */}
-      <div className="flex bg-slate-100 p-1.5 rounded-xl w-full sm:w-auto sm:inline-flex shadow-inner border border-slate-200/50">
+      <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl w-full sm:w-auto sm:inline-flex shadow-inner border border-slate-200/50 dark:border-slate-700/50">
         <button
           onClick={() => setActiveTab('browse')}
-          className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 sm:flex-none flex items-center justify-center gap-2 ${activeTab === 'browse' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 sm:flex-none flex items-center justify-center gap-2 ${activeTab === 'browse' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
         >
           <Database className="w-4 h-4" /> Browse Bank
         </button>
         <button
           onClick={() => setActiveTab('import')}
-          className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 sm:flex-none flex items-center justify-center gap-2 ${activeTab === 'import' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`px-4 py-2 text-sm font-bold rounded-lg transition-all flex-1 sm:flex-none flex items-center justify-center gap-2 ${activeTab === 'import' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
         >
           <PlusCircle className="w-4 h-4" /> Bulk Import
         </button>
@@ -93,7 +93,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
       accessorKey: 'question_text',
       header: 'Question',
       cell: info => (
-        <div className="text-sm font-medium text-slate-800 line-clamp-2" title={info.getValue() as string}>
+        <div className="text-sm font-medium text-slate-800 dark:text-slate-200 line-clamp-2" title={info.getValue() as string}>
           {info.getValue() as string}
         </div>
       ),
@@ -102,7 +102,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
       accessorKey: 'category',
       header: 'Category',
       cell: info => (
-        <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest rounded-lg whitespace-nowrap">
+        <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-lg whitespace-nowrap">
           {info.getValue() as string}
         </span>
       ),
@@ -111,7 +111,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
       accessorKey: 'year',
       header: 'Year',
       cell: info => (
-        <span className="text-sm font-bold text-slate-500">
+        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
           {(info.getValue() as string) || '—'}
         </span>
       ),
@@ -125,14 +125,14 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
           <div className="flex items-center justify-end gap-2">
             <button 
               onClick={(e) => { e.stopPropagation(); openEditModal(q); }}
-              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 dark:hover:text-blue-400 rounded-lg transition-colors"
               title="Edit Question"
             >
               <Edit3 className="w-4 h-4" />
             </button>
             <button 
               onClick={(e) => { e.stopPropagation(); handleDelete(q.id); }}
-              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 dark:hover:text-red-400 rounded-lg transition-colors"
               title="Delete Question"
             >
               <Trash2 className="w-4 h-4" />
@@ -214,11 +214,11 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row gap-4 items-center">
         <select 
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="w-full md:w-48 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700"
+          className="w-full md:w-48 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 dark:text-slate-200"
         >
           <option value="">All Categories</option>
           {CANONICAL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -226,7 +226,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
         <select 
           value={yearFilter}
           onChange={(e) => setYearFilter(e.target.value)}
-          className="w-full md:w-32 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700"
+          className="w-full md:w-32 px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 dark:text-slate-200"
         >
           <option value="">All Years</option>
           {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
@@ -242,15 +242,15 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
       {/* Edit Modal */}
       {showEditModal && editingQuestion && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 py-12 animate-fade-in overflow-y-auto">
-          <div className="bg-white rounded-[40px] shadow-2xl max-w-3xl w-full my-auto flex flex-col max-h-full">
-            <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur z-10 rounded-t-[40px]">
+          <div className="bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl max-w-3xl w-full my-auto flex flex-col max-h-full border border-slate-100 dark:border-slate-800">
+            <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10 rounded-t-[40px]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
                   <Edit3 className="w-5 h-5" />
                 </div>
-                <h2 className="text-xl font-black text-slate-800">Edit Question</h2>
+                <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">Edit Question</h2>
               </div>
-              <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+              <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -266,7 +266,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                       required
                       value={editingQuestion.category}
                       onChange={(e) => setEditingQuestion({...editingQuestion, category: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 dark:text-slate-200"
                     >
                       <option value="">Select Category...</option>
                       {CANONICAL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
@@ -279,7 +279,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                       value={editingQuestion.year || ''}
                       onChange={(e) => setEditingQuestion({...editingQuestion, year: e.target.value})}
                       placeholder="e.g. 2025"
-                      className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700"
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 dark:text-slate-200"
                     />
                   </div>
                 </div>
@@ -292,24 +292,24 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                     rows={4}
                     value={editingQuestion.question_text}
                     onChange={(e) => setEditingQuestion({...editingQuestion, question_text: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 font-medium text-slate-800 leading-relaxed"
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-medium text-slate-800 dark:text-slate-100 leading-relaxed"
                   />
                 </div>
 
                 {/* Options & Correct Answer */}
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700/60 space-y-4">
                   <div className="flex items-center justify-between mb-4">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Options</label>
-                    <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Correct Answer</label>
+                    <label className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Correct Answer</label>
                   </div>
                   
                   {['A', 'B', 'C', 'D', 'E'].map((letter, idx) => (
                     <div key={letter} className="flex items-start gap-4">
-                      <div className="w-8 h-12 flex items-center justify-center font-black text-slate-400 shrink-0">
+                      <div className="w-8 h-12 flex items-center justify-center font-black text-slate-400 dark:text-slate-500 shrink-0">
                         {letter}
                       </div>
                       <input 
-                        type="text"
+                        type="text" 
                         value={editingQuestion.options[idx] || ''}
                         onChange={(e) => {
                           const newOpts = [...editingQuestion.options];
@@ -318,7 +318,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                         }}
                         placeholder={`Option ${letter}`}
                         required={idx < 2} // A and B at least
-                        className="w-full px-4 py-3 bg-white rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-600 font-medium text-slate-800"
+                        className="w-full px-4 py-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-medium text-slate-800 dark:text-slate-100"
                       />
                       <div className="flex h-12 items-center shrink-0 pr-2">
                         <input 
@@ -341,7 +341,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                     rows={3}
                     value={editingQuestion.explanation || ''}
                     onChange={(e) => setEditingQuestion({...editingQuestion, explanation: e.target.value})}
-                    className="w-full p-4 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 font-medium text-slate-800 leading-relaxed"
+                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-medium text-slate-800 dark:text-slate-100 leading-relaxed"
                   />
                 </div>
 
@@ -353,7 +353,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                     value={editingQuestion.resource_link || ''}
                     onChange={(e) => setEditingQuestion({...editingQuestion, resource_link: e.target.value})}
                     placeholder="https://..."
-                    className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 outline-none focus:ring-2 focus:ring-blue-600 font-medium text-blue-600"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-medium text-blue-600 dark:text-blue-400"
                   />
                 </div>
 
@@ -361,11 +361,11 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
             </div>
             
             {/* Footer */}
-            <div className="p-6 md:p-8 border-t border-slate-100 bg-slate-50 rounded-b-[40px] flex justify-end gap-3 sticky bottom-0">
+            <div className="p-6 md:p-8 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/90 rounded-b-[40px] flex justify-end gap-3 sticky bottom-0">
               <button 
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="px-6 py-3 font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors"
+                className="px-6 py-3 font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl transition-colors"
               >
                 Cancel
               </button>
@@ -373,7 +373,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                 type="submit"
                 form="edit-question-form"
                 disabled={saving}
-                className="px-8 py-3 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50"
+                className="px-8 py-3 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none disabled:opacity-50"
               >
                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 Save Changes

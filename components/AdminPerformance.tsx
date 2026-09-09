@@ -53,10 +53,10 @@ interface ResidentStat {
 // RiskLevel + getRiskLevel + the overdue/reasons helpers live in lib/residentRisk.ts.
 
 const riskColors: Record<RiskLevel, { row: string; badge: string; dot: string }> = {
-  red: { row: 'bg-red-50/60', badge: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
-  yellow: { row: 'bg-amber-50/40', badge: 'bg-amber-100 text-amber-700', dot: 'bg-amber-400' },
-  green: { row: '', badge: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-400' },
-  gray: { row: 'bg-slate-50/40', badge: 'bg-slate-100 text-slate-500', dot: 'bg-slate-300' },
+  red: { row: 'bg-red-50/60 dark:bg-red-950/20', badge: 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300', dot: 'bg-red-500' },
+  yellow: { row: 'bg-amber-50/40 dark:bg-amber-950/20', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300', dot: 'bg-amber-400' },
+  green: { row: '', badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300', dot: 'bg-emerald-400' },
+  gray: { row: 'bg-slate-50/40 dark:bg-slate-800/30', badge: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400', dot: 'bg-slate-300 dark:bg-slate-600' },
 };
 
 import { AdminData, User, Profile, Result, RosterEntry } from '@/lib/types';
@@ -176,14 +176,14 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         return (
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-800 text-sm">{formatLastNameFirst(r.name, r.last_name)}</span>
+              <span className="font-bold text-slate-800 dark:text-slate-100 text-sm">{formatLastNameFirst(r.name, r.last_name)}</span>
             </div>
             {r.riskReasons.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {r.riskReasons.map((reason, ri) => (
                   <span
                     key={ri}
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reason.includes('overdue') ? 'bg-red-100 text-red-700' : reason.includes('Trending') ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reason.includes('overdue') ? 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300' : reason.includes('Trending') ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}
                   >
                     {reason}
                   </span>
@@ -202,13 +202,13 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     {
       accessorKey: 'label',
       header: 'PGY',
-      cell: info => <div className="text-center text-xs font-bold text-slate-500">{info.getValue() as string}</div>,
+      cell: info => <div className="text-center text-xs font-bold text-slate-500 dark:text-slate-400">{info.getValue() as string}</div>,
     },
     {
       id: 'quizPoints',
       accessorFn: row => (row.totalPoints - row.totalAttendance),
       header: 'Block Pts',
-      cell: info => <div className="text-center font-black text-slate-700 text-sm">{info.getValue() as number}</div>,
+      cell: info => <div className="text-center font-black text-slate-700 dark:text-slate-300 text-sm">{info.getValue() as number}</div>,
       sortingFn: (rowA, rowB, columnId) => {
         const a = rowA.original.totalPoints - rowA.original.totalAttendance;
         const b = rowB.original.totalPoints - rowB.original.totalAttendance;
@@ -218,12 +218,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     {
       accessorKey: 'totalAttendance',
       header: 'Attend Pts',
-      cell: info => <div className="text-center font-black text-indigo-600 text-sm">{info.getValue() as number}</div>,
+      cell: info => <div className="text-center font-black text-indigo-600 dark:text-indigo-400 text-sm">{info.getValue() as number}</div>,
     },
     {
       accessorKey: 'totalPoints',
       header: 'Total Pts',
-      cell: info => <div className="text-center font-black text-slate-900 text-sm bg-slate-100 rounded px-2 py-0.5 inline-block">{info.getValue() as number}</div>,
+      cell: info => <div className="text-center font-black text-slate-900 dark:text-white text-sm bg-slate-100 dark:bg-slate-800 rounded px-2 py-0.5 inline-block">{info.getValue() as number}</div>,
     },
     {
       accessorKey: 'curriculumAvg',
@@ -233,10 +233,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         return (
           <div className="text-center">
             {r.curriculumAttempts > 0 ? (
-              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.curriculumAvg > 65 ? 'text-emerald-700' : r.curriculumAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.curriculumAvg > 65 ? 'text-emerald-700 dark:text-emerald-400' : r.curriculumAvg > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                 {r.curriculumAvg.toFixed(1)}%
               </span>
-            ) : <span className="text-slate-300 font-bold">—</span>}
+            ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
           </div>
         );
       },
@@ -249,10 +249,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         return (
           <div className="text-center">
             {r.independentAttempts > 0 && r.independentAvg !== null ? (
-              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.independentAvg > 65 ? 'text-emerald-700' : r.independentAvg > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.independentAvg > 65 ? 'text-emerald-700 dark:text-emerald-400' : r.independentAvg > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                 {r.independentAvg.toFixed(1)}%
               </span>
-            ) : <span className="text-slate-300 font-bold">—</span>}
+            ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
           </div>
         );
       },
@@ -265,10 +265,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         return (
           <div className="text-center">
             {r.totalAttempts > 0 ? (
-              <span className="text-sm font-black text-slate-600">
+              <span className="text-sm font-black text-slate-600 dark:text-slate-300">
                 {r.overallAvg.toFixed(1)}%
               </span>
-            ) : <span className="text-slate-300 font-bold">—</span>}
+            ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
           </div>
         );
       },
@@ -281,10 +281,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         return (
           <div className="text-center">
             {r.blocksCompleted > 0 ? (
-              <span className={`text-sm font-bold ${r.onTimePct > 65 ? 'text-emerald-600' : r.onTimePct > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+              <span className={`text-sm font-bold ${r.onTimePct > 65 ? 'text-emerald-600 dark:text-emerald-400' : r.onTimePct > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                 {r.onTimePct.toFixed(0)}%
               </span>
-            ) : <span className="text-slate-300 font-bold">—</span>}
+            ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
           </div>
         );
       },
@@ -635,17 +635,17 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Performance Data...</p>
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm transition-colors">
+        <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin" />
+        <p className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest text-xs">Loading Performance Data...</p>
       </div>
     );
   }
 
   if (error || !adminData) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm">
-        <p className="text-red-500 font-bold">{error?.toString() || 'Failed to load data.'}</p>
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-red-100 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 shadow-sm transition-colors">
+        <p className="text-red-500 dark:text-red-400 font-bold">{error?.toString() || 'Failed to load data.'}</p>
         <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
       </div>
     );
@@ -663,52 +663,52 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {bannerFlaggedCount > 0 && (
         <button
           onClick={() => setActiveSubTab(bannerTarget)}
-          className="w-full flex items-center gap-4 p-5 bg-gradient-to-r from-red-50 to-amber-50 border border-red-100 rounded-3xl text-left hover:shadow-md transition-all animate-fade-in"
+          className="w-full flex items-center gap-4 p-5 bg-gradient-to-r from-red-50 to-amber-50 dark:from-red-950/40 dark:to-amber-950/30 border border-red-100 dark:border-red-900/50 rounded-3xl text-left hover:shadow-md transition-all animate-fade-in"
         >
-          <div className="w-11 h-11 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center shrink-0 text-xl font-black">!</div>
+          <div className="w-11 h-11 bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 rounded-2xl flex items-center justify-center shrink-0 text-xl font-black">!</div>
           <div className="flex-1 min-w-0">
-            <p className="font-black text-slate-800">{bannerFlaggedCount} resident{bannerFlaggedCount === 1 ? '' : 's'} need{bannerFlaggedCount === 1 ? 's' : ''} attention</p>
-            <p className="text-xs font-bold text-slate-500">{bannerRedCount > 0 ? `${bannerRedCount} at risk · ` : ''}tap to review who and why</p>
+            <p className="font-black text-slate-800 dark:text-white">{bannerFlaggedCount} resident{bannerFlaggedCount === 1 ? '' : 's'} need{bannerFlaggedCount === 1 ? 's' : ''} attention</p>
+            <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{bannerRedCount > 0 ? `${bannerRedCount} at risk · ` : ''}tap to review who and why</p>
           </div>
-          <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
+          <ChevronRight className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
         </button>
       )}
 
       {/* Program Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-3">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center transition-colors">
+          <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-3">
             <TrendingUp className="w-5 h-5" />
           </div>
-          <span className="text-3xl font-black text-slate-800">{programAvg.toFixed(1)}%</span>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Program Avg</span>
+          <span className="text-3xl font-black text-slate-800 dark:text-white">{programAvg.toFixed(1)}%</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Program Avg</span>
         </div>
-        <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-          <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-3">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center transition-colors">
+          <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-3">
             <Target className="w-5 h-5" />
           </div>
-          <span className="text-3xl font-black text-slate-800">{boardReadiness}%</span>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Above 70%</span>
+          <span className="text-3xl font-black text-slate-800 dark:text-white">{boardReadiness}%</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Above 70%</span>
         </div>
-        <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-          <div className="w-10 h-10 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mb-3">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center transition-colors">
+          <div className="w-10 h-10 bg-red-50 dark:bg-red-950/50 text-red-500 dark:text-red-400 rounded-2xl flex items-center justify-center mb-3">
             <BarChartIcon className="w-5 h-5" />
           </div>
-          <span className="text-3xl font-black text-slate-800">{redFlagged.length}</span>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">At Risk</span>
+          <span className="text-3xl font-black text-slate-800 dark:text-white">{redFlagged.length}</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">At Risk</span>
         </div>
-        <div className="bg-white p-6 rounded-[28px] border border-slate-100 shadow-sm flex flex-col items-center text-center">
-          <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-3">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center transition-colors">
+          <div className="w-10 h-10 bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-3">
             <Users className="w-5 h-5" />
           </div>
-          <span className="text-3xl font-black text-slate-800">{residentStats.length}</span>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Users</span>
+          <span className="text-3xl font-black text-slate-800 dark:text-white">{residentStats.length}</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Total Users</span>
         </div>
       </div>
 
       {/* Sub Tabs — faculty see a "My Advisees" tab unique to their account */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex bg-slate-100 p-1.5 rounded-xl w-full sm:w-auto sm:inline-flex shadow-inner border border-slate-200/50 overflow-x-auto">
+        <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-xl w-full sm:w-auto sm:inline-flex shadow-inner border border-slate-200/50 dark:border-slate-800 overflow-x-auto transition-colors">
         {(() => {
           const baseTabs: [SubTab, string][] = [
             ['overview', 'Program Overview'],
@@ -728,7 +728,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 setActiveSubTab(id);
                 setOverviewSearch('');
               }}
-              className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`flex-1 px-5 py-2.5 text-sm font-bold rounded-xl transition-all whitespace-nowrap ${activeSubTab === id ? 'bg-blue-600 text-white shadow-lg shadow-blue-100 dark:shadow-none' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
             >
               {label}
             </button>
@@ -741,19 +741,19 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-              className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-bold text-slate-700 dark:text-slate-200 text-sm shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
             >
               <option value={0}>All Time (YoY Trend)</option>
               {getAvailableAcademicYears().map(year => (
                 <option key={year} value={year}>{formatAcademicYear(year)}</option>
               ))}
             </select>
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 cursor-pointer">
               <input
                 type="checkbox"
                 checked={showGraduates}
                 onChange={e => setShowGraduates(e.target.checked)}
-                className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
+                className="rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer"
               />
               Show Graduates
             </label>
@@ -766,11 +766,11 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
       {/* My Advisees Tab (faculty-focused view) */}
       {activeSubTab === 'my_advisees' && (
-        <div className="bg-white rounded-[32px] border border-emerald-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-emerald-50 bg-emerald-50/40 flex items-center justify-between">
+        <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-emerald-100 dark:border-emerald-950/50 shadow-sm overflow-hidden transition-colors">
+          <div className="p-6 border-b border-emerald-50 dark:border-emerald-950/50 bg-emerald-50/40 dark:bg-emerald-950/30 flex items-center justify-between">
             <div>
-              <h3 className="font-black text-emerald-700">My Advisees</h3>
-              <p className="text-xs font-bold text-emerald-600/70 mt-0.5">
+              <h3 className="font-black text-emerald-700 dark:text-emerald-400">My Advisees</h3>
+              <p className="text-xs font-bold text-emerald-600/70 dark:text-emerald-400/70 mt-0.5">
                 Residents assigned to {formatDisplayName(facultyName || '')} — click any row to view block history
               </p>
             </div>
@@ -809,8 +809,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 </button>
               )}
               <div className="text-right hidden sm:block">
-                <div className="text-2xl font-black text-emerald-700">{myAdvisees.length}</div>
-                <div className="text-[10px] font-black text-emerald-600/70 uppercase tracking-widest">Advisees</div>
+                <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{myAdvisees.length}</div>
+                <div className="text-[10px] font-black text-emerald-600/70 dark:text-emerald-400/70 uppercase tracking-widest">Advisees</div>
               </div>
             </div>
           </div>
@@ -818,9 +818,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             <div className="p-4"><ResidentTable residents={myAdvisees} /></div>
           ) : (
             <div className="p-12 text-center">
-              <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-              <p className="font-bold text-slate-500">No advisees assigned</p>
-              <p className="text-xs text-slate-400 mt-1">
+              <Users className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+              <p className="font-bold text-slate-500 dark:text-slate-400">No advisees assigned</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                 Residents are mapped to faculty via the <code>advisor</code> column in the authorized roster.
               </p>
             </div>
@@ -830,20 +830,20 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
       {/* Overview Tab */}
       {activeSubTab === 'overview' && (
-        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-50 bg-slate-50/50 space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+          <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/60 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="font-black text-slate-800">All Residents</h3>
-                <p className="text-xs font-bold text-slate-400 mt-0.5">Click a resident to view their block history</p>
+                <h3 className="font-black text-slate-800 dark:text-white">All Residents</h3>
+                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">Click a resident to view their block history</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <button 
                   onClick={exportOverviewToCSV}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs sm:text-sm shadow-sm"
+                  className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs sm:text-sm shadow-sm"
                   title="Download full resident performance table as CSV"
                 >
-                  <Download className="w-4 h-4 text-slate-500" /> Export CSV
+                  <Download className="w-4 h-4 text-slate-500 dark:text-slate-400" /> Export CSV
                 </button>
                 <button 
                   onClick={() => {
@@ -893,7 +893,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       body: bodyStr,
                     });
                   }}
-                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors flex items-center gap-1.5 text-xs sm:text-sm"
+                  className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-colors flex items-center gap-1.5 text-xs sm:text-sm"
                 >
                   <Mail className="w-4 h-4" /> Email Advisors
                 </button>
@@ -903,13 +903,13 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             {/* Overview Filter Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
               <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                 <input
                   type="text"
                   value={overviewSearch}
                   onChange={(e) => setOverviewSearch(e.target.value)}
                   placeholder="Search resident or advisor..."
-                  className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-colors"
                 />
               </div>
 
@@ -921,8 +921,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     onClick={() => setOverviewPgyFilter(pgy)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                       overviewPgyFilter === pgy
-                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 dark:shadow-none'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                   >
                     {pgy === 'ALL' ? 'All PGYs' : pgy}
@@ -939,37 +939,37 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {activeSubTab === 'at_risk' && (
         <div className="space-y-6">
           {redFlagged.length > 0 && (
-            <div className="bg-white rounded-[32px] border border-red-100 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-red-50 bg-red-50/40">
-                <h3 className="font-black text-red-700">🔴 At Risk — Avg ≤50%, low on-time, or 2+ blocks overdue</h3>
+            <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-red-100 dark:border-red-950/50 shadow-sm overflow-hidden transition-colors">
+              <div className="p-6 border-b border-red-50 dark:border-red-950/50 bg-red-50/40 dark:bg-red-950/30">
+                <h3 className="font-black text-red-700 dark:text-red-400">🔴 At Risk — Avg ≤50%, low on-time, or 2+ blocks overdue</h3>
               </div>
               <div className="p-4"><ResidentTable residents={redFlagged} /></div>
             </div>
           )}
           {yellowFlagged.length > 0 && (
-            <div className="bg-white rounded-[32px] border border-amber-100 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-amber-50 bg-amber-50/40">
-                <h3 className="font-black text-amber-700">🟡 Needs Attention — Avg ≤65%, on-time below 75%, a block overdue, or recent scores sliding</h3>
+            <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-amber-100 dark:border-amber-950/50 shadow-sm overflow-hidden transition-colors">
+              <div className="p-6 border-b border-amber-50 dark:border-amber-950/50 bg-amber-50/40 dark:bg-amber-950/30">
+                <h3 className="font-black text-amber-700 dark:text-amber-400">🟡 Needs Attention — Avg ≤65%, on-time below 75%, a block overdue, or recent scores sliding</h3>
               </div>
               <div className="p-4"><ResidentTable residents={yellowFlagged} /></div>
             </div>
           )}
           {redFlagged.length === 0 && yellowFlagged.length === 0 && (
-            <div className="bg-white rounded-[32px] border border-emerald-100 p-16 text-center">
+            <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-emerald-100 dark:border-emerald-950/50 p-16 text-center transition-colors">
               <div className="text-4xl mb-4">🎉</div>
-              <h3 className="font-black text-emerald-700 text-xl">All Residents On Track</h3>
-              <p className="text-slate-400 text-sm mt-2">No residents are currently flagged as at-risk.</p>
+              <h3 className="font-black text-emerald-700 dark:text-emerald-400 text-xl">All Residents On Track</h3>
+              <p className="text-slate-400 dark:text-slate-500 text-sm mt-2">No residents are currently flagged as at-risk.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* By PGY Tab */}
+      {/* By Block Tab */}
       {activeSubTab === 'by_block' && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mt-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mt-6 transition-colors">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 uppercase tracking-widest text-[10px] font-black text-slate-400">
+              <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800 uppercase tracking-widest text-[10px] font-black text-slate-400 dark:text-slate-500 transition-colors">
                 <th className="px-6 py-4">Block Title</th>
                 <th className="px-4 py-4 text-center">Assigned</th>
                 <th className="px-4 py-4 text-center">Completed</th>
@@ -978,7 +978,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 <th className="px-4 py-4 text-center">On-Time %</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {(blocks || [])
                 .filter(b => {
                   if (selectedYear === 0) return true;
@@ -1040,45 +1040,45 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       setBlockDrilldownSearch('');
                       setSelectedQuiz(null);
                     }}
-                    className="hover:bg-indigo-50/40 cursor-pointer transition-colors group"
+                    className="hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20 cursor-pointer transition-colors group"
                     title="Click to view resident completion drilldown"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{block.title}</div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-all shrink-0" />
+                        <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{block.title}</div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-all shrink-0" />
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">{block.question_count || 40} questions</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{block.question_count || 40} questions</div>
                     </td>
-                    <td className="px-4 py-4 text-center font-bold text-slate-600">
+                    <td className="px-4 py-4 text-center font-bold text-slate-600 dark:text-slate-300">
                       {scopedRoster.length}
                     </td>
-                    <td className="px-4 py-4 text-center font-bold text-slate-600">
+                    <td className="px-4 py-4 text-center font-bold text-slate-600 dark:text-slate-300">
                       {completedCount}
                     </td>
-                    <td className="px-4 py-4 text-center font-black text-indigo-600 text-sm">
+                    <td className="px-4 py-4 text-center font-black text-indigo-600 dark:text-indigo-400 text-sm">
                       {blockAttendance}
                     </td>
                     <td className="px-4 py-4 text-center">
                       {completedCount > 0 ? (
-                        <span className="text-sm font-black text-slate-600">
+                        <span className="text-sm font-black text-slate-600 dark:text-slate-300">
                           {avgScore.toFixed(1)}%
                         </span>
-                      ) : <span className="text-slate-300 font-bold">—</span>}
+                      ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
                     </td>
                     <td className="px-4 py-4 text-center">
                       {completedCount > 0 ? (
-                        <span className={`text-sm font-bold ${onTimePct > 65 ? 'text-emerald-600' : onTimePct > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                        <span className={`text-sm font-bold ${onTimePct > 65 ? 'text-emerald-600 dark:text-emerald-400' : onTimePct > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                           {onTimePct.toFixed(0)}%
                         </span>
-                      ) : <span className="text-slate-300 font-bold">—</span>}
+                      ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
                     </td>
                   </tr>
                 );
               })}
               {(!blocks || blocks.length === 0) && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-slate-500 font-bold">
+                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400 font-bold">
                     No blocks scheduled for this academic year.
                   </td>
                 </tr>
@@ -1094,17 +1094,17 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             const groupAvg = residents.filter(r => r.totalAttempts > 0).reduce((a, r) => a + r.overallAvg, 0) / (residents.filter(r => r.totalAttempts > 0).length || 1);
             const groupPts = residents.reduce((a, r) => a + r.totalPoints, 0);
             return (
-              <div key={pgy} className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
-                  <h3 className="font-black text-slate-800">{pgy}</h3>
+              <div key={pgy} className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+                <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/60 flex items-center justify-between">
+                  <h3 className="font-black text-slate-800 dark:text-white">{pgy}</h3>
                   <div className="flex gap-6 text-right">
                     <div>
-                      <div className="text-lg font-black text-slate-800">{groupAvg.toFixed(1)}%</div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Class Avg</div>
+                      <div className="text-lg font-black text-slate-800 dark:text-white">{groupAvg.toFixed(1)}%</div>
+                      <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Class Avg</div>
                     </div>
                     <div>
-                      <div className="text-lg font-black text-slate-800">{groupPts}</div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Pts</div>
+                      <div className="text-lg font-black text-slate-800 dark:text-white">{groupPts}</div>
+                      <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Pts</div>
                     </div>
                   </div>
                 </div>
@@ -1123,40 +1123,40 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {/* Individual Resident Modal */}
       {selectedResident && (
         <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-[40px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-8 border-b border-slate-100 flex justify-between items-start">
+          <div className="bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
+            <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
               <div className="w-full">
                 <div className="flex items-center gap-3 mb-1">
-                  <h2 className="text-2xl font-black text-slate-800">{formatDisplayName(selectedResident.name)}</h2>
+                  <h2 className="text-2xl font-black text-slate-800 dark:text-white">{formatDisplayName(selectedResident.name)}</h2>
                 </div>
-                <p className="text-sm font-bold text-slate-400 mb-6">{selectedResident.label} · Advisor: {selectedResident.advisor || '—'}</p>
+                <p className="text-sm font-bold text-slate-400 dark:text-slate-400 mb-6">{selectedResident.label} · Advisor: {selectedResident.advisor || '—'}</p>
                 <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.curriculumAttempts > 0 ? `${selectedResident.curriculumAvg.toFixed(1)}%` : '—'}</div>
+                    <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.curriculumAttempts > 0 ? `${selectedResident.curriculumAvg.toFixed(1)}%` : '—'}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Curr Avg</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.independentAttempts > 0 && selectedResident.independentAvg !== null ? `${selectedResident.independentAvg.toFixed(1)}%` : '—'}</div>
+                    <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.independentAttempts > 0 && selectedResident.independentAvg !== null ? `${selectedResident.independentAvg.toFixed(1)}%` : '—'}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Indep Avg</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.totalAttempts > 0 ? `${selectedResident.overallAvg.toFixed(1)}%` : '—'}</div>
+                    <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.totalAttempts > 0 ? `${selectedResident.overallAvg.toFixed(1)}%` : '—'}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Avg</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.blocksCompleted}</div>
+                    <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.blocksCompleted}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Blocks Done</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.blocksCompleted > 0 ? `${selectedResident.onTimePct.toFixed(0)}%` : '—'}</div>
+                    <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.blocksCompleted > 0 ? `${selectedResident.onTimePct.toFixed(0)}%` : '—'}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">On-Time</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.totalPoints}</div>
+                    <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.totalPoints}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Points</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800">{selectedResident.totalAttendance}</div>
+                    <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.totalAttendance}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attend</div>
                   </div>
                 </div>
@@ -1169,32 +1169,32 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   </span>
                 </div>
                 {selectedResident.riskReasons.length > 0 && (
-                  <p className="text-xs font-bold text-red-600 mt-3">⚠ {selectedResident.riskReasons.join(' · ')}</p>
+                  <p className="text-xs font-bold text-red-600 dark:text-red-400 mt-3">⚠ {selectedResident.riskReasons.join(' · ')}</p>
                 )}
 
                 {userIsAdmin && (
-                  <div className="mt-6 pt-6 border-t border-slate-100">
+                  <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
                     {!isAdjustingPoints ? (
                       <button
                         onClick={() => setIsAdjustingPoints(true)}
-                        className="text-xs font-black text-slate-500 uppercase tracking-widest hover:text-blue-600 transition-colors"
+                        className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                       >
                         + Add Manual Points
                       </button>
                     ) : (
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap md:flex-nowrap items-center gap-3">
+                      <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-wrap md:flex-nowrap items-center gap-3">
                         <input
                           type="number"
                           value={adjustPointsValue}
                           onChange={(e) => setAdjustPointsValue(Number(e.target.value))}
-                          className="w-20 px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold"
+                          className="w-20 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-800 dark:text-white"
                           placeholder="Pts"
                         />
                         <input
                           type="text"
                           value={adjustPointsReason}
                           onChange={(e) => setAdjustPointsReason(e.target.value)}
-                          className="flex-1 min-w-[200px] px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold"
+                          className="flex-1 min-w-[200px] px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold text-slate-800 dark:text-white placeholder:text-slate-400"
                           placeholder="Reason (e.g. Noon Conference)"
                         />
                         <button
@@ -1206,7 +1206,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                         </button>
                         <button
                           onClick={() => setIsAdjustingPoints(false)}
-                          className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-600 rounded-xl transition-all"
+                          className="p-2 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl transition-all"
                         >
                           <X className="w-5 h-5" />
                         </button>
@@ -1215,7 +1215,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   </div>
                 )}
               </div>
-              <button onClick={() => setSelectedResident(null)} className="p-2 hover:bg-slate-100 rounded-xl transition-all ml-4 shrink-0">
+              <button onClick={() => setSelectedResident(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all ml-4 shrink-0">
                 <X className="w-6 h-6 text-slate-400" />
               </button>
             </div>
@@ -1224,19 +1224,19 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               {selectedQuiz ? (
                 <div className="space-y-6 animate-fade-in">
                   <div className="flex items-center justify-between mb-2">
-                    <button onClick={() => setSelectedQuiz(null)} className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors">
+                    <button onClick={() => setSelectedQuiz(null)} className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 transition-colors">
                       <ChevronLeft className="w-4 h-4" /> Back to Performance
                     </button>
-                    <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">{formatTopicDisplay(selectedQuiz.topic)}</span>
+                    <span className="text-xs font-black bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full">{formatTopicDisplay(selectedQuiz.topic)}</span>
                   </div>
                   
                   {loadingReview ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                    <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
                       <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
                       <p className="font-bold text-sm tracking-widest uppercase">Loading Responses...</p>
                     </div>
                   ) : (
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
                       <QuizReview items={reviewItems || []} />
                     </div>
                   )}
@@ -1251,16 +1251,16 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
                 return (
                   <>
-                    <div className="flex bg-slate-100/50 p-1 rounded-2xl mb-6">
+                    <div className="flex bg-slate-100/50 dark:bg-slate-800/60 p-1 rounded-2xl mb-6 border border-slate-100 dark:border-slate-800">
                       <button 
                         onClick={() => setActiveListTab('questions')}
-                        className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                        className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                       >
                         Questions
                       </button>
                       <button 
                         onClick={() => setActiveListTab('attendance')}
-                        className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}
+                        className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                       >
                         Attendance
                       </button>
@@ -1290,29 +1290,29 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                 ).length || 0;
 
                                 return (
-                                  <button key={`curr-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-all border border-slate-100/50 group">
+                                  <button key={`curr-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-slate-100/50 dark:border-slate-700/50 group">
                                     <div className="flex-1 min-w-0">
-                                      <p className="font-bold text-slate-800 text-sm truncate">{formatTopicDisplay(r.topic)}</p>
-                                      <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                      <p className="font-bold text-slate-800 dark:text-white text-sm truncate">{formatTopicDisplay(r.topic)}</p>
+                                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                                         {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
                                         {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-3 shrink-0">
-                                      <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                      <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (r.percentage || 0) > 50 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
                                         {(r.percentage || 0).toFixed(1)}%
                                       </span>
                                       {blockAttendance > 0 && (
-                                        <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-2 py-1 rounded-lg w-12 text-center">{blockAttendance} Att</span>
+                                        <span className="text-xs font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded-lg w-12 text-center">{blockAttendance} Att</span>
                                       )}
-                                      <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>
                                   </button>
                                 );
                               })}
                             </div>
                           ) : (
-                            <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No curriculum recorded for this year.</p>
+                            <p className="text-slate-400 dark:text-slate-500 font-bold text-sm bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">No curriculum recorded for this year.</p>
                           )}
                         </div>
 
@@ -1321,40 +1321,40 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                           {customQuizzes.length > 0 ? (
                             <div className="space-y-3">
                               {customQuizzes.map((r: Result & { email?: string | null, review_data?: unknown }, i: number) => (
-                                <button key={`ind-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 hover:bg-indigo-50 transition-all border border-indigo-50/50 group">
+                                <button key={`ind-${i}`} onClick={() => openReview(r)} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-indigo-50/30 dark:bg-indigo-950/30 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-all border border-indigo-50/50 dark:border-indigo-900/40 group">
                                   <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-slate-800 text-sm truncate">{r.topic}</p>
-                                    <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-white text-sm truncate">{r.topic}</p>
+                                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                                       {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
                                       {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-3 shrink-0">
-                                    <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (r.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                    <span className={`text-sm font-black px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (r.percentage || 0) > 50 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
                                       {(r.percentage || 0).toFixed(1)}%
                                     </span>
-                                    <ChevronRight className="w-4 h-4 text-indigo-200 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <ChevronRight className="w-4 h-4 text-indigo-200 dark:text-indigo-700 opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </div>
                                 </button>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No independent study recorded.</p>
+                            <p className="text-slate-400 dark:text-slate-500 font-bold text-sm bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">No independent study recorded.</p>
                           )}
                         </div>
                       </>
                     ) : (
                       <div>
-                        <h3 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-4">Attendance & Manual Credit ({attendanceRecords.length})</h3>
+                        <h3 className="text-xs font-black text-emerald-500 dark:text-emerald-400 uppercase tracking-widest mb-4">Attendance & Manual Credit ({attendanceRecords.length})</h3>
                         {attendanceRecords.length > 0 ? (
                           <div className="space-y-3">
                             {attendanceRecords.map((r: Result & { email?: string | null, review_data?: unknown }, i: number) => {
                               const pts = r.academic_points || 0;
                               return (
-                                <div key={`att-${i}`} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-emerald-50/30 border border-emerald-100/50">
+                                <div key={`att-${i}`} className="w-full text-left flex items-center justify-between p-4 rounded-2xl bg-emerald-50/30 dark:bg-emerald-950/30 border border-emerald-100/50 dark:border-emerald-900/40">
                                   <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-slate-800 text-sm truncate">{formatTopicDisplay(r.topic)}</p>
-                                    <p className="text-xs font-bold text-slate-400 mt-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-white text-sm truncate">{formatTopicDisplay(r.topic)}</p>
+                                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                                       {(() => {
                                         const att = adminData.attendance?.find(a => a.resident_email === selectedResident.email && a.topic && r.topic?.includes(a.topic));
                                         return att?.date ? new Date(att.date + 'T12:00:00').toLocaleDateString() : (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—');
@@ -1362,7 +1362,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-3 shrink-0">
-                                    <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center" title="Attendance/Manual Credit">
+                                    <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center" title="Attendance/Manual Credit">
                                       <Check className="w-4 h-4 mr-1" /> {pts} pt{pts !== 1 ? 's' : ''}
                                     </span>
                                   </div>
@@ -1371,7 +1371,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                             })}
                           </div>
                         ) : (
-                          <p className="text-slate-400 font-bold text-sm bg-slate-50 p-4 rounded-xl">No attendance recorded.</p>
+                          <p className="text-slate-400 dark:text-slate-500 font-bold text-sm bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">No attendance recorded.</p>
                         )}
                       </div>
                     )}
@@ -1426,53 +1426,53 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
         return (
           <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="bg-white rounded-[40px] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
-              <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-start">
+            <div className="bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+              <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
                 <div className="w-full">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-black rounded-full uppercase tracking-wider">
+                    <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-black rounded-full uppercase tracking-wider">
                       {selectedYear === 0 ? 'All Years' : `AY ${selectedYear}`}
                     </span>
-                    <h2 className="text-xl md:text-2xl font-black text-slate-800">{block.title}</h2>
+                    <h2 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white">{block.title}</h2>
                   </div>
-                  <p className="text-sm font-bold text-slate-400 mb-6">
+                  <p className="text-sm font-bold text-slate-400 dark:text-slate-400 mb-6">
                     {block.question_count || 40} Questions {sched?.start_date && sched?.end_date ? `· ${sched.start_date} to ${sched.end_date}` : ''}
                   </p>
 
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
-                      <div className="text-xl font-black text-slate-800">{residentStats.length}</div>
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl text-center border border-slate-100 dark:border-slate-800">
+                      <div className="text-xl font-black text-slate-800 dark:text-white">{residentStats.length}</div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Assigned</div>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
-                      <div className="text-xl font-black text-slate-800">{completedCount} <span className="text-xs text-slate-400 font-bold">/ {residentStats.length}</span></div>
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl text-center border border-slate-100 dark:border-slate-800">
+                      <div className="text-xl font-black text-slate-800 dark:text-white">{completedCount} <span className="text-xs text-slate-400 font-bold">/ {residentStats.length}</span></div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Completed</div>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
-                      <div className={`text-xl font-black ${onTimePct > 65 ? 'text-emerald-600' : onTimePct > 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl text-center border border-slate-100 dark:border-slate-800">
+                      <div className={`text-xl font-black ${onTimePct > 65 ? 'text-emerald-600 dark:text-emerald-400' : onTimePct > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                         {completedCount > 0 ? `${onTimePct.toFixed(0)}%` : '—'}
                       </div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">On-Time %</div>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
-                      <div className="text-xl font-black text-slate-800">
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl text-center border border-slate-100 dark:border-slate-800">
+                      <div className="text-xl font-black text-slate-800 dark:text-white">
                         {completedCount > 0 ? `${avgScore.toFixed(1)}%` : '—'}
                       </div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Cohort Avg</div>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-2xl text-center">
-                      <div className="text-xl font-black text-indigo-600">{blockAttendance}</div>
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl text-center border border-slate-100 dark:border-slate-800">
+                      <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">{blockAttendance}</div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attendance</div>
                     </div>
                   </div>
                 </div>
-                <button onClick={() => { setSelectedBlockDrilldown(null); setSelectedQuiz(null); }} className="p-2 hover:bg-slate-100 rounded-xl transition-all ml-4 shrink-0">
+                <button onClick={() => { setSelectedBlockDrilldown(null); setSelectedQuiz(null); }} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all ml-4 shrink-0">
                   <X className="w-6 h-6 text-slate-400" />
                 </button>
               </div>
 
               {/* Search bar & CSV Export */}
-              <div className="p-4 md:px-8 bg-slate-50/50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+              <div className="p-4 md:px-8 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
                 <div className="relative flex-1 min-w-[200px] max-w-sm">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
@@ -1480,7 +1480,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     value={blockDrilldownSearch}
                     onChange={(e) => setBlockDrilldownSearch(e.target.value)}
                     placeholder="Search resident by name..."
-                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div className="flex items-center gap-3">
@@ -1548,10 +1548,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       link.click();
                       document.body.removeChild(link);
                     }}
-                    className="px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs shadow-sm"
+                    className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs shadow-sm"
                     title="Export block completions to CSV"
                   >
-                    <Download className="w-3.5 h-3.5 text-slate-500" /> Export CSV
+                    <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Export CSV
                   </button>
                 </div>
               </div>
@@ -1561,28 +1561,28 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 {selectedQuiz ? (
                   <div className="space-y-6 animate-fade-in">
                     <div className="flex items-center justify-between mb-2">
-                      <button onClick={() => setSelectedQuiz(null)} className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors">
+                      <button onClick={() => setSelectedQuiz(null)} className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 transition-colors">
                         <ChevronLeft className="w-4 h-4" /> Back to Resident List
                       </button>
-                      <span className="text-xs font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full">{formatTopicDisplay(selectedQuiz.topic)}</span>
+                      <span className="text-xs font-black bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full">{formatTopicDisplay(selectedQuiz.topic)}</span>
                     </div>
                     
                     {loadingReview ? (
-                      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                      <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
                         <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
                         <p className="font-bold text-sm tracking-widest uppercase">Loading Responses...</p>
                       </div>
                     ) : (
-                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+                      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
                         <QuizReview items={reviewItems || []} />
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                  <div className="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100 uppercase tracking-widest text-[10px] font-black text-slate-400">
+                        <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800 uppercase tracking-widest text-[10px] font-black text-slate-400">
                           <th className="px-4 py-3">Resident</th>
                           <th className="px-3 py-3 text-center">PGY</th>
                           <th className="px-3 py-3 text-center">Status</th>
@@ -1592,7 +1592,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                           <th className="px-3 py-3 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 text-sm">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
                         {filteredResidents.map(resident => {
                           const result = (resident.userId ? userBestPts.get(resident.userId.toLowerCase()) : null) || 
                                          userBestPts.get(resident.email.toLowerCase()) ||
@@ -1604,54 +1604,54 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                           const isLate = result?.timing_status === 'Late' || pts === 1;
 
                           return (
-                            <tr key={resident.email || resident.name} className="hover:bg-slate-50/70 transition-colors">
-                              <td className="px-4 py-3 font-bold text-slate-800">
+                            <tr key={resident.email || resident.name} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                              <td className="px-4 py-3 font-bold text-slate-800 dark:text-white">
                                 {formatLastNameFirst(resident.name, resident.last_name)}
                               </td>
-                              <td className="px-3 py-3 text-center text-xs font-bold text-slate-500">
+                              <td className="px-3 py-3 text-center text-xs font-bold text-slate-500 dark:text-slate-400">
                                 {resident.label}
                               </td>
                               <td className="px-3 py-3 text-center">
                                 {isCompleted ? (
                                   isOnTime ? (
-                                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-black rounded-md">
+                                    <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-xs font-black rounded-md">
                                       🚀 On-Time
                                     </span>
                                   ) : isLate ? (
-                                    <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-xs font-black rounded-md">
+                                    <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-xs font-black rounded-md">
                                       ⏰ Late
                                     </span>
                                   ) : (
-                                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-black rounded-md">
+                                    <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-black rounded-md">
                                       Completed
                                     </span>
                                   )
                                 ) : (
-                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-xs font-bold rounded-md">
+                                  <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 text-xs font-bold rounded-md">
                                     Not Completed
                                   </span>
                                 )}
                               </td>
-                              <td className="px-3 py-3 text-center text-xs text-slate-500 font-medium">
+                              <td className="px-3 py-3 text-center text-xs text-slate-500 dark:text-slate-400 font-medium">
                                 {result?.created_at ? new Date(result.created_at).toLocaleDateString() : '—'}
                               </td>
                               <td className="px-3 py-3 text-center font-bold">
                                 {isCompleted ? (
-                                  <span className={`text-xs px-2 py-0.5 rounded-md font-black ${(result.percentage || 0) >= 65 ? 'bg-emerald-50 text-emerald-700' : (result.percentage || 0) > 50 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`}>
+                                  <span className={`text-xs px-2 py-0.5 rounded-md font-black ${(result.percentage || 0) >= 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (result.percentage || 0) > 50 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
                                     {(result.percentage || 0).toFixed(0)}% <span className="font-normal text-[11px] opacity-75">({result.score || 0}/{result.total || block.question_count || 40})</span>
                                   </span>
                                 ) : (
-                                  <span className="text-slate-300">—</span>
+                                  <span className="text-slate-300 dark:text-slate-600">—</span>
                                 )}
                               </td>
-                              <td className="px-3 py-3 text-center font-black text-slate-700 text-xs">
+                              <td className="px-3 py-3 text-center font-black text-slate-700 dark:text-slate-300 text-xs">
                                 {isCompleted ? `${pts} pt${pts !== 1 ? 's' : ''}` : '0 pts'}
                               </td>
                               <td className="px-3 py-3 text-right">
                                 {isCompleted && result ? (
                                   <button
                                     onClick={() => openReview(result)}
-                                    className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg transition-all"
+                                    className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold rounded-lg transition-all"
                                   >
                                     Review
                                   </button>
@@ -1666,7 +1666,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                       });
                                       openEmailCompose(emailData);
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors inline-flex items-center gap-1"
+                                    className="p-1.5 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-colors inline-flex items-center gap-1"
                                     title={`Send reminder to ${resident.name}`}
                                   >
                                     <Mail className="w-3.5 h-3.5" />
@@ -1678,7 +1678,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                         })}
                         {filteredResidents.length === 0 && (
                           <tr>
-                            <td colSpan={7} className="px-4 py-8 text-center text-slate-400 font-bold text-sm">
+                            <td colSpan={7} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500 font-bold text-sm">
                               No residents match your search.
                             </td>
                           </tr>
@@ -1695,6 +1695,3 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     </div>
   );
 }
-
-
-

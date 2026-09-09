@@ -148,8 +148,8 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" />
+      <div className="flex flex-col items-center justify-center p-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <Loader2 className="w-8 h-8 animate-spin mb-4 text-blue-600" />
         <p>Loading curriculum data...</p>
       </div>
     );
@@ -157,7 +157,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
 
   if (error) {
     return (
-      <div className="p-6 bg-red-50 text-red-600 rounded-xl m-6">
+      <div className="p-6 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 rounded-xl m-6">
         <AlertTriangle className="w-6 h-6 mb-2" />
         <p className="font-bold">Failed to load data</p>
         <p className="text-sm">{String(error)}</p>
@@ -169,28 +169,28 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
     <div className="p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div>
         <div className="flex items-center gap-3 mb-2 flex-wrap">
-          <h1 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+          <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
             <Sparkles className="w-6 h-6 text-indigo-500" />
             Assign Targeted Quizzes
           </h1>
-          <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-black rounded-full border border-purple-200">
-            Practice & Remediation • 0 APs
+          <span className="px-3 py-1 bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-xs font-black rounded-full border border-purple-200 dark:border-purple-800/60">
+            Practice &amp; Remediation • 0 APs
           </span>
         </div>
-        <p className="text-slate-500 text-sm md:text-base max-w-3xl">
+        <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-3xl">
           Build targeted question sets for specific categories or topics and assign them directly to any resident. Direct advisees are pinned to the top of your list. Assigned quizzes are for practice and do not award Academic Points.
         </p>
       </div>
 
       {success && (
-        <div className="p-4 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl flex items-center gap-3 font-medium">
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40 rounded-xl flex items-center gap-3 font-medium">
           <CheckCircle className="w-5 h-5 shrink-0" />
           Quiz assigned successfully! It will appear on their dashboard immediately.
         </div>
       )}
 
       {formError && (
-        <div className="p-4 bg-red-50 text-red-600 border border-red-200 rounded-xl flex items-center gap-3 font-medium">
+        <div className="p-4 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-300 border border-red-200 dark:border-red-900/40 rounded-xl flex items-center gap-3 font-medium">
           <AlertTriangle className="w-5 h-5 shrink-0" />
           {formError}
         </div>
@@ -200,23 +200,23 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
         
         {/* LEFT COLUMN: Resident Selection */}
         <div className="space-y-4 md:col-span-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[800px]">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2 mb-4 shrink-0">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[800px]">
+            <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4 shrink-0">
               <Users className="w-5 h-5 text-blue-500" />
               1. Select Residents
             </h2>
             
             {eligibleResidents.length === 0 ? (
-              <p className="text-sm text-slate-500 italic">No residents found.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 italic">No residents found.</p>
             ) : (
               <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar flex-1">
                 {eligibleResidents.map(r => {
                   const advisee = isAdvisee(r);
                   return (
-                    <label key={r.email} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 cursor-pointer border border-transparent hover:border-slate-200 transition-colors">
+                    <label key={r.email} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
                       <input 
                         type="checkbox" 
-                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500"
                         checked={selectedAdvisees.includes(r.name || r.email)}
                         onChange={(e) => {
                           const val = r.name || r.email;
@@ -224,12 +224,12 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                           else setSelectedAdvisees(prev => prev.filter(n => n !== val));
                         }}
                       />
-                      <span className="text-sm font-medium text-slate-700 flex flex-col">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200 flex flex-col">
                         <span className="flex items-center gap-2">
                           {r.name || r.email}
-                          {advisee && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded-md">Advisee</span>}
+                          {advisee && <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold rounded-md">Advisee</span>}
                         </span>
-                        <span className="text-slate-400 text-xs">PGY: {r.pgy_override || 'Resident'}</span>
+                        <span className="text-slate-400 dark:text-slate-500 text-xs">PGY: {r.pgy_override || 'Resident'}</span>
                       </span>
                     </label>
                   );
@@ -241,37 +241,37 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
 
         {/* RIGHT COLUMN: Quiz Config */}
         <div className="space-y-4 md:col-span-8 flex flex-col h-[800px]">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5 flex-1 flex flex-col min-h-0">
-            <h2 className="font-bold text-slate-800 flex items-center gap-2 shrink-0">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5 flex-1 flex flex-col min-h-0">
+            <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 shrink-0">
               <BookOpen className="w-5 h-5 text-amber-500" />
               2. Quiz Builder
             </h2>
 
             <div className="shrink-0">
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assignment Title</label>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Assignment Title</label>
               <input 
                 type="text" 
                 placeholder="e.g. Needs Review: Endocrine & GI"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
               />
             </div>
 
             <div className="shrink-0 flex flex-col gap-3">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Search Questions</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Search Questions</label>
                 <input 
                   type="text" 
                   placeholder="Search keywords..."
                   value={searchKeyword}
                   onChange={e => setSearchKeyword(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Filter by Category</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Filter by Category</label>
               <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
                 {availableCategories.map(cat => (
                   <button
@@ -282,8 +282,8 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                     }}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       selectedCategories.includes(cat) 
-                        ? 'bg-indigo-100 text-indigo-700 border-indigo-200 border' 
-                        : 'bg-slate-100 text-slate-600 border border-transparent hover:bg-slate-200'
+                        ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60 border' 
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-transparent hover:bg-slate-200 dark:hover:bg-slate-700'
                     }`}
                   >
                     {cat}
@@ -292,7 +292,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                 {selectedCategories.length > 0 && (
                   <button
                     onClick={() => setSelectedCategories([])}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-500 hover:text-slate-700 underline"
+                    className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline"
                   >
                     Clear Filters
                   </button>
@@ -303,8 +303,8 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
 
             <div className="flex-1 min-h-0 flex flex-col mt-2">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2 shrink-0">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  Select Questions <span className={selectedQuestionIds.length > 0 ? "text-indigo-600 font-black" : ""}>({selectedQuestionIds.length} chosen)</span>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Select Questions <span className={selectedQuestionIds.length > 0 ? "text-indigo-600 dark:text-indigo-400 font-black" : ""}>({selectedQuestionIds.length} chosen)</span>
                 </label>
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <input 
@@ -313,25 +313,25 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                     max={matchingQuestions.length} 
                     value={bulkCount} 
                     onChange={e => setBulkCount(parseInt(e.target.value) || 1)} 
-                    className="w-16 px-2 py-1 text-xs border border-slate-200 rounded-md bg-slate-50" 
+                    className="w-16 px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100" 
                   />
-                  <button onClick={handleSelectRandom} className="text-xs bg-slate-100 px-3 py-1.5 rounded-md font-medium text-slate-700 hover:bg-slate-200 transition-colors">
+                  <button onClick={handleSelectRandom} className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-md font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                     Add Random
                   </button>
-                  <button onClick={handleSelectAllFiltered} className="text-xs bg-slate-100 px-3 py-1.5 rounded-md font-medium text-slate-700 hover:bg-slate-200 transition-colors">
+                  <button onClick={handleSelectAllFiltered} className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-md font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                     Add All Filtered
                   </button>
                   {selectedQuestionIds.length > 0 && (
-                    <button onClick={() => setSelectedQuestionIds([])} className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-md font-medium hover:bg-red-100 transition-colors">
+                    <button onClick={() => setSelectedQuestionIds([])} className="text-xs bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-md font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
                       Clear Selection
                     </button>
                   )}
                 </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar border border-slate-200 rounded-xl p-2 bg-slate-50/50">
+              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-50/50 dark:bg-slate-950/40">
                 {matchingQuestions.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-slate-400 text-sm">
+                  <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500 text-sm">
                     No questions match the selected filters.
                   </div>
                 ) : (
@@ -339,8 +339,8 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                     {matchingQuestions.map(q => (
                       <label key={q.id} className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer border transition-colors ${
                         selectedQuestionIds.includes(q.id) 
-                          ? 'bg-white border-indigo-200 shadow-sm ring-1 ring-indigo-500/10' 
-                          : 'bg-white border-transparent hover:border-slate-200'
+                          ? 'bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800/80 shadow-sm ring-1 ring-indigo-500/10' 
+                          : 'bg-white dark:bg-slate-900 border-transparent hover:border-slate-200 dark:hover:border-slate-700'
                       }`}>
                         <input 
                           type="checkbox" 
@@ -349,13 +349,13 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                             if (e.target.checked) setSelectedQuestionIds(p => [...p, q.id]);
                             else setSelectedQuestionIds(p => p.filter(id => id !== q.id));
                           }} 
-                          className="mt-0.5 w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" 
+                          className="mt-0.5 w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500" 
                         />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium line-clamp-2 ${selectedQuestionIds.includes(q.id) ? 'text-slate-900' : 'text-slate-600'}`}>
+                          <p className={`text-sm font-medium line-clamp-2 ${selectedQuestionIds.includes(q.id) ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
                             {q.question_text}
                           </p>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 mt-1 inline-block">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mt-1 inline-block">
                             {q.category}
                           </span>
                         </div>
@@ -371,7 +371,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
           <button
             onClick={handleAssign}
             disabled={assigning || eligibleResidents.length === 0 || selectedQuestionIds.length === 0 || !title.trim()}
-            className="w-full shrink-0 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm md:text-base flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 disabled:pointer-events-none shadow-md"
+            className="w-full shrink-0 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm md:text-base flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 disabled:pointer-events-none shadow-md shadow-indigo-200 dark:shadow-none"
           >
             {assigning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
             Assign {selectedQuestionIds.length} {selectedQuestionIds.length === 1 ? 'Question' : 'Questions'} to {selectedAdvisees.length} {selectedAdvisees.length === 1 ? 'Resident' : 'Residents'}

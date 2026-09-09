@@ -76,13 +76,13 @@ export default function AnnualRollover({ onNavigate }: AnnualRolloverProps) {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Hero */}
-      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex items-start gap-5">
-        <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-start gap-5">
+        <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center shrink-0">
           <Sparkles className="w-7 h-7" />
         </div>
         <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">Annual Rollover</h2>
-          <p className="text-slate-500 font-medium mt-1 max-w-2xl">
+          <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Annual Rollover</h2>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mt-1 max-w-2xl">
             Bring each year&apos;s new ITE questions into the app. Custom, mixed, and weak-area quizzes pick up new
             questions automatically &mdash; these steps cover the two places that need a nudge: the Daily Question,
             and (optionally) your curriculum blocks.
@@ -103,21 +103,21 @@ export default function AnnualRollover({ onNavigate }: AnnualRolloverProps) {
 
       {/* Year breakdown */}
       {!loading && yearCounts.length > 0 && (
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm p-6">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Questions by ITE year</p>
           <div className="flex flex-wrap gap-2">
             {yearCounts.map((y) => (
               <span
                 key={y.year}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-                  newestYears.includes(y.year) ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'
+                  newestYears.includes(y.year) ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                 }`}
               >
                 {y.year}: {y.count}
               </span>
             ))}
           </div>
-          <p className="text-xs text-slate-400 mt-3 font-medium">
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 font-medium">
             Blue = within the &ldquo;recent 3&rdquo; freshness window residents see by default.
           </p>
         </div>
@@ -153,14 +153,14 @@ export default function AnnualRollover({ onNavigate }: AnnualRolloverProps) {
             {toppingUp ? 'Updating…' : 'Update Daily Question pool'}
           </button>
           {topupResult && (
-            <div className="flex items-center gap-2 text-emerald-700 text-sm font-bold bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm font-bold bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 rounded-xl px-4 py-3">
               <CheckCircle className="w-4 h-4 shrink-0" />
               Scheduled {topupResult.added} upcoming question{topupResult.added === 1 ? '' : 's'}
               {topupResult.last_day ? ` — daily now runs through ${topupResult.last_day}.` : '.'}
             </div>
           )}
           {topupError && (
-            <div className="text-red-700 text-sm font-bold bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            <div className="text-red-700 dark:text-red-300 text-sm font-bold bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/40 rounded-xl px-4 py-3">
               {topupError}
             </div>
           )}
@@ -175,7 +175,7 @@ export default function AnnualRollover({ onNavigate }: AnnualRolloverProps) {
       >
         <button
           onClick={() => onNavigate('builder')}
-          className="px-5 py-3 bg-slate-900 text-white rounded-xl font-black text-sm hover:bg-slate-800 transition-all flex items-center gap-2"
+          className="px-5 py-3 bg-slate-900 dark:bg-slate-800 text-white rounded-xl font-black text-sm hover:bg-slate-800 dark:hover:bg-slate-700 transition-all flex items-center gap-2"
         >
           <PlusCircle className="w-4 h-4" /> Open Curriculum Manager <ChevronRight className="w-4 h-4" />
         </button>
@@ -186,21 +186,21 @@ export default function AnnualRollover({ onNavigate }: AnnualRolloverProps) {
 
 function StatusCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm p-6">
       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</div>
-      <div className="text-2xl font-black text-slate-800 mt-1">{value}</div>
-      {sub && <div className="text-xs font-bold text-slate-400 mt-0.5">{sub}</div>}
+      <div className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">{value}</div>
+      {sub && <div className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
 function StepCard({ n, title, body, children }: { n: number; title: string; body: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col sm:flex-row gap-5">
-      <div className="w-10 h-10 bg-slate-900 text-white rounded-2xl flex items-center justify-center font-black shrink-0">{n}</div>
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm p-6 flex flex-col sm:flex-row gap-5">
+      <div className="w-10 h-10 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl flex items-center justify-center font-black shrink-0 border border-transparent dark:border-slate-700">{n}</div>
       <div className="flex-1 min-w-0">
-        <h3 className="text-lg font-black text-slate-800">{title}</h3>
-        <p className="text-sm text-slate-500 font-medium mt-1 mb-4 max-w-2xl">{body}</p>
+        <h3 className="text-lg font-black text-slate-800 dark:text-slate-100">{title}</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1 mb-4 max-w-2xl">{body}</p>
         {children}
       </div>
     </div>

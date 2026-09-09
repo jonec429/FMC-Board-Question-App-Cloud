@@ -157,7 +157,7 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
                 </div>
               ))}
               {!userIsAdmin && (
-                <div className="mx-3 mt-2 p-3 bg-emerald-50 text-emerald-700 rounded-xl text-[11px] font-bold leading-snug">
+                <div className="mx-3 mt-2 p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl text-[11px] font-bold leading-snug border border-emerald-100 dark:border-emerald-900/40">
                   Faculty access: you can review resident performance and your advisees. Other modules are admin-only.
                 </div>
               )}

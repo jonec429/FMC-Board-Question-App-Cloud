@@ -298,7 +298,7 @@ export default function CurriculumManager() {
   // If a block is selected for editing questions
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-slate-100 shadow-sm">
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
         <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Loading Curriculum Data...</p>
       </div>
@@ -307,7 +307,7 @@ export default function CurriculumManager() {
 
   if (error || !adminData) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white rounded-3xl border border-red-100 bg-red-50 shadow-sm">
+      <div className="flex flex-col items-center justify-center py-32 space-y-4 bg-white dark:bg-slate-900 rounded-3xl border border-red-100 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 shadow-sm">
         <p className="text-red-500 font-bold">{error?.toString() || 'Failed to load data.'}</p>
         <button onClick={() => window.location.reload()} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">Retry</button>
       </div>
@@ -331,14 +331,14 @@ export default function CurriculumManager() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Hero */}
-      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 justify-between">
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6 justify-between">
         <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+          <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center shrink-0">
             <Calendar className="w-7 h-7" />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Curriculum Manager</h2>
-            <p className="text-slate-500 font-medium max-w-2xl mt-1">
+            <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Curriculum Manager</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium max-w-2xl mt-1">
               Manage dates and assign question sets for all blocks.
             </p>
           </div>
@@ -355,7 +355,7 @@ export default function CurriculumManager() {
           )}
           <button
             onClick={handleCreateBlock}
-            className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"
+            className="px-6 py-3 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 border border-transparent dark:border-slate-700"
           >
             <PlusCircle className="w-5 h-5" /> New Block
           </button>
@@ -368,7 +368,7 @@ export default function CurriculumManager() {
           <button
             key={year}
             onClick={() => setSelectedYear(year)}
-            className={`px-4 py-2 font-bold rounded-xl whitespace-nowrap transition-colors ${selectedYear === year ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+            className={`px-4 py-2 font-bold rounded-xl whitespace-nowrap transition-colors ${selectedYear === year ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}
           >
             {formatAcademicYear(year)}
           </button>
@@ -378,7 +378,7 @@ export default function CurriculumManager() {
             const newYearStr = window.prompt("Enter new Academic Year ending year (e.g. 2026 for 2025-2026):");
             if (newYearStr && !isNaN(Number(newYearStr))) setSelectedYear(Number(newYearStr));
           }}
-          className="px-4 py-2 font-bold rounded-xl whitespace-nowrap transition-colors bg-white text-slate-500 hover:bg-slate-50 border border-slate-200 flex items-center gap-2"
+          className="px-4 py-2 font-bold rounded-xl whitespace-nowrap transition-colors bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-2"
         >
           <PlusCircle className="w-4 h-4" /> Add Year
         </button>
@@ -389,7 +389,7 @@ export default function CurriculumManager() {
         <select
           value={adminBlockSort}
           onChange={e => changeAdminBlockSort(e.target.value as 'curriculum' | 'name' | 'date')}
-          className="text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-sm"
+          className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer shadow-sm"
           title="Sort blocks"
         >
           <option value="curriculum">Sort: Curriculum order</option>
@@ -399,15 +399,15 @@ export default function CurriculumManager() {
       </div>
 
       {/* List */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="grid grid-cols-12 gap-4 p-4 border-b border-slate-100 bg-slate-50/50 text-xs font-black text-slate-400 uppercase tracking-widest">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="grid grid-cols-12 gap-4 p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/60 text-xs font-black text-slate-400 uppercase tracking-widest">
           <div className="col-span-4 pl-4">Block Title</div>
           <div className="col-span-3 text-center">Schedule Dates</div>
           <div className="col-span-2 text-center">Questions</div>
           <div className="col-span-3 text-center">Actions</div>
         </div>
         
-        <div className="divide-y divide-slate-50">
+        <div className="divide-y divide-slate-50 dark:divide-slate-800/60">
           {sortedBlocks.map(block => {
             const schedule = getSchedule(block.id);
             const isEditingDates = editingDates === block.id;
@@ -415,7 +415,7 @@ export default function CurriculumManager() {
             const isReady = qCount > 0 && schedule?.start_date && schedule?.end_date;
 
             return (
-              <div key={block.id} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-slate-50/50 transition-colors">
+              <div key={block.id} className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                 <div className="col-span-4 pl-4 flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${block.is_archived ? 'bg-slate-300' : isReady ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                   <div>
@@ -426,51 +426,51 @@ export default function CurriculumManager() {
                           value={titleForm}
                           onChange={e => setTitleForm(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') handleRenameBlock(block.id, block.title); if (e.key === 'Escape') setEditingTitle(null); }}
-                          className="text-sm font-bold px-2 py-1 rounded bg-white border border-blue-200 w-full max-w-[220px] outline-none focus:ring-2 focus:ring-blue-500/20"
+                          className="text-sm font-bold px-2 py-1 rounded bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 text-slate-800 dark:text-white w-full max-w-[220px] outline-none focus:ring-2 focus:ring-blue-500/20"
                         />
-                        <button onClick={() => handleRenameBlock(block.id, block.title)} disabled={saving} className="p-1.5 bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-lg shrink-0" title="Save name">
+                        <button onClick={() => handleRenameBlock(block.id, block.title)} disabled={saving} className="p-1.5 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg shrink-0" title="Save name">
                           <Save className="w-4 h-4 pointer-events-none" />
                         </button>
-                        <button onClick={() => setEditingTitle(null)} className="p-1.5 bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-lg shrink-0" title="Cancel">
+                        <button onClick={() => setEditingTitle(null)} className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg shrink-0" title="Cancel">
                           <X className="w-4 h-4 pointer-events-none" />
                         </button>
                       </div>
                     ) : (
                       <div className="group/title flex items-center gap-2">
-                        <h3 className={`font-bold ${block.is_archived ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{block.title}</h3>
+                        <h3 className={`font-bold ${block.is_archived ? 'text-slate-400 line-through' : 'text-slate-800 dark:text-white'}`}>{block.title}</h3>
                         <button
                           onClick={() => { setEditingTitle(block.id); setTitleForm(block.title); }}
-                          className="text-slate-300 hover:text-blue-500 opacity-0 group-hover/title:opacity-100 transition-all shrink-0"
+                          className="text-slate-300 dark:text-slate-600 hover:text-blue-500 dark:hover:text-blue-400 opacity-0 group-hover/title:opacity-100 transition-all shrink-0"
                           title="Rename block"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     )}
-                    <p className="text-xs font-bold text-slate-400">{resultsCount.get(block.title) || 0} completions{block.is_archived && ' • Archived'}</p>
+                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500">{resultsCount.get(block.title) || 0} completions{block.is_archived && ' • Archived'}</p>
                   </div>
                 </div>
 
                 <div className={isEditingDates ? "col-span-8 flex items-center pl-4" : "col-span-3 flex items-center justify-center"}>
                   {isEditingDates ? (
-                    <div className="flex items-center gap-2 bg-slate-100 p-2 rounded-xl">
+                    <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
                       <input 
                         type="date" 
                         value={dateForm.start} 
                         onChange={e => setDateForm(f => ({ ...f, start: e.target.value }))}
-                        className="text-xs font-bold px-2 py-1 rounded bg-white"
+                        className="text-xs font-bold px-2 py-1 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700"
                       />
                       <span className="text-slate-400">to</span>
                       <input 
                         type="date" 
                         value={dateForm.end} 
                         onChange={e => setDateForm(f => ({ ...f, end: e.target.value }))}
-                        className="text-xs font-bold px-2 py-1 rounded bg-white"
+                        className="text-xs font-bold px-2 py-1 rounded bg-white dark:bg-slate-900 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700"
                       />
-                      <button onClick={() => handleSaveDates(block.id)} disabled={saving} className="p-2 ml-1 cursor-pointer bg-white border border-blue-200 text-blue-600 hover:bg-blue-50 rounded-lg shadow-sm transition-all flex items-center justify-center">
+                      <button onClick={() => handleSaveDates(block.id)} disabled={saving} className="p-2 ml-1 cursor-pointer bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg shadow-sm transition-all flex items-center justify-center">
                         <Save className="w-5 h-5 pointer-events-none" />
                       </button>
-                      <button onClick={() => setEditingDates(null)} className="p-2 cursor-pointer bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-lg shadow-sm transition-all flex items-center justify-center">
+                      <button onClick={() => setEditingDates(null)} className="p-2 cursor-pointer bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg shadow-sm transition-all flex items-center justify-center">
                         <X className="w-5 h-5 pointer-events-none" />
                       </button>
                     </div>
@@ -481,14 +481,14 @@ export default function CurriculumManager() {
                     }}>
                       {schedule ? (
                         <div className="text-center">
-                          <p className="font-bold text-slate-700 text-sm">
+                          <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">
                             {new Date(schedule.start_date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric'})} - {new Date(schedule.end_date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric'})}
                           </p>
                         </div>
                       ) : (
-                        <span className="text-amber-500 font-bold text-sm bg-amber-50 px-3 py-1 rounded-full">Set Dates</span>
+                        <span className="text-amber-500 font-bold text-sm bg-amber-50 dark:bg-amber-950/60 px-3 py-1 rounded-full">Set Dates</span>
                       )}
-                      <Edit3 className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100" />
+                      <Edit3 className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100" />
                     </div>
                   )}
                 </div>
@@ -496,17 +496,17 @@ export default function CurriculumManager() {
                 <div className={`col-span-2 flex flex-col items-center justify-center gap-1 ${isEditingDates ? 'hidden' : ''}`}>
                   {qCount > 0 ? (
                     <>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-100">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-bold border border-emerald-100 dark:border-emerald-800/60">
                         <CheckCircle className="w-3.5 h-3.5" /> {qCount}
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Questions</span>
                     </>
                   ) : (
                     <>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded-full text-xs font-bold border border-amber-100 dark:border-amber-800/60">
                         <Sparkles className="w-3.5 h-3.5" /> 0
                       </span>
-                      <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wide">Needs Qs</span>
+                      <span className="text-[10px] font-bold text-amber-500 dark:text-amber-400 uppercase tracking-wide">Needs Qs</span>
                     </>
                   )}
                 </div>
@@ -514,14 +514,14 @@ export default function CurriculumManager() {
                 <div className={`col-span-3 flex flex-col items-center justify-center gap-2 pr-4 ${isEditingDates ? 'hidden' : ''}`}>
                   <button 
                     onClick={() => setSelectedBlockId(block.id)}
-                    className="w-24 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-lg transition-colors"
+                    className="w-24 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-300 font-bold text-xs rounded-lg transition-colors"
                   >
                     Builder
                   </button>
                   <div className="flex items-center justify-center gap-3">
                   <button 
                     onClick={() => handleDuplicateBlock(block)}
-                    className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors"
                     title="Duplicate Block"
                   >
                     <Copy className="w-4 h-4" />
@@ -529,7 +529,7 @@ export default function CurriculumManager() {
                   {block.is_archived ? (
                     <button 
                       onClick={() => handleToggleArchive(block)}
-                      className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition-colors"
                       title="Unarchive Block"
                     >
                       <ArchiveRestore className="w-4 h-4" />
@@ -537,7 +537,7 @@ export default function CurriculumManager() {
                   ) : (
                     <button 
                       onClick={() => handleToggleArchive(block)}
-                      className="p-1.5 text-slate-300 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                      className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-colors"
                       title="Archive Block"
                     >
                       <Archive className="w-4 h-4" />
@@ -545,7 +545,7 @@ export default function CurriculumManager() {
                   )}
                   <button 
                     onClick={() => handleDeleteBlock(block.id, block.title)}
-                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
                     title="Delete Block"
                   >
                     <Trash2 className="w-4 h-4" />

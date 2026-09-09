@@ -209,17 +209,17 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* CSV Export Card */}
-        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8 flex flex-col items-start hover-lift">
-          <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6">
-            <Download className="w-7 h-7 text-indigo-600" />
+        <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm p-8 flex flex-col items-start hover-lift">
+          <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/60 rounded-2xl flex items-center justify-center mb-6">
+            <Download className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <h3 className="font-black text-xl text-slate-800 mb-2">Export to CSV</h3>
-          <p className="text-slate-500 font-medium mb-8 leading-relaxed flex-1">
+          <h3 className="font-black text-xl text-slate-800 dark:text-white mb-2">Export to CSV</h3>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mb-8 leading-relaxed flex-1">
             Download raw performance data for all active residents. Can be imported into Excel, Google Sheets, or other tools.
           </p>
           <button 
             onClick={handleExportCSV}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl btn-gradient-indigo text-indigo-700 font-bold hover:shadow-lg transition-all"
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold hover:shadow-lg transition-all border border-indigo-100 dark:border-indigo-900/50"
           >
             <FileText className="w-5 h-5" />
             Download Spreadsheet
@@ -227,17 +227,17 @@ export default function AdminReporting({ adminData }: AdminReportingProps) {
         </div>
 
         {/* PDF Report Card */}
-        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8 flex flex-col items-start hover-lift">
-          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6">
-            <Printer className="w-7 h-7 text-emerald-600" />
+        <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm p-8 flex flex-col items-start hover-lift">
+          <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/60 rounded-2xl flex items-center justify-center mb-6">
+            <Printer className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <h3 className="font-black text-xl text-slate-800 mb-2">Printable Report</h3>
-          <p className="text-slate-500 font-medium mb-8 leading-relaxed flex-1">
+          <h3 className="font-black text-xl text-slate-800 dark:text-white mb-2">Printable Report</h3>
+          <p className="text-slate-500 dark:text-slate-400 font-medium mb-8 leading-relaxed flex-1">
             Generate a clean, printer-friendly PDF summarizing the entire program's performance and risk status.
           </p>
           <button 
             onClick={handlePrintReport}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 hover:shadow-lg transition-all"
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-900 dark:bg-slate-800 text-white font-bold hover:bg-slate-800 dark:hover:bg-slate-700 hover:shadow-lg transition-all border border-transparent dark:border-slate-700"
           >
             <Printer className="w-5 h-5" />
             Print to PDF

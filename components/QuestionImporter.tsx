@@ -126,13 +126,13 @@ export default function QuestionImporter() {
     return (
       <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
         {/* Hero */}
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6">
-          <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center gap-6">
+          <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center shrink-0">
             <Database className="w-7 h-7" />
           </div>
           <div className="flex-1">
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Bulk Import Questions</h2>
-            <p className="text-slate-500 font-medium max-w-2xl mt-1">
+            <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight">Bulk Import Questions</h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium max-w-2xl mt-1">
               Paste or upload a CSV of questions. The parser validates each row before anything is written —
               you'll see a preview with errors, warnings, and duplicate detection before confirming.
             </p>
@@ -140,18 +140,18 @@ export default function QuestionImporter() {
         </div>
 
         {/* Format Hint */}
-        <details className="bg-white rounded-3xl border border-slate-100 shadow-sm group">
-          <summary className="cursor-pointer p-6 font-black text-slate-800 flex items-center gap-3 list-none">
+        <details className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm group">
+          <summary className="cursor-pointer p-6 font-black text-slate-800 dark:text-slate-200 flex items-center gap-3 list-none">
             <Sparkles className="w-5 h-5 text-blue-500" />
             CSV Format Reference
-            <span className="text-xs font-bold text-slate-400 ml-auto group-open:hidden">click to expand</span>
+            <span className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-auto group-open:hidden">click to expand</span>
           </summary>
-          <div className="px-6 pb-6 space-y-4 border-t border-slate-100 pt-5">
+          <div className="px-6 pb-6 space-y-4 border-t border-slate-100 dark:border-slate-800 pt-5">
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Required columns</p>
               <div className="flex flex-wrap gap-2">
                 {['category', 'question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'correct'].map(c => (
-                  <span key={c} className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-md">{c}</span>
+                  <span key={c} className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-md">{c}</span>
                 ))}
               </div>
             </div>
@@ -159,13 +159,13 @@ export default function QuestionImporter() {
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Optional columns</p>
               <div className="flex flex-wrap gap-2">
                 {['year', 'option_e', 'explanation', 'resource_link'].map(c => (
-                  <span key={c} className="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-md">{c}</span>
+                  <span key={c} className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-md">{c}</span>
                 ))}
               </div>
             </div>
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Notes</p>
-              <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
+              <ul className="text-sm text-slate-600 dark:text-slate-300 space-y-1.5 list-disc pl-5">
                 <li><b>correct</b>: letter (A, B, C, D, E) or 0-indexed number — letter is recommended</li>
                 <li><b>option_e</b>: leave blank if the question has only 4 options</li>
                 <li><b>category</b>: must match one of the {CANONICAL_CATEGORIES.length} canonical categories (case-insensitive, common aliases auto-corrected)</li>
@@ -174,10 +174,10 @@ export default function QuestionImporter() {
             </div>
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sample row</p>
-              <pre className="bg-slate-900 text-slate-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed whitespace-pre">{SAMPLE_CSV}</pre>
+              <pre className="bg-slate-900 dark:bg-slate-950 border border-slate-800 text-slate-100 p-4 rounded-xl text-[11px] font-mono overflow-x-auto leading-relaxed whitespace-pre">{SAMPLE_CSV}</pre>
               <button
                 onClick={() => setCsvText(SAMPLE_CSV)}
-                className="mt-2 text-xs font-bold text-blue-600 hover:underline"
+                className="mt-2 text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline"
               >
                 Load sample into editor →
               </button>
@@ -186,15 +186,15 @@ export default function QuestionImporter() {
         </details>
 
         {/* Input */}
-        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm space-y-5">
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-5">
           <div className="flex items-center gap-3 justify-between flex-wrap">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-slate-900 rounded-xl text-white">
+              <div className="p-2 bg-slate-900 dark:bg-slate-800 rounded-xl text-white">
                 <Clipboard className="w-5 h-5" />
               </div>
-              <h3 className="text-xl font-black text-slate-800">Paste CSV or Upload File</h3>
+              <h3 className="text-xl font-black text-slate-800 dark:text-slate-100">Paste CSV or Upload File</h3>
             </div>
-            <label className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all cursor-pointer flex items-center gap-2">
+            <label className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-2">
               Upload .csv
               <input
                 type="file"
@@ -212,20 +212,20 @@ export default function QuestionImporter() {
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
             placeholder="Paste your CSV here…"
-            className="w-full h-64 p-6 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:ring-0 transition-all font-mono text-sm leading-relaxed"
+            className="w-full h-64 p-6 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-2xl focus:border-blue-500 focus:ring-0 transition-all font-mono text-sm leading-relaxed"
           />
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-4">
-            <label htmlFor="batch-year" className="text-sm font-black text-slate-700 shrink-0">Tag all rows as ITE year</label>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 rounded-2xl p-4">
+            <label htmlFor="batch-year" className="text-sm font-black text-slate-700 dark:text-slate-200 shrink-0">Tag all rows as ITE year</label>
             <input
               id="batch-year"
               value={batchYear}
               onChange={(e) => setBatchYear(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
               inputMode="numeric"
               placeholder="e.g. 2027"
-              className="w-28 px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-sm focus:border-blue-500 focus:ring-0 outline-none"
+              className="w-28 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl font-bold text-sm focus:border-blue-500 focus:ring-0 outline-none"
             />
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
               Optional — overrides the CSV&apos;s <code>year</code> column for every row, keeping ITE tags consistent.
             </span>
           </div>
@@ -233,7 +233,7 @@ export default function QuestionImporter() {
           <button
             onClick={handleParse}
             disabled={!csvText.trim()}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-100"
+            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-100 dark:shadow-none"
           >
             <CheckCircle className="w-5 h-5" />
             Parse &amp; Validate
@@ -248,11 +248,11 @@ export default function QuestionImporter() {
     if (summary.headerError) {
       return (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="bg-red-50 border border-red-100 rounded-3xl p-8 flex items-start gap-4">
+          <div className="bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 rounded-3xl p-8 flex items-start gap-4">
             <XCircle className="w-8 h-8 text-red-500 shrink-0" />
             <div className="flex-1">
-              <h3 className="text-xl font-black text-red-700 mb-2">CSV Format Error</h3>
-              <p className="text-sm font-bold text-red-600 mb-4">{summary.headerError}</p>
+              <h3 className="text-xl font-black text-red-700 dark:text-red-400 mb-2">CSV Format Error</h3>
+              <p className="text-sm font-bold text-red-600 dark:text-red-300 mb-4">{summary.headerError}</p>
               <button
                 onClick={handleReset}
                 className="px-5 py-2.5 bg-red-600 text-white rounded-xl font-black text-sm hover:bg-red-700 transition-all"
@@ -279,14 +279,14 @@ export default function QuestionImporter() {
 
         {/* Duplicate toggle */}
         {buckets.dupes.length > 0 && (
-          <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-start gap-3 min-w-0">
               <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
               <div className="min-w-0">
-                <p className="font-black text-amber-800">
+                <p className="font-black text-amber-800 dark:text-amber-300">
                   {buckets.dupes.length} row{buckets.dupes.length !== 1 ? 's' : ''} match{buckets.dupes.length === 1 ? 'es' : ''} an existing question by exact text
                 </p>
-                <p className="text-xs font-bold text-amber-700/80 mt-0.5">
+                <p className="text-xs font-bold text-amber-700/80 dark:text-amber-400/80 mt-0.5">
                   By default these are skipped. Toggle below to include them anyway (e.g. you're intentionally re-importing).
                 </p>
               </div>
@@ -298,7 +298,7 @@ export default function QuestionImporter() {
                 onChange={(e) => setAllowDuplicates(e.target.checked)}
                 className="w-4 h-4 accent-amber-600"
               />
-              <span className="text-sm font-black text-amber-800">Import duplicates anyway</span>
+              <span className="text-sm font-black text-amber-800 dark:text-amber-300">Import duplicates anyway</span>
             </label>
           </div>
         )}
@@ -319,11 +319,11 @@ export default function QuestionImporter() {
 
         {/* Valid preview (collapsed by default) */}
         {buckets.valid.length > 0 && (
-          <details className="bg-white rounded-3xl border border-emerald-100 shadow-sm overflow-hidden group">
-            <summary className="cursor-pointer p-6 font-black text-emerald-700 flex items-center gap-3 list-none border-b border-emerald-50 bg-emerald-50/40">
+          <details className="bg-white dark:bg-slate-900 rounded-3xl border border-emerald-100 dark:border-emerald-900/40 shadow-sm overflow-hidden group">
+            <summary className="cursor-pointer p-6 font-black text-emerald-700 dark:text-emerald-400 flex items-center gap-3 list-none border-b border-emerald-50 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/30">
               <CheckCircle className="w-5 h-5" />
               Valid Rows ({buckets.valid.length})
-              <span className="text-xs font-bold text-emerald-600/70 ml-auto group-open:hidden">click to expand</span>
+              <span className="text-xs font-bold text-emerald-600/70 dark:text-emerald-400/70 ml-auto group-open:hidden">click to expand</span>
             </summary>
             <ResultTable rows={buckets.valid} kind="valid" />
           </details>
@@ -331,22 +331,22 @@ export default function QuestionImporter() {
 
         {/* Actions */}
         {serverError && (
-          <div className="bg-red-50 text-red-700 p-4 rounded-2xl border border-red-100 font-bold flex items-center gap-3">
+          <div className="bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 p-4 rounded-2xl border border-red-100 dark:border-red-900/40 font-bold flex items-center gap-3">
             <XCircle className="w-5 h-5 shrink-0" />
             <span>{serverError}</span>
           </div>
         )}
-        <div className="flex flex-col sm:flex-row gap-3 sticky bottom-4 bg-white p-4 rounded-3xl border border-slate-200 shadow-xl">
+        <div className="flex flex-col sm:flex-row gap-3 sticky bottom-4 bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
           <button
             onClick={handleReset}
-            className="flex-1 py-4 bg-slate-100 text-slate-700 rounded-2xl font-black hover:bg-slate-200 transition-all"
+            className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl font-black hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleImport}
             disabled={willImport === 0 || importing}
-            className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-100 dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {importing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             Confirm Import — {willImport} question{willImport !== 1 ? 's' : ''}
@@ -361,7 +361,7 @@ export default function QuestionImporter() {
     return (
       <div className="flex flex-col items-center justify-center py-32 space-y-4">
         <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Writing to Question Bank…</p>
+        <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-xs">Writing to Question Bank…</p>
       </div>
     );
   }
@@ -370,7 +370,7 @@ export default function QuestionImporter() {
   if (phase === 'done') {
     return (
       <div className="space-y-6 animate-in fade-in duration-500">
-        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-[40px] p-10 text-white shadow-xl shadow-emerald-200 text-center">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-[40px] p-10 text-white shadow-xl shadow-emerald-200 dark:shadow-none text-center">
           <CheckCircle className="w-16 h-16 mx-auto mb-4" />
           <h2 className="text-4xl font-black mb-2">Import Complete</h2>
           <p className="text-emerald-100 font-bold">
@@ -382,7 +382,7 @@ export default function QuestionImporter() {
         </div>
         <button
           onClick={handleReset}
-          className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+          className="w-full py-4 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl font-black hover:bg-slate-800 dark:hover:bg-slate-700 transition-all shadow-xl shadow-slate-200 dark:shadow-none"
         >
           Import Another Batch
         </button>
@@ -399,10 +399,10 @@ export default function QuestionImporter() {
 
 function StatCard({ label, value, tint }: { label: string; value: number; tint: 'emerald' | 'amber' | 'red' | 'slate' }) {
   const tintMap = {
-    emerald: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'text-emerald-600/80' },
-    amber: { bg: 'bg-amber-50', text: 'text-amber-700', label: 'text-amber-600/80' },
-    red: { bg: 'bg-red-50', text: 'text-red-700', label: 'text-red-600/80' },
-    slate: { bg: 'bg-slate-100', text: 'text-slate-700', label: 'text-slate-500' },
+    emerald: { bg: 'bg-emerald-50 dark:bg-emerald-950/40', text: 'text-emerald-700 dark:text-emerald-400', label: 'text-emerald-600/80 dark:text-emerald-400/80' },
+    amber: { bg: 'bg-amber-50 dark:bg-amber-950/40', text: 'text-amber-700 dark:text-amber-400', label: 'text-amber-600/80 dark:text-amber-400/80' },
+    red: { bg: 'bg-red-50 dark:bg-red-950/40', text: 'text-red-700 dark:text-red-400', label: 'text-red-600/80 dark:text-red-400/80' },
+    slate: { bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-700 dark:text-slate-200', label: 'text-slate-500 dark:text-slate-400' },
   };
   const t = tintMap[tint];
   return (
@@ -415,13 +415,13 @@ function StatCard({ label, value, tint }: { label: string; value: number; tint: 
 
 function Section({ title, tint, children }: { title: string; tint: 'red' | 'amber' | 'emerald'; children: React.ReactNode }) {
   const tintMap = {
-    red: { border: 'border-red-100', text: 'text-red-700', bg: 'bg-red-50/40' },
-    amber: { border: 'border-amber-100', text: 'text-amber-700', bg: 'bg-amber-50/40' },
-    emerald: { border: 'border-emerald-100', text: 'text-emerald-700', bg: 'bg-emerald-50/40' },
+    red: { border: 'border-red-100 dark:border-red-900/40', text: 'text-red-700 dark:text-red-400', bg: 'bg-red-50/40 dark:bg-red-950/30' },
+    amber: { border: 'border-amber-100 dark:border-amber-900/40', text: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50/40 dark:bg-amber-950/30' },
+    emerald: { border: 'border-emerald-100 dark:border-emerald-900/40', text: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50/40 dark:bg-emerald-950/30' },
   };
   const t = tintMap[tint];
   return (
-    <div className={`bg-white rounded-3xl border ${t.border} shadow-sm overflow-hidden`}>
+    <div className={`bg-white dark:bg-slate-900 rounded-3xl border ${t.border} shadow-sm overflow-hidden`}>
       <div className={`p-6 border-b ${t.border} ${t.bg}`}>
         <h3 className={`font-black ${t.text}`}>{title}</h3>
       </div>
@@ -435,13 +435,13 @@ function ResultTable({ rows, kind }: { rows: RowResult[]; kind: 'valid' | 'dupe'
     {
       accessorKey: 'line',
       header: 'Line',
-      cell: info => <span className="tabular-nums font-bold">{info.getValue() as number}</span>,
+      cell: info => <span className="tabular-nums font-bold text-slate-800 dark:text-slate-200">{info.getValue() as number}</span>,
     },
     {
       id: 'category',
       accessorFn: row => row.raw.category,
       header: 'Category',
-      cell: info => <span className="font-bold">{info.getValue() as string || '—'}</span>,
+      cell: info => <span className="font-bold text-slate-800 dark:text-slate-200">{info.getValue() as string || '—'}</span>,
     },
     {
       id: 'question',
@@ -450,7 +450,7 @@ function ResultTable({ rows, kind }: { rows: RowResult[]; kind: 'valid' | 'dupe'
       cell: info => {
         const text = info.getValue() as string || '';
         return (
-          <div className="max-w-md truncate" title={text}>
+          <div className="max-w-md truncate text-slate-800 dark:text-slate-200" title={text}>
             {text.slice(0, 120)}{text.length > 120 ? '…' : ''}
           </div>
         );
@@ -465,14 +465,14 @@ function ResultTable({ rows, kind }: { rows: RowResult[]; kind: 'valid' | 'dupe'
         const issues = kind === 'error' ? row.errors : row.warnings;
         if (kind === 'error') {
           return (
-            <div className="text-red-600">
+            <div className="text-red-600 dark:text-red-400">
               {issues.map((e, i) => <div key={i}>• {e}</div>)}
             </div>
           );
         } else {
           return (
-            <div className="text-amber-600">
-              {issues.length === 0 ? <span className="text-slate-300">—</span> : issues.map((w, i) => <div key={i}>• {w}</div>)}
+            <div className="text-amber-600 dark:text-amber-400">
+              {issues.length === 0 ? <span className="text-slate-300 dark:text-slate-600">—</span> : issues.map((w, i) => <div key={i}>• {w}</div>)}
             </div>
           );
         }
@@ -488,3 +488,4 @@ function ResultTable({ rows, kind }: { rows: RowResult[]; kind: 'valid' | 'dupe'
     />
   );
 }
+

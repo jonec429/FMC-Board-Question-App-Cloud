@@ -122,44 +122,44 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-slate-100 flex flex-col">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-slate-800 flex flex-col">
         {/* Header */}
-        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur z-10">
+        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center">
               <GraduationCap className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-800">Academic Year Transition</h2>
-              <p className="text-sm font-bold text-slate-500">Entering {formatAcademicYear(academicYear)}</p>
+              <h2 className="text-xl font-black text-slate-800 dark:text-white">Academic Year Transition</h2>
+              <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Entering {formatAcademicYear(academicYear)}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {/* Wizard Progress */}
-        <div className="flex border-b border-slate-100 bg-slate-50/50">
-          <div className={`flex-1 py-4 text-center font-bold text-sm ${step === 1 ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>1. Graduate PGY3s</div>
-          <div className={`flex-1 py-4 text-center font-bold text-sm ${step === 2 ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>2. Auto-Advance</div>
-          <div className={`flex-1 py-4 text-center font-bold text-sm ${step === 3 ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400'}`}>3. Onboard PGY1s</div>
+        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+          <div className={`flex-1 py-4 text-center font-bold text-sm ${step === 1 ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400' : 'text-slate-400 dark:text-slate-500'}`}>1. Graduate PGY3s</div>
+          <div className={`flex-1 py-4 text-center font-bold text-sm ${step === 2 ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400' : 'text-slate-400 dark:text-slate-500'}`}>2. Auto-Advance</div>
+          <div className={`flex-1 py-4 text-center font-bold text-sm ${step === 3 ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400' : 'text-slate-400 dark:text-slate-500'}`}>3. Onboard PGY1s</div>
         </div>
 
         {/* Step 1: Graduate PGY3s */}
         {step === 1 && (
           <div className="p-8 space-y-6">
-            <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl text-blue-800 text-sm font-medium">
+            <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 p-4 rounded-2xl text-blue-800 dark:text-blue-300 text-sm font-medium">
               We identified <strong>{graduatingResidents.length}</strong> active residents whose derived PGY level is 3 or higher. Click below to mark them as graduated. They will no longer appear in active performance metrics.
             </div>
             {graduatingResidents.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {graduatingResidents.map(r => (
-                  <div key={r.email} className="bg-white border border-slate-200 p-3 rounded-xl flex items-center gap-3">
+                  <div key={r.email} className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 p-3 rounded-xl flex items-center gap-3">
                     <div className="w-2 h-2 rounded-full bg-emerald-400" />
                     <div>
-                      <p className="font-bold text-slate-700 text-sm">{r.name}</p>
-                      <p className="text-xs text-slate-500 font-medium">{r.email}</p>
+                      <p className="font-bold text-slate-700 dark:text-white text-sm">{r.name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{r.email}</p>
                     </div>
                   </div>
                 ))}
@@ -169,7 +169,7 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
               <button
                 onClick={handleGraduatePGY3s}
                 disabled={submitting}
-                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-indigo-200"
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-indigo-200 dark:shadow-none"
               >
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                 {graduatingResidents.length > 0 ? 'Graduate Selected Residents' : 'Skip (None to Graduate)'}
@@ -181,17 +181,17 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
         {/* Step 2: Auto-Advance Info */}
         {step === 2 && (
           <div className="p-8 space-y-6 flex flex-col items-center justify-center text-center py-16">
-            <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mb-4">
+            <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-500 dark:text-emerald-400 rounded-full flex items-center justify-center mb-4">
               <Target className="w-10 h-10" />
             </div>
-            <h3 className="text-2xl font-black text-slate-800">Seamless Auto-Advance</h3>
-            <p className="text-slate-500 max-w-lg text-lg">
+            <h3 className="text-2xl font-black text-slate-800 dark:text-white">Seamless Auto-Advance</h3>
+            <p className="text-slate-500 dark:text-slate-400 max-w-lg text-lg">
               Because FMC Board Review App uses a cohort-based schema, <strong>PGY1s and PGY2s have automatically advanced</strong> to their next year based on the current date. No database updates are required!
             </p>
             <div className="pt-8">
               <button
                 onClick={() => setStep(3)}
-                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                className="px-6 py-3 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg border border-transparent dark:border-slate-700"
               >
                 Next: Onboard PGY1s <ChevronRight className="w-5 h-5" />
               </button>
@@ -202,22 +202,22 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
         {/* Step 3: Onboard PGY1s */}
         {step === 3 && (
           <div className="p-8 space-y-6">
-            <p className="text-slate-600 font-medium">
+            <p className="text-slate-600 dark:text-slate-300 font-medium">
               Enter the incoming PGY1 class. You can also skip this and add them individually later via the Roster Manager or CSV import.
             </p>
             
-            <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-left">
-                    <th className="px-4 py-3 font-bold text-slate-500 w-1/4">First Name</th>
-                    <th className="px-4 py-3 font-bold text-slate-500 w-1/4">Last Name</th>
-                    <th className="px-4 py-3 font-bold text-slate-500 w-1/4">Email</th>
-                    <th className="px-4 py-3 font-bold text-slate-500 w-1/4">Faculty Advisor</th>
+                  <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-200 dark:border-slate-800 text-left">
+                    <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 w-1/4">First Name</th>
+                    <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 w-1/4">Last Name</th>
+                    <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 w-1/4">Email</th>
+                    <th className="px-4 py-3 font-bold text-slate-500 dark:text-slate-400 w-1/4">Faculty Advisor</th>
                     <th className="px-4 py-3 w-12"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {newIncoming.map((row, i) => (
                     <tr key={i}>
                       <td className="px-2 py-2">
@@ -226,7 +226,7 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
                           value={row.first_name}
                           onChange={(e) => handleUpdateIncoming(i, 'first_name', e.target.value)}
                           placeholder="First"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-400 font-medium"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg outline-none focus:border-indigo-400 font-medium"
                         />
                       </td>
                       <td className="px-2 py-2">
@@ -235,7 +235,7 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
                           value={row.last_name}
                           onChange={(e) => handleUpdateIncoming(i, 'last_name', e.target.value)}
                           placeholder="Last"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-400 font-medium"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg outline-none focus:border-indigo-400 font-medium"
                         />
                       </td>
                       <td className="px-2 py-2">
@@ -244,14 +244,14 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
                           value={row.email}
                           onChange={(e) => handleUpdateIncoming(i, 'email', e.target.value)}
                           placeholder="email@ascension.org"
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-400 font-medium"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg outline-none focus:border-indigo-400 font-medium"
                         />
                       </td>
                       <td className="px-2 py-2">
                         <select
                           value={row.advisor}
                           onChange={(e) => handleUpdateIncoming(i, 'advisor', e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-indigo-400 font-medium"
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-lg outline-none focus:border-indigo-400 font-medium"
                         >
                           <option value="">None / Unassigned</option>
                           {facultyList.map(facultyName => (
@@ -262,7 +262,7 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
                       <td className="px-2 py-2 text-center">
                         <button
                           onClick={() => handleRemoveIncomingRow(i)}
-                          className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -275,22 +275,22 @@ export default function TransitionWizard({ roster, onClose, onRefresh }: Transit
 
             <button
               onClick={handleAddIncomingRow}
-              className="text-indigo-600 font-bold flex items-center gap-2 hover:text-indigo-700 transition-colors text-sm px-2"
+              className="text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-2 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors text-sm px-2"
             >
               <PlusCircle className="w-4 h-4" /> Add another row
             </button>
 
-            <div className="flex justify-between items-center pt-8 mt-4 border-t border-slate-100">
+            <div className="flex justify-between items-center pt-8 mt-4 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={onClose}
-                className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors"
+                className="px-6 py-3 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleOnboardIncoming}
                 disabled={submitting}
-                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-200"
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-emerald-200 dark:shadow-none"
               >
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle className="w-5 h-5" />}
                 Complete Transition

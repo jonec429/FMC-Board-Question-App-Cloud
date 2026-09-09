@@ -99,8 +99,8 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" />
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
+        <Loader2 className="w-8 h-8 animate-spin mb-4 text-indigo-500" />
         <p className="font-bold text-sm">Crunching analytics...</p>
       </div>
     );
@@ -108,7 +108,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
 
   if (error) {
     return (
-      <div className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600">
+      <div className="p-6 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-2xl flex items-center gap-3 text-red-600 dark:text-red-400">
         <AlertCircle className="w-6 h-6 shrink-0" />
         <p className="font-bold text-sm">Failed to load analytics data.</p>
       </div>
@@ -118,9 +118,9 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
   if (!analytics || analytics.questions.length === 0) {
     return (
       <div className="text-center py-20">
-        <TrendingDown className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <p className="font-bold text-slate-500">Not Enough Data</p>
-        <p className="text-sm text-slate-400 mt-2">More resident attempts are needed to generate meaningful trends.</p>
+        <TrendingDown className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+        <p className="font-bold text-slate-500 dark:text-slate-400">Not Enough Data</p>
+        <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">More resident attempts are needed to generate meaningful trends.</p>
       </div>
     );
   }
@@ -129,20 +129,20 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
     <div className="space-y-8">
       {/* Category Chart */}
       {analytics.categories.length > 0 && (
-        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8">
+        <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm p-8">
           <div className="mb-6">
-            <h3 className="font-black text-slate-800 text-lg">Most Missed Categories</h3>
+            <h3 className="font-black text-slate-800 dark:text-white text-lg">Most Missed Categories</h3>
             <p className="text-sm font-bold text-slate-400">Based on failure rate across active residents (min 10 attempts).</p>
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={analytics.categories} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#334155" opacity={0.3} />
                 <XAxis type="number" domain={[0, 100]} tickFormatter={(val) => `${val}%`} stroke="#94a3b8" fontSize={12} fontWeight={700} />
-                <YAxis dataKey="name" type="category" width={150} stroke="#64748b" fontSize={12} fontWeight={700} />
+                <YAxis dataKey="name" type="category" width={150} stroke="#94a3b8" fontSize={12} fontWeight={700} />
                 <RechartsTooltip 
                   formatter={(value: number) => [`${value.toFixed(1)}%`, 'Failure Rate']}
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)', fontWeight: 'bold' }}
+                  contentStyle={{ borderRadius: '16px', border: 'none', backgroundColor: '#0f172a', color: '#fff', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)', fontWeight: 'bold' }}
                 />
                 <Bar dataKey="wrongPct" radius={[0, 8, 8, 0]}>
                   {analytics.categories.map((entry, index) => (
@@ -156,28 +156,28 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
       )}
 
       {/* Questions List */}
-      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-50 bg-slate-50/50">
-          <h3 className="font-black text-slate-800 text-lg">Highest Failure Rate Questions</h3>
-          <p className="text-xs font-bold text-slate-400 mt-0.5">Questions missed by the majority of the cohort (min 3 attempts).</p>
+      <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+          <h3 className="font-black text-slate-800 dark:text-white text-lg">Highest Failure Rate Questions</h3>
+          <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">Questions missed by the majority of the cohort (min 3 attempts).</p>
         </div>
-        <div className="divide-y divide-slate-50">
+        <div className="divide-y divide-slate-50 dark:divide-slate-800/60">
           {analytics.questions.map((q, idx) => (
-            <div key={q.id} className="p-6 hover:bg-slate-50/50 transition-colors">
+            <div key={q.id} className="p-6 hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
               <div className="flex gap-4">
-                <div className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg bg-red-50 text-red-600">
+                <div className="shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400">
                   #{idx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-widest">
+                    <span className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black uppercase tracking-widest">
                       {q.category}
                     </span>
-                    <span className="text-sm font-bold text-red-500">
+                    <span className="text-sm font-bold text-red-500 dark:text-red-400">
                       {q.wrongPct.toFixed(1)}% Failed ({q.wrong} / {q.total} attempts)
                     </span>
                   </div>
-                  <p className="font-bold text-slate-700 text-sm leading-relaxed mb-4">{q.text}</p>
+                  <p className="font-bold text-slate-700 dark:text-slate-200 text-sm leading-relaxed mb-4">{q.text}</p>
                   
                   {/* Options display */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -188,7 +188,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
                       const isCommonTrap = !isCorrect && pct >= 20;
 
                       return (
-                        <div key={i} className={`p-3 rounded-xl border text-xs font-bold flex flex-col gap-1.5 ${isCorrect ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : isCommonTrap ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+                        <div key={i} className={`p-3 rounded-xl border text-xs font-bold flex flex-col gap-1.5 ${isCorrect ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300' : isCommonTrap ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'}`}>
                           <div className="flex gap-2 justify-between">
                             <div className="flex gap-2">
                               <span className="shrink-0">{String.fromCharCode(65 + i)}.</span>
@@ -197,7 +197,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
                             {isCorrect && <span className="ml-auto shrink-0">✅</span>}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            <div className="h-1.5 flex-1 bg-slate-200 rounded-full overflow-hidden">
+                            <div className="h-1.5 flex-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                               <div className={`h-full ${isCorrect ? 'bg-emerald-500' : isCommonTrap ? 'bg-amber-500' : 'bg-slate-400'}`} style={{ width: `${pct}%` }} />
                             </div>
                             <span className={`text-[10px] shrink-0 w-8 text-right ${pct > 0 ? 'opacity-100' : 'opacity-40'}`}>{pct.toFixed(0)}%</span>
