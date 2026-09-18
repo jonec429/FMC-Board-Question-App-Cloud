@@ -7,7 +7,7 @@
  */
 
 import { AdminData, Profile, Result, RosterEntry, Block, BlockSchedule, AttendanceRecord } from './types';
-import { getCurrentAcademicYear, formatAcademicYear, isActiveResident } from './academicYear';
+import { getCurrentAcademicYear, formatAcademicYear, isActiveResident, deriveLabel, derivePGY, getResidentClassYear } from './academicYear';
 import { getDueBlocks, getOverdueBlocks, getRiskLevel, getComplianceRisk, computeTrend } from './residentRisk';
 import { formatDisplayName } from './utils';
 
@@ -53,6 +53,8 @@ export interface CccResidentReportItem {
   email: string;
   pgy: string;
   pgyLabel: string;
+  classYear?: number | null;
+  cohortYear?: number | null;
   advisor: string;
   
   // Date-bounded Metrics (spelled out)
@@ -158,12 +160,40 @@ export function getDateRangePreset(preset: DateRangePreset, academicYear: number
 /**
  * Human-readable full title for PGY level without confusing jargon.
  */
-export function formatPgyFull(pgy?: string | null): string {
+export function formatPgyFull(
+  pgy?: string | null,
+  cohortYear?: number | null,
+  academicYear: number = getCurrentAcademicYear()
+): string {
+  if (cohortYear != null) {
+    const pgyNum = academicYear - cohortYear;
+    const gradYear = cohortYear + 3;
+    if (pgyNum === 1) return `Post-Graduate Year 1 (PGY-1) • Class of ${gradYear}`;
+    if (pgyNum === 2) return `Post-Graduate Year 2 (PGY-2) • Class of ${gradYear}`;
+    if (pgyNum === 3) return `Post-Graduate Year 3 (PGY-3) • Class of ${gradYear}`;
+    if (pgyNum > 3) return `Graduated (Class of ${gradYear})`;
+  }
+
   if (!pgy) return 'Resident Physician';
   const clean = pgy.trim().toUpperCase();
-  if (clean.includes('1') || clean === 'PGY-1' || clean === 'PGY1') return 'Post-Graduate Year 1 (PGY-1)';
-  if (clean.includes('2') || clean === 'PGY-2' || clean === 'PGY2') return 'Post-Graduate Year 2 (PGY-2)';
-  if (clean.includes('3') || clean === 'PGY-3' || clean === 'PGY3') return 'Post-Graduate Year 3 (PGY-3)';
+
+  // Check exact PGY word boundaries before loose substring checks
+  if (/\bPGY[-_\s]?1\b/i.test(clean) || clean === 'PGY1' || clean === 'PGY-1') return 'Post-Graduate Year 1 (PGY-1)';
+  if (/\bPGY[-_\s]?2\b/i.test(clean) || clean === 'PGY2' || clean === 'PGY-2') return 'Post-Graduate Year 2 (PGY-2)';
+  if (/\bPGY[-_\s]?3\b/i.test(clean) || clean === 'PGY3' || clean === 'PGY-3') return 'Post-Graduate Year 3 (PGY-3)';
+
+  // Check "Class of YYYY"
+  const m = clean.match(/CLASS OF (\d{4})/i);
+  if (m) {
+    const gradYear = parseInt(m[1], 10);
+    const pgyNum = academicYear - (gradYear - 3);
+    if (pgyNum === 1) return `Post-Graduate Year 1 (PGY-1) • Class of ${gradYear}`;
+    if (pgyNum === 2) return `Post-Graduate Year 2 (PGY-2) • Class of ${gradYear}`;
+    if (pgyNum === 3) return `Post-Graduate Year 3 (PGY-3) • Class of ${gradYear}`;
+    if (pgyNum > 3) return `Graduated (Class of ${gradYear})`;
+    return `Class of ${gradYear}`;
+  }
+
   if (clean.toLowerCase().includes('faculty')) return 'Attending Faculty';
   if (clean.toLowerCase().includes('fellow')) return 'Fellow';
   return pgy;
@@ -272,8 +302,13 @@ export function computeCccReportData({
     const email = (rosterEntry.email || '').toLowerCase();
     const displayName = rosterEntry.name || `${rosterEntry.first_name || ''} ${rosterEntry.last_name || ''}`.trim() || 'Resident Physician';
     const formattedName = formatDisplayName(displayName);
-    const pgy = rosterEntry.pgy || 'PGY-1';
-    const pgyLabel = formatPgyFull(pgy);
+    const derived = deriveLabel(rosterEntry, academicYear);
+    const pgy = derived.startsWith('PGY')
+      ? (derived === 'PGY1' ? 'PGY-1' : derived === 'PGY2' ? 'PGY-2' : 'PGY-3')
+      : (rosterEntry.pgy || 'Resident');
+    const pgyLabel = formatPgyFull(rosterEntry.pgy, rosterEntry.cohort_year, academicYear);
+    const classYear = getResidentClassYear(rosterEntry);
+    const cohortYear = rosterEntry.cohort_year;
     const advisor = rosterEntry.advisor || 'Unassigned';
 
     // Format Last Name, First Name
@@ -470,6 +505,8 @@ export function computeCccReportData({
       email,
       pgy,
       pgyLabel,
+      classYear,
+      cohortYear,
       advisor,
       curriculumAvg,
       curriculumAttempts: curriculumResults.length,

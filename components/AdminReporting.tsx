@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { AdminData, User, Profile } from '@/lib/types';
-import { getCurrentAcademicYear, formatAcademicYear, isActiveResident } from '@/lib/academicYear';
+import { getCurrentAcademicYear, formatAcademicYear, isActiveResident, deriveLabel, derivePGY, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
 import { formatDisplayName } from '@/lib/utils';
 import {
   computeCccReportData,
@@ -80,13 +80,32 @@ export default function AdminReporting({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showResidentDrawer, setShowResidentDrawer] = useState<boolean>(false);
 
-  // Set of selected resident emails (defaults to all active residents)
+  // Set of selected resident emails (defaults to all active residents or initial selection)
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(() => {
     if (initialEmails && initialEmails.length > 0) {
       return new Set(initialEmails.map((e) => e.toLowerCase()));
     }
+    if (initialPgy && initialPgy !== 'ALL') {
+      const matched = (adminData?.roster || [])
+        .filter(isActiveResident)
+        .filter((r) => residentMatchesCohort(r, initialPgy, academicYear, facultyName))
+        .map((r) => (r.email || '').toLowerCase());
+      if (matched.length > 0) return new Set(matched);
+    }
     return new Set(activeResidents.map((r) => (r.email || '').toLowerCase()));
   });
+
+  // Keep selected emails in sync if initial props change
+  useEffect(() => {
+    if (initialEmails && initialEmails.length > 0) {
+      setSelectedEmails(new Set(initialEmails.map((e) => e.toLowerCase())));
+    } else if (initialPgy && initialPgy !== 'ALL') {
+      const matched = activeResidents
+        .filter((r) => residentMatchesCohort(r, initialPgy, academicYear, facultyName))
+        .map((r) => (r.email || '').toLowerCase());
+      if (matched.length > 0) setSelectedEmails(new Set(matched));
+    }
+  }, [initialPgy, initialEmails, activeResidents, academicYear, facultyName]);
 
   // Date Range State
   const [datePreset, setDatePreset] = useState<DateRangePreset>('6m'); // Default to 6-month semi-annual review
@@ -124,11 +143,9 @@ export default function AdminReporting({
       const pgy = (r.pgy || '').toUpperCase();
       const advisor = (r.advisor || '').toLowerCase();
 
-      // PGY filter
+      // PGY / Cohort filter
       if (selectedPgy !== 'ALL') {
-        if (selectedPgy === 'MY_ADVISEES') {
-          if (!facultyName || advisor !== facultyName.toLowerCase()) return false;
-        } else if (!pgy.includes(selectedPgy.toUpperCase())) {
+        if (!residentMatchesCohort(r, selectedPgy, academicYear, facultyName)) {
           return false;
         }
       }
@@ -141,26 +158,55 @@ export default function AdminReporting({
       // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        if (!name.includes(q) && !email.includes(q)) return false;
+        const derived = deriveLabel(r, academicYear).toLowerCase();
+        const classYr = getResidentClassYear(r)?.toString() || '';
+        if (
+          !name.includes(q) &&
+          !email.includes(q) &&
+          !pgy.toLowerCase().includes(q) &&
+          !derived.includes(q) &&
+          !classYr.includes(q) &&
+          !advisor.includes(q)
+        ) {
+          return false;
+        }
       }
 
       return true;
     });
-  }, [activeResidents, selectedPgy, selectedAdvisor, searchQuery, facultyName]);
+  }, [activeResidents, selectedPgy, selectedAdvisor, searchQuery, academicYear, facultyName]);
+
+  // Quick Cohort Button Options with counts and graduation class years
+  const cohortButtons = useMemo(() => {
+    const pgy1Class = academicYear + 2;
+    const pgy2Class = academicYear + 1;
+    const pgy3Class = academicYear;
+
+    const countAll = activeResidents.length;
+    const countPgy1 = activeResidents.filter((r) => residentMatchesCohort(r, 'PGY-1', academicYear)).length;
+    const countPgy2 = activeResidents.filter((r) => residentMatchesCohort(r, 'PGY-2', academicYear)).length;
+    const countPgy3 = activeResidents.filter((r) => residentMatchesCohort(r, 'PGY-3', academicYear)).length;
+    const countAdvisees = facultyName
+      ? activeResidents.filter((r) => residentMatchesCohort(r, 'MY_ADVISEES', academicYear, facultyName)).length
+      : 0;
+
+    return [
+      { id: 'ALL', label: 'All Residents', badge: countAll },
+      { id: 'PGY-1', label: `PGY-1 (Class of ${pgy1Class})`, badge: countPgy1 },
+      { id: 'PGY-2', label: `PGY-2 (Class of ${pgy2Class})`, badge: countPgy2 },
+      { id: 'PGY-3', label: `PGY-3 (Class of ${pgy3Class})`, badge: countPgy3 },
+      ...(facultyName ? [{ id: 'MY_ADVISEES', label: 'My Advisees', badge: countAdvisees }] : []),
+    ];
+  }, [activeResidents, academicYear, facultyName]);
 
   // Quick Cohort Button Handlers
   const handleSelectCohort = (pgyOption: string) => {
     setSelectedPgy(pgyOption);
     if (pgyOption === 'ALL') {
       setSelectedEmails(new Set(activeResidents.map((r) => (r.email || '').toLowerCase())));
-    } else if (pgyOption === 'MY_ADVISEES') {
-      const adviseeEmails = activeResidents
-        .filter((r) => (r.advisor || '').trim().toLowerCase() === facultyName.trim().toLowerCase())
-        .map((r) => (r.email || '').toLowerCase());
-      setSelectedEmails(new Set(adviseeEmails));
     } else {
       const classEmails = activeResidents
-        .filter((r) => (r.pgy || '').toUpperCase().includes(pgyOption.toUpperCase()))
+        .filter((r) => residentMatchesCohort(r, pgyOption, academicYear, facultyName))
         .map((r) => (r.email || '').toLowerCase());
       setSelectedEmails(new Set(classEmails));
     }
@@ -285,23 +331,26 @@ export default function AdminReporting({
               Training Class (Cohort):
             </label>
             <div className="flex flex-wrap gap-1.5">
-              {[
-                { id: 'ALL', label: 'All Residents' },
-                { id: 'PGY-1', label: 'PGY-1' },
-                { id: 'PGY-2', label: 'PGY-2' },
-                { id: 'PGY-3', label: 'PGY-3' },
-                ...(facultyName ? [{ id: 'MY_ADVISEES', label: 'My Advisees' }] : []),
-              ].map((c) => (
+              {cohortButtons.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => handleSelectCohort(c.id)}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all ${
                     selectedPgy === c.id
                       ? 'bg-blue-600 text-white shadow-sm'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   }`}
                 >
-                  {c.label}
+                  <span>{c.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                      selectedPgy === c.id
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    {c.badge}
+                  </span>
                 </button>
               ))}
             </div>
@@ -473,7 +522,7 @@ export default function AdminReporting({
                       <div className="truncate">
                         <span className="block truncate">{formatDisplayName(r.name)}</span>
                         <span className="text-[10px] text-slate-400 block truncate">
-                          {r.pgy || 'PGY'} · Adv: {formatDisplayName(r.advisor || '—')}
+                          {deriveLabel(r, academicYear)} ({r.pgy || 'PGY'}) · Adv: {formatDisplayName(r.advisor || '—')}
                         </span>
                       </div>
                     </div>
@@ -599,7 +648,12 @@ export default function AdminReporting({
                           )}
                         </td>
                         <td className="py-3 px-2 text-slate-700 print:text-black font-semibold">
-                          {r.pgy}
+                          <span className="block font-bold">{r.pgy}</span>
+                          {r.classYear && (
+                            <span className="block text-[10px] text-slate-500 print:text-gray-600 font-normal">
+                              Class of {r.classYear}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-2 text-slate-700 print:text-black">
                           {formatDisplayName(r.advisor)}

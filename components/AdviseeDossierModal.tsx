@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { RosterEntry, AdminData } from '@/lib/types';
 import { formatDisplayName } from '@/lib/utils';
-import { formatAcademicYear, getCurrentAcademicYear } from '@/lib/academicYear';
+import { formatAcademicYear, getCurrentAcademicYear, isActiveResident, deriveLabel, getResidentClassYear } from '@/lib/academicYear';
 import {
   computeCccReportData,
   getDateRangePreset,
@@ -90,10 +90,40 @@ export default function AdviseeDossierModal({
     return getDateRangePreset(datePreset, selectedYear || getCurrentAcademicYear());
   }, [datePreset, customStartDate, customEndDate, selectedYear]);
 
+  // List of residents available in the dropdown
+  const residentOptions = useMemo(() => {
+    const ay = selectedYear || getCurrentAcademicYear();
+    if (advisees && advisees.length > 0) {
+      return advisees.map((a) => {
+        const classYr = a.resident.cohort_year ? a.resident.cohort_year + 3 : getResidentClassYear(a.resident);
+        return {
+          email: (a.resident.email || '').toLowerCase(),
+          name: a.name,
+          pgy: a.pgy,
+          classYear: classYr,
+          cohortYear: a.resident.cohort_year,
+          rawResident: a.resident,
+        };
+      });
+    }
+    if (adminData?.roster) {
+      const active = adminData.roster.filter(isActiveResident);
+      return active.map((r) => ({
+        email: (r.email || '').toLowerCase(),
+        name: r.name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.email || '',
+        pgy: deriveLabel(r, ay),
+        classYear: getResidentClassYear(r),
+        cohortYear: r.cohort_year,
+        rawResident: r,
+      }));
+    }
+    return [];
+  }, [advisees, adminData, selectedYear]);
+
   // Compute date-bounded reports if adminData is available; otherwise adapt advisees array
   const reportItems = useMemo<CccResidentReportItem[]>(() => {
-    const adviseeEmails = advisees.map((a) => (a.resident.email || '').toLowerCase());
-    const targetEmails = filterEmail === 'all' ? adviseeEmails : [filterEmail.toLowerCase()];
+    const allEmails = residentOptions.map((r) => r.email);
+    const targetEmails = filterEmail === 'all' ? allEmails : [filterEmail.toLowerCase()];
 
     if (adminData) {
       return computeCccReportData({
@@ -109,12 +139,15 @@ export default function AdviseeDossierModal({
       ? advisees
       : advisees.filter((a) => (a.resident.email || '').toLowerCase() === filterEmail.toLowerCase());
 
+    const ay = selectedYear || getCurrentAcademicYear();
     return filtered.map((a) => {
       const standing = a.isAtRisk
         ? 'Remediation / Review Needed'
         : a.isAttention
         ? 'Academic Monitoring'
         : 'Satisfactory Progress';
+
+      const fullPgyLabel = formatPgyFull(a.pgy, a.resident.cohort_year, ay);
 
       return {
         id: a.resident.email,
@@ -123,7 +156,9 @@ export default function AdviseeDossierModal({
         lastNameFirst: a.name,
         email: a.resident.email,
         pgy: a.pgy,
-        pgyLabel: formatPgyFull(a.pgy),
+        pgyLabel: fullPgyLabel,
+        classYear: a.resident.cohort_year ? a.resident.cohort_year + 3 : getResidentClassYear(a.resident),
+        cohortYear: a.resident.cohort_year,
         advisor: facultyName,
         curriculumAvg: Math.round(a.curriculumAvg),
         curriculumAttempts: a.curriculumAttempts,
@@ -142,7 +177,7 @@ export default function AdviseeDossierModal({
         trendDirection: 'stable',
         trendDelta: null,
         flags: a.riskReasons,
-        narrativeSummary: `${formatDisplayName(a.name)} (${formatPgyFull(a.pgy)}) is in ${standing}. The resident maintains a curriculum exam average of ${Math.round(a.curriculumAvg)}% (${a.curriculumAvg >= 70 ? 'meets 70% program standard' : 'below 70% passing standard'}) with ${a.blocksCompleted} completed blocks and an on-time submission rate of ${Math.round(a.onTimePct)}%. Total academic engagement credit is ${a.totalPoints} points.`,
+        narrativeSummary: `${formatDisplayName(a.name)} (${fullPgyLabel}) is in ${standing}. The resident maintains a curriculum exam average of ${Math.round(a.curriculumAvg)}% (${a.curriculumAvg >= 70 ? 'meets 70% program standard' : 'below 70% passing standard'}) with ${a.blocksCompleted} completed blocks and an on-time submission rate of ${Math.round(a.onTimePct)}%. Total academic engagement credit is ${a.totalPoints} points.`,
         weakCategories: a.weakCategories.map((w) => ({ ...w, percentage: Math.round(w.percentage) })),
         strongCategories: [],
         blockSubmissions: a.blockHistory.map((b) => ({
@@ -157,7 +192,7 @@ export default function AdviseeDossierModal({
         meetings: a.meetingHistory.map((m) => ({ topic: m.topic, date: m.date })),
       };
     });
-  }, [adminData, advisees, filterEmail, activeDateRange, selectedYear, facultyName]);
+  }, [adminData, advisees, residentOptions, filterEmail, activeDateRange, selectedYear, facultyName]);
 
   const handlePrint = () => {
     window.print();
@@ -196,16 +231,20 @@ export default function AdviseeDossierModal({
 
           {/* Controls: Advisee selector, Date Range, Format, Actions */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Filter by advisee */}
+            {/* Filter by advisee / resident */}
             <select
               value={filterEmail}
               onChange={(e) => setFilterEmail(e.target.value)}
               className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200 text-xs shadow-sm outline-none focus:ring-2 focus:ring-blue-500/20"
             >
-              <option value="all">All Advisees ({advisees.length})</option>
-              {advisees.map((a) => (
-                <option key={a.resident.email} value={a.resident.email}>
-                  {a.name} ({a.pgy})
+              <option value="all">
+                {advisees.length > 0 && !facultyName.toLowerCase().includes('committee')
+                  ? `All Advisees (${residentOptions.length})`
+                  : `All Residents (${residentOptions.length})`}
+              </option>
+              {residentOptions.map((r) => (
+                <option key={r.email} value={r.email}>
+                  {r.name} ({r.pgy}{r.classYear ? ` • Class of ${r.classYear}` : ''})
                 </option>
               ))}
             </select>
@@ -359,7 +398,12 @@ export default function AdviseeDossierModal({
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-slate-600 print:text-black font-semibold">
-                          {a.pgy}
+                          <span className="block font-bold">{a.pgy}</span>
+                          {a.classYear && (
+                            <span className="block text-[10px] text-slate-500 print:text-gray-600 font-normal">
+                              Class of {a.classYear}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2.5 px-2 text-center font-black text-slate-900 print:text-black">
                           <span className={a.curriculumAvg >= 70 ? 'text-emerald-700 print:text-black' : 'text-red-700 print:text-black'}>

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName, formatLastNameFirst, formatTopicDisplay } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
-import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
+import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
@@ -23,6 +23,8 @@ interface ResidentStat {
   email: string;
   pgy: string;
   label: string;
+  classYear?: number | null;
+  cohortYear?: number | null;
   advisor: string;
   
   curriculumAttempts: number;
@@ -507,6 +509,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         email: resident.email,
         pgy: resident.pgy,
         label: deriveLabel(resident, academicYear),
+        classYear: getResidentClassYear(resident),
+        cohortYear: resident.cohort_year,
         advisor: resident.advisor,
         
         curriculumAttempts: assignedResults.length,
@@ -541,22 +545,30 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const residentStats = rawResidentStats;
 
   const overviewFilteredResidents = useMemo(() => {
+    const activeAY = selectedYear === 0 ? getCurrentAcademicYear() : selectedYear;
     return residentStats.filter(r => {
       if (overviewPgyFilter !== 'ALL') {
-        if (overviewPgyFilter === 'PGY-1' && !r.label.includes('PGY-1')) return false;
-        if (overviewPgyFilter === 'PGY-2' && !r.label.includes('PGY-2')) return false;
-        if (overviewPgyFilter === 'PGY-3' && !r.label.includes('PGY-3')) return false;
+        const cohortMatch = residentMatchesCohort(
+          { pgy: r.pgy, cohort_year: r.cohortYear, graduated_year: null, track: 'family_medicine' },
+          overviewPgyFilter,
+          activeAY
+        );
+        if (!cohortMatch) return false;
       }
       if (overviewSearch.trim()) {
         const q = overviewSearch.toLowerCase();
+        const classYr = r.classYear ? String(r.classYear) : '';
         return r.name.toLowerCase().includes(q) || 
                (r.last_name && r.last_name.toLowerCase().includes(q)) || 
                r.email.toLowerCase().includes(q) ||
-               (r.advisor && r.advisor.toLowerCase().includes(q));
+               (r.advisor && r.advisor.toLowerCase().includes(q)) ||
+               (r.pgy && r.pgy.toLowerCase().includes(q)) ||
+               (r.label && r.label.toLowerCase().includes(q)) ||
+               classYr.includes(q);
       }
       return true;
     });
-  }, [residentStats, overviewSearch, overviewPgyFilter]);
+  }, [residentStats, overviewSearch, overviewPgyFilter, selectedYear]);
 
   const exportOverviewToCSV = () => {
     const yearLabel = selectedYear === 0 ? 'All_Years' : `AY_${selectedYear}`;
@@ -924,20 +936,29 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               </div>
 
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-                {(['ALL', 'PGY-1', 'PGY-2', 'PGY-3'] as const).map(pgy => (
-                  <button
-                    key={pgy}
-                    type="button"
-                    onClick={() => setOverviewPgyFilter(pgy)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                      overviewPgyFilter === pgy
-                        ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 dark:shadow-none'
-                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    {pgy === 'ALL' ? 'All PGYs' : pgy}
-                  </button>
-                ))}
+                {(() => {
+                  const ay = selectedYear === 0 ? getCurrentAcademicYear() : selectedYear;
+                  const buttons = [
+                    { id: 'ALL' as const, label: 'All Residents' },
+                    { id: 'PGY-1' as const, label: `PGY-1 (Class of ${ay + 2})` },
+                    { id: 'PGY-2' as const, label: `PGY-2 (Class of ${ay + 1})` },
+                    { id: 'PGY-3' as const, label: `PGY-3 (Class of ${ay})` },
+                  ];
+                  return buttons.map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setOverviewPgyFilter(item.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                        overviewPgyFilter === item.id
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 dark:shadow-none'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ));
+                })()}
               </div>
             </div>
           </div>
@@ -1106,7 +1127,9 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
             return (
               <div key={pgy} className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
                 <div className="p-6 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/60 flex items-center justify-between">
-                  <h3 className="font-black text-slate-800 dark:text-white">{pgy}</h3>
+                  <h3 className="font-black text-slate-800 dark:text-white">
+                    {residents[0]?.classYear ? `${pgy} (Class of ${residents[0].classYear})` : pgy}
+                  </h3>
                   <div className="flex gap-6 text-right">
                     <div>
                       <div className="text-lg font-black text-slate-800 dark:text-white">{groupAvg.toFixed(1)}%</div>
@@ -1713,8 +1736,26 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       {(dossierResidentEmail || showCccModal) && (
         <AdviseeDossierModal
           facultyName={facultyName || 'FMC Clinical Competency Committee'}
-          selectedYear={selectedYear}
-          advisees={[]}
+          selectedYear={selectedYear === 0 ? getCurrentAcademicYear() : selectedYear}
+          advisees={scopedRoster.filter(isActiveResident).map(r => ({
+            resident: r,
+            name: r.name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.email || '',
+            pgy: deriveLabel(r, selectedYear === 0 ? getCurrentAcademicYear() : selectedYear),
+            overallAvg: 0,
+            curriculumAvg: 0,
+            totalAttempts: 0,
+            curriculumAttempts: 0,
+            blocksCompleted: 0,
+            totalPoints: 0,
+            onTimePct: 100,
+            overdueCount: 0,
+            isAtRisk: false,
+            isAttention: false,
+            riskReasons: [],
+            weakCategories: [],
+            blockHistory: [],
+            meetingHistory: [],
+          }))}
           adminData={adminData}
           initialSelectedEmail={dossierResidentEmail || undefined}
           onClose={() => {

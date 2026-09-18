@@ -121,3 +121,54 @@ export function getRoleOptions(academicYear: number = getCurrentAcademicYear()):
     { value: 'Faculty', label: 'Faculty / Admin' },
   ];
 }
+
+/** Returns the 4-digit graduation class year for a resident row (e.g. 2029 for Class of 2029). */
+export function getResidentClassYear(r: RosterRow): number | null {
+  if (r.cohort_year != null) return r.cohort_year + 3;
+  if (r.graduated_year != null) return r.graduated_year;
+  const m = (r.pgy || '').match(/(\d{4})/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/**
+ * Checks whether a resident row matches a given cohort/class filter.
+ * Supports: 'ALL', 'MY_ADVISEES', 'PGY-1', 'PGY-2', 'PGY-3', 'PGY1', '2029', 'Class of 2029', etc.
+ */
+export function residentMatchesCohort(
+  r: RosterRow,
+  cohortFilter: string,
+  academicYear: number = getCurrentAcademicYear(),
+  facultyName?: string
+): boolean {
+  if (!cohortFilter || cohortFilter === 'ALL') return true;
+  if (cohortFilter === 'MY_ADVISEES') {
+    if (!facultyName) return false;
+    return (r.advisor || '').trim().toLowerCase() === facultyName.trim().toLowerCase();
+  }
+
+  const pgyNum = r.cohort_year != null ? derivePGY(r.cohort_year, academicYear) : null;
+  const derived = deriveLabel(r, academicYear).toUpperCase();
+  const rawPgy = (r.pgy || '').toUpperCase();
+  const classYear = getResidentClassYear(r)?.toString() || '';
+  const target = cohortFilter.toUpperCase().trim();
+
+  // Handle PGY levels (PGY-1, PGY1, 1)
+  if (target === 'PGY-1' || target === 'PGY1' || target === '1') {
+    return pgyNum === 1 || derived === 'PGY1' || rawPgy.includes('PGY-1') || rawPgy.includes('PGY1');
+  }
+  if (target === 'PGY-2' || target === 'PGY2' || target === '2') {
+    return pgyNum === 2 || derived === 'PGY2' || rawPgy.includes('PGY-2') || rawPgy.includes('PGY2');
+  }
+  if (target === 'PGY-3' || target === 'PGY3' || target === '3') {
+    return pgyNum === 3 || derived === 'PGY3' || rawPgy.includes('PGY-3') || rawPgy.includes('PGY3');
+  }
+
+  // Handle Class Year queries like "2029", "Class of 2029", "CLASS_2029"
+  const yearMatch = target.match(/\d{4}/);
+  if (yearMatch) {
+    return classYear === yearMatch[0] || rawPgy.includes(yearMatch[0]);
+  }
+
+  return rawPgy.includes(target) || derived.includes(target);
+}
+
