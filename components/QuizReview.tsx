@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { KNOWN_REPEAT_IDS } from './QuestionCard';
 
 export interface QuizReviewItem {
   question: any;
@@ -121,7 +122,18 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
             }`}
           >
             <div className="flex items-start justify-between gap-3 mb-3">
-              <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{originalIndex + 1}. {q.question_text}</p>
+              <div className="space-y-1">
+                {(Boolean(q.is_repeat) || (q.id && KNOWN_REPEAT_IDS.has(q.id))) && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-black rounded-full uppercase tracking-wider cursor-help"
+                    title="This question appears in multiple ITEs"
+                  >
+                    <span aria-hidden="true">🔁</span>
+                    <span>High Yield Repeat Question</span>
+                  </span>
+                )}
+                <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{originalIndex + 1}. {q.question_text}</p>
+              </div>
               <span
                 className={`shrink-0 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${
                   skipped

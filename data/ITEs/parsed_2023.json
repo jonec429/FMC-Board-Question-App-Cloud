@@ -535,7 +535,7 @@
       "A) An ankle-brachial index",
       "B) A high-sensitivity C-reactive protein level",
       "C) A lipid panel",
-      "D) A coronary artery calcium score 14"
+      "D) A coronary artery calcium score"
     ],
     "answer": "C",
     "explanation": "A lipid panel provides total cholesterol and HDL-cholesterol data, which are two of the components necessary to calculate the American College of Cardiology/American Heart Association 10-year atherosclerotic cardiovascular disease (ASCVD) event risk using the Pooled Cohort Equations. Other components required to compute the ASCVD event risk score include race, sex, age, systolic blood pressure level, smoking status, presence of diabetes mellitus, and antihypertension treatment. An ankle-brachial index, a high-sensitivity C-reactive protein level, and a coronary artery calcium score are not used in the Pooled Cohort Equations to calculate a patient’s 10-year ASCVD event risk. Ref:Goff DC Jr, Lloyd-Jones DM, Bennett G, et al. American College of Cardiology/American Heart Association Task Force on Practice Guidelines: 2013 ACC/AHA guideline on the assessment of cardiovascular risk: a report of the American College of Cardiology/American Heart Association Task Force on Practice Guidelines. Circulation. 2014;129(25 Suppl 2):S49-S73. 2) US Preventive Services Task Force. Final recommendation statement: cardiovascular disease: risk assessment with nontraditional risk factors. Updated July 10, 2018."
@@ -1283,7 +1283,7 @@
       "B) Inhaled bronchodilators",
       "C) Nebulized hypertonic saline every 4 hours",
       "D) Systemic corticosteroids",
-      "E) Chest physiotherapy three times a day 35"
+      "E) Chest physiotherapy three times a day"
     ],
     "answer": "A",
     "explanation": "upportive care including as-needed oxygen and frequent nasal hygiene, in addition to hydration with intravenous fluids if indicated, are the mainstays of treatment in otherwise healthy infants hospitalized with respiratory syncytial virus (RSV) bronchiolitis. Inhaled bronchodilators, nebulized hypertonic saline, systemic corticosteroids, and chest physiotherapy do not reduce the length of hospitalization and are not indicated as first-line treatment in infants hospitalized with RSV bronchiolitis. Ref:Gadomski AM, Scribani MB. Bronchodilators for bronchiolitis. Cochrane Database Syst Rev. 2014;(6):CD001266. 2) Heikkilä P, Korppi M. Hypertonic saline in bronchiolitis: an updated meta-analysis. Arch Dis Child. 2021;106(1):102. 3) Carlone G, Graziano G, Trotta D, et al. Bronchiolitis 2021–2022 epidemic: multicentric analysis of the characteristics and treatment approach in 214 children from different areas in Italy. Eur J Pediatr. 2023;182(4):1921-1927."
@@ -1574,7 +1574,7 @@
       "B) A 36-year-old male with a BMI of 27 kg/m2",
       "C) A 52-year-old female with a BMI of 22 kg/m2",
       "D) A 72-year-old male with a BMI of 32 kg/m2",
-      "E) An 84-year-old female with a BMI of 40 kg/m2 43"
+      "E) An 84-year-old female with a BMI of 40 kg/m2"
     ],
     "answer": "B",
     "explanation": "he U.S. Preventive Services Task Force (USPSTF) recommends that all nonpregnant adults ages 35–70 who are overweight (BMI 25 kg/m2) or obese (BMI 30 kg/m2) be screened for diabetes mellitus and prediabetes with a fasting glucose level, hemoglobin A1c, or glucose tolerance test (B recommendation). In 2021, the age of screening was decreased from 40 to 35. In addition to the above recommendations, patients with a family history of diabetes or a personal history of gestational diabetes or polycystic ovary syndrome should be considered for screening at a younger age. In patients who belong to groups with high rates of diabetes such as American Indian/Alaska Native, Asian American, Black, Hispanic/Latino, or Native Hawaiian/Pacific Islander, screening can also start at a younger age. The recommended interval for screening is every 3 years. Routine screening for prediabetes and diabetes in persons over the age of 70 is not a current recommendation. While the risk of prediabetes and diabetes increases with age, patients older than 70 with prediabetes have a low likelihood of progressing to diabetes. More commonly, they either maintain prediabetes status or regress to normoglycemia (SOR B). Ref:US Preventive Services Task Force. Final recommendation statement: prediabetes and type 2 diabetes: screening. Updated August 24, 2021. 2) Rooney MR, Rawlings AM, Pankow JS, et al. Risk of progression to diabetes among older adults with prediabetes. JAMA Intern Med. 2021;181(4):511-519."

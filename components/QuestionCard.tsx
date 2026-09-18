@@ -13,7 +13,16 @@ interface Question {
   resource_link?: string;
   category?: string;
   year?: string;
+  is_repeat?: boolean | null;
 }
+
+// Known repeat questions that appear across multiple ITEs
+export const KNOWN_REPEAT_IDS = new Set<string>([
+  'b9d5b51f-8c32-472d-8f02-7ac394f086e1', // 2025 Item: Ankle injury / Ottawa ankle rules
+  'dda216f2-f1f8-4495-b597-bddab68e6b34', // 2025 Item: Ankle injury / Ottawa ankle rules (Repeat)
+  '41a27c0b-06ad-4593-8c67-4a68f24399cf', // 2025 Item: Heart failure / fatigue workup
+  'c60df00e-8b1d-4e35-8ed0-29c1b59348ef', // 2025 Item: Heart failure / fatigue workup (Repeat)
+]);
 
 interface QuestionCardProps {
   question: Question;
@@ -320,9 +329,20 @@ function QuestionCard({
       {/* Stem */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none p-3 md:p-5 border border-slate-100 dark:border-slate-800 relative group transition-colors">
         <div className="flex flex-wrap justify-between items-start mb-3 gap-2">
-          <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
-            {question.category || 'General Medicine'}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
+              {question.category || 'General Medicine'}
+            </span>
+            {(Boolean(question.is_repeat) || (question.id && KNOWN_REPEAT_IDS.has(question.id))) && (
+              <span
+                className="px-2.5 py-1 bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-help hover:bg-amber-500/20 transition-all select-none"
+                title="This question appears in multiple ITEs"
+              >
+                <span aria-hidden="true">🔁</span>
+                <span>High Yield Repeat Question</span>
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1">
             {highlights.length > 0 && !showExplanation && (
               <button
