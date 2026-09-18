@@ -792,6 +792,7 @@ export default function AdviseeQuickAccessCard({
           facultyName={facultyName}
           selectedYear={selectedYear}
           advisees={dossierAdvisees}
+          adminData={adminData}
           initialSelectedEmail={dossierSelectedEmail}
           onClose={() => setShowDossierModal(false)}
         />

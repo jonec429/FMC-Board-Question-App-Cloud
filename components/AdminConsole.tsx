@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Loader2, Megaphone
+  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Loader2, Megaphone, FileText
 } from './AppIcons';
 import AdminPerformance from './AdminPerformance';
 import AttendanceManager from './AttendanceManager';
@@ -49,7 +49,7 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
       items: [
         { id: 'performance', label: 'Performance', icon: BarChartIcon, description: 'Resident progress & risk flags' },
         { id: 'assign', label: 'Assign Quizzes', icon: Sparkles, description: 'Assign targeted practice' },
-        { id: 'reporting', label: 'Export & PDF', icon: Database, adminOnly: true, description: 'Download CSVs and PDFs' },
+        { id: 'reporting', label: 'Reports & CCC Export', icon: FileText, description: 'Customized CCC review packets, dossiers, & CSVs' },
       ],
     },
     {
@@ -167,7 +167,7 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
           {/* Main Content */}
           <main className="flex-1 min-w-0">
             {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} />}
-            {activeTab === 'reporting' && adminDataResult.data && <AdminReporting adminData={adminDataResult.data} />}
+            {activeTab === 'reporting' && adminDataResult.data && <AdminReporting adminData={adminDataResult.data} user={user} profile={profile} />}
             {activeTab === 'roster' && <RosterManager />}
             {activeTab === 'attendance' && <AttendanceManager />}
             {activeTab === 'questions' && <QuestionBankManager />}

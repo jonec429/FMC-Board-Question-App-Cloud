@@ -6,8 +6,9 @@ import { formatDisplayName, formatLastNameFirst, formatTopicDisplay } from '@/li
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
-import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download } from './AppIcons';
+import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
+import AdviseeDossierModal from './AdviseeDossierModal';
 import RiskLegend from './RiskLegend';
 import QuizReview from './QuizReview';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
@@ -84,6 +85,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
   const [showGraduates, setShowGraduates] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
+  const [dossierResidentEmail, setDossierResidentEmail] = useState<string | null>(null);
+  const [showCccModal, setShowCccModal] = useState(false);
 
   const [isAdjustingPoints, setIsAdjustingPoints] = useState(false);
   const [adjustPointsValue, setAdjustPointsValue] = useState<number>(1);
@@ -839,6 +842,13 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <button 
+                  onClick={() => setShowCccModal(true)}
+                  className="px-3.5 py-2 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs sm:text-sm shadow-sm"
+                  title="Generate customized Clinical Competency Committee (CCC) report or printable dossiers"
+                >
+                  <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Generate CCC Report
+                </button>
+                <button 
                   onClick={exportOverviewToCSV}
                   className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs sm:text-sm shadow-sm"
                   title="Download full resident performance table as CSV"
@@ -1126,22 +1136,28 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           <div className="bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
             <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
               <div className="w-full">
-                <div className="flex items-center gap-3 mb-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
                   <h2 className="text-2xl font-black text-slate-800 dark:text-white">{formatDisplayName(selectedResident.name)}</h2>
+                  <button
+                    onClick={() => setDossierResidentEmail(selectedResident.email)}
+                    className="self-start sm:self-auto px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                  >
+                    <Printer className="w-3.5 h-3.5" /> Print Dossier (PDF)
+                  </button>
                 </div>
                 <p className="text-sm font-bold text-slate-400 dark:text-slate-400 mb-6">{selectedResident.label} · Advisor: {selectedResident.advisor || '—'}</p>
                 <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.curriculumAttempts > 0 ? `${selectedResident.curriculumAvg.toFixed(1)}%` : '—'}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Curr Avg</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Curriculum Avg</div>
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.independentAttempts > 0 && selectedResident.independentAvg !== null ? `${selectedResident.independentAvg.toFixed(1)}%` : '—'}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Indep Avg</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Independent Avg</div>
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.totalAttempts > 0 ? `${selectedResident.overallAvg.toFixed(1)}%` : '—'}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total Avg</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Overall Total</div>
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.blocksCompleted}</div>
@@ -1149,15 +1165,15 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.blocksCompleted > 0 ? `${selectedResident.onTimePct.toFixed(0)}%` : '—'}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">On-Time</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">On-Time Rate</div>
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.totalPoints}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Points</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Academic Pts</div>
                   </div>
                   <div className="text-center">
                     <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.totalAttendance}</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attend</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attendance</div>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-6">
@@ -1692,6 +1708,21 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           </div>
         );
       })()}
+
+      {/* Dossier Modal from Admin Performance */}
+      {(dossierResidentEmail || showCccModal) && (
+        <AdviseeDossierModal
+          facultyName={facultyName || 'FMC Clinical Competency Committee'}
+          selectedYear={selectedYear}
+          advisees={[]}
+          adminData={adminData}
+          initialSelectedEmail={dossierResidentEmail || undefined}
+          onClose={() => {
+            setDossierResidentEmail(null);
+            setShowCccModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

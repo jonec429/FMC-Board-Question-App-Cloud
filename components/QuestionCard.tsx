@@ -33,50 +33,140 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Apply highlight markup to question_text by wrapping matching strings in <mark>
-function applyHighlights(html: string, highlights: string[]): string {
-  if (!highlights || highlights.length === 0) return html;
-  let result = html;
-  // Sort longest-first so longer phrases match before substrings of them
-  const sorted = [...highlights].sort((a, b) => {
-    const textA = a.includes('|') ? a.substring(a.indexOf('|') + 1) : a;
-    const textB = b.includes('|') ? b.substring(b.indexOf('|') + 1) : b;
-    return textB.length - textA.length;
-  });
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
-  sorted.forEach(h => {
-    let targetIndex = -1;
+function escapeHtmlAttr(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Build a regex that matches sequences of words separated by any whitespace (spaces, \n, \r, tabs)
+function buildHighlightRegex(text: string): RegExp {
+  const tokens = text.trim().split(/\s+/).map(t => escapeRegex(t));
+  return new RegExp(tokens.join('\\s+'), 'gi');
+}
+
+// Apply highlight markup to question_text by calculating character spans and generating valid HTML
+function applyHighlights(rawText: string, highlights: string[]): string {
+  if (!rawText) return '';
+
+  const divIndex = rawText.indexOf('<div');
+  const textContent = divIndex !== -1 ? rawText.substring(0, divIndex) : rawText;
+  const trailingHtml = divIndex !== -1 ? rawText.substring(divIndex) : '';
+
+  if (!highlights || highlights.length === 0) {
+    return escapeHtml(textContent) + trailingHtml;
+  }
+
+  interface HighlightSpan {
+    start: number;
+    end: number;
+    id: string;
+  }
+
+  const spans: HighlightSpan[] = [];
+
+  highlights.forEach(h => {
+    let targetIndex = 0;
     let textToHighlight = h;
-    
-    // Check if it's the new format: `index|text`
-    const match = h.match(/^(\d+)\|(.+)$/);
+
+    // Support index|text format while safely allowing newlines in text
+    const match = h.match(/^(\d+)\|([\s\S]+)$/);
     if (match) {
-        targetIndex = parseInt(match[1], 10);
-        textToHighlight = match[2];
+      targetIndex = parseInt(match[1], 10);
+      textToHighlight = match[2];
     }
 
-    if (!textToHighlight || textToHighlight.length < 2) return;
-    
-    // Character-level match outside of HTML tags without enforcing whole-word boundaries
-    const regex = new RegExp(`(${escapeRegex(textToHighlight)})(?![^<]*>)`, 'gi');
-    
-    if (targetIndex === -1) {
-        // Legacy: highlight all occurrences
-        result = result.replace(regex, `<mark class="highlight-marker cursor-pointer transition-colors" title="Click to remove highlight" data-id="${h}">$1</mark>`);
-    } else {
-        // Highlight specific occurrence
-        let currentMatch = 0;
-        result = result.replace(regex, (fullMatch, group1) => {
-            if (currentMatch === targetIndex) {
-                currentMatch++;
-                return `<mark class="highlight-marker cursor-pointer transition-colors" title="Click to remove highlight" data-id="${h}">${group1}</mark>`;
-            }
-            currentMatch++;
-            return fullMatch;
+    if (!textToHighlight || textToHighlight.trim().length < 2) return;
+
+    const regex = buildHighlightRegex(textToHighlight);
+    let m: RegExpExecArray | null;
+    let currentMatch = 0;
+    let found = false;
+
+    while ((m = regex.exec(textContent)) !== null) {
+      if (currentMatch === targetIndex) {
+        spans.push({
+          start: m.index,
+          end: m.index + m[0].length,
+          id: h
         });
+        found = true;
+        break;
+      }
+      currentMatch++;
+    }
+
+    // Fallback if targetIndex wasn't reached (e.g. whitespace count variation)
+    if (!found && targetIndex > 0) {
+      regex.lastIndex = 0;
+      if ((m = regex.exec(textContent)) !== null) {
+        spans.push({
+          start: m.index,
+          end: m.index + m[0].length,
+          id: h
+        });
+      }
     }
   });
-  return result;
+
+  if (spans.length === 0) {
+    return escapeHtml(textContent) + trailingHtml;
+  }
+
+  // Collect boundary points to partition the string into non-overlapping segments
+  const points = new Set<number>([0, textContent.length]);
+  spans.forEach(s => {
+    points.add(s.start);
+    points.add(s.end);
+  });
+  const sortedPoints = Array.from(points).sort((a, b) => a - b);
+
+  interface Segment {
+    start: number;
+    end: number;
+    spanId: string | null;
+  }
+  const segments: Segment[] = [];
+
+  for (let i = 0; i < sortedPoints.length - 1; i++) {
+    const pStart = sortedPoints[i];
+    const pEnd = sortedPoints[i + 1];
+    // If overlapping, pick the latest highlight span
+    const coveringSpan = spans.slice().reverse().find(s => s.start <= pStart && s.end >= pEnd) || null;
+    const spanId = coveringSpan ? coveringSpan.id : null;
+
+    const prevSeg = segments[segments.length - 1];
+    if (prevSeg && prevSeg.spanId === spanId) {
+      prevSeg.end = pEnd;
+    } else {
+      segments.push({ start: pStart, end: pEnd, spanId });
+    }
+  }
+
+  let resultHtml = '';
+  segments.forEach(seg => {
+    const rawSeg = textContent.substring(seg.start, seg.end);
+    if (!rawSeg) return;
+
+    if (seg.spanId) {
+      resultHtml += `<mark class="highlight-marker cursor-pointer transition-colors" title="Click to remove highlight" data-id="${escapeHtmlAttr(seg.spanId)}">${escapeHtml(rawSeg)}</mark>`;
+    } else {
+      resultHtml += escapeHtml(rawSeg);
+    }
+  });
+
+  return resultHtml + trailingHtml;
 }
 
 function QuestionCard({
@@ -139,23 +229,31 @@ function QuestionCard({
                        (range.commonAncestorContainer && stemNode.contains(range.commonAncestorContainer));
     if (!intersects) return;
 
-    const text = selection.toString().trim();
+    // Constrain selection range strictly within stemNode so dragging outside doesn't capture extra text
+    const effectiveRange = range.cloneRange();
+    if (!stemNode.contains(effectiveRange.startContainer)) {
+      effectiveRange.setStart(stemNode, 0);
+    }
+    if (!stemNode.contains(effectiveRange.endContainer)) {
+      effectiveRange.setEnd(stemNode, stemNode.childNodes.length);
+    }
+    if (effectiveRange.collapsed) return;
+
+    const text = effectiveRange.toString().trim();
     if (text.length < 2) return;
 
     // Calculate which occurrence this is in the text
     let highlightId = text;
     try {
-      const preSelectionRange = range.cloneRange();
+      const preSelectionRange = effectiveRange.cloneRange();
       preSelectionRange.selectNodeContents(stemNode);
-      if (stemNode.contains(range.startContainer)) {
-        preSelectionRange.setEnd(range.startContainer, range.startOffset);
-      }
+      preSelectionRange.setEnd(effectiveRange.startContainer, effectiveRange.startOffset);
       const preSelectionText = preSelectionRange.toString();
-      
-      const regex = new RegExp(escapeRegex(text), 'gi');
+
+      const regex = buildHighlightRegex(text);
       const matches = preSelectionText.match(regex);
       const matchIndex = matches ? matches.length : 0;
-      
+
       highlightId = `${matchIndex}|${text}`;
     } catch (e) {
       highlightId = text;
