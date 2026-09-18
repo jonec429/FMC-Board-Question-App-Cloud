@@ -11,6 +11,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { CANONICAL_CATEGORIES } from '@/lib/csvImport';
 import { withTimeout } from '@/lib/utils';
 import { AdminData } from '@/lib/types';
+import { KNOWN_REPEAT_IDS } from './QuestionCard';
 
 type SubTab = 'browse' | 'import';
 
@@ -92,11 +93,26 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
     {
       accessorKey: 'question_text',
       header: 'Question',
-      cell: info => (
-        <div className="text-sm font-medium text-slate-800 dark:text-slate-200 line-clamp-2" title={info.getValue() as string}>
-          {info.getValue() as string}
-        </div>
-      ),
+      cell: info => {
+        const q = info.row.original;
+        const isRepeat = Boolean(q.is_repeat || (q.id && KNOWN_REPEAT_IDS.has(q.id)));
+        return (
+          <div className="space-y-1">
+            {isRepeat && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[9px] font-black rounded-full uppercase tracking-wider cursor-help"
+                title="This question appears in multiple ITEs"
+              >
+                <span aria-hidden="true">🔁</span>
+                <span>High Yield Repeat</span>
+              </span>
+            )}
+            <div className="text-sm font-medium text-slate-800 dark:text-slate-200 line-clamp-2" title={info.getValue() as string}>
+              {info.getValue() as string}
+            </div>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'category',
@@ -163,7 +179,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
       // Clean up options array
       const options = editingQuestion.options.filter((opt: string) => opt.trim() !== '');
       
-      const payload = {
+      const payload: any = {
         question_text: editingQuestion.question_text,
         category: editingQuestion.category,
         year: editingQuestion.year,
@@ -173,10 +189,24 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
         resource_link: editingQuestion.resource_link
       };
 
-      const { error } = await supabase
+      if (editingQuestion.is_repeat !== undefined) {
+        payload.is_repeat = Boolean(editingQuestion.is_repeat);
+      }
+
+      let { error } = await supabase
         .from('questions')
         .update(payload)
         .eq('id', editingQuestion.id);
+
+      // Graceful fallback if is_repeat column hasn't been migrated in Supabase yet
+      if (error && error.message && error.message.includes('is_repeat')) {
+        delete payload.is_repeat;
+        const retry = await supabase
+          .from('questions')
+          .update(payload)
+          .eq('id', editingQuestion.id);
+        error = retry.error;
+      }
 
       if (error) throw error;
 
@@ -195,7 +225,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
     let full = q;
     try {
       const { data, error } = await withTimeout(
-        supabase.from('questions').select('explanation, resource_link').eq('id', q.id).maybeSingle(),
+        supabase.from('questions').select('explanation, resource_link, is_repeat').eq('id', q.id).maybeSingle(),
         5000
       );
       if (!error && data) full = { ...q, ...data };
@@ -203,8 +233,12 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
       console.warn('Lazy-fetch of full question failed; opening editor with partial row:', err);
     }
     const paddedOptions = [...(full.options || []), '', '', '', '', ''].slice(0, 5);
+    const isRepeat = full.is_repeat !== undefined && full.is_repeat !== null
+      ? Boolean(full.is_repeat)
+      : KNOWN_REPEAT_IDS.has(full.id);
     setEditingQuestion({
       ...full,
+      is_repeat: isRepeat,
       options: paddedOptions,
       correct_index: full.correct_index.toString()
     });
@@ -259,7 +293,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
               <form id="edit-question-form" onSubmit={handleEditSave} className="space-y-6">
                 
                 {/* Meta */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Category</label>
                     <select 
@@ -281,6 +315,20 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                       placeholder="e.g. 2025"
                       className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-700 dark:text-slate-200"
                     />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">High Yield Repeat</label>
+                    <label className="flex items-center cursor-pointer h-[50px] px-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 select-none hover:border-amber-400/50 transition-colors">
+                      <input 
+                        type="checkbox"
+                        checked={Boolean(editingQuestion.is_repeat)}
+                        onChange={(e) => setEditingQuestion({...editingQuestion, is_repeat: e.target.checked})}
+                        className="w-4 h-4 text-amber-500 rounded accent-amber-500 cursor-pointer"
+                      />
+                      <span className="ml-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1">
+                        <span>🔁</span> Appears in multiple ITEs
+                      </span>
+                    </label>
                   </div>
                 </div>
 
