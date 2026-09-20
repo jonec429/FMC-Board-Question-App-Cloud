@@ -72,9 +72,19 @@ export function deriveLabel(row: RosterRow, academicYear: number = getCurrentAca
   }
 }
 
+/** True if this row belongs to faculty or staff. */
+export function isFacultyRow(row: RosterRow): boolean {
+  if (row.track === 'faculty') return true;
+  if ((row.pgy || '').toLowerCase() === 'faculty') return true;
+  const role = (row.role || '').toLowerCase();
+  if (role === 'faculty' || role === 'admin' || role === 'gme_staff') return true;
+  return false;
+}
+
 /** True if this row is an active FM resident — the cohort that takes ITE blocks. */
 export function isActiveResident(row: RosterRow): boolean {
   if ((row.status ?? 'active') !== 'active') return false;
+  if (isFacultyRow(row)) return false;
   if (row.track) return row.track === 'family_medicine';
   // Legacy fallback for rows not yet migrated to the track model: anything not
   // explicitly marked Faculty is treated as a resident.

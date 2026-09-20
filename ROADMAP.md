@@ -60,6 +60,24 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-09-20 (Antigravity)
+**Shipped this session**:
+1. **Mobile Layout Prioritization & Reordering**:
+   - **QOTD to the Top**: Positioned Question of the Day as priority #1 on mobile screens (`order-1 md:order-1`).
+   - **Active Block / Resume Block**: Ordered as priority #2 (`order-2 md:order-3`).
+   - **Quiz Builder**: Ordered as priority #3 (`order-3 md:order-2`).
+   - **Board Review Blocks**: Positioned right after the quick-action row, eliminating excessive mobile scrolling.
+   - **Desktop Layout Preserved**: The desktop 2-column sidebar and 3-column top action row remain completely unchanged.
+2. **Mobile Quick-Access Row (3 App-Icon Cards)**:
+   - Replaced the 700px+ vertical left sidebar on mobile (`< md`) with a compact, single-row (~80px height) trio of app-icon cards:
+     - 🏆 **Performance**: Shows AP total and rank badge (`{totalPoints} AP · #{myRank}`); opens `MyStatsModal`.
+     - 🎖️ **Badges**: Shows active streak (`🔥 {streak}d`) or total badges earned; opens `AchievementsModal`.
+     - 📊 **Leaderboard**: Shows standing (`Rank #{myRank}`); opens the dedicated **Mobile Leaderboard Modal**.
+3. **Mobile Leaderboard Modal**:
+   - Built a dedicated mobile modal displaying active streaks (`🔥 QOTD` and `⚡ Block`), the Academic Points Leaderboard with the resident's rank, and the Class Leaderboard with interactive YoY drilldowns.
+
+**Workflow gate:** `npx tsc --noEmit` + `npm run build` both pass cleanly.
+
 ### ▶️ Session Handoff — 2026-09-07 (Antigravity)
 **Shipped this session**:
 1. **1-Click G-Suite / Gmail Email Workflows (Admins & Faculty Advisors)**:

@@ -118,6 +118,19 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const [showMyStats, setShowMyStats] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showQotdHistoryModal, setShowQotdHistoryModal] = useState(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (
+        localStorage.getItem(`fmc_demo_banner_dismissed_${user.id}`) === 'true' ||
+        localStorage.getItem(`fmc_demo_completed_${user.id}`) === 'true'
+      ) {
+        setDemoBannerDismissed(true);
+      }
+    } catch {}
+  }, [user.id]);
 
   // Per-user block sort preference (each resident sorts their own list; saved locally)
   const [blockSort, setBlockSort] = useState<'curriculum' | 'name' | 'status'>('curriculum');
@@ -187,6 +200,9 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const avgPct = myResults.length > 0
     ? myResults.reduce((a, r) => a + (r.percentage || 0), 0) / myResults.length
     : null;
+
+  const myRankIdx = leaderboard.findIndex(d => Boolean(d.email && user.email && d.email.toLowerCase() === user.email.toLowerCase()));
+  const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
 
   // Advisor Meeting logic
   const [claimingAdvisorMeeting, setClaimingAdvisorMeeting] = useState(false);
@@ -300,9 +316,9 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       </div>
 
       {/* Onboarding Banner for New Users */}
-      {!hasTakenDemo && !mostRecentSession && !loading && (
+      {!hasTakenDemo && !demoBannerDismissed && !mostRecentSession && !loading && (
         <div className="mb-6 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden animate-fade-in">
-          <div className="flex items-start gap-3 flex-1 min-w-0">
+          <div className="flex items-start gap-3 flex-1 min-w-0 pr-8 md:pr-0">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/60 rounded-xl shrink-0">
               <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
@@ -315,19 +331,34 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
               </p>
             </div>
           </div>
-          <button
-            onClick={() => {
-              const demoBlock = blocks.find(b => b.block_type === 'demo' || b.title === 'Demo Quiz');
-              if (demoBlock) {
-                onStartQuiz({ topic: demoBlock.title, quizId: demoBlock.id, count: 3 });
-              } else {
-                onStartQuiz({ topic: 'Demo Quiz', count: 3 });
-              }
-            }}
-            className="shrink-0 whitespace-nowrap bg-blue-600 text-white hover:bg-blue-700 px-5 py-2.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-2 text-sm"
-          >
-            Take Demo Quiz <ChevronRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 w-full md:w-auto justify-end shrink-0">
+            <button
+              onClick={() => {
+                const demoBlock = blocks.find(b => b.block_type === 'demo' || b.title === 'Demo Quiz');
+                if (demoBlock) {
+                  onStartQuiz({ topic: demoBlock.title, quizId: demoBlock.id, count: 3 });
+                } else {
+                  onStartQuiz({ topic: 'Demo Quiz', count: 3 });
+                }
+              }}
+              className="shrink-0 whitespace-nowrap bg-blue-600 text-white hover:bg-blue-700 px-5 py-2.5 rounded-lg font-bold shadow-sm transition-all flex items-center gap-2 text-sm"
+            >
+              Take Demo Quiz <ChevronRight className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                setDemoBannerDismissed(true);
+                try {
+                  localStorage.setItem(`fmc_demo_banner_dismissed_${user.id}`, 'true');
+                } catch {}
+              }}
+              className="p-2 text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors"
+              title="Dismiss banner"
+              aria-label="Dismiss banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -335,7 +366,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       <div className="flex flex-col md:flex-row gap-6">
 
         {/* LEFT SIDEBAR */}
-        <div className="md:w-80 flex flex-col gap-4 shrink-0">
+        <div className="hidden md:flex md:w-80 flex-col gap-4 shrink-0">
           
           {/* My Performance — yellow gradient (Positioned on top per user request) */}
           <button
@@ -424,7 +455,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
             
             {/* Block 1: Question of the Day */}
-            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 sm:p-5 text-white shadow-md relative overflow-hidden flex flex-col justify-between hover:-translate-y-0.5 transition-all group min-h-[170px]">
+            <div className="order-1 md:order-1 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 sm:p-5 text-white shadow-md relative overflow-hidden flex flex-col justify-between hover:-translate-y-0.5 transition-all group min-h-[170px]">
               <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
               <div className="relative z-10">
                 <div className="flex items-center justify-between gap-2 mb-2">
@@ -517,7 +548,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             {/* Block 2: Quiz Builder */}
             <button
               onClick={onOpenBuilder}
-              className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+              className="order-3 md:order-2 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
             >
               <div className="flex items-center justify-between gap-2 mb-2 w-full">
                 <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-indigo-900 dark:text-indigo-100">
@@ -551,7 +582,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     count: 40,
                   });
                 }}
-                className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+                className="order-2 md:order-3 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
               >
                 <div className="flex items-center justify-between gap-2 mb-2 w-full">
                   <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-amber-900 dark:text-amber-100">
@@ -576,7 +607,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             ) : currentBlock ? (
               <button
                 onClick={() => onStartQuiz({ topic: currentBlock.title, quizId: currentBlock.id, count: 40 })}
-                className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+                className="order-2 md:order-3 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
               >
                 <div className="flex items-center justify-between gap-2 mb-2 w-full">
                   <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-emerald-900 dark:text-emerald-100">
@@ -599,7 +630,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                 </div>
               </button>
             ) : (
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between text-left min-h-[170px]">
+              <div className="order-2 md:order-3 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between text-left min-h-[170px]">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
                     <CheckCircle className="w-4 h-4 text-emerald-500" />
@@ -614,6 +645,61 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                 </span>
               </div>
             )}
+          </div>
+
+          {/* MOBILE ONLY: 3 Compact App-Icon Cards (Performance, Badges, Leaderboard) */}
+          <div className="grid grid-cols-3 gap-2.5 mb-4 md:hidden">
+            {/* Card 1: Performance */}
+            <button
+              onClick={() => setShowMyStats(true)}
+              className="p-3 bg-gradient-to-br from-amber-500/10 to-yellow-500/10 dark:from-amber-500/15 dark:to-yellow-500/15 border border-amber-200/80 dark:border-amber-800/50 rounded-2xl flex flex-col items-center justify-center text-center group hover:scale-[1.02] active:scale-95 transition-all shadow-sm"
+            >
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-white flex items-center justify-center mb-1.5 shadow-md shadow-amber-500/20 group-hover:rotate-6 transition-transform">
+                <Trophy className="w-4.5 h-4.5 text-amber-950" />
+              </div>
+              <span className="text-[11px] font-black text-slate-800 dark:text-slate-100 truncate w-full">
+                Performance
+              </span>
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 truncate w-full">
+                {totalPoints} AP{myRank ? ` · #${myRank}` : ''}
+              </span>
+            </button>
+
+            {/* Card 2: Badges & Achievements */}
+            <button
+              onClick={() => setShowAchievements(true)}
+              className="p-3 bg-gradient-to-br from-purple-500/10 to-pink-500/10 dark:from-purple-500/15 dark:to-pink-500/15 border border-purple-200/80 dark:border-purple-800/50 rounded-2xl flex flex-col items-center justify-center text-center group hover:scale-[1.02] active:scale-95 transition-all shadow-sm"
+            >
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center mb-1.5 shadow-md shadow-purple-500/20 group-hover:rotate-6 transition-transform">
+                <Sparkles className="w-4.5 h-4.5 text-yellow-300" />
+              </div>
+              <span className="text-[11px] font-black text-slate-800 dark:text-slate-100 truncate w-full">
+                Badges
+              </span>
+              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 truncate w-full">
+                {userStreak?.current_qotd_streak > 0 
+                  ? `🔥 ${userStreak.current_qotd_streak}d streak` 
+                  : userBadges.length > 0 
+                  ? `${userBadges.length} earned` 
+                  : 'View all'}
+              </span>
+            </button>
+
+            {/* Card 3: Leaderboard */}
+            <button
+              onClick={() => setShowLeaderboardModal(true)}
+              className="p-3 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 dark:from-blue-500/15 dark:to-cyan-500/15 border border-blue-200/80 dark:border-blue-800/50 rounded-2xl flex flex-col items-center justify-center text-center group hover:scale-[1.02] active:scale-95 transition-all shadow-sm"
+            >
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white flex items-center justify-center mb-1.5 shadow-md shadow-blue-500/20 group-hover:rotate-6 transition-transform">
+                <Trophy className="w-4.5 h-4.5 text-white" />
+              </div>
+              <span className="text-[11px] font-black text-slate-800 dark:text-slate-100 truncate w-full">
+                Leaderboard
+              </span>
+              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 truncate w-full">
+                {myRank ? `Rank #${myRank}` : 'Standings'}
+              </span>
+            </button>
           </div>
 
           {/* Advisee Hub for Faculty and Admins (Moved Below Top 3 Blocks, Default Collapsed) */}
@@ -733,24 +819,23 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           ) : (
             <div className="flex flex-col gap-2.5">
               {[...blocks].sort((a, b) => {
-                const isDemoA = a.block_type === 'demo' || (a.title || '').toLowerCase().includes('demo');
-                const isDemoB = b.block_type === 'demo' || (b.title || '').toLowerCase().includes('demo');
-                
-                // Pin Demo block to top
-                if (isDemoA && !isDemoB) return -1;
-                if (!isDemoA && isDemoB) return 1;
-
                 if (blockSort === 'name') return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
                 if (blockSort === 'status') {
                   const rA = bestResultByTopic.get(a.title); const rB = bestResultByTopic.get(b.title);
-                  const doneA = !!rA && ((rA.academic_points || 0) > 0 || rA.timing_status != null);
-                  const doneB = !!rB && ((rB.academic_points || 0) > 0 || rB.timing_status != null);
+                  const isDemoA = a.block_type === 'demo' || (a.title || '').toLowerCase().includes('demo');
+                  const isDemoB = b.block_type === 'demo' || (b.title || '').toLowerCase().includes('demo');
+                  const doneA = isDemoA ? hasTakenDemo : !!rA && ((rA.academic_points || 0) > 0 || rA.timing_status != null);
+                  const doneB = isDemoB ? hasTakenDemo : !!rB && ((rB.academic_points || 0) > 0 || rB.timing_status != null);
                   return Number(doneA) - Number(doneB);
                 }
                 return 0; // 'curriculum' — keep server order (by sort_order)
               }).map(block => {
                 const result = bestResultByTopic.get(block.title);
-                const isCompleted = !!result && ((result.academic_points || 0) > 0 || result.timing_status != null);
+                const titleLc = (block.title || '').toLowerCase();
+                const isDemoBlock = block.block_type === 'demo' || titleLc.includes('demo');
+                const isCompleted = isDemoBlock 
+                  ? hasTakenDemo 
+                  : !!result && ((result.academic_points || 0) > 0 || result.timing_status != null);
                 // Sprint 5: prefer the fixed assigned question set so every resident sees the
                 // same questions (order is still randomized client-side in QuizEngine).
                 // Falls back to category filters for legacy/uninitialized blocks.
@@ -764,8 +849,6 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
                 // Themed block icon: green check when done, otherwise by type —
                 // play = demo, gem = bonus, open book = standard board-review block.
-                const titleLc = (block.title || '').toLowerCase();
-                const isDemoBlock = block.block_type === 'demo' || titleLc.includes('demo');
                 const isBonusBlock = titleLc.includes('bonus');
                 const BlockIcon = isCompleted ? CheckCircle : isDemoBlock ? PlayCircle : isBonusBlock ? Gem : BookOpen;
                 
@@ -873,6 +956,78 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           leaderboardData={leaderboard}
           onClose={() => setSelectedYoyClass(null)}
         />
+      )}
+
+      {/* Mobile Leaderboard Modal */}
+      {showLeaderboardModal && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in"
+          onClick={() => setShowLeaderboardModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl transition-colors overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl">
+                  <Trophy className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-slate-800 dark:text-white">Leaderboards</h2>
+                  <p className="text-xs font-bold text-slate-400 dark:text-slate-500">
+                    {formatAcademicYear(selectedYear)} Standings
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLeaderboardModal(false)}
+                className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 overflow-y-auto space-y-4">
+              {userStreak && (userStreak.current_qotd_streak > 0 || userStreak.current_block_streak > 0) && (
+                <div className="grid grid-cols-2 gap-2">
+                  {userStreak.current_qotd_streak > 0 && (
+                    <div className="p-2.5 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-xl border border-orange-100 dark:border-orange-900/40 flex items-center gap-2">
+                      <span className="text-lg">🔥</span>
+                      <div className="min-w-0">
+                        <div className="font-black text-xs truncate">{userStreak.current_qotd_streak}d Streak</div>
+                        <div className="text-[9px] font-bold opacity-75 truncate">QOTD</div>
+                      </div>
+                    </div>
+                  )}
+                  {userStreak.current_block_streak > 0 && (
+                    <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl border border-blue-100 dark:border-blue-900/40 flex items-center gap-2">
+                      <span className="text-lg">⚡</span>
+                      <div className="min-w-0">
+                        <div className="font-black text-xs truncate">{userStreak.current_block_streak} Blk Streak</div>
+                        <div className="text-[9px] font-bold opacity-75 truncate">On-Time</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {leaderboard.length > 0 ? (
+                <>
+                  <LeaderboardWidget data={leaderboard} myEmail={user.email} />
+                  <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => {
+                    setShowLeaderboardModal(false);
+                    setSelectedYoyClass(pgy);
+                  }} />
+                </>
+              ) : (
+                <p className="text-center py-6 text-slate-400 text-sm italic">No leaderboard data available.</p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {showInstallApp && <InstallAppModal onClose={() => setShowInstallApp(false)} />}

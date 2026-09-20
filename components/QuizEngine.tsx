@@ -591,14 +591,19 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         review_data: questions.map((q, idx) => ({ q: q.id, a: finalAnswers[idx] ?? null })),
       };
 
-      if (!isDemo && !isQotd) {
+      if (!isQotd) {
         if (!resultSavedRef.current) {
           await withTimeout(supabase.from('results').insert(result), 10000);
           resultSavedRef.current = true;
+          if (isDemo) {
+            try {
+              localStorage.setItem(`fmc_demo_completed_${user.id}`, 'true');
+            } catch {}
+          }
         }
 
-        if (!attemptsSavedRef.current) {
-          // Save individual question attempts
+        if (!isDemo && !attemptsSavedRef.current) {
+          // Save individual question attempts (skip demo attempts to prevent polluting question stats)
           const attempts = questions.map((q, idx) => ({
             user_id: user.id,
             question_id: q.id,

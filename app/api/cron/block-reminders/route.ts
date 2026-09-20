@@ -51,11 +51,10 @@ export async function GET(request: Request) {
     const blocksData = scheduleData.blocks as { title?: string } | { title?: string }[];
     const blockTitle = (Array.isArray(blocksData) ? blocksData[0]?.title : blocksData?.title) || 'the current block';
 
-    // Get all residents from authorized_roster
+    // Get all active residents from authorized_roster (strictly excluding faculty and graduated/on-leave)
     const { data: roster, error: rosterError } = await supabase
       .from('authorized_roster')
-      .select('email, name, pgy')
-      .neq('pgy', 'Faculty');
+      .select('email, name, pgy, track, role, status');
 
     if (rosterError) {
       throw new Error(`Failed to fetch roster: ${rosterError.message}`);
@@ -73,8 +72,18 @@ export async function GET(request: Request) {
 
     const completedEmails = new Set(results.map(r => r.legacy_email.toLowerCase()));
 
-    // Find users who have NOT completed the block
-    const missingUsers = roster.filter(r => r.email && !completedEmails.has(r.email.toLowerCase()));
+    const activeResidents = (roster || []).filter(r =>
+      r.email &&
+      r.status !== 'graduated' &&
+      r.status !== 'on_leave' &&
+      r.track !== 'faculty' &&
+      (r.pgy || '').toLowerCase() !== 'faculty' &&
+      (r.role || '').toLowerCase() !== 'faculty' &&
+      (r.role || '').toLowerCase() !== 'admin'
+    );
+
+    // Find residents who have NOT completed the block
+    const missingUsers = activeResidents.filter(r => !completedEmails.has(r.email.toLowerCase()));
 
     if (missingUsers.length === 0) {
       console.log('All residents have completed the block. Great job!');

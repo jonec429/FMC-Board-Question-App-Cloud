@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName, formatLastNameFirst, formatTopicDisplay } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
-import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
+import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, isFacultyRow, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
 import QuestionHeatmap from './QuestionHeatmap';
@@ -101,9 +101,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   
   const [selectedBlockDrilldown, setSelectedBlockDrilldown] = useState<any | null>(null);
   const [blockDrilldownSearch, setBlockDrilldownSearch] = useState('');
+  const [blockDrilldownCohort, setBlockDrilldownCohort] = useState<'residents' | 'faculty'>('residents');
   
   const [overviewSearch, setOverviewSearch] = useState('');
-  const [overviewPgyFilter, setOverviewPgyFilter] = useState<'ALL' | 'PGY-1' | 'PGY-2' | 'PGY-3'>('ALL');
+  const [overviewPgyFilter, setOverviewPgyFilter] = useState<'ALL' | 'PGY-1' | 'PGY-2' | 'PGY-3' | 'FACULTY'>('ALL');
 
   const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
 
@@ -343,8 +344,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     },
   ], []);
 
-  const { enriched, allEnriched, scopedRoster, emailToUserId } = useMemo(() => {
-    if (!adminData) return { enriched: [], allEnriched: [], scopedRoster: [], emailToUserId: new Map<string, string>() };
+  const { enriched, allEnriched, scopedResidents, facultyList, emailToUserId } = useMemo(() => {
+    if (!adminData) return { enriched: [], allEnriched: [], scopedResidents: [], facultyList: [], emailToUserId: new Map<string, string>() };
 
     const profileMap = new Map<string, string>();
     const emailToUserIdMap = new Map<string, string>();
@@ -387,167 +388,186 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     const missingFaculty = facultyProfiles.filter(f => f.email && !rosterEmails.has(f.email.toLowerCase()));
     const combinedRoster = [...roster, ...missingFaculty];
 
-    // Only active FM residents are scored. Faculty and fellows are excluded (except faculty when requested);
-    // graduates are hidden unless the toggle is on.
-    const scopedRosterList = combinedRoster.filter((r: RosterEntry) =>
-      isActiveResident(r) || (showGraduates && isGraduated(r)) || r.track === 'faculty' || r.pgy === 'Faculty' || r.role === 'faculty'
+    // Scoped Residents: Only active FM residents (and graduates if toggled on).
+    // Faculty are strictly excluded from the resident cohort.
+    const scopedResidentList = combinedRoster.filter((r: RosterEntry) =>
+      isActiveResident(r) || (showGraduates && isGraduated(r))
     );
 
-    return { enriched: enrichedResults, allEnriched: allEnrichedResults, scopedRoster: scopedRosterList, emailToUserId: emailToUserIdMap };
+    // Faculty: Identified faculty and staff
+    const facultyRosterList = combinedRoster.filter((r: RosterEntry) =>
+      isFacultyRow(r)
+    );
+
+    return {
+      enriched: enrichedResults,
+      allEnriched: allEnrichedResults,
+      scopedResidents: scopedResidentList,
+      facultyList: facultyRosterList,
+      emailToUserId: emailToUserIdMap
+    };
   }, [adminData, selectedYear, showGraduates, profiles, allResults, roster]);
 
-  const rawResidentStats = useMemo(() => {
-    if (!adminData) return [];
-    
-    const academicYear = selectedYear;
-    // Required curriculum blocks for this year whose due date has already passed.
-    const dueBlocks = getDueBlocks(blocks || [], block_schedule || [], academicYear);
+  const computeUserStats = useMemo(() => {
+    return (list: RosterEntry[], isFacultyUser: boolean): ResidentStat[] => {
+      if (!adminData) return [];
+      
+      const academicYear = selectedYear;
+      // Required curriculum blocks for this year whose due date has already passed.
+      const dueBlocks = getDueBlocks(blocks || [], block_schedule || [], academicYear);
 
-    const stats: ResidentStat[] = scopedRoster.map((resident: RosterEntry) => {
-      const resResults = enriched.filter(
-        (r: Result & { email?: string | null }) => r.email?.toLowerCase() === resident.email?.toLowerCase()
-      );
+      const stats: ResidentStat[] = list.map((resident: RosterEntry) => {
+        const resResults = enriched.filter(
+          (r: Result & { email?: string | null }) => r.email?.toLowerCase() === resident.email?.toLowerCase()
+        );
 
-      const blockResults = resResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+        const blockResults = resResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
 
-      const assignedResults = blockResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null);
-      const independentResults = blockResults.filter((r: Result & { email?: string | null }) => (!r.academic_points || r.academic_points === 0) && r.timing_status == null);
+        const assignedResults = blockResults.filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null);
+        const independentResults = blockResults.filter((r: Result & { email?: string | null }) => (!r.academic_points || r.academic_points === 0) && r.timing_status == null);
 
-      // Dedupe by topic — for each block, keep best timing (highest points)
-      let onTimePoints = 0;
-      let latePoints = 0;
-      let bonusPoints = 0;
-      let attendancePoints = 0;
-      let manualPoints = 0;
+        // Dedupe by topic — for each block, keep best timing (highest points)
+        let onTimePoints = 0;
+        let latePoints = 0;
+        let bonusPoints = 0;
+        let attendancePoints = 0;
+        let manualPoints = 0;
 
-      const topicBestPts = new Map<string, number>();
+        const topicBestPts = new Map<string, number>();
 
-      resResults
-        .filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null)
-        .forEach((r: Result & { email?: string | null }) => {
-          if (r.topic?.includes('[Attendance]')) {
-            attendancePoints += (r.academic_points || 1);
-          } else if (r.topic?.includes('[Manual]')) {
-            manualPoints += (r.academic_points || 0);
-          } else {
-            const cur = topicBestPts.get(r.topic) || 0;
-            if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
-              topicBestPts.set(r.topic, r.academic_points || 0);
+        resResults
+          .filter((r: Result & { email?: string | null }) => (r.academic_points || 0) > 0 || r.timing_status != null)
+          .forEach((r: Result & { email?: string | null }) => {
+            if (r.topic?.includes('[Attendance]')) {
+              attendancePoints += (r.academic_points || 1);
+            } else if (r.topic?.includes('[Manual]')) {
+              manualPoints += (r.academic_points || 0);
+            } else {
+              const cur = topicBestPts.get(r.topic) || 0;
+              if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
+                topicBestPts.set(r.topic, r.academic_points || 0);
+              }
             }
+          });
+          
+        const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
+
+        Array.from(topicBestPts.entries()).forEach(([topic, pts]) => {
+          if (topic.toLowerCase().includes('bonus')) {
+            bonusPoints += pts;
+          } else if (pts === 2) {
+            onTimePoints += pts;
+          } else if (pts === 1) {
+            latePoints += pts;
+          } else {
+            // Catch-all if points are somehow > 2 or some edge case, default to onTimePoints
+            onTimePoints += pts;
           }
         });
-        
-      const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
 
-      Array.from(topicBestPts.entries()).forEach(([topic, pts]) => {
-        if (topic.toLowerCase().includes('bonus')) {
-          bonusPoints += pts;
-        } else if (pts === 2) {
-          onTimePoints += pts;
-        } else if (pts === 1) {
-          latePoints += pts;
-        } else {
-          // Catch-all if points are somehow > 2 or some edge case, default to onTimePoints
-          onTimePoints += pts;
-        }
+        const blocksCompleted = topicBestPts.size;
+
+        const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(([topic]) => !topic?.toLowerCase().includes('bonus'));
+        const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
+        const onTimePct = nonBonusBlocks.length > 0
+          ? (onTimeBlocks.length / nonBonusBlocks.length) * 100
+          : 100;
+
+        const curriculumQuizzes = assignedResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+        const curriculumAvg = curriculumQuizzes.length > 0
+          ? curriculumQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / curriculumQuizzes.length
+          : 0;
+
+        const independentQuizzes = independentResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+        const independentAvg = independentQuizzes.length > 0
+          ? independentQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / independentQuizzes.length
+          : null;
+
+        const resQuizzes = resResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
+        const overallAvg = resQuizzes.length > 0
+          ? resQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / resQuizzes.length
+          : 0;
+
+        // Early-warning: past-due blocks this resident hasn't completed.
+        const completedTitles = new Set(Array.from(topicBestPts.keys()));
+        const overdueCount = isFacultyUser ? 0 : getOverdueBlocks(dueBlocks, completedTitles).length;
+        
+        const academicRisk = isFacultyUser ? 'gray' : getRiskLevel(curriculumAvg, assignedResults.length);
+        const complianceRisk = isFacultyUser ? 'gray' : getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
+
+        // Early-warning: recent scores sliding vs earlier ones (even if the average still looks OK).
+        const scoresChrono = [...resResults]
+          .filter((r: Result & { email?: string | null }) => typeof r.percentage === 'number')
+          .sort((a: Result, b: Result) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())
+          .map((r: Result & { email?: string | null }) => r.percentage);
+        const { delta: trendDelta, declining: rawDeclining } = computeTrend(scoresChrono);
+        const declining = isFacultyUser ? false : rawDeclining;
+
+        const riskReasons = isFacultyUser ? [] : getRiskReasons({
+          curriculumAvg,
+          curriculumAttempts: assignedResults.length,
+          onTimePct,
+          blocksCompleted,
+          overdueCount,
+          trendDelta,
+        });
+
+        const totalAttendance = attendancePoints;
+
+        return {
+          userId: emailToUserId.get(resident.email?.toLowerCase()) || null,
+          name: resident.name,
+          last_name: resident.last_name || lastName(resident.name),
+          email: resident.email,
+          pgy: resident.pgy,
+          label: isFacultyUser ? 'Faculty' : deriveLabel(resident, academicYear),
+          classYear: getResidentClassYear(resident),
+          cohortYear: resident.cohort_year,
+          advisor: resident.advisor,
+          
+          curriculumAttempts: assignedResults.length,
+          independentAttempts: independentResults.length,
+          totalAttempts: resResults.length,
+
+          curriculumAvg,
+          independentAvg,
+          overallAvg,
+
+          blocksCompleted,
+          onTimePct,
+          totalPoints,
+          onTimePoints,
+          latePoints,
+          bonusPoints,
+          
+          academicRisk,
+          complianceRisk,
+          overdueCount,
+          trendDelta,
+          declining,
+          riskReasons,
+          results: resResults.sort((a: Result, b: Result) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()),
+          totalAttendance,
+        };
       });
 
-      const blocksCompleted = topicBestPts.size;
+      return stats.sort((a, b) => b.totalPoints - a.totalPoints);
+    };
+  }, [adminData, selectedYear, blocks, block_schedule, enriched, emailToUserId]);
 
-      const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(([topic]) => !topic?.toLowerCase().includes('bonus'));
-      const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
-      const onTimePct = nonBonusBlocks.length > 0
-        ? (onTimeBlocks.length / nonBonusBlocks.length) * 100
-        : 100;
+  const residentStats = useMemo(() => {
+    return computeUserStats(scopedResidents, false);
+  }, [scopedResidents, computeUserStats]);
 
-      const curriculumQuizzes = assignedResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
-      const curriculumAvg = curriculumQuizzes.length > 0
-        ? curriculumQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / curriculumQuizzes.length
-        : 0;
-
-      const independentQuizzes = independentResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
-      const independentAvg = independentQuizzes.length > 0
-        ? independentQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / independentQuizzes.length
-        : null;
-
-      const resQuizzes = resResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
-      const overallAvg = resQuizzes.length > 0
-        ? resQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / resQuizzes.length
-        : 0;
-
-      // Early-warning: past-due blocks this resident hasn't completed.
-      const completedTitles = new Set(Array.from(topicBestPts.keys()));
-      const overdueCount = getOverdueBlocks(dueBlocks, completedTitles).length;
-      
-      const isFacultyUser = resident.track === 'faculty' || resident.pgy === 'Faculty' || resident.role === 'faculty';
-      const academicRisk = isFacultyUser ? 'gray' : getRiskLevel(curriculumAvg, assignedResults.length);
-      const complianceRisk = isFacultyUser ? 'gray' : getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
-
-      // Early-warning: recent scores sliding vs earlier ones (even if the average still looks OK).
-      const scoresChrono = [...resResults]
-        .filter((r: Result & { email?: string | null }) => typeof r.percentage === 'number')
-        .sort((a: Result, b: Result) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())
-        .map((r: Result & { email?: string | null }) => r.percentage);
-      const { delta: trendDelta, declining: rawDeclining } = computeTrend(scoresChrono);
-      const declining = isFacultyUser ? false : rawDeclining;
-
-      const riskReasons = isFacultyUser ? [] : getRiskReasons({
-        curriculumAvg,
-        curriculumAttempts: assignedResults.length,
-        onTimePct,
-        blocksCompleted,
-        overdueCount,
-        trendDelta,
-      });
-
-      const totalAttendance = attendancePoints;
-
-      return {
-        userId: emailToUserId.get(resident.email?.toLowerCase()) || null,
-        name: resident.name,
-        last_name: resident.last_name || lastName(resident.name),
-        email: resident.email,
-        pgy: resident.pgy,
-        label: deriveLabel(resident, academicYear),
-        classYear: getResidentClassYear(resident),
-        cohortYear: resident.cohort_year,
-        advisor: resident.advisor,
-        
-        curriculumAttempts: assignedResults.length,
-        independentAttempts: independentResults.length,
-        totalAttempts: resResults.length,
-
-        curriculumAvg,
-        independentAvg,
-        overallAvg,
-
-        blocksCompleted,
-        onTimePct,
-        totalPoints,
-        onTimePoints,
-        latePoints,
-        bonusPoints,
-        
-        academicRisk,
-        complianceRisk,
-        overdueCount,
-        trendDelta,
-        declining,
-        riskReasons,
-        results: resResults.sort((a: Result, b: Result) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()),
-        totalAttendance,
-      };
-    });
-
-    return stats.sort((a, b) => b.totalPoints - a.totalPoints);
-  }, [adminData, showGraduates, selectedYear, scopedRoster, enriched, emailToUserId]);
-
-  const residentStats = rawResidentStats;
+  const facultyStats = useMemo(() => {
+    return computeUserStats(facultyList, true);
+  }, [facultyList, computeUserStats]);
 
   const overviewFilteredResidents = useMemo(() => {
     const activeAY = selectedYear === 0 ? getCurrentAcademicYear() : selectedYear;
-    return residentStats.filter(r => {
-      if (overviewPgyFilter !== 'ALL') {
+    const baseList = overviewPgyFilter === 'FACULTY' ? facultyStats : residentStats;
+    return baseList.filter(r => {
+      if (overviewPgyFilter !== 'ALL' && overviewPgyFilter !== 'FACULTY') {
         const cohortMatch = residentMatchesCohort(
           { pgy: r.pgy, cohort_year: r.cohortYear, graduated_year: null, track: 'family_medicine' },
           overviewPgyFilter,
@@ -568,11 +588,26 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       }
       return true;
     });
-  }, [residentStats, overviewSearch, overviewPgyFilter, selectedYear]);
+  }, [residentStats, facultyStats, overviewSearch, overviewPgyFilter, selectedYear]);
 
   const exportOverviewToCSV = () => {
     const yearLabel = selectedYear === 0 ? 'All_Years' : `AY_${selectedYear}`;
-    const headers = ['Resident Name', 'Email', 'PGY', 'Advisor', 'Curriculum Avg %', 'Independent Avg %', 'Overall Avg %', 'Blocks Completed', 'On-Time %', 'Total Points', 'Attendance', 'Academic Status', 'Participation Status'];
+    const cohortLabel = overviewPgyFilter === 'FACULTY' ? 'Faculty' : 'Resident';
+    const headers = [
+      overviewPgyFilter === 'FACULTY' ? 'Faculty Name' : 'Resident Name',
+      'Email',
+      overviewPgyFilter === 'FACULTY' ? 'Role' : 'PGY',
+      'Advisor',
+      'Curriculum Avg %',
+      'Independent Avg %',
+      'Overall Avg %',
+      'Blocks Completed',
+      'On-Time %',
+      'Total Points',
+      'Attendance',
+      'Academic Status',
+      'Participation Status'
+    ];
     
     const rows = overviewFilteredResidents.map(r => {
       const acadStatus = r.academicRisk === 'red' ? 'At Risk' : r.academicRisk === 'yellow' ? 'Needs Attention' : r.academicRisk === 'green' ? 'On Track' : 'Evaluating';
@@ -600,7 +635,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `FMC_Resident_Performance_${yearLabel}.csv`);
+    link.setAttribute('download', `FMC_${cohortLabel}_Performance_${yearLabel}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -938,11 +973,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
                 {(() => {
                   const ay = selectedYear === 0 ? getCurrentAcademicYear() : selectedYear;
-                  const buttons = [
-                    { id: 'ALL' as const, label: 'All Residents' },
-                    { id: 'PGY-1' as const, label: `PGY-1 (Class of ${ay + 2})` },
-                    { id: 'PGY-2' as const, label: `PGY-2 (Class of ${ay + 1})` },
-                    { id: 'PGY-3' as const, label: `PGY-3 (Class of ${ay})` },
+                  const buttons: { id: 'ALL' | 'PGY-1' | 'PGY-2' | 'PGY-3' | 'FACULTY'; label: string }[] = [
+                    { id: 'ALL', label: `All Residents (${residentStats.length})` },
+                    { id: 'PGY-1', label: `PGY-1 (Class of ${ay + 2})` },
+                    { id: 'PGY-2', label: `PGY-2 (Class of ${ay + 1})` },
+                    { id: 'PGY-3', label: `PGY-3 (Class of ${ay})` },
+                    { id: 'FACULTY', label: `Faculty (${facultyStats.length})` },
                   ];
                   return buttons.map(item => (
                     <button
@@ -1036,10 +1072,21 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 .map(block => {
                 // Determine completions by looking for results that matched this block's topic
                 const blockResults = allEnriched.filter(r => r.topic === block.title && (!r.academic_year || r.academic_year === selectedYear));
+
+                // Filter to resident completions for program stats
+                const residentEmails = new Set(scopedResidents.map(r => r.email?.toLowerCase()).filter(Boolean));
+                const residentUserIds = new Set(scopedResidents.map(r => emailToUserId.get(r.email?.toLowerCase())).filter(Boolean));
+                const isResidentRes = (r: Result & { email?: string | null }) => {
+                  const e = (r.email || r.legacy_email || '').toLowerCase();
+                  const u = r.user_id;
+                  return (e && residentEmails.has(e)) || (u && residentUserIds.has(u));
+                };
+
+                const residentBlockResults = blockResults.filter(isResidentRes);
                 
-                // Keep only the highest academic_points attempt per user
+                // Keep only the highest academic_points attempt per resident
                 const userBestPts = new Map<string, Result & { email?: string | null }>();
-                blockResults.forEach(r => {
+                residentBlockResults.forEach(r => {
                   const uid = r.user_id || r.legacy_email || r.email;
                   if (!uid) return;
                   const cur = userBestPts.get(uid);
@@ -1069,6 +1116,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     onClick={() => {
                       setSelectedBlockDrilldown(block);
                       setBlockDrilldownSearch('');
+                      setBlockDrilldownCohort('residents');
                       setSelectedQuiz(null);
                     }}
                     className="hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20 cursor-pointer transition-colors group"
@@ -1082,7 +1130,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{block.question_count || 40} questions</div>
                     </td>
                     <td className="px-4 py-4 text-center font-bold text-slate-600 dark:text-slate-300">
-                      {scopedRoster.length}
+                      {scopedResidents.length}
                     </td>
                     <td className="px-4 py-4 text-center font-bold text-slate-600 dark:text-slate-300">
                       {completedCount}
@@ -1427,14 +1475,37 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === block.id);
         const blockResults = allEnriched.filter(r => r.topic === block.title && (!r.academic_year || r.academic_year === selectedYear));
         
-        // Find highest academic points / best completion attempt per resident
+        // Filter to resident completions for program stats
+        const residentEmails = new Set(scopedResidents.map(r => r.email?.toLowerCase()).filter(Boolean));
+        const residentUserIds = new Set(scopedResidents.map(r => emailToUserId.get(r.email?.toLowerCase())).filter(Boolean));
+        const isResidentRes = (r: Result & { email?: string | null }) => {
+          const e = (r.email || r.legacy_email || '').toLowerCase();
+          const u = r.user_id;
+          return (e && residentEmails.has(e)) || (u && residentUserIds.has(u));
+        };
+
+        const residentBlockResults = blockResults.filter(isResidentRes);
+        const facultyBlockResults = blockResults.filter(r => !isResidentRes(r));
+
+        // Find highest academic points / best completion attempt per resident (Program Stats)
         const userBestPts = new Map<string, Result & { email?: string | null }>();
-        blockResults.forEach(r => {
+        residentBlockResults.forEach(r => {
           const uid = (r.user_id || r.legacy_email || r.email || '').toLowerCase();
           if (!uid) return;
           const cur = userBestPts.get(uid);
           if (!cur || (r.academic_points || 0) > (cur.academic_points || 0) || (r.percentage || 0) > (cur.percentage || 0)) {
             userBestPts.set(uid, r);
+          }
+        });
+
+        // Faculty completions tracked separately
+        const facultyBestPts = new Map<string, Result & { email?: string | null }>();
+        facultyBlockResults.forEach(r => {
+          const uid = (r.user_id || r.legacy_email || r.email || '').toLowerCase();
+          if (!uid) return;
+          const cur = facultyBestPts.get(uid);
+          if (!cur || (r.academic_points || 0) > (cur.academic_points || 0) || (r.percentage || 0) > (cur.percentage || 0)) {
+            facultyBestPts.set(uid, r);
           }
         });
 
@@ -1450,7 +1521,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           a.topic === `[AY ${selectedYear}] Block: ${block.title}`
         ).length || 0;
 
-        const filteredResidents = residentStats.filter(r => {
+        const isViewingFaculty = blockDrilldownCohort === 'faculty';
+        const currentCohortList = isViewingFaculty ? facultyStats : residentStats;
+        const currentBestPts = isViewingFaculty ? facultyBestPts : userBestPts;
+        const currentBlockResults = isViewingFaculty ? facultyBlockResults : residentBlockResults;
+
+        const filteredCohort = currentCohortList.filter(r => {
           if (!blockDrilldownSearch) return true;
           const q = blockDrilldownSearch.toLowerCase();
           return r.name.toLowerCase().includes(q) || (r.last_name && r.last_name.toLowerCase().includes(q)) || r.email.toLowerCase().includes(q);
@@ -1459,7 +1535,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         const allIncompleteResidents = residentStats.filter(resident => {
           const result = (resident.userId ? userBestPts.get(resident.userId.toLowerCase()) : null) || 
                          userBestPts.get(resident.email.toLowerCase()) ||
-                         blockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
+                         residentBlockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
           return !result;
         });
 
@@ -1510,23 +1586,49 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                 </button>
               </div>
 
-              {/* Search bar & CSV Export */}
+              {/* Search bar, Cohort Switcher & CSV Export */}
               <div className="p-4 md:px-8 bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="text"
-                    value={blockDrilldownSearch}
-                    onChange={(e) => setBlockDrilldownSearch(e.target.value)}
-                    placeholder="Search resident by name..."
-                    className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  />
+                <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[200px]">
+                  <div className="relative flex-1 min-w-[180px] max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={blockDrilldownSearch}
+                      onChange={(e) => setBlockDrilldownSearch(e.target.value)}
+                      placeholder={isViewingFaculty ? "Search faculty by name..." : "Search resident by name..."}
+                      className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setBlockDrilldownCohort('residents')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        !isViewingFaculty
+                          ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      Residents ({residentStats.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBlockDrilldownCohort('faculty')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        isViewingFaculty
+                          ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      Faculty ({facultyStats.length})
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-slate-400 hidden sm:inline">
-                    Showing {filteredResidents.length} of {residentStats.length} residents
+                    Showing {filteredCohort.length} of {currentCohortList.length} {isViewingFaculty ? 'faculty' : 'residents'}
                   </span>
-                  {allIncompleteResidents.length > 0 && (
+                  {!isViewingFaculty && allIncompleteResidents.length > 0 && (
                     <button
                       onClick={() => {
                         const emailData = generateBlockReminderEmail({
@@ -1546,11 +1648,23 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                   <button
                     onClick={() => {
                       const yearLabel = selectedYear === 0 ? 'All_Years' : `AY_${selectedYear}`;
-                      const headers = ['Resident Name', 'Email', 'PGY', 'Advisor', 'Status', 'Completion Date', 'Score %', 'Score Raw', 'Total Questions', 'Academic Points'];
-                      const rows = filteredResidents.map(resident => {
-                        const result = (resident.userId ? userBestPts.get(resident.userId.toLowerCase()) : null) || 
-                                       userBestPts.get(resident.email.toLowerCase()) ||
-                                       blockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
+                      const cohortLabel = isViewingFaculty ? 'Faculty' : 'Residents';
+                      const headers = [
+                        isViewingFaculty ? 'Faculty Name' : 'Resident Name',
+                        'Email',
+                        'Role',
+                        'Advisor',
+                        'Status',
+                        'Completion Date',
+                        'Score %',
+                        'Score Raw',
+                        'Total Questions',
+                        'Academic Points'
+                      ];
+                      const rows = filteredCohort.map(resident => {
+                        const result = (resident.userId ? currentBestPts.get(resident.userId.toLowerCase()) : null) || 
+                                       currentBestPts.get(resident.email.toLowerCase()) ||
+                                       currentBlockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
                         
                         const isCompleted = !!result;
                         const pts = result?.academic_points || 0;
@@ -1582,26 +1696,26 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       const link = document.createElement('a');
                       link.setAttribute('href', url);
                       const cleanTitle = block.title.replace(/[^a-zA-Z0-9_-]/g, '_');
-                      link.setAttribute('download', `FMC_Block_${cleanTitle}_${yearLabel}.csv`);
+                      link.setAttribute('download', `FMC_Block_${cleanTitle}_${cohortLabel}_${yearLabel}.csv`);
                       document.body.appendChild(link);
                       link.click();
                       document.body.removeChild(link);
                     }}
                     className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center gap-1.5 text-xs shadow-sm"
-                    title="Export block completions to CSV"
+                    title={`Export ${isViewingFaculty ? 'faculty' : 'resident'} block completions to CSV`}
                   >
                     <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" /> Export CSV
                   </button>
                 </div>
               </div>
 
-              {/* Resident List Table or Quiz Review */}
+              {/* Resident / Faculty List Table or Quiz Review */}
               <div className="flex-1 overflow-y-auto p-4 md:p-8">
                 {selectedQuiz ? (
                   <div className="space-y-6 animate-fade-in">
                     <div className="flex items-center justify-between mb-2">
                       <button onClick={() => setSelectedQuiz(null)} className="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center gap-1 transition-colors">
-                        <ChevronLeft className="w-4 h-4" /> Back to Resident List
+                        <ChevronLeft className="w-4 h-4" /> Back to {isViewingFaculty ? 'Faculty List' : 'Resident List'}
                       </button>
                       <span className="text-xs font-black bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full">{formatTopicDisplay(selectedQuiz.topic)}</span>
                     </div>
@@ -1622,8 +1736,8 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800 uppercase tracking-widest text-[10px] font-black text-slate-400">
-                          <th className="px-4 py-3">Resident</th>
-                          <th className="px-3 py-3 text-center">PGY</th>
+                          <th className="px-4 py-3">{isViewingFaculty ? 'Faculty Member' : 'Resident'}</th>
+                          <th className="px-3 py-3 text-center">Role</th>
                           <th className="px-3 py-3 text-center">Status</th>
                           <th className="px-3 py-3 text-center">Date</th>
                           <th className="px-3 py-3 text-center">Score</th>
@@ -1632,10 +1746,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
-                        {filteredResidents.map(resident => {
-                          const result = (resident.userId ? userBestPts.get(resident.userId.toLowerCase()) : null) || 
-                                         userBestPts.get(resident.email.toLowerCase()) ||
-                                         blockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
+                        {filteredCohort.map(resident => {
+                          const result = (resident.userId ? currentBestPts.get(resident.userId.toLowerCase()) : null) || 
+                                         currentBestPts.get(resident.email.toLowerCase()) ||
+                                         currentBlockResults.find(br => (br.user_id && resident.userId && br.user_id === resident.userId) || (br.email && br.email.toLowerCase() === resident.email.toLowerCase()) || (br.legacy_email && br.legacy_email.toLowerCase() === resident.email.toLowerCase()));
                           
                           const isCompleted = !!result;
                           const pts = result?.academic_points || 0;
@@ -1694,7 +1808,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                   >
                                     Review
                                   </button>
-                                ) : (
+                                ) : !isViewingFaculty ? (
                                   <button
                                     onClick={() => {
                                       const emailData = generateBlockReminderEmail({
@@ -1710,15 +1824,17 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                                   >
                                     <Mail className="w-3.5 h-3.5" />
                                   </button>
+                                ) : (
+                                  <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
                                 )}
                               </td>
                             </tr>
                           );
                         })}
-                        {filteredResidents.length === 0 && (
+                        {filteredCohort.length === 0 && (
                           <tr>
                             <td colSpan={7} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500 font-bold text-sm">
-                              No residents match your search.
+                              No {isViewingFaculty ? 'faculty' : 'residents'} match your search.
                             </td>
                           </tr>
                         )}
@@ -1737,7 +1853,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         <AdviseeDossierModal
           facultyName={facultyName || 'FMC Clinical Competency Committee'}
           selectedYear={selectedYear === 0 ? getCurrentAcademicYear() : selectedYear}
-          advisees={scopedRoster.filter(isActiveResident).map(r => ({
+          advisees={roster.filter(isActiveResident).map(r => ({
             resident: r,
             name: r.name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.email || '',
             pgy: deriveLabel(r, selectedYear === 0 ? getCurrentAcademicYear() : selectedYear),

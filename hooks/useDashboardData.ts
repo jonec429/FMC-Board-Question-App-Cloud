@@ -83,6 +83,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
       // BATCH 2: Leaderboard & Heavy Data
       const [
         { data: resultsData, error: resultsErr },
+        { data: allTimeDemoData },
         { data: allResults, error: allResultsErr },
         { data: rosterData, error: rosterErr },
         { data: qotdAttemptData, error: qotdAttemptErr },
@@ -104,6 +105,14 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
               .or(`user_id.eq.${userId},legacy_email.ilike.${userEmail}`)
               .order('created_at', { ascending: false })
               .abortSignal(signal),
+        // All-time demo completion check (independent of selected academic year)
+        supabase
+          .from('results')
+          .select('id')
+          .or(`user_id.eq.${userId},legacy_email.ilike.${userEmail}`)
+          .ilike('topic', '%demo%')
+          .limit(1)
+          .abortSignal(signal),
         supabase.rpc('get_leaderboard_stats', { p_academic_year: selectedYear }).abortSignal(signal),
         supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty').abortSignal(signal),
         qotd 
@@ -144,7 +153,11 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
       const sortedBlocks = blockData ? [...blockData].sort((a, b) => getBlockSortKey(a) - getBlockSortKey(b)) : [];
       
       // Process results
-      const hasTakenDemo = resultsData ? resultsData.some((r: any) => r.topic?.toLowerCase().includes('demo')) : false;
+      const hasTakenDemo = Boolean(
+        (allTimeDemoData && allTimeDemoData.length > 0) ||
+        (resultsData && resultsData.some((r: any) => r.topic?.toLowerCase().includes('demo'))) ||
+        (typeof window !== 'undefined' && localStorage.getItem(`fmc_demo_completed_${userId}`) === 'true')
+      );
       let myResults = resultsData ? resultsData.filter((r: any) => !r.topic?.toLowerCase().includes('demo')) : [];
 
       if (attendanceData && attendanceData.length > 0) {
