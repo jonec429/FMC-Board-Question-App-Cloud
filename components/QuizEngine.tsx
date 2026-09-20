@@ -452,7 +452,24 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       }
     }
     initQuiz();
-  }, [user.id, quizId, topic, categories, keywords, years, pool, count]);
+  }, [
+    user.id,
+    quizId,
+    topic,
+    categories,
+    keywords,
+    years,
+    pool,
+    count,
+    currentBlock?.block_type,
+    forceNew,
+    isQotd,
+    isQotdCompleted,
+    qotdAttempt?.is_correct,
+    qotdAttempt?.selected_index,
+    qotdQuestion,
+    questionIds,
+  ]);
 
   const syncProgress = useCallback(async () => {
     if (!sessionId || syncing) return;
@@ -702,6 +719,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
   const handleFinish = () => submitQuiz(false);
 
+  const submitQuizRef = useRef(submitQuiz);
+  submitQuizRef.current = submitQuiz;
+  const handleFinishRef = useRef(handleFinish);
+  handleFinishRef.current = handleFinish;
+
   // Flush latest state to quiz_sessions BEFORE leaving — the 3s debounce sync
   // gets cancelled on unmount, so without this the user's last few actions
   // (answer changes, navigation) silently disappear if they exit quickly.
@@ -809,13 +831,13 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           const newAnswers = { ...answers, [currentIndex]: stagedAnswers[currentIndex] };
           setAnswers(newAnswers);
           if (isQotd) {
-            submitQuiz(true, newAnswers);
+            submitQuizRef.current(true, newAnswers);
           }
         } else if (!needsSubmit) {
           e.preventDefault();
           const isLast = currentIndex === questions.length - 1;
           if (isLast && !submitting) {
-            handleFinish();
+            handleFinishRef.current();
           } else if (!isLast) {
             setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1));
           }
@@ -849,8 +871,6 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     stagedAnswers,
     mode,
     submitting,
-    handleFinish,
-    submitQuiz,
   ]);
 
   // RESULTS SCREEN

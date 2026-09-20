@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { X, Trophy, Lock, Loader2 } from './AppIcons';
+import { UserBadge } from '@/lib/types';
 
 interface BadgeRow {
   id?: string;
@@ -14,7 +15,7 @@ interface BadgeRow {
 
 interface AchievementsModalProps {
   /** The user's earned badges (already loaded on the dashboard). */
-  userBadges: (import('@/lib/types').Badge & { earned_at: string })[];
+  userBadges: UserBadge[];
   onClose: () => void;
 }
 

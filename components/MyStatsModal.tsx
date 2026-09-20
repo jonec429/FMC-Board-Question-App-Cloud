@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
 import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save, Check } from './AppIcons';
-import { LeaderboardEntry } from '@/lib/types';
+import { LeaderboardEntry, Profile, Result, UserBadge, Question } from '@/lib/types';
 import QuizReview from './QuizReview';
 import { exportIncorrectToAnki, exportQuestionsToAnki, downloadCsv } from '@/lib/anki';
 import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
@@ -12,15 +12,15 @@ import RiskLegend from './RiskLegend';
 
 interface MyStatsModalProps {
   onClose: () => void;
-  profile: any;
+  profile: Profile | null;
   userEmail: string;
   userId: string;
   avgPct: number | null;
   blocksCompleted: number;
   totalPoints: number;
-  myResults: any[];
+  myResults: Result[];
   leaderboard: LeaderboardEntry[];
-  userBadges: any[];
+  userBadges: UserBadge[];
   selectedYear: number;
   onYearChange: (year: number) => void;
 }
@@ -40,8 +40,8 @@ export default function MyStatsModal({
   onYearChange,
 }: MyStatsModalProps) {
   const [activeTab, setActiveTab] = useState<'stats' | 'weakAreas' | 'pastQuizzes'>('stats');
-  const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
-  const [reviewItems, setReviewItems] = useState<any[] | null>(null);
+  const [selectedQuiz, setSelectedQuiz] = useState<Result | null>(null);
+  const [reviewItems, setReviewItems] = useState<{ question: Question; selected: number }[] | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
   const [showAllReview, setShowAllReview] = useState(false);
   const [exportingAnki, setExportingAnki] = useState(false);
@@ -49,7 +49,7 @@ export default function MyStatsModal({
 
   // Weak Areas State
   const [loadingWeakAreas, setLoadingWeakAreas] = useState(false);
-  const [missedQuestions, setMissedQuestions] = useState<any[]>([]);
+  const [missedQuestions, setMissedQuestions] = useState<Question[]>([]);
   const [latestStatus, setLatestStatus] = useState<Map<string, boolean>>(new Map());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
@@ -69,20 +69,20 @@ export default function MyStatsModal({
   // Past Quizzes: the resident's completed blocks/customs (newest first). Excludes
   // QOTD and the demo. New quizzes carry a `review_data` snapshot for full review.
   const pastQuizzes = [...(myResults || [])]
-    .filter((r: any) => r.topic && !/question of the day|^demo/i.test(r.topic))
-    .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    .filter(r => r.topic && !/question of the day|^demo/i.test(r.topic))
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
-  const openReview = async (r: any) => {
+  const openReview = async (r: Result) => {
     setSelectedQuiz(r);
     setReviewItems(null);
-    const rd = Array.isArray(r.review_data) ? r.review_data : null;
+    const rd = Array.isArray(r.review_data) ? (r.review_data as { q: string; a: number }[]) : null;
     if (!rd || rd.length === 0) return; // taken before review snapshots were saved
     setLoadingReview(true);
     try {
-      const ids = rd.map((x: any) => x.q).filter(Boolean);
-      const { data } = await withTimeout(supabase.from('questions').select('*').in('id', ids), 10000) as any;
-      const byId = new Map((data || []).map((q: any) => [q.id, q]));
-      setReviewItems(rd.map((x: any) => ({ question: byId.get(x.q), selected: x.a })));
+      const ids = rd.map(x => x.q).filter(Boolean);
+      const { data } = await withTimeout(supabase.from('questions').select('*').in('id', ids), 10000) as { data: Question[] | null };
+      const byId = new Map((data || []).map(q => [q.id, q]));
+      setReviewItems(rd.map(x => ({ question: byId.get(x.q)!, selected: x.a })));
     } catch {
       setReviewItems([]);
     } finally {
@@ -91,7 +91,7 @@ export default function MyStatsModal({
   };
 
   // Filter out demo quizzes from all stats
-  const profileResults = (myResults || []).filter((r: any) => !r.topic?.toLowerCase().includes('demo'));
+  const profileResults = (myResults || []).filter(r => !r.topic?.toLowerCase().includes('demo'));
 
   const totalQs = profileResults.reduce((a, r) => a + (r.total || 0), 0);
   const myRankIdx = leaderboard.findIndex(l => Boolean(l.email && userEmail && l.email.toLowerCase() === userEmail.toLowerCase()));

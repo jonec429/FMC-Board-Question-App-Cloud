@@ -9,9 +9,10 @@ import {
   LEGACY_WARNING_BODY,
   partitionYears,
 } from '@/lib/questionFilters';
+import { User, Question, QuestionAttempt } from '@/lib/types';
 
 interface CustomBuilderScreenProps {
-  user: any;
+  user: User;
   onStart: (config: { years: string[]; categories: string[]; count: number; pool: 'all' | 'unused' | 'incorrect'; timerEnabled: boolean }) => void;
   onCancel: () => void;
 }
@@ -22,8 +23,8 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
   const [categories, setCategories] = useState<string[]>([]);
   
   // Data for live capacity calculation
-  const [allQuestions, setAllQuestions] = useState<any[]>([]);
-  const [userAttempts, setUserAttempts] = useState<any[]>([]);
+  const [allQuestions, setAllQuestions] = useState<Pick<Question, 'id' | 'year' | 'category'>[]>([]);
+  const [userAttempts, setUserAttempts] = useState<Pick<QuestionAttempt, 'question_id' | 'is_correct'>[]>([]);
 
   const [mode, setMode] = useState<'random' | 'custom'>('custom');
   const [pool, setPool] = useState<'all' | 'unused' | 'incorrect'>('all');
@@ -60,8 +61,8 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
             .neq('year', 'Demo');
             
           if (qData) {
-            const yearSet = Array.from(new Set(qData.map((q: any) => q.year))).filter(Boolean).sort().reverse() as string[];
-            const catSet = Array.from(new Set(qData.map((q: any) => q.category))).filter(Boolean).sort() as string[];
+            const yearSet = Array.from(new Set(qData.map(q => q.year))).filter((y): y is string => Boolean(y)).sort().reverse();
+            const catSet = Array.from(new Set(qData.map(q => q.category))).filter((c): c is string => Boolean(c)).sort();
             setYears(yearSet);
             setCategories(catSet);
             setAllQuestions(qData);
@@ -84,7 +85,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
             const statsMap = new Map<string, { correct: number, total: number }>();
             rData.forEach(r => {
               if (r.category_stats) {
-                Object.entries(r.category_stats).forEach(([cat, st]: any) => {
+                Object.entries(r.category_stats as Record<string, { correct: number; total: number }>).forEach(([cat, st]) => {
                   const cur = statsMap.get(cat) || { correct: 0, total: 0 };
                   statsMap.set(cat, { correct: cur.correct + st.correct, total: cur.total + st.total });
                 });

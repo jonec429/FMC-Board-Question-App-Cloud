@@ -196,18 +196,24 @@ function QuestionCard({
   const [highlightMode, setHighlightMode] = useState(false);
   const stemRef = useRef<HTMLDivElement>(null);
   const explanationRef = useRef<HTMLDivElement>(null);
+  const onToolsChangeRef = useRef(onToolsChange);
+  onToolsChangeRef.current = onToolsChange;
+  const lastQuestionIdRef = useRef(question.id);
 
   // Sync local state with parent-provided tools when navigating between questions
   useEffect(() => {
-    setHighlights(initialHighlights || []);
-    setStrikethroughs(new Set(initialStrikethroughs || []));
+    if (lastQuestionIdRef.current !== question.id) {
+      lastQuestionIdRef.current = question.id;
+      setHighlights(initialHighlights || []);
+      setStrikethroughs(new Set(initialStrikethroughs || []));
+    }
     setSelectedOption(userAnswer);
-  }, [question.id, question.question_text, userAnswer]);
+  }, [question.id, initialHighlights, initialStrikethroughs, userAnswer]);
 
   // Notify parent whenever tools change so state can persist across navigation
   useEffect(() => {
-    if (onToolsChange) {
-      onToolsChange({
+    if (onToolsChangeRef.current) {
+      onToolsChangeRef.current({
         highlights,
         strikethroughs: Array.from(strikethroughs),
       });

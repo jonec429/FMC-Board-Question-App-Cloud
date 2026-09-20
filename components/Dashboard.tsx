@@ -18,19 +18,37 @@ import ClassYoyModal from './ClassYoyModal';
 import AdviseeQuickAccessCard from './AdviseeQuickAccessCard';
 import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
-import { User, Profile, Block, Result, Question } from '@/lib/types';
+import { User, Profile, Block, Result, Question, QuizSession, AssignedQuiz } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
+
+export interface StartQuizOptions {
+  topic: string;
+  quizId?: string;
+  count?: number;
+  timerEnabled?: boolean;
+  forceNew?: boolean;
+  questionIds?: string[];
+  mode?: 'practice' | 'quiz';
+  categories?: string[];
+  keywords?: string[];
+  years?: string[];
+  pool?: 'all' | 'unused' | 'incorrect';
+  isQotd?: boolean;
+  qotdQuestion?: Question | null;
+  isQotdCompleted?: boolean;
+  qotdAttempt?: any;
+}
 
 interface DashboardProps {
   user: User;
-  profile: Profile;
+  profile: Profile | null;
   isActive?: boolean;
   currentBlock?: Block | null;
   onOpenAdmin: (tabId?: string) => void;
   onLogout: () => void;
-  onStartQuiz: (quiz: any) => void;
+  onStartQuiz: (quiz: StartQuizOptions) => void;
   onOpenBuilder: () => void;
-  onProfileUpdate: (updatedProfile: any) => void;
+  onProfileUpdate: (updatedProfile: Profile) => void;
 }
 
 export interface LeaderboardEntry {
@@ -106,7 +124,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const activeSessions = data?.activeSessions || [];
   const mostRecentSession = activeSessions.length > 0 ? activeSessions[0] : null;
 
-  const getSessionForBlock = (topic: string) => activeSessions.find((s: any) => s.topic === topic);
+  const getSessionForBlock = (topic: string) => activeSessions.find((s: QuizSession) => s.topic === topic);
   const leaderboard = data?.leaderboard || [];
   const hasTakenDemo = data?.hasTakenDemo || false;
   const qotdQuestion = data?.qotdQuestion || null;
@@ -716,7 +734,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           {/* Assigned Quizzes (Row below Advisee Hub) */}
           {data?.assignedQuizzes && data.assignedQuizzes.length > 0 && (
             <div className="space-y-3 mb-4">
-              {data.assignedQuizzes.map((aq: any) => (
+              {data.assignedQuizzes.map((aq: AssignedQuiz) => (
                 <button
                   key={aq.id}
                   onClick={() => {

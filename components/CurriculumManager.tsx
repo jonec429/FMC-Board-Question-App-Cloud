@@ -73,7 +73,7 @@ export default function CurriculumManager() {
     });
     if (!isNaN(selectedYear) && selectedYear > 0) years.add(selectedYear);
     return Array.from(years).sort().reverse();
-  }, [blocks, selectedYear]);
+  }, [blocks, block_schedule, selectedYear]);
 
   const sortedBlocks = useMemo(() => {
     const filtered = [...blocks].filter(b => {

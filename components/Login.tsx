@@ -5,8 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { AbfmShield, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff, Smartphone } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import InstallAppModal from './InstallAppModal';
+import { User } from '@/lib/types';
 
-export default function Login({ onLogin }: { onLogin: (user: any) => void }) {
+export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

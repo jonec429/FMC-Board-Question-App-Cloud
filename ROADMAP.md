@@ -60,6 +60,34 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-09-20 (Antigravity: Codebase Hardening & Tech Debt #12)
+**Shipped this session**:
+1. **React Hook Hygiene & Zero-Warning Builds**:
+   - Resolved all React Hook exhaustive-deps warnings across critical core components:
+     - [`app/page.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/app/page.tsx): Added `envMissing` to `useEffect` dependency array.
+     - [`components/CurriculumManager.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/CurriculumManager.tsx): Added `block_schedule` to `allAcademicYears` dependencies.
+     - [`components/QuestionBankManager.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/QuestionBankManager.tsx): Memoized `allQuestions`, wrapped `handleDelete` & `openEditModal` in `useCallback` ahead of `columns`, updated `columns` dependencies, and eliminated duplicate helper functions.
+     - [`components/QuestionCard.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/QuestionCard.tsx): Introduced `lastQuestionIdRef` to guard tool resets when question ID changes; stored `onToolsChange` in `onToolsChangeRef` to eliminate infinite re-render cycles while satisfying hook dependencies.
+     - [`components/QuizEngine.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/QuizEngine.tsx): Expanded `initQuiz` dependency array; added `submitQuizRef` and `handleFinishRef` to stabilize the global keyboard shortcut listener.
+     - [`components/RosterManager.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/RosterManager.tsx): Wrapped `fetchRoster` and `handleDeletePerson` in `useCallback` and stabilized column memoization.
+   - `npm run lint` now exits cleanly with `✔ No ESLint warnings or errors`.
+2. **Type Tightening (Tech Debt #12 Follow-Through)**:
+   - Replaced loose and pervasive `any` types with strict types from `lib/types.ts`:
+     - [`components/Login.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/Login.tsx): Replaced `user: any` on `onLogin` with `User`.
+     - [`components/CustomBuilderScreen.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/CustomBuilderScreen.tsx): Typed `user: User`, `allQuestions: Pick<Question, 'id' | 'year' | 'category'>[]`, `userAttempts: Pick<QuestionAttempt, 'question_id' | 'is_correct'>[]`, and typed category stats.
+     - [`components/Dashboard.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/Dashboard.tsx): Defined and exported complete `StartQuizOptions` interface; typed `profile: Profile | null`, `onProfileUpdate: (updatedProfile: Profile) => void`, `s: QuizSession`, `aq: AssignedQuiz`.
+     - [`components/MyStatsModal.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/MyStatsModal.tsx): Replaced `any` with `Profile | null`, `Result[]`, `UserBadge[]`, `Question[]`, and typed review items.
+     - [`components/AchievementsModal.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/AchievementsModal.tsx): Standardized `userBadges: UserBadge[]`.
+     - [`lib/types.ts`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/lib/types.ts): Extended `Result` with `review_data?: ReviewDataItem[] | null; attendance_date?: string | null;`, defined `ReviewDataItem`, and extended `UserBadge` with badge display metadata (`name`, `icon`, `description`, `type`, `badges`).
+     - [`components/AdminPerformance.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/AdminPerformance.tsx): Aligned `openReview` hydration mapper with `ReviewDataItem`.
+3. **Repository Housekeeping**:
+   - Cleaned root workspace clutter:
+     - Relocated 38 loose root diagnostic/migration scripts into `scripts/archive/` (`apply_sql.js`, `carve.js`, `check_*.js`, `fix_*.js`, `generate_*.ps1`, `test_*.js`, etc.).
+     - Added `scripts/archive/README.md` documenting historical purpose.
+     - Moved large offline text dumps (`scratch_pdf_dump.txt` [6.4MB], `scratch_pdf_json.json` [29.1MB], `candidate_questions.md`, `image_candidates.md`, `spot_check_report.md`) into `data/scratch/`.
+
+**Workflow gate:** `npx tsc --noEmit` exits 0 (zero errors); `npm run lint` exits 0 (zero warnings); `npm run build` exits 0 (clean static page generation across all 17 routes).
+
 ### ▶️ Session Handoff — 2026-09-20 (Antigravity)
 **Shipped this session**:
 1. **Mobile Layout Prioritization & Reordering**:

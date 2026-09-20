@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
 import { AdminData } from '@/lib/types';
@@ -41,9 +41,9 @@ export default function RosterManager() {
     });
   }, [adminData]);
 
-  const fetchRoster = async () => {
+  const fetchRoster = useCallback(async () => {
     await refetch();
-  };
+  }, [refetch]);
 
   // Derived list of available faculty members for the dropdown
   const facultyList = Array.from(new Set(roster
@@ -123,7 +123,7 @@ export default function RosterManager() {
     }
   };
 
-  const handleDeletePerson = async (email: string) => {
+  const handleDeletePerson = useCallback(async (email: string) => {
     if (!window.confirm(`Are you sure you want to remove ${email} from the authorized roster?`)) return;
     try {
       const { error } = await supabase
@@ -136,7 +136,7 @@ export default function RosterManager() {
     } catch (err: any) {
       alert(err.message || 'Error removing person');
     }
-  };
+  }, [fetchRoster]);
 
   const filtered = roster.filter(m => {
     return showGraduates || !isGraduated(m);
@@ -271,7 +271,7 @@ export default function RosterManager() {
       enableSorting: false,
       enableColumnFilter: false,
     },
-  ], []);
+  ], [handleDeletePerson]);
 
   if (loading) {
     return (

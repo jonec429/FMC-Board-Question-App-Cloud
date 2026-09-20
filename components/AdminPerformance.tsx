@@ -125,7 +125,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       const { data, error } = await supabase.from('questions').select('*').in('id', qIds);
       if (error) throw error;
       
-      const hydrated = rd.map((item: { q: string; status: string; explanation?: string; submitted_answer?: string; a?: string }) => {
+      const hydrated = rd.map((item: { q: string; status?: string; explanation?: string; submitted_answer?: string; a?: any }) => {
         const qData = data?.find(x => x.id === item.q);
         return qData ? { question: qData, selected: item.a } : null;
       }).filter(Boolean);

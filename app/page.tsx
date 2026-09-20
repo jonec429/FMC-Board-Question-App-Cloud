@@ -196,7 +196,7 @@ export default function Home() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [envMissing]);
 
   const handleLogout = async () => {
     try {

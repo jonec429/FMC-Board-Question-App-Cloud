@@ -24,9 +24,26 @@ export type Block = Omit<Database['public']['Tables']['blocks']['Row'], 'questio
   keyword_filters: string[] | null;
 };
 export type BlockSchedule = Database['public']['Tables']['block_schedule']['Row'];
-export type Result = Database['public']['Tables']['results']['Row'];
+export interface ReviewDataItem {
+  q: string;
+  a?: number | string | null;
+  status?: string;
+  explanation?: string;
+  submitted_answer?: string;
+}
+
+export type Result = Database['public']['Tables']['results']['Row'] & {
+  review_data?: ReviewDataItem[] | null;
+  attendance_date?: string | null;
+};
 export type Badge = Database['public']['Tables']['badges']['Row'];
-export type UserBadge = Database['public']['Tables']['user_badges']['Row'];
+export type UserBadge = Database['public']['Tables']['user_badges']['Row'] & {
+  name?: string;
+  icon?: string | null;
+  description?: string | null;
+  type?: string | null;
+  badges?: Database['public']['Tables']['badges']['Row'] | null;
+};
 export type QuestionAttempt = Database['public']['Tables']['question_attempts']['Row'];
 export type AttendanceRecord = Database['public']['Tables']['attendance']['Row'];
 

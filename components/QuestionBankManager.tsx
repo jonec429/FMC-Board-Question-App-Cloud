@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
   Database, PlusCircle, Search, Edit3, Trash2, Loader2, X, Save, Eye
@@ -64,7 +64,7 @@ export default function QuestionBankManager() {
 }
 
 function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRefresh: () => Promise<void> }) {
-  const allQuestions = adminData.questions || [];
+  const allQuestions = React.useMemo(() => adminData.questions || [], [adminData.questions]);
   
   // Filters
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -88,6 +88,43 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
     if (yearFilter) filtered = filtered.filter((q: any) => q.year === yearFilter);
     return filtered;
   }, [allQuestions, categoryFilter, yearFilter]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!window.confirm('Are you sure you want to permanently delete this question? This action cannot be undone.')) return;
+    try {
+      const { error } = await supabase.from('questions').delete().eq('id', id);
+      if (error) throw error;
+      if (onRefresh) await onRefresh();
+    } catch (err: any) {
+      alert('Error deleting: ' + err.message);
+    }
+  }, [onRefresh]);
+
+  const openEditModal = useCallback(async (q: any) => {
+    // The bulk admin fetch omits `explanation` and `resource_link` (too large for upfront
+    // load). Lazy-fetch them now before opening the editor so the form is pre-populated.
+    let full = q;
+    try {
+      const { data, error } = await withTimeout(
+        supabase.from('questions').select('explanation, resource_link, is_repeat').eq('id', q.id).maybeSingle(),
+        5000
+      );
+      if (!error && data) full = { ...q, ...data };
+    } catch (err) {
+      console.warn('Lazy-fetch of full question failed; opening editor with partial row:', err);
+    }
+    const paddedOptions = [...(full.options || []), '', '', '', '', ''].slice(0, 5);
+    const isRepeat = full.is_repeat !== undefined && full.is_repeat !== null
+      ? Boolean(full.is_repeat)
+      : KNOWN_REPEAT_IDS.has(full.id);
+    setEditingQuestion({
+      ...full,
+      is_repeat: isRepeat,
+      options: paddedOptions,
+      correct_index: full.correct_index.toString()
+    });
+    setShowEditModal(true);
+  }, []);
 
   const columns: ColumnDef<any>[] = React.useMemo(() => [
     {
@@ -159,18 +196,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
       enableSorting: false,
       enableColumnFilter: false,
     }
-  ], []);
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to permanently delete this question? This action cannot be undone.')) return;
-    try {
-      const { error } = await supabase.from('questions').delete().eq('id', id);
-      if (error) throw error;
-      if (onRefresh) await onRefresh();
-    } catch (err: any) {
-      alert('Error deleting: ' + err.message);
-    }
-  };
+  ], [handleDelete, openEditModal]);
 
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,32 +243,6 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
     } finally {
       setSaving(false);
     }
-  };
-
-  const openEditModal = async (q: any) => {
-    // The bulk admin fetch omits `explanation` and `resource_link` (too large for upfront
-    // load). Lazy-fetch them now before opening the editor so the form is pre-populated.
-    let full = q;
-    try {
-      const { data, error } = await withTimeout(
-        supabase.from('questions').select('explanation, resource_link, is_repeat').eq('id', q.id).maybeSingle(),
-        5000
-      );
-      if (!error && data) full = { ...q, ...data };
-    } catch (err) {
-      console.warn('Lazy-fetch of full question failed; opening editor with partial row:', err);
-    }
-    const paddedOptions = [...(full.options || []), '', '', '', '', ''].slice(0, 5);
-    const isRepeat = full.is_repeat !== undefined && full.is_repeat !== null
-      ? Boolean(full.is_repeat)
-      : KNOWN_REPEAT_IDS.has(full.id);
-    setEditingQuestion({
-      ...full,
-      is_repeat: isRepeat,
-      options: paddedOptions,
-      correct_index: full.correct_index.toString()
-    });
-    setShowEditModal(true);
   };
 
   return (
