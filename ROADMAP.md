@@ -60,6 +60,31 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-09-22 (Antigravity: QOTD Analytics Suite & Anonymous Peer Benchmarking)
+**Shipped this session**:
+1. **Strict Data & Score Isolation**:
+   - QOTD participation and accuracy are tracked strictly within `question_attempts` (`is_qotd = true`) and `user_streaks`.
+   - Guaranteed 0 effect on official resident academic block performance (`results` table, Core Curriculum Avg, On-Time %, Academic Points, CCC risk flags, and graduation requirements).
+2. **Resident-Facing Anonymous Peer Comparisons**:
+   - [`app/api/resident/qotd-comparison/route.ts`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/app/api/resident/qotd-comparison/route.ts): Built secure API computing anonymous option distractor breakdowns and program-wide benchmarks with explicit sample sizes (`n`).
+   - [`components/QuizEngine.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/QuizEngine.tsx): Post-unlock QOTD results screen now reveals:
+     - **Anonymous Peer Answer Distribution**: Real-time option-by-option distractor bars showing % and count (`n = ... responders`).
+     - **Cumulative Standing vs. Anonymous Peers**: Accuracy Benchmark vs. Program Avg with explicit resident sample size (`n = ... residents`), active streak vs. program median, and total lifetime questions answered.
+   - [`components/MyStatsModal.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/MyStatsModal.tsx): Updated QOTD card with dynamic peer standing pill (`+X% vs peers`, `Residency Avg: Y% (n = Z residents)`).
+3. **Resident QOTD Stats in Admin Performance**:
+   - [`components/AdminPerformance.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/AdminPerformance.tsx): Added QOTD streak and accuracy pill to the resident modal header. Added a dedicated `🔥 QOTD` sub-tab alongside Questions and Attendance with an academic isolation notice, 4 KPI cards (Questions Answered, Accuracy %, Current Streak, Best Streak), and a chronological question log showing option agreement % (`n = ...`) and 1-click question review.
+4. **Dedicated QOTD Analytics Hub**:
+   - Created [`components/QotdAnalytics.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/QotdAnalytics.tsx) and wired it into [`components/AdminConsole.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/AdminConsole.tsx) under Reports:
+     - **Top KPIs**: Questions served, Total attempts (n), Program accuracy % (n), Daily participation rate %, 30-Day reach (n), and active streakers.
+     - **Cohort & Category Benchmarks**: PGY cohort comparison cards with explicit resident sample size (`n`), category bar meters with sample sizes, and top 5 challenging distractor trap questions.
+     - **Daily Questions Timeline & Distractors**: Searchable question history with distractor distribution gauges and expandable slide-down drawers for respondents and pending residents.
+     - **Resident Participation Roster**: Sortable table of all residents with answered count (`n`), participation %, accuracy %, active streak, and best streak.
+     - **3 CSV Export Modes**: Cohort & KPI summary, Daily question history, and Resident participation roster.
+5. **Quality & Type Safety Gates**:
+   - Clean `npx tsc --noEmit` (0 errors).
+   - Clean `npm run lint` (`✔ No ESLint warnings or errors`).
+   - Clean `npm run build` (all 19 routes and dynamic endpoints generated successfully).
+
 ### ▶️ Session Handoff — 2026-09-22 (Antigravity: PWA Offline Resilience & DB Verification)
 **Shipped this session**:
 1. **PWA Offline Shell & Static Asset Caching**:

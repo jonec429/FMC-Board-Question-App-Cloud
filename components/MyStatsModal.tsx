@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
 import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save, Check } from './AppIcons';
-import { LeaderboardEntry, Profile, Result, UserBadge, Question } from '@/lib/types';
+import { LeaderboardEntry, Profile, Result, UserBadge, Question, QotdPeerComparisonResponse } from '@/lib/types';
 import QuizReview from './QuizReview';
 import { exportIncorrectToAnki, exportQuestionsToAnki, downloadCsv } from '@/lib/anki';
 import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
@@ -44,8 +44,8 @@ export default function MyStatsModal({
   const [reviewItems, setReviewItems] = useState<{ question: Question; selected: number }[] | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
   const [showAllReview, setShowAllReview] = useState(false);
-  const [exportingAnki, setExportingAnki] = useState(false);
   const [qotdStats, setQotdStats] = useState<{ correct: number; incorrect: number } | null>(null);
+  const [qotdComparison, setQotdComparison] = useState<QotdPeerComparisonResponse | null>(null);
 
   // Weak Areas State
   const [loadingWeakAreas, setLoadingWeakAreas] = useState(false);
@@ -53,6 +53,7 @@ export default function MyStatsModal({
   const [latestStatus, setLatestStatus] = useState<Map<string, boolean>>(new Map());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [exportingAnki, setExportingAnki] = useState(false);
 
   const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
 
@@ -133,20 +134,22 @@ export default function MyStatsModal({
   useEffect(() => {
     async function loadQotdStats() {
       try {
-        const { data, error } = await withTimeout(
-          supabase
-            .from('question_attempts')
-            .select('is_correct')
-            .eq('user_id', userId)
-            .eq('is_qotd', true),
-          10000
-        ) as any;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
 
-        if (error) throw error;
-        if (data) {
-          const correct = data.filter((a: any) => a.is_correct).length;
-          const incorrect = data.length - correct;
-          setQotdStats({ correct, incorrect });
+        const res = await fetch('/api/resident/qotd-comparison', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const compData: QotdPeerComparisonResponse = await res.json();
+          setQotdComparison(compData);
+          if (compData.personalStats) {
+            setQotdStats({
+              correct: compData.personalStats.correctCount,
+              incorrect: compData.personalStats.totalAttempts - compData.personalStats.correctCount
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to load QOTD stats:', err);
@@ -393,25 +396,58 @@ export default function MyStatsModal({
                   );
                 })()}
 
-                {/* QOTD INTEGRATION */}
-                {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (
-                  <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
-                    <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest mb-2">QOTD Performance</h3>
-                    <div className="flex justify-between text-xs font-bold mb-1.5">
-                      <span className="text-emerald-300">{qotdStats.correct} Correct</span>
-                      <span className="text-red-300">{qotdStats.incorrect} Incorrect</span>
+                {/* QOTD INTEGRATION WITH PEER COMPARISON */}
+                {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (() => {
+                  const personalTotal = qotdStats.correct + qotdStats.incorrect;
+                  const personalPct = Math.round((qotdStats.correct / personalTotal) * 100);
+                  const programPct = qotdComparison?.programStats?.programAccuracyPct ?? null;
+                  const programN = qotdComparison?.programStats?.totalProgramParticipants ?? null;
+                  const delta = programPct !== null ? personalPct - programPct : null;
+
+                  return (
+                    <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">
+                          QOTD Performance &amp; Benchmark
+                        </h3>
+                        {delta !== null && (
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            delta >= 0 ? 'bg-emerald-400/20 text-emerald-300' : 'bg-amber-400/20 text-amber-300'
+                          }`}>
+                            {delta >= 0 ? `+${delta}%` : `${delta}%`} vs peers
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex justify-between items-baseline text-xs font-bold mb-1.5">
+                        <span className="text-white">
+                          <span className="text-emerald-300">{qotdStats.correct} Correct</span>
+                          {' '}({personalPct}%)
+                        </span>
+                        {programPct !== null && (
+                          <span className="text-indigo-200 text-[11px]">
+                            Program Avg: <span className="text-white font-black">{programPct}%</span>
+                            {programN ? ` (n = ${programN} residents)` : ''}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="h-2 bg-red-500/50 rounded-full overflow-hidden flex mb-2">
+                        <div 
+                          className="h-full bg-emerald-400 transition-all" 
+                          style={{ width: `${personalPct}%` }} 
+                        />
+                      </div>
+
+                      <div className="flex justify-between items-center text-[10px] text-indigo-200 uppercase tracking-widest font-bold">
+                        <span>{personalTotal} Total Attempts</span>
+                        {qotdComparison?.personalStats?.currentStreak ? (
+                          <span className="text-amber-300 font-black">🔥 {qotdComparison.personalStats.currentStreak}d streak</span>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="h-2 bg-red-500/50 rounded-full overflow-hidden flex">
-                      <div 
-                        className="h-full bg-emerald-400 transition-all" 
-                        style={{ width: `${(qotdStats.correct / (qotdStats.correct + qotdStats.incorrect)) * 100}%` }} 
-                      />
-                    </div>
-                    <p className="text-[10px] text-indigo-200 mt-1.5 text-center uppercase tracking-widest font-bold">
-                      {qotdStats.correct + qotdStats.incorrect} Total Attempts
-                    </p>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* BADGES INTEGRATION */}
                 {userBadges.length > 0 && (

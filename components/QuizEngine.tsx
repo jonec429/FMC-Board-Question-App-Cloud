@@ -21,6 +21,7 @@ import {
   flushPendingSubmissions,
   PendingSubmission,
 } from '@/lib/offlineSync';
+import { QotdPeerComparisonResponse } from '@/lib/types';
 
 interface QuizEngineProps {
   user: any;
@@ -111,6 +112,36 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [qotdAggregates, setQotdAggregates] = useState<Record<string, number> | null>(null);
   const [qotdStats, setQotdStats] = useState<{correct: number, incorrect: number, total: number} | null>(null);
   const [qotdTab, setQotdTab] = useState<'today' | 'history'>('today');
+  const [qotdComparison, setQotdComparison] = useState<QotdPeerComparisonResponse | null>(null);
+  const [loadingQotdComparison, setLoadingQotdComparison] = useState(false);
+
+  const fetchPeerComparison = useCallback(async (questionId: string) => {
+    try {
+      setLoadingQotdComparison(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+
+      const res = await fetch(`/api/resident/qotd-comparison?questionId=${encodeURIComponent(questionId)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data: QotdPeerComparisonResponse = await res.json();
+        setQotdComparison(data);
+        if (data.questionStats) {
+          setQotdStats({
+            correct: data.questionStats.correctCount,
+            incorrect: data.questionStats.incorrectCount,
+            total: data.questionStats.totalResponders
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load QOTD peer comparison:', e);
+    } finally {
+      setLoadingQotdComparison(false);
+    }
+  }, []);
 
   useEffect(() => {
     setViewedQuestions(prev => {
@@ -239,7 +270,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 }
               });
 
-             // Fetch cohort stats silently via RPC
+             // Fetch cohort stats silently via RPC and API
              supabase.rpc('get_qotd_cohort_stats', { p_question_ids: [qotdQuestion.id] })
               .then(({ data }) => {
                 if (data && data.length > 0) {
@@ -248,6 +279,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   setQotdStats({ correct, incorrect, total: correct + incorrect });
                 }
               });
+             fetchPeerComparison(qotdQuestion.id);
           }
           
           setLoading(false);
@@ -494,6 +526,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     qotdAttempt?.selected_index,
     qotdQuestion,
     questionIds,
+    fetchPeerComparison,
   ]);
 
   const syncProgress = useCallback(async () => {
@@ -786,6 +819,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           const incorrect = Number(attemptsData[0].incorrect) || 0;
           setQotdStats({ correct, incorrect, total: correct + incorrect });
         }
+
+        fetchPeerComparison(questions[0].id);
       }
 
       clearOfflineSession(sessionId || topicLabel);
@@ -1225,7 +1260,9 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                       <div className="h-full bg-white transition-all" style={{ width: `${Math.round((qotdStats.correct / qotdStats.total) * 100)}%` }} />
                     </div>
                   </div>
-                  <div className="text-[11px] font-bold opacity-90">{qotdStats.correct} correct · {qotdStats.incorrect} incorrect · {qotdStats.total} responders</div>
+                  <div className="text-[11px] font-bold opacity-90">
+                    Cohort Accuracy: {Math.round((qotdStats.correct / qotdStats.total) * 100)}% ({qotdStats.correct} of {qotdStats.total} correct · n = {qotdStats.total} responders)
+                  </div>
                 </div>
               )}
             </div>
@@ -1249,6 +1286,152 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                       <div className="text-xs font-black uppercase tracking-widest opacity-70">{timing_status}</div>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Anonymous Peer Distractor Breakdown & Benchmark for QOTD */}
+          {isQotd && qotdComparison && (
+            <div className="bg-white dark:bg-slate-900 rounded-[32px] p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+              {/* Question Distractor Distribution */}
+              {qotdComparison.questionStats && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
+                        <span>📊</span> Anonymous Peer Answer Distribution
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                        How your co-residents voted on this question (n = {qotdComparison.questionStats.totalResponders} responders)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {questions[0]?.options?.map((opt: string, optIdx: number) => {
+                      const dist = qotdComparison.questionStats?.optionCounts[optIdx] || { count: 0, pct: 0 };
+                      const isSelected = answers[0] === optIdx;
+                      const isCorrectOpt = optIdx === questions[0].correct_index;
+
+                      return (
+                        <div
+                          key={optIdx}
+                          className={`p-3.5 rounded-2xl border transition-all ${
+                            isCorrectOpt
+                              ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20'
+                              : isSelected
+                              ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
+                              : 'border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/30'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span
+                                className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
+                                  isCorrectOpt
+                                    ? 'bg-emerald-600 text-white'
+                                    : isSelected
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                }`}
+                              >
+                                {String.fromCharCode(65 + optIdx)}
+                              </span>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                                {opt}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isCorrectOpt && (
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                                  ✓ Correct
+                                </span>
+                              )}
+                              {isSelected && (
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+                                  Your Choice
+                                </span>
+                              )}
+                              <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+                                {dist.pct}% <span className="text-[10px] text-slate-400 font-bold">(n = {dist.count})</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${
+                                isCorrectOpt
+                                  ? 'bg-emerald-500'
+                                  : isSelected
+                                  ? 'bg-blue-500'
+                                  : 'bg-slate-400 dark:bg-slate-500'
+                              }`}
+                              style={{ width: `${dist.pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Cumulative Standing vs Anonymous Peers */}
+              {qotdComparison.programStats && qotdComparison.personalStats && (
+                <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+                    Your Cumulative Standing vs. Anonymous Peers
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Accuracy Benchmark */}
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Accuracy Benchmark
+                      </div>
+                      <div className="text-2xl font-black text-slate-900 dark:text-white">
+                        {qotdComparison.personalStats.accuracyPct}%
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                        Program Avg: {qotdComparison.programStats.programAccuracyPct}%
+                        <span className="block text-[10px] text-slate-400">
+                          (n = {qotdComparison.programStats.totalProgramParticipants} residents)
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Active Streak */}
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Active Streak
+                      </div>
+                      <div className="text-2xl font-black text-amber-500">
+                        🔥 {qotdComparison.personalStats.currentStreak}d
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                        Median: {qotdComparison.programStats.medianStreak}d
+                        <span className="block text-[10px] text-slate-400">
+                          Best: {qotdComparison.personalStats.maxStreak}d
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Total Questions */}
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Total Answered
+                      </div>
+                      <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+                        {qotdComparison.personalStats.totalAttempts}
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                        {qotdComparison.personalStats.correctCount} correct
+                        <span className="block text-[10px] text-slate-400">Lifetime QOTDs</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -7,6 +7,7 @@ import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, isFacultyRow, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
+import { Flame, Sparkles, HelpCircle, Eye } from 'lucide-react';
 import QuestionHeatmap from './QuestionHeatmap';
 import AdviseeDossierModal from './AdviseeDossierModal';
 import RiskLegend from './RiskLegend';
@@ -62,7 +63,7 @@ const riskColors: Record<RiskLevel, { row: string; badge: string; dot: string }>
   gray: { row: 'bg-slate-50/40 dark:bg-slate-800/30', badge: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400', dot: 'bg-slate-300 dark:bg-slate-600' },
 };
 
-import { AdminData, User, Profile, Result, RosterEntry } from '@/lib/types';
+import { AdminData, User, Profile, Result, RosterEntry, ResidentQotdHistoryItem } from '@/lib/types';
 import { useAdminData } from '@/hooks/useAdminData';
 
 interface AdminPerformanceProps {
@@ -106,7 +107,79 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [overviewSearch, setOverviewSearch] = useState('');
   const [overviewPgyFilter, setOverviewPgyFilter] = useState<'ALL' | 'PGY-1' | 'PGY-2' | 'PGY-3' | 'FACULTY'>('ALL');
 
-  const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
+  const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance' | 'qotd'>('questions');
+  const [residentQotdHistory, setResidentQotdHistory] = useState<ResidentQotdHistoryItem[] | null>(null);
+  const [loadingResidentQotd, setLoadingResidentQotd] = useState(false);
+  const [residentQotdMeta, setResidentQotdMeta] = useState<{
+    streak?: { current: number; max: number; lastDate: string | null };
+    stats?: { totalAnswered: number; totalCorrect: number; accuracy: number };
+  } | null>(null);
+
+  useEffect(() => {
+    if (!selectedResident) {
+      setResidentQotdHistory(null);
+      setResidentQotdMeta(null);
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingResidentQotd(true);
+    setResidentQotdHistory(null);
+
+    const queryParam = selectedResident.userId
+      ? `residentUserId=${encodeURIComponent(selectedResident.userId)}`
+      : `residentEmail=${encodeURIComponent(selectedResident.email)}`;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!isMounted) return;
+      fetch(`/api/admin/qotd-analytics?${queryParam}`, {
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to fetch resident QOTD stats');
+          return res.json();
+        })
+        .then((data) => {
+          if (!isMounted) return;
+          setResidentQotdHistory(data.history || []);
+          setResidentQotdMeta({ streak: data.streak, stats: data.stats });
+        })
+        .catch((err) => {
+          console.error('Error fetching resident QOTD stats:', err);
+          if (isMounted) {
+            setResidentQotdHistory([]);
+          }
+        })
+        .finally(() => {
+          if (isMounted) setLoadingResidentQotd(false);
+        });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedResident]);
+
+  const openQotdReview = (h: ResidentQotdHistoryItem) => {
+    setSelectedQuiz({
+      topic: `Question of the Day: ${h.date} (${h.category})`,
+    });
+    setReviewItems([
+      {
+        question: {
+          id: h.questionId,
+          question_text: h.questionText,
+          options: h.options,
+          correct_index: h.correctIndex,
+          explanation: h.explanation,
+          category: h.category,
+          year: h.year,
+        },
+        selected: h.selectedIndex,
+      },
+    ]);
+    setLoadingReview(false);
+  };
 
   const openReview = async (r: import('@/lib/types').Result & { review_data?: unknown }) => {
     setSelectedQuiz(r);
@@ -1247,12 +1320,16 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attendance</div>
                   </div>
                 </div>
-                <div className="flex gap-2 mt-6">
+                <div className="flex flex-wrap gap-2 mt-6">
                   <span className={`text-xs font-black px-3 py-1.5 uppercase tracking-widest rounded-full ${riskColors[selectedResident.academicRisk].badge}`}>
                     Academic: {selectedResident.academicRisk === 'red' ? 'At Risk' : selectedResident.academicRisk === 'yellow' ? 'Attention' : selectedResident.academicRisk === 'green' ? 'On Track' : 'Evaluating'}
                   </span>
                   <span className={`text-xs font-black px-3 py-1.5 uppercase tracking-widest rounded-full ${riskColors[selectedResident.complianceRisk].badge}`}>
                     Participation: {selectedResident.complianceRisk === 'red' ? 'At Risk' : selectedResident.complianceRisk === 'yellow' ? 'Attention' : selectedResident.complianceRisk === 'green' ? 'On Track' : 'Evaluating'}
+                  </span>
+                  <span className="text-xs font-black px-3 py-1.5 uppercase tracking-widest rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/50 dark:border-amber-800/50 flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <span>QOTD: {residentQotdMeta?.streak?.current ?? 0}d streak · {residentQotdMeta?.stats?.accuracy ?? (residentQotdHistory && residentQotdHistory.length > 0 ? Math.round((residentQotdHistory.filter(h => h.isCorrect).length / residentQotdHistory.length) * 100) : '—')}% ({residentQotdHistory?.length ?? 0} answered)</span>
                   </span>
                 </div>
                 {selectedResident.riskReasons.length > 0 && (
@@ -1351,6 +1428,13 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       >
                         Attendance
                       </button>
+                      <button 
+                        onClick={() => setActiveListTab('qotd')}
+                        className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeListTab === 'qotd' ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                      >
+                        <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
+                        <span>QOTD ({residentQotdHistory ? residentQotdHistory.length : '—'})</span>
+                      </button>
                     </div>
 
                     {activeListTab === 'questions' ? (
@@ -1430,7 +1514,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                           )}
                         </div>
                       </>
-                    ) : (
+                    ) : activeListTab === 'attendance' ? (
                       <div>
                         <h3 className="text-xs font-black text-emerald-500 dark:text-emerald-400 uppercase tracking-widest mb-4">Attendance & Manual Credit ({attendanceRecords.length})</h3>
                         {attendanceRecords.length > 0 ? (
@@ -1460,6 +1544,139 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                         ) : (
                           <p className="text-slate-400 dark:text-slate-500 font-bold text-sm bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">No attendance recorded.</p>
                         )}
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Scope Isolation Disclaimer */}
+                        <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60 flex items-start gap-3">
+                          <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                          <div className="text-xs">
+                            <p className="font-bold text-amber-900 dark:text-amber-200">
+                              Formative Practice Only · Independent of Academic Standing
+                            </p>
+                            <p className="text-amber-700 dark:text-amber-300/90 mt-0.5 leading-relaxed">
+                              Question of the Day attempts and streaks are tracked purely for engagement and formative self-assessment. They do <strong>not</strong> affect academic block scores, on-time completion rates, CCC evaluations, or formal board preparation grading.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Resident QOTD KPI Cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                            <div className="text-2xl font-black text-slate-800 dark:text-white">
+                              {residentQotdMeta?.stats?.totalAnswered ?? (residentQotdHistory ? residentQotdHistory.length : 0)}
+                            </div>
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Questions Answered</div>
+                          </div>
+                          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                              {residentQotdMeta?.stats?.accuracy ?? (residentQotdHistory && residentQotdHistory.length > 0 ? Math.round((residentQotdHistory.filter(h => h.isCorrect).length / residentQotdHistory.length) * 100) : 0)}%
+                            </div>
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Accuracy Rate</div>
+                          </div>
+                          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                            <div className="text-2xl font-black text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
+                              <Flame className="w-5 h-5 text-amber-500 fill-amber-500" />
+                              {residentQotdMeta?.streak?.current ?? 0}d
+                            </div>
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Current Streak</div>
+                          </div>
+                          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-center">
+                            <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+                              {residentQotdMeta?.streak?.max ?? 0}d
+                            </div>
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Best Streak</div>
+                          </div>
+                        </div>
+
+                        {/* Chronological Question Log */}
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                              Attempt History ({residentQotdHistory?.length ?? 0})
+                            </h3>
+                            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                              Includes Peer Breakdown (n)
+                            </span>
+                          </div>
+
+                          {loadingResidentQotd ? (
+                            <div className="flex flex-col items-center justify-center py-16 text-slate-400 dark:text-slate-500">
+                              <Loader2 className="w-8 h-8 animate-spin text-amber-500 mb-3" />
+                              <p className="text-xs font-bold uppercase tracking-widest">Loading QOTD History...</p>
+                            </div>
+                          ) : !residentQotdHistory || residentQotdHistory.length === 0 ? (
+                            <p className="text-slate-400 dark:text-slate-500 font-bold text-sm bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl text-center">
+                              No Question of the Day attempts recorded for this resident.
+                            </p>
+                          ) : (
+                            <div className="space-y-3">
+                              {residentQotdHistory.map((h, i) => {
+                                const selectedOptionText = h.selectedIndex != null && h.options[h.selectedIndex]
+                                  ? h.options[h.selectedIndex]
+                                  : 'No option selected';
+
+                                return (
+                                  <div
+                                    key={h.id || `qotd-${i}`}
+                                    className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:border-amber-200 dark:hover:border-amber-900/50 transition-all space-y-3"
+                                  >
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs font-black bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2.5 py-0.5 rounded-md">
+                                          📅 {h.date}
+                                        </span>
+                                        <span className="text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-md">
+                                          {h.category} {h.year ? `· ${h.year}` : ''}
+                                        </span>
+                                        <span
+                                          className={`text-xs font-black px-2.5 py-0.5 rounded-md flex items-center gap-1 ${
+                                            h.isCorrect
+                                              ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                              : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300'
+                                          }`}
+                                        >
+                                          {h.isCorrect ? '✅ Correct' : '❌ Incorrect'}
+                                        </span>
+                                      </div>
+
+                                      <button
+                                        onClick={() => openQotdReview(h)}
+                                        className="self-start sm:self-auto text-xs font-bold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-3 py-1 rounded-lg border border-amber-200/50 dark:border-amber-800/50 hover:bg-amber-100 transition-colors flex items-center gap-1"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" /> Review Question
+                                      </button>
+                                    </div>
+
+                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 line-clamp-2">
+                                      {h.questionText}
+                                    </p>
+
+                                    {/* Peer stats & selected answer */}
+                                    <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                      <div className="text-slate-600 dark:text-slate-400">
+                                        <span className="font-semibold text-slate-400 dark:text-slate-500">Selected Answer: </span>
+                                        <span className={`font-bold ${h.isCorrect ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                          {selectedOptionText}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-[11px]">
+                                        <span title="Peers choosing this option">
+                                          👥 Pick Agreement: <strong className="text-slate-700 dark:text-slate-200">{h.peerOptionAgreementPct}%</strong> (n = {h.peerOptionAgreementCount} of {h.peerTotalCount})
+                                        </span>
+                                        <span>·</span>
+                                        <span title="Overall peer correctness">
+                                          🎯 Peer Accuracy: <strong className="text-slate-700 dark:text-slate-200">{h.peerAccuracyPct}%</strong> (n = {h.peerTotalCount} peers)
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </>

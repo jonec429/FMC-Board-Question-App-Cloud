@@ -89,3 +89,129 @@ export interface AssignedQuiz {
   is_completed: boolean;
   completed_at?: string | null;
 }
+
+export interface QotdOptionDistribution {
+  count: number;
+  pct: number;
+}
+
+export interface QotdPeerComparisonResponse {
+  questionStats: {
+    questionId: string;
+    totalResponders: number;
+    correctCount: number;
+    incorrectCount: number;
+    accuracyPct: number;
+    optionCounts: Record<number, QotdOptionDistribution>;
+  } | null;
+  programStats: {
+    totalProgramParticipants: number;
+    totalAttempts: number;
+    programAccuracyPct: number;
+    medianStreak: number;
+  };
+  personalStats: {
+    totalAttempts: number;
+    correctCount: number;
+    accuracyPct: number;
+    currentStreak: number;
+    maxStreak: number;
+  } | null;
+}
+
+export interface QotdDailyRespondent {
+  userId: string;
+  name: string;
+  email: string;
+  pgy: string;
+  isCorrect: boolean;
+  selectedIndex: number | null;
+  answeredAt: string;
+}
+
+export interface QotdDailyStatItem {
+  date: string;
+  questionId: string;
+  questionText: string;
+  category: string;
+  year: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+  attemptsCount: number;
+  correctCount: number;
+  accuracy: number;
+  optionCounts: Record<number, QotdOptionDistribution>;
+  reactions: Record<string, number>;
+  respondents: QotdDailyRespondent[];
+  pendingResidents: Array<{ name: string; email: string; pgy: string }>;
+}
+
+export interface QotdResidentStatItem {
+  userId: string | null;
+  email: string;
+  name: string;
+  pgy: string;
+  advisor: string;
+  attemptsCount: number;
+  correctCount: number;
+  accuracy: number;
+  participationRate: number;
+  currentStreak: number;
+  maxStreak: number;
+  lastAnsweredDate: string | null;
+}
+
+export interface QotdCategoryStatItem {
+  category: string;
+  totalQuestions: number;
+  totalAttempts: number;
+  correctCount: number;
+  accuracy: number;
+}
+
+export interface QotdPgyStatItem {
+  pgy: string;
+  totalResidents: number;
+  totalAttempts: number;
+  averageAttemptsPerResident: number;
+  accuracyRate: number;
+  participationRate: number;
+}
+
+export interface QotdAnalyticsResponse {
+  kpis: {
+    totalAttempts: number;
+    totalQuestionsServed: number;
+    overallAccuracy: number;
+    distinctParticipants: number;
+    activeResidentCount: number;
+    averageDailyParticipationRate: number;
+    activeMonthReachPct: number;
+    activeMonthReachCount: number;
+  };
+  pgyCohorts: QotdPgyStatItem[];
+  categories: QotdCategoryStatItem[];
+  dailySchedule: QotdDailyStatItem[];
+  residentStats: QotdResidentStatItem[];
+}
+
+export interface ResidentQotdHistoryItem {
+  id: string;
+  date: string;
+  questionId: string;
+  questionText: string;
+  category: string;
+  year: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  selectedIndex: number | null;
+  isCorrect: boolean;
+  answeredAt: string;
+  peerAccuracyPct: number;
+  peerTotalCount: number;
+  peerOptionAgreementPct: number;
+  peerOptionAgreementCount: number;
+}
+
