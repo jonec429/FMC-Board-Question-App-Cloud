@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { ThemeProvider } from '@/context/ThemeContext';
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister';
 
 /**
- * App-wide providers: React Query + Theme Provider (Light / Dark / Midnight)
+ * App-wide providers: React Query + Theme Provider (Light / Dark / Midnight) + PWA SW
  */
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -26,6 +27,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        <ServiceWorkerRegister />
         {children}
       </ThemeProvider>
     </QueryClientProvider>

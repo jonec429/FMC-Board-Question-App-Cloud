@@ -10,6 +10,8 @@ import AdminConsole, { TabId } from '@/components/AdminConsole';
 import { Loader2 } from '@/components/AppIcons';
 import { withTimeout, withRetry } from '@/lib/utils';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import OfflineIndicator from '@/components/OfflineIndicator';
+import { flushPendingSubmissions } from '@/lib/offlineSync';
 import { useDayChangeReload } from '@/hooks/useDayChangeReload';
 import { User, Profile, Block, Question, Result } from '@/lib/types';
 import { getTodayDateString } from '@/lib/qotd';
@@ -43,6 +45,17 @@ export default function Home() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminTab, setAdminTab] = useState<TabId | undefined>(undefined);
   const [showReset, setShowReset] = useState(false);
+
+  // Synchronize any queued offline submissions once user is authenticated
+  useEffect(() => {
+    if (user) {
+      flushPendingSubmissions(supabase).then(({ synced }) => {
+        if (synced > 0) {
+          console.log(`[App] Synced ${synced} pending submission(s) on launch.`);
+        }
+      });
+    }
+  }, [user]);
 
   // Reload the app when it returns to the foreground stale (new day or hidden > 4h)
   useDayChangeReload();
@@ -392,6 +405,14 @@ export default function Home() {
           />
         </ErrorBoundary>
       )}
+
+      <OfflineIndicator
+        onReconnected={() => {
+          if (user) {
+            flushPendingSubmissions(supabase);
+          }
+        }}
+      />
     </>
   );
 }

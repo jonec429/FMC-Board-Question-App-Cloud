@@ -13,6 +13,14 @@ import { getTodayDateString, isPastNoon } from '@/lib/qotd';
 import { processGamification } from '@/lib/gamification';
 import { useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
+import {
+  saveOfflineSession,
+  loadOfflineSession,
+  clearOfflineSession,
+  queuePendingSubmission,
+  flushPendingSubmissions,
+  PendingSubmission,
+} from '@/lib/offlineSync';
 
 interface QuizEngineProps {
   user: any;
@@ -58,6 +66,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [resultData, setResultData] = useState<any>(null);
+  const [isSubmittedOffline, setIsSubmittedOffline] = useState(false);
   const [showAllReview, setShowAllReview] = useState(false);
   // Practice (reveal after each Q) vs Quiz (answers hidden until the end), chosen
   // on the pre-start screen for non-QOTD quizzes. `started` gates that screen; a
@@ -270,6 +279,22 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             setAnswers(sData.answers || {});
             if (sData.time_left) setTimeLeft(sData.time_left);
             
+            // Reconcile with local offline backup if it contains newer or more answers
+            const offlineBackup = loadOfflineSession(sData.id || topicLabel);
+            if (offlineBackup) {
+              const cloudAnswerCount = Object.keys(sData.answers || {}).length;
+              const localAnswerCount = Object.keys(offlineBackup.answers || {}).length;
+              if (localAnswerCount >= cloudAnswerCount) {
+                setAnswers(offlineBackup.answers);
+                if (offlineBackup.currentIndex !== undefined) {
+                  setCurrentIndex(offlineBackup.currentIndex);
+                }
+                if (offlineBackup.timeLeft) {
+                  setTimeLeft(offlineBackup.timeLeft);
+                }
+              }
+            }
+            
             if (sData.questions && Array.isArray(sData.questions) && sData.questions.length > 0) {
               setQuestions(sData.questions);
               setLoading(false);
@@ -472,14 +497,36 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   ]);
 
   const syncProgress = useCallback(async () => {
+    // Always mirror to offline backup immediately
+    saveOfflineSession(sessionId || topic || 'active_quiz', {
+      sessionId: sessionId || undefined,
+      topic,
+      currentIndex,
+      answers,
+      timeLeft,
+      lastUpdated: new Date().toISOString(),
+    });
+
     if (!sessionId || syncing) return;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
+
     setSyncing(true);
-    await supabase
-      .from('quiz_sessions')
-      .update({ current_index: currentIndex, answers, time_left: timeLeft, last_updated: new Date().toISOString() })
-      .eq('id', sessionId);
-    setSyncing(false);
-  }, [sessionId, currentIndex, answers, timeLeft, syncing]);
+    try {
+      await withTimeout(
+        supabase
+          .from('quiz_sessions')
+          .update({ current_index: currentIndex, answers, time_left: timeLeft, last_updated: new Date().toISOString() })
+          .eq('id', sessionId),
+        6000
+      );
+    } catch (err) {
+      console.warn('[QuizEngine] Background cloud sync warning (progress preserved locally):', err);
+    } finally {
+      setSyncing(false);
+    }
+  }, [sessionId, topic, currentIndex, answers, timeLeft, syncing]);
 
   useEffect(() => {
     const t = setTimeout(() => syncProgress(), 3000);
@@ -534,79 +581,121 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     setSubmitting(true);
     const finalAnswers = overrideAnswers || answers;
     
-    try {
-      const score = questions.reduce((acc, q, idx) => acc + (finalAnswers[idx] === q.correct_index ? 1 : 0), 0);
-      const percentage = questions.length > 0 ? (score / questions.length) * 100 : 0;
-      const topicLabel = topic || 'Mixed Review Block';
+    const score = questions.reduce((acc, q, idx) => acc + (finalAnswers[idx] === q.correct_index ? 1 : 0), 0);
+    const percentage = questions.length > 0 ? (score / questions.length) * 100 : 0;
+    const topicLabel = topic || 'Mixed Review Block';
 
-      let points = 0;
-      let timingStatus: string | null = null;
+    let points = 0;
+    let timingStatus: string | null = null;
 
-      const isDemo = currentBlock?.block_type === 'demo' || topicLabel.toLowerCase() === 'demo quiz';
-      const isCustomOrMixed = topicLabel === 'Mixed Review Block' || !topic || topicLabel.toLowerCase().includes('weakest topics');
+    const isDemo = currentBlock?.block_type === 'demo' || topicLabel.toLowerCase() === 'demo quiz';
+    const isCustomOrMixed = topicLabel === 'Mixed Review Block' || !topic || topicLabel.toLowerCase().includes('weakest topics');
 
-      if (isCustomOrMixed || isQotd || isDemo) {
-        points = 0;
-        timingStatus = null;
-      } else if (topicLabel.toLowerCase().includes('bonus')) {
-        points = 0;
-        timingStatus = null;
+    if (isCustomOrMixed || isQotd || isDemo) {
+      points = 0;
+      timingStatus = null;
+    } else if (topicLabel.toLowerCase().includes('bonus')) {
+      points = 0;
+      timingStatus = null;
+    } else {
+      if (currentBlock && currentBlock.topic === topicLabel) {
+        points = 2;
+        timingStatus = 'On Time';
       } else {
-        if (currentBlock && currentBlock.topic === topicLabel) {
-          points = 2;
-          timingStatus = 'On Time';
-        } else {
-          points = 0;
-          timingStatus = 'Late';
-          // Check if this is an early completion (the block's deadline hasn't passed yet)
-          if (quizId) {
-            const { data: bSched } = await supabase
-              .from('block_schedule')
-              .select('start_date, end_date')
-              .eq('block_id', quizId)
-              .maybeSingle();
-            
-            if (bSched) {
-              const now = new Date();
-              // Format current time in Eastern Time as YYYY-MM-DD
-              const estFormatter = new Intl.DateTimeFormat('en-CA', {
-                timeZone: 'America/New_York',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit'
-              });
-              const todayEstStr = estFormatter.format(now);
-              
-              if (todayEstStr < bSched.start_date) {
-                points = 2;
-                timingStatus = 'Early';
-              } else if (todayEstStr <= bSched.end_date) {
-                points = 2;
-                timingStatus = 'On Time';
-              }
-            }
+        points = 0;
+        timingStatus = 'Late';
+      }
+    }
+
+    const missedQuestions = questions
+      .map((q, idx) => ({ q, idx, isCorrect: finalAnswers[idx] === q.correct_index }))
+      .filter(({ isCorrect }) => !isCorrect);
+    const result = {
+      user_id: user.id,
+      legacy_email: user.email,
+      topic: topicLabel,
+      score,
+      total: questions.length,
+      percentage: parseFloat(percentage.toFixed(2)),
+      academic_points: points,
+      timing_status: timingStatus,
+      academic_year: getCurrentAcademicYear(),
+      // Snapshot for reviewing this quiz later (My Performance): the questions in
+      // the order taken + the resident's answer. Correct answer + explanation are
+      // read live from the questions table at review time.
+      review_data: questions.map((q, idx) => ({ q: q.id, a: finalAnswers[idx] ?? null })),
+    };
+
+    const attempts = !isDemo
+      ? questions.map((q, idx) => ({
+          user_id: user.id,
+          question_id: q.id,
+          is_correct: finalAnswers[idx] === q.correct_index,
+          selected_index: finalAnswers[idx] ?? null,
+        }))
+      : [];
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (isOffline) {
+      queuePendingSubmission({
+        id: `${user.id}_${Date.now()}`,
+        userId: user.id,
+        sessionId: sessionId || undefined,
+        isQotd: !!isQotd,
+        topic: topicLabel,
+        result: !isQotd ? result : undefined,
+        attempts: !isQotd && !isDemo ? attempts : undefined,
+        qotdAttempt: isQotd ? {
+          user_id: user.id,
+          question_id: questions[0].id,
+          is_correct: finalAnswers[0] === questions[0].correct_index,
+          selected_index: finalAnswers[0] ?? null,
+          is_qotd: true
+        } : undefined,
+        submittedAt: new Date().toISOString(),
+      });
+
+      clearOfflineSession(sessionId || topicLabel);
+      setResultData({ ...result, missedQuestions, questions });
+      setIsSubmittedOffline(true);
+      setShowResults(true);
+      setSubmitting(false);
+      submittingRef.current = false;
+      return;
+    }
+
+    try {
+      // Check if this is an early completion (the block's deadline hasn't passed yet)
+      if (timingStatus === 'Late' && quizId) {
+        const { data: bSched } = await supabase
+          .from('block_schedule')
+          .select('start_date, end_date')
+          .eq('block_id', quizId)
+          .maybeSingle();
+        
+        if (bSched) {
+          const now = new Date();
+          // Format current time in Eastern Time as YYYY-MM-DD
+          const estFormatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/New_York',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+          });
+          const todayEstStr = estFormatter.format(now);
+          
+          if (todayEstStr < bSched.start_date) {
+            points = 2;
+            result.academic_points = 2;
+            result.timing_status = 'Early';
+          } else if (todayEstStr <= bSched.end_date) {
+            points = 2;
+            result.academic_points = 2;
+            result.timing_status = 'On Time';
           }
         }
       }
-
-      const missedQuestions = questions
-        .map((q, idx) => ({ q, idx, isCorrect: finalAnswers[idx] === q.correct_index }))
-        .filter(({ isCorrect }) => !isCorrect);
-      const result = {
-        user_id: user.id,
-        legacy_email: user.email,
-        topic: topicLabel,
-        score,
-        total: questions.length,
-        percentage: parseFloat(percentage.toFixed(2)),
-        academic_points: points,
-        timing_status: timingStatus,
-        academic_year: getCurrentAcademicYear(),
-        // Snapshot for reviewing this quiz later (My Performance): the questions in
-        // the order taken + the resident's answer. Correct answer + explanation are
-        // read live from the questions table at review time.
-        review_data: questions.map((q, idx) => ({ q: q.id, a: finalAnswers[idx] ?? null })),
-      };
 
       if (!isQotd) {
         if (!resultSavedRef.current) {
@@ -620,13 +709,6 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         }
 
         if (!isDemo && !attemptsSavedRef.current) {
-          // Save individual question attempts (skip demo attempts to prevent polluting question stats)
-          const attempts = questions.map((q, idx) => ({
-            user_id: user.id,
-            question_id: q.id,
-            is_correct: finalAnswers[idx] === q.correct_index,
-            selected_index: finalAnswers[idx] ?? null,
-          }));
           await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
           attemptsSavedRef.current = true;
         }
@@ -706,11 +788,37 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         }
       }
 
+      clearOfflineSession(sessionId || topicLabel);
       setResultData({ ...result, missedQuestions, questions });
       setShowResults(true);
     } catch (err: any) {
-      console.error('Submit Quiz Error:', err);
-      alert('Network error saving your block. Please try clicking Finish again. Error: ' + (err?.message || err?.toString() || 'Unknown Error'));
+      console.warn('Submit Quiz cloud write failed; falling back to offline queue:', err);
+      try {
+        queuePendingSubmission({
+          id: `${user.id}_${Date.now()}`,
+          userId: user.id,
+          sessionId: sessionId || undefined,
+          isQotd: !!isQotd,
+          topic: topicLabel,
+          result: !isQotd ? result : undefined,
+          attempts: !isQotd && !isDemo ? attempts : undefined,
+          qotdAttempt: isQotd ? {
+            user_id: user.id,
+            question_id: questions[0].id,
+            is_correct: finalAnswers[0] === questions[0].correct_index,
+            selected_index: finalAnswers[0] ?? null,
+            is_qotd: true
+          } : undefined,
+          submittedAt: new Date().toISOString(),
+        });
+        clearOfflineSession(sessionId || topicLabel);
+        setResultData({ ...result, missedQuestions, questions });
+        setIsSubmittedOffline(true);
+        setShowResults(true);
+      } catch (fallbackErr) {
+        console.error('Offline queue fallback failed:', fallbackErr);
+        alert('Network error saving your block. Please try clicking Finish again. Error: ' + (err?.message || err?.toString() || 'Unknown Error'));
+      }
     } finally {
       setSubmitting(false);
       submittingRef.current = false;
@@ -730,6 +838,22 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const handleResumeLater = async () => {
     if (resumingLater) return;
     setResumingLater(true);
+
+    // Always mirror to offline backup first
+    saveOfflineSession(sessionId || topic || 'active_quiz', {
+      sessionId: sessionId || undefined,
+      topic,
+      currentIndex,
+      answers,
+      timeLeft,
+      lastUpdated: new Date().toISOString(),
+    });
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      onCancel();
+      return;
+    }
+
     try {
       if (sessionId) {
         await withTimeout(
@@ -742,18 +866,28 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               last_updated: new Date().toISOString(),
             })
             .eq('id', sessionId),
-          8000
+          4000
         );
       }
     } catch (err) {
-      console.error('Resume Later save failed:', err);
-      if (!window.confirm('Could not save your latest progress. Exit anyway? Your earlier auto-saved progress is still safe.')) {
-        setResumingLater(false);
-        return;
-      }
+      console.warn('Resume Later cloud save warning (answers preserved locally):', err);
     }
     onCancel();
   };
+
+  // Reconnection listener: automatically sync pending submissions when back online
+  useEffect(() => {
+    const handleOnline = () => {
+      flushPendingSubmissions(supabase).then(({ synced }) => {
+        if (synced > 0) {
+          console.log(`[QuizEngine] Synced ${synced} pending submission(s) on reconnection.`);
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        }
+      });
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [queryClient]);
 
   // Global Desktop Keyboard Navigation
   useEffect(() => {
@@ -1063,6 +1197,19 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             </>
           ) : (
           <>
+          {/* Offline Saved Banner */}
+          {isSubmittedOffline && (
+            <div className="rounded-3xl p-5 bg-amber-500/15 dark:bg-amber-500/25 border border-amber-400/40 text-amber-900 dark:text-amber-100 flex items-center gap-4 shadow-sm">
+              <span className="text-3xl shrink-0">⚡</span>
+              <div>
+                <div className="font-bold text-base">Completed in Offline Mode</div>
+                <div className="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
+                  Your quiz results and answers have been safely saved to your device. They will automatically sync to your program record as soon as your connection is restored.
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Score Hero */}
           {isQotd ? (
             <div className={`rounded-[32px] p-6 md:p-8 text-center text-white ${qotdAttempt?.is_skipped ? 'bg-slate-400' : score === 1 ? 'bg-emerald-600' : 'bg-red-500'}`}>

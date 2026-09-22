@@ -60,6 +60,23 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-09-22 (Antigravity: PWA Offline Resilience & DB Verification)
+**Shipped this session**:
+1. **PWA Offline Shell & Static Asset Caching**:
+   - Upgraded [`public/sw.js`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/public/sw.js) with `install`, `activate`, and `fetch` lifecycle handling (`fmc-pwa-v2`). Pre-caches root shell, manifest, PWA icons, and Ascension branding assets.
+   - Network-First navigation caching ensures residents never encounter browser offline dinosaur screens.
+   - Stale-While-Revalidate caching for `_next/static` bundles, icons, and fonts for immediate load times.
+   - Added [`components/ServiceWorkerRegister.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/ServiceWorkerRegister.tsx) in [`app/providers.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/app/providers.tsx) to automatically activate offline capabilities on initial visit.
+2. **Hospital Cellular Dead Zone Resilience**:
+   - Created [`lib/offlineSync.ts`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/lib/offlineSync.ts) for real-time local mirroring of active quiz sessions, question answers, countdown, and pending submissions queue.
+   - [`components/QuizEngine.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/QuizEngine.tsx): Mirrors state immediately on every answer; gracefully queues completions in local storage if offline or if network fails, immediately displaying results and explanations without blocking alert modals.
+   - Automatically synchronizes queued completions to Supabase when reconnected.
+   - Created [`components/OfflineIndicator.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/OfflineIndicator.tsx) to provide real-time connection status reassurance.
+3. **Database Migration Tracking**:
+   - Added `20260918_add_is_repeat_to_questions.sql` to Admin Action Required list in `ROADMAP.md` and verified column status.
+
+**Workflow gate:** `npx tsc --noEmit` exits 0 (zero errors); `npm run lint` exits 0 (zero warnings); `npm run build` exits 0 (clean static page generation across all 17 routes).
+
 ### ▶️ Session Handoff — 2026-09-20 (Antigravity: Codebase Hardening & Tech Debt #12)
 **Shipped this session**:
 1. **React Hook Hygiene & Zero-Warning Builds**:
@@ -173,6 +190,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **2026-06-08 — QOTD Top-Up Engine**: `20260608_qotd_topup.sql` — adds a `UNIQUE(question_id)` recycle guardrail to `qotd_schedule` plus the `qotd_topup()` function that powers the Annual Rollover "Update Daily Question pool" button. ✅ **Run by admin 2026-06-08.**
 - [x] **2026-06-08 — Badge Catalog Expansion**: `20260608_badges_expansion.sql` — seeds the 9 new achievement badges (Ironman, block-streak ladder, Sharpshooter, Early Bird, Weekend Warrior, Perfectionist, Procrastinator) and removes the duplicate "Marathoner". ✅ **Run by admin 2026-06-08 — new badges now live.**
 - [x] **2026-06-11 — Over Achiever Badge**: `20260611_over_achiever_badge.sql` — seeds the new "Over Achiever" milestone badge to the catalog so it shows as locked in the UI. **Admin must run it in Supabase.** ✅ *(Run by admin 2026-08-17)*
+- [ ] **2026-09-18 — Repeat Questions Migration**: `20260918_add_is_repeat_to_questions.sql` — adds `is_repeat` to `questions` and flags known duplicate questions. **Admin must run it in Supabase.**
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Phase 2 — Final Items ✅
@@ -401,6 +419,13 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-09-22 — PWA Offline Hospital Resilience & Repeat Question Tracking (Antigravity)
+*   **PWA Shell & Asset Pre-Caching:** Upgraded the application service worker (`public/sw.js`) with cache versioning (`fmc-pwa-v2`), pre-caching the HTML shell, web manifest, icons, and Ascension branding assets. Implemented Network-First navigation with offline cache fallbacks and Stale-While-Revalidate static asset streaming so the app opens instantly even with no cellular or Wi-Fi connectivity.
+*   **Automatic Service Worker Registration:** Embedded `ServiceWorkerRegister` globally in `app/providers.tsx` so all residents benefit from offline caching from their very first page load.
+*   **Offline Hospital Dead Zone Resilience:** Built `lib/offlineSync.ts` to mirror active quiz progress, question answers, countdown timers, and question snapshots to local device storage in real-time.
+*   **Queued Submissions & Auto-Sync:** Residents completing quizzes in hospital call rooms, basements, or transit zones with dropped network connectivity are no longer blocked by network errors. Submissions are safely queued locally, results and explanations are displayed immediately, and completions automatically synchronize to Supabase the moment connectivity returns.
+*   **Network Awareness Indicator:** Added `OfflineIndicator` to reassure residents when their device enters offline mode that all work is being saved safely.
 
 ### 2026-09-07 — 1-Click G-Suite Email Workflows for Admins & Advisors (Antigravity)
 *   **Zero-External-App Email Integration:** Built a native Google Workspace (G-Suite) email utility (`lib/emailHelper.ts`) that triggers 1-click Gmail web compose tabs (`mail.google.com/mail/?view=cm...`) directly from the user's logged-in Ascension account, eliminating external email platforms, API keys, or DNS setups while guaranteeing delivery.
