@@ -112,10 +112,10 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors">
-      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 transition-colors print:bg-white print:min-h-0">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 print:p-0 print:max-w-none">
         {/* Top Bar */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 print:hidden print-hidden">
           <div className="relative">
             <div className="absolute -top-6 -left-6 w-32 h-32 bg-blue-100/40 dark:bg-blue-900/20 rounded-full blur-2xl pointer-events-none" />
             <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-3 relative z-10">
@@ -149,7 +149,7 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
         {/* Body: Sidebar + Main */}
         <div className="flex flex-col md:flex-row gap-6">
           {/* Sidebar */}
-          <aside className={`md:w-64 shrink-0 ${mobileNavOpen ? 'block' : 'hidden md:block'}`}>
+          <aside className={`md:w-64 shrink-0 print:hidden print-hidden ${mobileNavOpen ? 'block' : 'hidden md:block'}`}>
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm p-3 sticky top-6 space-y-4 transition-colors">
               {visibleGroups.map(group => (
                 <div key={group.heading} className="space-y-1">

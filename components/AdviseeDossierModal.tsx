@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { RosterEntry, AdminData } from '@/lib/types';
 import { formatDisplayName } from '@/lib/utils';
 import { formatAcademicYear, getCurrentAcademicYear, isActiveResident, deriveLabel, getResidentClassYear } from '@/lib/academicYear';
@@ -65,9 +66,25 @@ export default function AdviseeDossierModal({
   initialSelectedEmail,
   onClose,
 }: AdviseeDossierModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [filterEmail, setFilterEmail] = useState<string>(initialSelectedEmail || 'all');
   const [datePreset, setDatePreset] = useState<DateRangePreset>('6m');
   const [reportLayout, setReportLayout] = useState<'combined' | 'matrix' | 'dossiers'>('combined');
+
+  useEffect(() => {
+    setMounted(true);
+    document.body.classList.add('dossier-modal-active');
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.classList.remove('dossier-modal-active');
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   // Custom date range state
   const [customStartDate, setCustomStartDate] = useState<string>(() => {
@@ -208,10 +225,18 @@ export default function AdviseeDossierModal({
     year: 'numeric',
   });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto animate-fade-in print:p-0 print:bg-white print:static print:overflow-visible">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div
+      id="dossier-print-portal"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto animate-fade-in print:p-0 print:bg-white print:static print:overflow-visible print:block"
+    >
       {/* Container */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-6xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden print:max-w-none print:max-h-none print:border-none print:shadow-none print:rounded-none">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-6xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden print:max-w-none print:max-h-none print:border-none print:shadow-none print:rounded-none print:block">
         
         {/* Modal Toolbar (hidden on print) */}
         <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50 dark:bg-slate-950/60 print:hidden text-xs">
@@ -344,7 +369,7 @@ export default function AdviseeDossierModal({
         )}
 
         {/* Printable Document Content */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 bg-white text-slate-900 print:overflow-visible print:p-0 print:space-y-6 print:text-black print:bg-white">
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8 bg-white text-slate-900 print:overflow-visible print:p-0 print:space-y-6 print:text-black print:bg-white print:block print:h-auto print-document-root">
           
           {/* Institutional Header Banner */}
           <div className="border-b-2 border-slate-900 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 print:border-black">
@@ -367,7 +392,7 @@ export default function AdviseeDossierModal({
 
           {/* Section 1: Cohort Overview Matrix */}
           {(reportLayout === 'matrix' || reportLayout === 'combined') && reportItems.length > 0 && (
-            <div className="space-y-3 print-avoid-break">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 print:text-black">
                   Advisee Cohort Performance Matrix ({reportItems.length} Advisees)
@@ -441,7 +466,7 @@ export default function AdviseeDossierModal({
               </div>
 
               {/* Committee Glossary & Standing Parameters */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl print:rounded-none print:border-black print:bg-white text-xs space-y-3">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl print:rounded-none print:border-black print:bg-white text-xs space-y-3 print-avoid-break break-inside-avoid">
                 <div className="flex items-center gap-1.5 font-bold text-slate-800 print:text-black uppercase tracking-wider text-[11px]">
                   <Info className="w-4 h-4 text-blue-600 print:text-black" />
                   <span>Clinical Competency Committee Guide & Metric Reference Key</span>
@@ -499,6 +524,11 @@ export default function AdviseeDossierModal({
                   </div>
                 </div>
               </div>
+
+              {/* Force clean page break after matrix/glossary if combined layout */}
+              {reportLayout === 'combined' && (
+                <div className="hidden print:block print-page-break break-after-page" />
+              )}
             </div>
           )}
 
@@ -508,7 +538,7 @@ export default function AdviseeDossierModal({
               {reportItems.map((a) => (
                 <div
                   key={a.email}
-                  className="border-2 border-slate-300 rounded-3xl p-6 bg-white space-y-6 print:border-black print:rounded-none print:p-0 print:space-y-5 print-page-break"
+                  className="border-2 border-slate-300 rounded-3xl p-6 bg-white space-y-6 print:border-black print:rounded-none print:p-0 print:space-y-5 print-page-break break-after-page"
                 >
                   {/* Individual Header */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b-2 border-slate-900 print:border-black">
@@ -743,6 +773,7 @@ export default function AdviseeDossierModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -264,10 +264,16 @@ export default function AdminReporting({
   // Print Handler
   const handlePrint = () => {
     setIsPrinting(true);
+    document.body.classList.add('is-printing-report');
+    const cleanup = () => {
+      setIsPrinting(false);
+      document.body.classList.remove('is-printing-report');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
     setTimeout(() => {
       window.print();
-      setIsPrinting(false);
-    }, 400);
+    }, 250);
   };
 
   // CSV Export Handler
@@ -284,7 +290,7 @@ export default function AdminReporting({
   return (
     <div className="space-y-6">
       {/* Control Panel (Hidden on Physical Print) */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-6 print-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-6 print:hidden print-hidden">
         {/* Header Title */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-5 border-b border-slate-100 dark:border-slate-800">
           <div>
@@ -598,7 +604,7 @@ export default function AdminReporting({
 
         {/* SECTION 1: COMMITTEE REVIEW MATRIX (TABLE FORMAT) */}
         {(reportLayout === 'matrix' || reportLayout === 'combined') && reportData.length > 0 && (
-          <div className="space-y-4 print-avoid-break">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-base font-black uppercase tracking-wider text-slate-800 print:text-black flex items-center gap-2">
@@ -725,7 +731,7 @@ export default function AdminReporting({
             </div>
 
             {/* Committee Glossary / Explanatory Legend for Faculty */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl print:rounded-none print:border-black print:bg-white text-xs space-y-3 mt-4 print-avoid-break">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl print:rounded-none print:border-black print:bg-white text-xs space-y-3 mt-4 print-avoid-break break-inside-avoid">
               <div className="flex items-center gap-1.5 font-bold text-slate-800 print:text-black uppercase tracking-wider text-[11px]">
                 <Info className="w-4 h-4 text-blue-600 print:text-black" />
                 <span>Clinical Competency Committee Guide & Metric Reference Key</span>
@@ -795,6 +801,10 @@ export default function AdminReporting({
                 </div>
               </div>
             </div>
+            {/* Force clean page break after matrix/glossary if combined layout */}
+            {reportLayout === 'combined' && (
+              <div className="hidden print:block print-page-break break-after-page" />
+            )}
           </div>
         )}
 
@@ -804,7 +814,7 @@ export default function AdminReporting({
             {reportData.map((r, idx) => (
               <div
                 key={r.email}
-                className="border-2 border-slate-300 rounded-3xl p-6 sm:p-8 bg-white space-y-6 print:border-black print:rounded-none print:p-0 print:space-y-5 print-page-break"
+                className="border-2 border-slate-300 rounded-3xl p-6 sm:p-8 bg-white space-y-6 print:border-black print:rounded-none print:p-0 print:space-y-5 print-page-break break-after-page"
               >
                 {/* Individual Header Banner */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b-2 border-slate-900 print:border-black">
