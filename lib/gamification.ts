@@ -217,6 +217,9 @@ export async function processGamification(
           .select('percentage')
           .eq('user_id', userId)
           .not('topic', 'ilike', '%demo%')
+          .not('topic', 'ilike', '%[attendance]%')
+          .not('topic', 'ilike', '%[manual]%')
+          .not('percentage', 'is', null)
           .order('created_at', { ascending: false })
           .limit(2); // index 0 is current inserted result, index 1 is previous
 

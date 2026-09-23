@@ -193,30 +193,48 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isActive, refetch]);
 
-  // Best result per topic
+  // Filter for actual quiz results (excluding attendance and manual credit entries)
+  const quizResults = myResults.filter(
+    r => r.topic && !/\[attendance\]|\[manual\]/i.test(r.topic)
+  );
+
+  // Best result per topic for curriculum blocks
   const bestResultByTopic = new Map<string, any>();
-  myResults.forEach(r => {
+  quizResults.forEach(r => {
     const existing = bestResultByTopic.get(r.topic);
     if (!existing || (r.percentage || 0) > (existing.percentage || 0)) {
       bestResultByTopic.set(r.topic, r);
     }
   });
 
-  // Best points per topic (dedupe retakes)
+  // Calculate points and blocks completed
+  // Dedupe quiz retakes by topic, while summing all attendance & manual points directly
+  let attendancePoints = 0;
+  let manualPoints = 0;
   const topicBestPts = new Map<string, number>();
+
   myResults
     .filter(r => (r.academic_points || 0) > 0 || r.timing_status != null)
     .forEach(r => {
-      const cur = topicBestPts.get(r.topic) || 0;
-      if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
-        topicBestPts.set(r.topic, r.academic_points || 0);
+      if (r.topic && /\[attendance\]/i.test(r.topic)) {
+        attendancePoints += (r.academic_points || 1);
+      } else if (r.topic && /\[manual\]/i.test(r.topic)) {
+        manualPoints += (r.academic_points || 0);
+      } else {
+        const cur = topicBestPts.get(r.topic) || 0;
+        if ((r.academic_points || 0) > cur || !topicBestPts.has(r.topic)) {
+          topicBestPts.set(r.topic, r.academic_points || 0);
+        }
       }
     });
 
   const blocksCompleted = topicBestPts.size;
-  const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
-  const avgPct = myResults.length > 0
-    ? myResults.reduce((a, r) => a + (r.percentage || 0), 0) / myResults.length
+  const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
+
+  // Average score strictly across completed quizzes with valid percentage (excluding attendance)
+  const gradedQuizzes = quizResults.filter(r => r.percentage != null);
+  const avgPct = gradedQuizzes.length > 0
+    ? gradedQuizzes.reduce((a, r) => a + (r.percentage || 0), 0) / gradedQuizzes.length
     : null;
 
   const myRankIdx = leaderboard.findIndex(d => Boolean(d.email && user.email && d.email.toLowerCase() === user.email.toLowerCase()));

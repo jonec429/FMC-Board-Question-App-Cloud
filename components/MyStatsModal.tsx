@@ -68,9 +68,9 @@ export default function MyStatsModal({
   }, [selectedTopic]);
 
   // Past Quizzes: the resident's completed blocks/customs (newest first). Excludes
-  // QOTD and the demo. New quizzes carry a `review_data` snapshot for full review.
+  // QOTD, the demo, and attendance/manual credit records. New quizzes carry a `review_data` snapshot for full review.
   const pastQuizzes = [...(myResults || [])]
-    .filter(r => r.topic && !/question of the day|^demo/i.test(r.topic))
+    .filter(r => r.topic && !/question of the day|^demo|\[attendance\]|\[manual\]/i.test(r.topic))
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
   const openReview = async (r: Result) => {
@@ -364,7 +364,7 @@ export default function MyStatsModal({
                 {(() => {
                   const goal = selectedYear === 0 ? 300 : 100;
                   const attendancePts = myResults
-                    .filter(r => r.topic?.includes('[Attendance]'))
+                    .filter(r => /\[attendance\]|\[manual\]/i.test(r.topic || ''))
                     .reduce((sum, r) => sum + (r.academic_points || 1), 0);
                   const questionPts = Math.max(0, totalPoints - attendancePts);
                   const attendancePct = Math.min((attendancePts / goal) * 100, 100);
@@ -522,9 +522,9 @@ export default function MyStatsModal({
 
                 {activeListTab === 'questions' ? (
                   <>
-                    {myResults.filter(r => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]')).length > 0 ? (
+                    {myResults.filter(r => !/\[attendance\]|\[manual\]/i.test(r.topic || '')).length > 0 ? (
                       <div className="space-y-2">
-                        {myResults.filter(r => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]')).map((r, i) => {
+                        {myResults.filter(r => !/\[attendance\]|\[manual\]/i.test(r.topic || '')).map((r, i) => {
                           const pts = r.academic_points || 0;
                           const timingEmoji = r.timing_status === 'Early' ? '🚀'
                             : r.timing_status === 'On Time' ? '✅'
@@ -559,9 +559,9 @@ export default function MyStatsModal({
                   </>
                 ) : (
                   <>
-                    {myResults.filter(r => r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]')).length > 0 ? (
+                    {myResults.filter(r => /\[attendance\]|\[manual\]/i.test(r.topic || '')).length > 0 ? (
                       <div className="space-y-2">
-                        {myResults.filter(r => r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]')).map((r, i) => {
+                        {myResults.filter(r => /\[attendance\]|\[manual\]/i.test(r.topic || '')).map((r, i) => {
                           const pts = r.academic_points || 0;
                           return (
                             <div key={i} className="flex items-center justify-between p-3 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/40 rounded-xl transition-colors">

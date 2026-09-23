@@ -1411,7 +1411,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
 
                 const assignedQuizzes = assigned.filter(r => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
                 const customQuizzes = custom.filter(r => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
-                const attendanceRecords = assigned.filter(r => r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]'));
+                const attendanceRecords = selectedResident.results.filter(r => r.topic?.includes('[Attendance]') || r.topic?.includes('[Manual]'));
 
                 return (
                   <>
