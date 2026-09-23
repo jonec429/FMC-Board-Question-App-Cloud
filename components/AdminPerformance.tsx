@@ -12,6 +12,7 @@ import QuestionHeatmap from './QuestionHeatmap';
 import AdviseeDossierModal from './AdviseeDossierModal';
 import RiskLegend from './RiskLegend';
 import QuizReview from './QuizReview';
+import AdminMetricModal, { MetricType } from './AdminMetricModal';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
 import { DataTable } from './DataTable';
 import { ColumnDef } from '@tanstack/react-table';
@@ -90,6 +91,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
   const [dossierResidentEmail, setDossierResidentEmail] = useState<string | null>(null);
   const [showCccModal, setShowCccModal] = useState(false);
+  const [expandedMetric, setExpandedMetric] = useState<MetricType | null>(null);
 
   const [isAdjustingPoints, setIsAdjustingPoints] = useState(false);
   const [adjustPointsValue, setAdjustPointsValue] = useState<number>(1);
@@ -734,6 +736,19 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
     ? residentStats.filter(r => r.blocksCompleted > 0).reduce((a, r) => a + r.onTimePct, 0) / (residentStats.filter(r => r.blocksCompleted > 0).length || 1)
     : 0;
 
+  const curriculumResidents = residentStats.filter(r => r.curriculumAttempts > 0);
+  const indepResidents = residentStats.filter(r => (r.independentAttempts || 0) > 0 && r.independentAvg !== null);
+  const curriculumProgramAvg = curriculumResidents.length > 0
+    ? curriculumResidents.reduce((a, r) => a + r.curriculumAvg, 0) / curriculumResidents.length
+    : 0;
+  const indepProgramAvg = indepResidents.length > 0
+    ? indepResidents.reduce((a, r) => a + (r.independentAvg || 0), 0) / indepResidents.length
+    : null;
+  const above70Count = residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 70).length;
+  const above65Count = residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 65).length;
+  const activeQuizTakers = residentStats.filter(r => r.totalAttempts > 0).length;
+  const totalAttemptsSum = residentStats.reduce((sum, r) => sum + r.totalAttempts, 0);
+
   const pgyGroups: Record<string, ResidentStat[]> = {};
   residentStats.forEach(r => {
     if (!pgyGroups[r.label]) pgyGroups[r.label] = [];
@@ -797,36 +812,91 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         </button>
       )}
 
-      {/* Program Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center transition-colors">
-          <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-3">
+      {/* Program Summary Cards - Rich & Interactive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Program Avg */}
+        <button
+          onClick={() => setExpandedMetric('program_avg')}
+          className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-md cursor-pointer transition-all text-center flex flex-col items-center group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+        >
+          <div className="w-10 h-10 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
             <TrendingUp className="w-5 h-5" />
           </div>
-          <span className="text-3xl font-black text-slate-800 dark:text-white">{programAvg.toFixed(1)}%</span>
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Program Avg</span>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center transition-colors">
-          <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-3">
+          <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{programAvg.toFixed(1)}%</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Program Avg</span>
+          <div className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5 flex-wrap">
+            <span>Curriculum: <strong className="text-slate-700 dark:text-slate-200">{curriculumProgramAvg.toFixed(0)}%</strong></span>
+            {indepProgramAvg !== null && (
+              <>
+                <span className="opacity-40">·</span>
+                <span>Indep: <strong className="text-slate-700 dark:text-slate-200">{indepProgramAvg.toFixed(0)}%</strong></span>
+              </>
+            )}
+          </div>
+          <span className="mt-3 text-[10px] font-black text-blue-600 dark:text-blue-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            Detailed Breakdown →
+          </span>
+        </button>
+
+        {/* Card 2: Board Readiness */}
+        <button
+          onClick={() => setExpandedMetric('board_readiness')}
+          className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-md cursor-pointer transition-all text-center flex flex-col items-center group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+        >
+          <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
             <Target className="w-5 h-5" />
           </div>
-          <span className="text-3xl font-black text-slate-800 dark:text-white">{boardReadiness}%</span>
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Above 70%</span>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center transition-colors">
-          <div className="w-10 h-10 bg-red-50 dark:bg-red-950/50 text-red-500 dark:text-red-400 rounded-2xl flex items-center justify-center mb-3">
+          <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{boardReadiness}%</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Board Ready (≥65%)</span>
+          <div className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5 flex-wrap">
+            <span className="text-emerald-600 dark:text-emerald-400 font-black">{above70Count} ≥ 70%</span>
+            <span className="opacity-40">·</span>
+            <span>{above65Count} ≥ 65%</span>
+          </div>
+          <span className="mt-3 text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            Score Tiers &amp; Targets →
+          </span>
+        </button>
+
+        {/* Card 3: At Risk */}
+        <button
+          onClick={() => setExpandedMetric('at_risk')}
+          className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-red-300 dark:hover:border-red-700 hover:shadow-md cursor-pointer transition-all text-center flex flex-col items-center group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-red-500/40"
+        >
+          <div className="w-10 h-10 bg-red-50 dark:bg-red-950/50 text-red-500 dark:text-red-400 rounded-2xl flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
             <BarChartIcon className="w-5 h-5" />
           </div>
-          <span className="text-3xl font-black text-slate-800 dark:text-white">{redFlagged.length}</span>
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">At Risk</span>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-[28px] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center transition-colors">
-          <div className="w-10 h-10 bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-3">
+          <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{redFlagged.length}</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">High Risk Flagged</span>
+          <div className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5 flex-wrap">
+            <span className="text-red-600 dark:text-red-400 font-black">{redFlagged.length} Red</span>
+            <span className="opacity-40">·</span>
+            <span className="text-amber-600 dark:text-amber-400 font-bold">{yellowFlagged.length} Yellow</span>
+          </div>
+          <span className="mt-3 text-[10px] font-black text-red-600 dark:text-red-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            Intervention Roster →
+          </span>
+        </button>
+
+        {/* Card 4: Total Users */}
+        <button
+          onClick={() => setExpandedMetric('total_users')}
+          className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-200/80 dark:border-slate-800 shadow-sm hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-md cursor-pointer transition-all text-center flex flex-col items-center group relative overflow-hidden focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+        >
+          <div className="w-10 h-10 bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
             <Users className="w-5 h-5" />
           </div>
-          <span className="text-3xl font-black text-slate-800 dark:text-white">{residentStats.length}</span>
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Total Users</span>
-        </div>
+          <span className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{residentStats.length}</span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Total Residents</span>
+          <div className="mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5 flex-wrap">
+            <span><strong className="text-slate-700 dark:text-slate-200">{activeQuizTakers}</strong> Active</span>
+            <span className="opacity-40">·</span>
+            <span><strong className="text-slate-700 dark:text-slate-200">{totalAttemptsSum}</strong> Quizzes</span>
+          </div>
+          <span className="mt-3 text-[10px] font-black text-purple-600 dark:text-purple-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            Cohort Breakdown →
+          </span>
+        </button>
       </div>
 
       {/* Sub Tabs — faculty see a "My Advisees" tab unique to their account */}
@@ -2094,6 +2164,27 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           onClose={() => {
             setDossierResidentEmail(null);
             setShowCccModal(false);
+          }}
+        />
+      )}
+
+      {/* Expanded Metric Breakdown Modal */}
+      {expandedMetric && (
+        <AdminMetricModal
+          type={expandedMetric}
+          onClose={() => setExpandedMetric(null)}
+          residentStats={residentStats}
+          selectedYear={selectedYear === 0 ? getCurrentAcademicYear() : selectedYear}
+          onSelectResident={(r) => {
+            const match = residentStats.find(res => res.email === r.email || (res.userId && res.userId === r.userId));
+            if (match) {
+              setSelectedResident(match);
+            }
+            setExpandedMetric(null);
+          }}
+          onJumpToTab={(tab) => {
+            setActiveSubTab(tab as SubTab);
+            setExpandedMetric(null);
           }}
         />
       )}

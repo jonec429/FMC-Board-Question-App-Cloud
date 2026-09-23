@@ -24,6 +24,7 @@ interface DashboardData {
   userStreak: any;
   userBadges: any[];
   assignedQuizzes: any[];
+  attendance: any[];
 }
 
 function getBlockSortKey(block: any): number {
@@ -139,7 +140,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           .abortSignal(signal),
         supabase
           .from('attendance')
-          .select('date, topic')
+          .select('id, date, topic, status, points, created_at')
           .ilike('resident_email', userEmail)
           .abortSignal(signal),
         // Fetch YOY breakdown
@@ -252,6 +253,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         userStreak: mergedStreak,
         userBadges,
         assignedQuizzes,
+        attendance: attendanceData || [],
       };
     },
     staleTime: 60000, // Data is fresh for 60 seconds

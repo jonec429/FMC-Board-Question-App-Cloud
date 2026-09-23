@@ -206,3 +206,36 @@ export function generateBlockReminderEmail({
 
   return { bcc: emails.filter(Boolean), subject, body };
 }
+
+/**
+ * Generates an email to check in with a resident from admin metrics.
+ */
+export function generateCheckInEmail({
+  residentName,
+  residentEmail,
+  senderName,
+  statsSummary,
+  appUrl,
+}: {
+  residentName: string;
+  residentEmail: string;
+  senderName?: string;
+  statsSummary?: string;
+  appUrl?: string;
+}): { to: string; subject: string; body: string } {
+  const firstName = residentName.split(' ')[0] || 'Doctor';
+  const url = appUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://brq.stvfamilymed.org');
+  const subject = `FMC Board Review: Check-in for Dr. ${residentName}`;
+
+  let body = `Hi Dr. ${firstName},\r\n\r\n`;
+  body += `I'm reaching out with a quick check-in on your board review progress.\r\n\r\n`;
+  if (statsSummary) {
+    body += `Current Summary: ${statsSummary}\r\n\r\n`;
+  }
+  body += `Log in to practice questions and review full explanations:\r\n${url}\r\n\r\n`;
+  body += `Let me know if you would like to discuss your study plan or review specific topics together.\r\n\r\n`;
+  body += `Best regards,\r\n`;
+  body += `${senderName ? `Dr. ${senderName}` : 'Faculty Advisor'}\r\n`;
+
+  return { to: residentEmail, subject, body };
+}

@@ -138,6 +138,26 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const [showQotdHistoryModal, setShowQotdHistoryModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleHomeRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      setShowMyStats(false);
+      setShowSettings(false);
+      setShowAchievements(false);
+      setShowInstallApp(false);
+      setShowLeaderboardModal(false);
+      setShowQotdHistoryModal(false);
+      setSelectedYoyClass(null);
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      await refetch();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 600);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -231,8 +251,8 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const blocksCompleted = topicBestPts.size;
   const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
 
-  // Average score strictly across completed quizzes with valid percentage (excluding attendance)
-  const gradedQuizzes = quizResults.filter(r => r.percentage != null);
+  // Average score strictly across completed quizzes with valid percentage and questions (excluding attendance)
+  const gradedQuizzes = quizResults.filter(r => r.percentage != null && (r.total || 0) > 0);
   const avgPct = gradedQuizzes.length > 0
     ? gradedQuizzes.reduce((a, r) => a + (r.percentage || 0), 0) / gradedQuizzes.length
     : null;
@@ -287,9 +307,24 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       <div className="mb-8 flex justify-between items-start gap-2 relative">
         <div className="absolute -top-10 -left-10 w-64 h-64 bg-blue-100/30 dark:bg-blue-900/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex-1 min-w-0 pr-2 flex items-center gap-3">
-          <AbfmShield className="w-10 h-10 text-blue-600 dark:text-blue-500 hidden sm:block shrink-0" />
+          <button
+            type="button"
+            onClick={handleHomeRefresh}
+            disabled={isRefreshing}
+            title="Home / Refresh Dashboard"
+            aria-label="Home / Refresh Dashboard"
+            className="p-1 -ml-1 rounded-2xl hover:bg-blue-50 dark:hover:bg-slate-800/80 transition-all hover:scale-105 active:scale-95 cursor-pointer shrink-0 group focus:outline-none focus:ring-2 focus:ring-blue-500/30 flex items-center justify-center"
+          >
+            <AbfmShield className={`w-9 h-9 sm:w-10 sm:h-10 text-blue-600 dark:text-blue-500 transition-all ${isRefreshing ? 'animate-spin' : 'group-hover:rotate-6'}`} />
+          </button>
           <div className="min-w-0">
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">FMC Board Review App</h2>
+            <h2 
+              onClick={handleHomeRefresh}
+              className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors select-none"
+              title="Home / Refresh Dashboard"
+            >
+              FMC Board Review App
+            </h2>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
             <p className="text-slate-500 dark:text-slate-400 font-bold text-[10px] md:text-xs tracking-wide uppercase opacity-60 truncate">
               Ascension St. Vincent's FM Residency · {formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : user.email}
@@ -979,6 +1014,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           userBadges={userBadges}
           selectedYear={selectedYear}
           onYearChange={(year: number) => setSelectedYear(year)}
+          attendanceList={data?.attendance || []}
         />
       )}
 

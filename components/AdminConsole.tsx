@@ -118,15 +118,29 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
         <div className="flex items-center justify-between mb-6 print:hidden print-hidden">
           <div className="relative">
             <div className="absolute -top-6 -left-6 w-32 h-32 bg-blue-100/40 dark:bg-blue-900/20 rounded-full blur-2xl pointer-events-none" />
-            <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-3 relative z-10">
-              <div className={`p-2.5 rounded-2xl shadow-lg ${userIsAdmin ? 'bg-blue-600 shadow-blue-200 dark:shadow-none' : 'bg-emerald-600 shadow-emerald-200 dark:shadow-none'}`}>
-                <Shield className="text-white w-5 h-5" />
-              </div>
-              <span className="hidden sm:inline">{userIsAdmin ? 'Admin Console' : 'Faculty Console'}</span>
-              <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${userIsAdmin ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'}`}>
-                {getRoleLabel(user, profile)}
-              </span>
-            </h2>
+            <div className="flex items-center gap-3 relative z-10">
+              <button
+                type="button"
+                onClick={onExit}
+                title="Return to Home / Dashboard"
+                aria-label="Return to Home"
+                className={`p-2.5 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 cursor-pointer group flex items-center justify-center ${userIsAdmin ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 dark:shadow-none' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none'}`}
+              >
+                <Shield className="text-white w-5 h-5 transition-transform group-hover:scale-110" />
+              </button>
+              <h2 
+                onClick={onExit}
+                className="text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-3 cursor-pointer group select-none"
+                title="Return to Home / Dashboard"
+              >
+                <span className="hidden sm:inline group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  {userIsAdmin ? 'Admin Console' : 'Faculty Console'}
+                </span>
+                <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-full ${userIsAdmin ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'}`}>
+                  {getRoleLabel(user, profile)}
+                </span>
+              </h2>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {/* Mobile nav toggle */}

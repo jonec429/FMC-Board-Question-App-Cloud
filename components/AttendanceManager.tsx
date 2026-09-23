@@ -206,12 +206,12 @@ export default function AttendanceManager() {
 
     if (format === 'granular') {
        const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
-       const residentIdx = headers.indexOf('Resident');
-       const emailIdx = headers.indexOf('Email');
-       const dateIdx = headers.indexOf('Conference Date');
-       const topicIdx = headers.indexOf('Topic');
-       const statusIdx = headers.indexOf('Status');
-       const pointsIdx = headers.indexOf('Academic Points');
+       const residentIdx = headers.findIndex(h => /^(resident|name|full\s*name|person)$/i.test(h.trim()));
+       const emailIdx = headers.findIndex(h => /^email$/i.test(h.trim()));
+       const dateIdx = headers.findIndex(h => /^(conf(erence)?\s*date|session\s*date|date)$/i.test(h.trim()));
+       const topicIdx = headers.findIndex(h => /^(topic|lecture|conference|session|title)$/i.test(h.trim()));
+       const statusIdx = headers.findIndex(h => /^status$/i.test(h.trim()));
+       const pointsIdx = headers.findIndex(h => /^(academic\s*points|points|pts)$/i.test(h.trim()));
 
        for (let i = headerRowIndex + 1; i < data.length; i++) {
            const row = data[i];
@@ -253,10 +253,10 @@ export default function AttendanceManager() {
     } 
     else if (format === 'ni_granular') {
        const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
-       const personIdx = headers.indexOf('Person');
-       const confIdx = headers.indexOf('Conference');
-       const dateIdx = headers.indexOf('Date');
-       const presentIdx = headers.indexOf('Present');
+       const personIdx = headers.findIndex(h => /^(person|resident|name|full\s*name)$/i.test(h.trim()));
+       const confIdx = headers.findIndex(h => /^(conference|topic|lecture|title|session)$/i.test(h.trim()));
+       const dateIdx = headers.findIndex(h => /^(date|conf(erence)?\s*date|session\s*date)$/i.test(h.trim()));
+       const presentIdx = headers.findIndex(h => /^(present|attended|status)$/i.test(h.trim()));
 
        for (let i = headerRowIndex + 1; i < data.length; i++) {
            const row = data[i];

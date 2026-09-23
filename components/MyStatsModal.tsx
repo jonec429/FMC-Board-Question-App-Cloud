@@ -23,6 +23,7 @@ interface MyStatsModalProps {
   userBadges: UserBadge[];
   selectedYear: number;
   onYearChange: (year: number) => void;
+  attendanceList?: any[];
 }
 
 export default function MyStatsModal({
@@ -38,6 +39,7 @@ export default function MyStatsModal({
   userBadges,
   selectedYear,
   onYearChange,
+  attendanceList = [],
 }: MyStatsModalProps) {
   const [activeTab, setActiveTab] = useState<'stats' | 'weakAreas' | 'pastQuizzes'>('stats');
   const [selectedQuiz, setSelectedQuiz] = useState<Result | null>(null);
@@ -119,6 +121,137 @@ export default function MyStatsModal({
   const topicAverages = Array.from(topicStats.entries())
     .map(([topic, { sum, count, qs }]) => ({ topic, avg: sum / count, attempts: count, qs }))
     .sort((a, b) => b.avg - a.avg);
+
+  // Graded quizzes for true quiz average (exclude attendance, manual, zero questions)
+  const gradedQuizzes = (profileResults || []).filter(
+    r => r.percentage != null && (r.total || 0) > 0 && r.topic && !/\[attendance\]|\[manual\]/i.test(r.topic)
+  );
+  const accurateAvgScore = gradedQuizzes.length > 0
+    ? gradedQuizzes.reduce((a, r) => a + (r.percentage || 0), 0) / gradedQuizzes.length
+    : (avgPct ?? null);
+
+  // Best result per quiz block for Q-Points
+  const topicBestPts = new Map<string, number>();
+  (profileResults || []).forEach(r => {
+    if (r.topic && !/\[attendance\]|\[manual\]/i.test(r.topic)) {
+      const pts = r.academic_points || 0;
+      const cur = topicBestPts.get(r.topic) || 0;
+      if (pts > cur) {
+        topicBestPts.set(r.topic, pts);
+      }
+    }
+  });
+  const computedQuestionPts = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
+
+  // Attendance points: from attendanceList if present, or from attendance results
+  const computedAttendancePts = (attendanceList && attendanceList.length > 0)
+    ? attendanceList.reduce((sum: number, a: any) => sum + (a.points || 1), 0)
+    : (myResults || [])
+        .filter(r => /\[attendance\]|\[manual\]/i.test(r.topic || ''))
+        .reduce((sum, r) => sum + (r.academic_points || 1), 0);
+
+  const displayTotalPoints = computedQuestionPts + computedAttendancePts;
+
+  // Handler to open review from a topic name
+  const handleBlockReview = (topic: string) => {
+    const target = pastQuizzes.find(p => p.topic?.toLowerCase().trim() === topic.toLowerCase().trim())
+      || pastQuizzes.find(p => p.topic?.toLowerCase().includes(topic.toLowerCase()));
+    if (target) {
+      openReview(target);
+      setActiveTab('pastQuizzes');
+    } else {
+      setActiveTab('pastQuizzes');
+    }
+  };
+
+  const formatConferenceInfo = (topic?: string | null) => {
+    if (!topic) return { block: 'Conference', title: 'Noon Conference' };
+    let cleaned = topic.replace(/^\[attendance\]\s*/i, '').replace(/^\[manual\]\s*/i, '').trim();
+    cleaned = cleaned.replace(/^\[ay\s*\d+\]\s*/i, '').trim();
+    
+    // Match "Block: <BlockName> - <LectureTitle>"
+    const blockMatch = cleaned.match(/block:\s*([^-]+)\s*-\s*(.+)/i);
+    if (blockMatch) {
+      return {
+        block: blockMatch[1].trim(),
+        title: blockMatch[2].trim(),
+      };
+    }
+    const blockOnlyMatch = cleaned.match(/block:\s*(.+)/i);
+    if (blockOnlyMatch) {
+      return {
+        block: blockOnlyMatch[1].trim(),
+        title: blockOnlyMatch[1].trim() + ' Conference',
+      };
+    }
+    return {
+      block: 'Conference',
+      title: cleaned,
+    };
+  };
+
+  const displayAttendance = React.useMemo(() => {
+    const list: Array<{
+      id: string;
+      title: string;
+      block: string;
+      dateStr: string;
+      points: number;
+      isManual: boolean;
+    }> = [];
+
+    if (attendanceList && attendanceList.length > 0) {
+      attendanceList.forEach((att: any, idx: number) => {
+        const { block, title } = formatConferenceInfo(att.topic);
+        const rawDate = att.date || att.created_at;
+        const d = rawDate ? new Date(rawDate.includes('T') ? rawDate : `${rawDate}T12:00:00`) : null;
+        const dateFormatted = d && !isNaN(d.getTime())
+          ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+          : (rawDate || '—');
+
+        list.push({
+          id: att.id || `att-${idx}`,
+          title,
+          block,
+          dateStr: dateFormatted,
+          points: att.points || 1,
+          isManual: false
+        });
+      });
+    }
+
+    // Also include advisor meetings or manual entries from myResults
+    (myResults || []).forEach((r, idx) => {
+      if (!r.topic) return;
+      const isAtt = /\[attendance\]/i.test(r.topic);
+      const isMan = /\[manual\]/i.test(r.topic);
+      if (!isAtt && !isMan) return;
+
+      const isMeeting = /advisor meeting/i.test(r.topic);
+      if (!attendanceList || attendanceList.length === 0 || isMeeting || isMan) {
+        const { block, title } = formatConferenceInfo(r.topic);
+        const rawDate = r.attendance_date || r.created_at;
+        const d = rawDate ? new Date(rawDate.includes('T') ? rawDate : `${rawDate}T12:00:00`) : null;
+        const dateFormatted = d && !isNaN(d.getTime())
+          ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+          : (rawDate || '—');
+
+        const isDup = list.some(item => item.title === title && item.dateStr === dateFormatted);
+        if (!isDup) {
+          list.push({
+            id: r.id || `res-${idx}`,
+            title: isMeeting ? 'Advisor Meeting' : title,
+            block: isMeeting ? (block || 'Meeting') : block,
+            dateStr: dateFormatted,
+            points: r.academic_points || 1,
+            isManual: isMan || isMeeting
+          });
+        }
+      }
+    });
+
+    return list;
+  }, [attendanceList, myResults]);
 
   const getNextBadgeInfo = () => {
     const clubs = [100, 140, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
@@ -311,8 +444,8 @@ export default function MyStatsModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {activeTab === 'stats' && (
             <div className="space-y-6 animate-fade-in">
-              {/* Unified Snapshot Widget */}
-              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 dark:shadow-none space-y-8">
+              {/* Leaned-up Board Prep Snapshot Card */}
+              <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-4 sm:p-5 text-white shadow-lg space-y-4">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
@@ -332,71 +465,84 @@ export default function MyStatsModal({
                   </select>
                 </div>
 
-                {/* Grid KPIs */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-8 gap-x-6">
-                  <div>
-                    <div className="text-3xl font-black">{avgPct !== null ? `${avgPct.toFixed(1)}%` : '—'}</div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Avg Score</div>
+                {/* Compact Grid KPIs */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Avg Quiz Score</span>
+                    <div className="text-2xl font-black mt-1">{accurateAvgScore !== null ? `${accurateAvgScore.toFixed(1)}%` : '—'}</div>
+                    <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{gradedQuizzes.length} quiz{gradedQuizzes.length === 1 ? '' : 'zes'} taken</span>
                   </div>
-                  <div>
-                    <div className="text-3xl font-black">{totalQs}</div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Questions Done</div>
+
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Questions Done</span>
+                    <div className="text-2xl font-black mt-1">{totalQs}</div>
+                    <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{blocksCompleted} blocks complete</span>
                   </div>
-                  <div>
-                    <div className="text-3xl font-black">{totalPoints}</div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Total Academic Points</div>
+
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between col-span-2 sm:col-span-1">
+                    <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Academic Points</span>
+                    <div className="text-2xl font-black mt-1">{displayTotalPoints}</div>
+                    <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{computedQuestionPts} Q · {computedAttendancePts} Att</span>
                   </div>
-                  <div>
-                    <div className="text-xl font-black leading-tight line-clamp-2 break-words">{topicAverages.length > 0 ? topicAverages[0].topic : '—'}</div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Top Topic</div>
+
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Top Topic</span>
+                    <div className="text-sm font-bold truncate mt-1">{topicAverages.length > 0 ? formatTopicDisplay(topicAverages[0].topic) : '—'}</div>
+                    <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{topicAverages.length > 0 ? `${topicAverages[0].avg.toFixed(0)}% accuracy` : 'No quizzes'}</span>
                   </div>
-                  <div>
-                    <div className="text-xl font-black leading-tight line-clamp-2">{nextBadge ? nextBadge.name : 'All Maxed!'}</div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">{nextBadge ? `${nextBadge.remaining} Qs away` : 'Next Badge'}</div>
+
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Next Milestone</span>
+                    <div className="text-sm font-bold truncate mt-1">{nextBadge ? nextBadge.name : 'All Maxed!'}</div>
+                    <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{nextBadge ? `${nextBadge.remaining} Qs away` : 'Top tier achieved'}</span>
                   </div>
-                  <div>
-                    <div className="text-xl font-black leading-tight">{blocksCompleted}</div>
-                    <div className="text-[10px] font-bold text-indigo-200 mt-1 uppercase tracking-widest">Blocks Done</div>
+
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                    <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Leaderboard</span>
+                    <div className="text-sm font-bold truncate mt-1">{myRank ? `#${myRank} in Program` : 'Unranked'}</div>
+                    <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{isClassLeader ? '⭐ PGY Class Leader' : `${classmates.length} in class`}</span>
                   </div>
                 </div>
 
-                {/* ACADEMIC POINTS TRACKER */}
+                {/* Academic Points Tracker */}
                 {(() => {
                   const goal = selectedYear === 0 ? 300 : 100;
-                  const attendancePts = myResults
-                    .filter(r => /\[attendance\]|\[manual\]/i.test(r.topic || ''))
-                    .reduce((sum, r) => sum + (r.academic_points || 1), 0);
-                  const questionPts = Math.max(0, totalPoints - attendancePts);
-                  const attendancePct = Math.min((attendancePts / goal) * 100, 100);
-                  const questionPct = Math.min((questionPts / goal) * 100, 100 - attendancePct);
+                  const attendancePct = Math.min((computedAttendancePts / goal) * 100, 100);
+                  const questionPct = Math.min((computedQuestionPts / goal) * 100, 100 - attendancePct);
 
                   return (
-                    <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
-                      <div className="flex justify-between items-end mb-2">
-                        <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">Academic Points Tracker</h3>
-                        <span className="text-xs font-bold text-white">{totalPoints} / {goal} ({selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal)</span>
+                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">Academic Points Tracker</span>
+                        <span className="font-black text-white">{displayTotalPoints} / {goal} <span className="font-medium text-indigo-200 text-[10px]">({selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal)</span></span>
                       </div>
-                      <div className="h-2 bg-indigo-900/50 rounded-full overflow-hidden flex mb-1.5">
+                      <div className="h-2 bg-indigo-950/60 rounded-full overflow-hidden flex">
                         <div 
                           className="h-full bg-blue-400 transition-all" 
                           style={{ width: `${questionPct}%` }} 
-                          title={`${questionPts} points from Questions`}
+                          title={`${computedQuestionPts} points from Questions`}
                         />
                         <div 
                           className="h-full bg-purple-400 transition-all" 
                           style={{ width: `${attendancePct}%` }} 
-                          title={`${attendancePts} points from Attendance`}
+                          title={`${computedAttendancePts} points from Attendance`}
                         />
                       </div>
-                      <div className="flex justify-between items-center text-[10px] uppercase tracking-widest font-bold mt-1.5">
-                        <span className="text-blue-300">{questionPts} Q-Points</span>
-                        <span className="text-purple-300">{attendancePts} Attendance</span>
+                      <div className="flex justify-between items-center text-[10px] font-bold">
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-400/20 text-blue-200 border border-blue-400/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                          {computedQuestionPts} Q-Points
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-400/20 text-purple-200 border border-purple-400/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                          {computedAttendancePts} Attendance Points
+                        </span>
                       </div>
                     </div>
                   );
                 })()}
 
-                {/* QOTD INTEGRATION WITH PEER COMPARISON */}
+                {/* QOTD Peer Benchmark */}
                 {qotdStats && (qotdStats.correct > 0 || qotdStats.incorrect > 0) && (() => {
                   const personalTotal = qotdStats.correct + qotdStats.incorrect;
                   const personalPct = Math.round((qotdStats.correct / personalTotal) * 100);
@@ -405,13 +551,13 @@ export default function MyStatsModal({
                   const delta = programPct !== null ? personalPct - programPct : null;
 
                   return (
-                    <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">
-                          QOTD Performance &amp; Benchmark
-                        </h3>
+                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">
+                          QOTD Accuracy &amp; Benchmark
+                        </span>
                         {delta !== null && (
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
                             delta >= 0 ? 'bg-emerald-400/20 text-emerald-300' : 'bg-amber-400/20 text-amber-300'
                           }`}>
                             {delta >= 0 ? `+${delta}%` : `${delta}%`} vs peers
@@ -419,44 +565,36 @@ export default function MyStatsModal({
                         )}
                       </div>
 
-                      <div className="flex justify-between items-baseline text-xs font-bold mb-1.5">
+                      <div className="flex justify-between items-baseline text-xs font-bold">
                         <span className="text-white">
-                          <span className="text-emerald-300">{qotdStats.correct} Correct</span>
-                          {' '}({personalPct}%)
+                          <span className="text-emerald-300">{qotdStats.correct}/{personalTotal}</span> ({personalPct}%)
                         </span>
                         {programPct !== null && (
-                          <span className="text-indigo-200 text-[11px]">
+                          <span className="text-indigo-200 text-[10px]">
                             Program Avg: <span className="text-white font-black">{programPct}%</span>
-                            {programN ? ` (n = ${programN} residents)` : ''}
+                            {programN ? ` (n=${programN})` : ''}
                           </span>
                         )}
                       </div>
 
-                      <div className="h-2 bg-red-500/50 rounded-full overflow-hidden flex mb-2">
+                      <div className="h-1.5 bg-red-500/50 rounded-full overflow-hidden flex">
                         <div 
                           className="h-full bg-emerald-400 transition-all" 
                           style={{ width: `${personalPct}%` }} 
                         />
                       </div>
-
-                      <div className="flex justify-between items-center text-[10px] text-indigo-200 uppercase tracking-widest font-bold">
-                        <span>{personalTotal} Total Attempts</span>
-                        {qotdComparison?.personalStats?.currentStreak ? (
-                          <span className="text-amber-300 font-black">🔥 {qotdComparison.personalStats.currentStreak}d streak</span>
-                        ) : null}
-                      </div>
                     </div>
                   );
                 })()}
 
-                {/* BADGES INTEGRATION */}
+                {/* Badges Shelf */}
                 {userBadges.length > 0 && (
                   <div>
-                    <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest mb-3">Earned Badges</h3>
-                    <div className="flex flex-wrap gap-2">
+                    <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest mb-1.5">Earned Badges</h3>
+                    <div className="flex flex-wrap gap-1.5">
                       {userBadges.map((b, i) => (
                         <div key={i} className="relative group">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border bg-indigo-500/30 text-white border-indigo-400/30 cursor-help transition-transform hover:scale-105">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-indigo-500/30 text-white border-indigo-400/30 cursor-help transition-transform hover:scale-105">
                             <span>{b.icon}</span>
                             <span>{b.name}</span>
                           </span>
@@ -473,18 +611,28 @@ export default function MyStatsModal({
                 )}
               </div>
 
-              {/* Block Performance */}
+              {/* Block Performance - Clickable to Review */}
               {topicAverages.length > 0 && (
                 <div>
-                  <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Block Performance</h3>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">Block Performance</h3>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Tap block to review</span>
+                  </div>
                   <div className="space-y-2">
                     {topicAverages.map(({ topic, avg, attempts, qs }) => (
-                      <div key={topic} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 border border-transparent dark:border-slate-800 rounded-xl transition-colors">
+                      <button
+                        key={topic}
+                        type="button"
+                        onClick={() => handleBlockReview(topic)}
+                        className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-700/60 rounded-xl transition-all cursor-pointer group"
+                      >
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">{formatTopicDisplay(topic)}</p>
+                          <p className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                            {formatTopicDisplay(topic)}
+                          </p>
                           <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
                         </div>
-                        <div className="w-32 shrink-0">
+                        <div className="w-24 sm:w-32 shrink-0">
                           <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                             <div
                               className={`h-full transition-all ${avg >= 70 ? 'bg-emerald-500' : avg >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
@@ -495,13 +643,12 @@ export default function MyStatsModal({
                         <span className={`text-xs font-black shrink-0 w-12 text-right ${avg >= 70 ? 'text-emerald-700 dark:text-emerald-400' : avg >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                           {avg.toFixed(1)}%
                         </span>
-                      </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                      </button>
                     ))}
                   </div>
                 </div>
               )}
-
-
 
               {/* History */}
               <div>
@@ -516,7 +663,7 @@ export default function MyStatsModal({
                     onClick={() => setActiveListTab('attendance')}
                     className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
                   >
-                    Attendance
+                    Attendance ({displayAttendance.length})
                   </button>
                 </div>
 
@@ -535,12 +682,20 @@ export default function MyStatsModal({
                             : pts >= 2 ? '⚡'
                             : '—');
                           return (
-                            <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 border border-transparent dark:border-slate-800 rounded-xl transition-colors">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">{formatTopicDisplay(r.topic)}</p>
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => { openReview(r); setActiveTab('pastQuizzes'); }}
+                              className="w-full text-left flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 rounded-xl transition-all cursor-pointer group"
+                            >
+                              <div className="flex-1 min-w-0 pr-2">
+                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                                  {formatTopicDisplay(r.topic)}
+                                </p>
                                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-2">
                                   {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
-                                  {timingEmoji && <span className="ml-2">{timingEmoji}</span>}
+                                  {timingEmoji && <span className="ml-1">{timingEmoji}</span>}
+                                  <span className="text-[10px] text-indigo-500 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">Review Block →</span>
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -548,8 +703,9 @@ export default function MyStatsModal({
                                   {(r.percentage || 0).toFixed(1)}%
                                 </span>
                                 <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{pts}pt</span>
+                                <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors" />
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -559,27 +715,33 @@ export default function MyStatsModal({
                   </>
                 ) : (
                   <>
-                    {myResults.filter(r => /\[attendance\]|\[manual\]/i.test(r.topic || '')).length > 0 ? (
+                    {displayAttendance.length > 0 ? (
                       <div className="space-y-2">
-                        {myResults.filter(r => /\[attendance\]|\[manual\]/i.test(r.topic || '')).map((r, i) => {
-                          const pts = r.academic_points || 0;
-                          return (
-                            <div key={i} className="flex items-center justify-between p-3 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/40 rounded-xl transition-colors">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">{formatTopicDisplay(r.topic)}</p>
-                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-2">
-                                  {r.attendance_date ? new Date(r.attendance_date + 'T12:00:00').toLocaleDateString() : (r.created_at ? new Date(r.created_at).toLocaleDateString() : '—')} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : r.topic?.toLowerCase().includes('advisor meeting') ? '🗣️ Advisor Meeting' : 'Noon Conference Attendance'}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="w-8 h-6 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center" title="Attendance/Manual Credit">
-                                  <Check className="w-3.5 h-3.5" />
-                                </span>
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{pts}pt</span>
-                              </div>
+                        {displayAttendance.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between p-3 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/40 rounded-xl transition-colors"
+                          >
+                            <div className="flex-1 min-w-0 pr-3">
+                              <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">
+                                {item.title}
+                              </p>
+                              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <span className="text-emerald-700 dark:text-emerald-400 font-bold">{item.dateStr}</span>
+                                <span className="opacity-40">·</span>
+                                <span>Block: {item.block}</span>
+                                <span className="opacity-40">·</span>
+                                <span>{item.isManual ? '✨ Manual Credit' : 'Noon Conference'}</span>
+                              </p>
                             </div>
-                          );
-                        })}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="w-7 h-7 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center shrink-0" title="Attendance Verified">
+                                <Check className="w-3.5 h-3.5" />
+                              </span>
+                              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{item.points}pt</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <p className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm italic">No attendance recorded.</p>

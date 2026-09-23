@@ -56,6 +56,9 @@ export async function POST(request: Request) {
       resident_email: string;
       topic: string;
       points?: number;
+      date?: string;
+      resident_name?: string;
+      status?: string;
     }
 
     // Deduplicate: Fetch attendance for these topics and emails from the last 1 hour
@@ -103,12 +106,23 @@ export async function POST(request: Request) {
       const ayMatch = entry.topic?.match(/\[AY\s+(\d+)\]/);
       const ay = ayMatch ? parseInt(ayMatch[1], 10) : defaultAy;
 
+      let createdAt = new Date().toISOString();
+      if (entry.date) {
+        try {
+          const parsed = new Date(entry.date.includes('T') ? entry.date : `${entry.date}T12:00:00Z`);
+          if (!isNaN(parsed.getTime())) {
+            createdAt = parsed.toISOString();
+          }
+        } catch {}
+      }
+
       return {
         legacy_email: entry.resident_email,
         topic: `[Attendance] ${entry.topic}`,
         academic_points: Number(entry.points) || 1,
         timing_status: 'Manual',
-        academic_year: ay
+        academic_year: ay,
+        created_at: createdAt
       };
     });
 
