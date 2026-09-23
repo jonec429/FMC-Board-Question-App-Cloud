@@ -60,6 +60,22 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-09-23 (Antigravity: Admin KPI Metric Modals, Lean Snapshot, Q-Points Math Fix & Navigation)
+**Shipped this session**:
+1. **Information-Rich & Clickable Admin Performance Cards**:
+   - Added secondary micro-metrics to all 4 Admin Performance KPI cards: Program Avg (`Curriculum: X% · Indep: Y%`), Board Readiness (`≥70%` and `≥65%` counts), At Risk (`Red: High Risk` vs `Yellow: Monitoring`), and Total Users (active quiz takers vs attempts).
+   - Built [`components/AdminMetricModal.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/AdminMetricModal.tsx): Clicking any KPI card opens an interactive drilldown with score distribution tiers (<60%, 60–69%, 70–79%, ≥80%), PGY class comparisons, ranked resident table, dossier shortcuts, and pre-filled email check-ins.
+2. **Lean Board Prep Snapshot & Accurate Math in My Performance**:
+   - Replaced oversized snapshot in [`components/MyStatsModal.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/MyStatsModal.tsx) with a compact, modern layout and dual-color progress bar splitting Q-Points (blue) and Attendance Points (purple).
+   - Fixed Quiz Average math: strictly filters out attendance records with null percentages, accurately calculating true quiz averages and eliminating the 18.7% display bug.
+   - Fixed Academic Points math: accurately calculates Q-Points from block high scores and attendance points from attendance logs, resolving the `0 Q-POINTS` bug.
+   - Clickable Block Review: block performance cards and question history items are now clickable to immediately open `QuizReview` with questions and explanations.
+   - Conference Session Dates & Titles: formats and displays actual conference session dates and lecture titles instead of upload timestamps.
+3. **Navigation & Ingestion Upgrades**:
+   - Admin Console: top-left shield icon and title are interactive buttons returning directly to Home Dashboard.
+   - Main Header: ABFM shield icon in [`components/Dashboard.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/Dashboard.tsx) serves as a Home / Refresh button with smooth top scroll and state reset.
+   - Attendance Ingestion: regex header detection in [`components/AttendanceManager.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/AttendanceManager.tsx) for flexible title/date matching; [`app/api/admin/bulk-attendance/route.ts`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/app/api/admin/bulk-attendance/route.ts) logs `created_at` matching the conference session date.
+
 ### ▶️ Session Handoff — 2026-09-22 (Antigravity: QOTD Analytics Suite & Anonymous Peer Benchmarking)
 **Shipped this session**:
 1. **Strict Data & Score Isolation**:
@@ -444,6 +460,19 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-09-23 — Admin KPI Metric Deep-Dives, Lean Snapshot, Q-Points Math Fix & QOTD Analytics Suite (Antigravity)
+*   **Information-Rich & Clickable Admin Performance Cards:** The 4 top KPI cards on the Admin Performance dashboard now display rich micro-metrics (Curriculum vs. Independent average score split, Board Readiness counts for ≥70% and ≥65%, At Risk resident counts split by Red High-Risk vs. Yellow Monitoring, and Total active test-takers vs. total attempts).
+*   **Deep-Dive Admin Metric Modal:** Clicking any of the 4 KPI cards opens an expanded interactive modal (`AdminMetricModal.tsx`) showing cohort score distribution tiers (<60%, 60–69%, 70–79%, ≥80%), class-by-class comparison bars, a searchable resident roster, direct quiz review links, and 1-click pre-filled email check-ins.
+*   **Lean Board Prep Snapshot (My Performance):** Completely modernized the resident performance snapshot in `MyStatsModal.tsx` with a high-density, compact card layout. Features a sleek dual-color progress bar clearly separating **Q-Points** (blue) and **Attendance Points** (purple) toward the graduation milestone.
+*   **Accurate Score & Points Calculations:** Fixed a calculation bug where attendance records with null percentages diluted the resident's quiz average down to 18.7%. Quiz averages now strictly evaluate completed questions, and Q-Points are accurately calculated from best block scores, resolving the `0 Q-POINTS` bug.
+*   **1-Click Quiz Review from Performance Cards:** Block performance rows and question history items inside My Performance are now interactive buttons. Clicking any block immediately opens the full question review screen with questions, resident picks, correct answers, and explanations.
+*   **Conference Dates & Lecture Titles in Attendance:** The Attendance tab now displays the actual date the conference occurred (e.g., `Nov 12, 2024`) and the exact conference lecture title rather than an upload timestamp or raw database string.
+*   **Header Navigation & Refresh Actions:** The top-left shield icon in the Admin Console now directly returns to the Home Dashboard. In the main dashboard header, clicking the ABFM shield triggers a refresh animation, updates live data, and smoothly scrolls to top.
+*   **Anonymous QOTD Peer Benchmarking:** When the Question of the Day unlocks at 12:30 PM, the review screen reveals an anonymous, real-time breakdown of how peers answered each distractor option with percentages and responder counts (`n`). Residents can see their cumulative standing vs. the program average with explicit cohort sample sizes (`n = ... residents`), active streak standing vs. the median, and lifetime answered totals.
+*   **Dedicated QOTD Analytics Hub:** Added a comprehensive reporting hub under Admin Console → Reports → QOTD Analytics. Surfaces high-level KPIs (participation rate, cohort accuracy, 30-day reach, active streakers), PGY cohort vs. category benchmark meters, Top 5 distractor trap questions, a searchable daily question timeline with expandable respondent lists, a full resident participation roster, and 3 one-click CSV export formats.
+*   **Trend Analysis & Distractor Heatmap Fixes:** Resolved an issue where Trend Analysis previously showed empty charts. Added multi-cohort PGY filtering, instant search by question text or topic, full answer explanations, and direct CSV data export.
+*   **Clean Document Printing:** Added pure-document `@media print` styling to isolate Advisee Dossiers and CCC reports from page chrome, sidebars, and buttons when printing or saving to PDF.
 
 ### 2026-09-22 — PWA Offline Hospital Resilience & Repeat Question Tracking (Antigravity)
 *   **PWA Shell & Asset Pre-Caching:** Upgraded the application service worker (`public/sw.js`) with cache versioning (`fmc-pwa-v2`), pre-caching the HTML shell, web manifest, icons, and Ascension branding assets. Implemented Network-First navigation with offline cache fallbacks and Stale-While-Revalidate static asset streaming so the app opens instantly even with no cellular or Wi-Fi connectivity.
