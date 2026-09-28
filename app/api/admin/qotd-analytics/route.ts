@@ -202,17 +202,12 @@ export async function GET(request: Request) {
     // CASE 2: Full Program-Wide QOTD Analytics Suite
     // --------------------------------------------------------------------------
     const [
-      attemptsRes,
       scheduleRes,
       profilesRes,
       rosterRes,
       streaksRes,
       reactionsRes,
     ] = await Promise.all([
-      supabaseAdmin
-        .from('question_attempts')
-        .select('id, user_id, question_id, is_correct, selected_index, created_at')
-        .eq('is_qotd', true),
       supabaseAdmin
         .from('qotd_schedule')
         .select('schedule_date, question:questions(id, question_text, category, year, options, correct_index, explanation)')
@@ -231,7 +226,22 @@ export async function GET(request: Request) {
         .select('question_id, reaction'),
     ]);
 
-    const attempts = attemptsRes.data || [];
+    // Fetch all QOTD attempts with pagination to avoid PostgREST 1000 row cap
+    const attempts: any[] = [];
+    let attPage = 0;
+    const attPageSize = 1000;
+    while (true) {
+      const { data: pageData, error: pageErr } = await supabaseAdmin
+        .from('question_attempts')
+        .select('id, user_id, question_id, is_correct, selected_index, created_at')
+        .eq('is_qotd', true)
+        .range(attPage * attPageSize, (attPage + 1) * attPageSize - 1);
+      if (pageErr) throw pageErr;
+      if (!pageData || pageData.length === 0) break;
+      attempts.push(...pageData);
+      if (pageData.length < attPageSize) break;
+      attPage++;
+    }
     const scheduleData = (scheduleRes.data || []).filter((s: any) => s.question != null);
     const profiles = profilesRes.data || [];
     const roster = rosterRes.data || [];
@@ -431,7 +441,11 @@ export async function GET(request: Request) {
     // 4. PGY Cohorts Breakdown
     const pgyGroups = ['PGY-1', 'PGY-2', 'PGY-3'];
     const pgyCohorts: QotdPgyStatItem[] = pgyGroups.map((pgy) => {
-      const residentsInPgy = residentStats.filter((r) => r.pgy === pgy);
+      const residentsInPgy = residentStats.filter((r) => {
+        const norm = (r.pgy || '').replace(/[^0-9]/g, '');
+        const groupNorm = pgy.replace(/[^0-9]/g, '');
+        return norm === groupNorm;
+      });
       const totalResidents = residentsInPgy.length;
       const totalAttempts = residentsInPgy.reduce((acc, r) => acc + r.attemptsCount, 0);
       const totalCorrect = residentsInPgy.reduce((acc, r) => acc + r.correctCount, 0);

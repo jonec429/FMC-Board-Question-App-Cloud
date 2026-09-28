@@ -49,6 +49,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'all'; // 'all' | 'blocks' | 'qotd'
     const pgyParam = searchParams.get('pgy') || 'all'; // 'all' | '1' | '2' | '3' | 'PGY-1' ...
+    const minAttemptsParam = parseInt(searchParams.get('minAttempts') || '3', 10);
+    const minAttempts = isNaN(minAttemptsParam) || minAttemptsParam < 1 ? 3 : minAttemptsParam;
     const academicYear = getCurrentAcademicYear();
 
     // 1. Fetch active residents from roster and profiles
@@ -89,28 +91,37 @@ export async function GET(request: Request) {
           totalQuestionsAttempted: 0,
           qualifiedQuestionsCount: 0,
           activeResidentCount: 0,
-          minQuestionAttemptsRequired: 3,
+          minQuestionAttemptsRequired: minAttempts,
         },
       });
     }
 
-    // 2. Fetch attempts for the targeted residents
-    let query = supabaseAdmin
-      .from('question_attempts')
-      .select('user_id, question_id, is_correct, selected_index, is_qotd, created_at')
-      .in('user_id', Array.from(activeUserIds))
-      .limit(50000);
+    // 2. Fetch attempts for the targeted residents with pagination to bypass PostgREST 1000 limit
+    const activeUserIdsArray = Array.from(activeUserIds);
+    const attempts: any[] = [];
+    const pageSize = 1000;
+    let page = 0;
 
-    if (type === 'blocks') {
-      query = query.or('is_qotd.is.null,is_qotd.eq.false');
-    } else if (type === 'qotd') {
-      query = query.eq('is_qotd', true);
+    while (true) {
+      let query = supabaseAdmin
+        .from('question_attempts')
+        .select('user_id, question_id, is_correct, selected_index, is_qotd, created_at')
+        .in('user_id', activeUserIdsArray)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (type === 'blocks') {
+        query = query.or('is_qotd.is.null,is_qotd.eq.false');
+      } else if (type === 'qotd') {
+        query = query.eq('is_qotd', true);
+      }
+
+      const { data: pageData, error: attemptsError } = await query;
+      if (attemptsError) throw attemptsError;
+      if (!pageData || pageData.length === 0) break;
+      attempts.push(...pageData);
+      if (pageData.length < pageSize) break;
+      page++;
     }
-
-    const { data: attemptsData, error: attemptsError } = await query;
-    if (attemptsError) throw attemptsError;
-
-    const attempts = attemptsData || [];
 
     if (attempts.length === 0) {
       return NextResponse.json({
@@ -122,7 +133,7 @@ export async function GET(request: Request) {
           totalQuestionsAttempted: 0,
           qualifiedQuestionsCount: 0,
           activeResidentCount: activeUserIds.size,
-          minQuestionAttemptsRequired: 3,
+          minQuestionAttemptsRequired: minAttempts,
         },
       });
     }
@@ -177,9 +188,9 @@ export async function GET(request: Request) {
       };
     });
 
-    // Filter questions: require >= 3 attempts for statistical reliability, sorted by failure rate
+    // Filter questions: require >= minAttempts for statistical reliability, sorted by failure rate
     const questionsFiltered = enrichedQuestions
-      .filter((q) => q.total >= 3)
+      .filter((q) => q.total >= minAttempts)
       .sort((a, b) => b.wrongPct - a.wrongPct)
       .slice(0, 100); // Return up to top 100 for comprehensive search and category filtering on frontend
 
@@ -198,7 +209,7 @@ export async function GET(request: Request) {
         wrongPct: stats.total > 0 ? (stats.wrong / stats.total) * 100 : 0,
         total: stats.total,
       }))
-      .filter((c) => c.total >= 5 && c.name !== 'Unknown Category') // At least 5 attempts in category
+      .filter((c) => c.total >= Math.max(minAttempts, 3) && c.name !== 'Unknown Category')
       .sort((a, b) => b.wrongPct - a.wrongPct)
       .slice(0, 10);
 
@@ -215,7 +226,7 @@ export async function GET(request: Request) {
         totalQuestionsAttempted: questionStats.size,
         qualifiedQuestionsCount: questionsFiltered.length,
         activeResidentCount: activeUserIds.size,
-        minQuestionAttemptsRequired: 3,
+        minQuestionAttemptsRequired: minAttempts,
       },
     });
   } catch (error: any) {

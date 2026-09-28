@@ -45,13 +45,46 @@ export function derivePGY(cohortYear: number, academicYear: number = getCurrentA
   return academicYear - cohortYear;
 }
 
+/**
+ * Normalizes any PGY/Residency representation ('1', 'PGY1', 'PGY-1', 'pgy 1', 'R1', 'R-1', 'r1', 1) into standard 'PGY-1'.
+ * Preserves non-PGY values like 'Faculty', 'OB Fellow', 'Academic Fellow', 'Graduated', etc.
+ */
+export function normalizePgy(val: string | number | null | undefined): string {
+  if (val == null) return '';
+  const str = String(val).trim();
+  if (!str) return '';
+
+  // Matches '1', 'PGY1', 'PGY-1', 'PGY 1', 'R1', 'R-1', 'r1', 'R 1'
+  const m = str.match(/^(?:(?:pgy|r)[-\s]*)?([1-3])$/i);
+  if (m) {
+    return `PGY-${m[1]}`;
+  }
+
+  // Catch 'Class of 2026 (PGY3)' or '(R2)' style
+  const innerM = str.match(/\(?(?:(?:pgy|r)[-\s]*)?([1-3])\)?$/i);
+  if (innerM && (str.toLowerCase().includes('pgy') || str.toLowerCase().includes('class of') || str.toLowerCase().startsWith('r'))) {
+    return `PGY-${innerM[1]}`;
+  }
+
+  return str;
+}
+
+/** Returns true if two PGY values represent the same level (e.g. 'PGY1' == 'PGY-1' == '1'). */
+export function arePgysEqual(a: string | number | null | undefined, b: string | number | null | undefined): boolean {
+  if (a == null || b == null) return false;
+  const normA = normalizePgy(a).toUpperCase();
+  const normB = normalizePgy(b).toUpperCase();
+  if (normA && normB && normA === normB) return true;
+  return false;
+}
+
 /** Human-readable label for the roster row's class/role column. */
 export function deriveLabel(row: RosterRow, academicYear: number = getCurrentAcademicYear()): string {
   if (row.status === 'graduated') {
     return row.graduated_year ? `Graduated ${row.graduated_year}` : 'Graduated';
   }
   if (row.status === 'on_leave') return 'On Leave';
-  if (row.pgy_override) return `PGY${row.pgy_override}`;
+  if (row.pgy_override) return normalizePgy(row.pgy_override);
 
   switch (row.track) {
     case 'faculty':
@@ -61,14 +94,14 @@ export function deriveLabel(row: RosterRow, academicYear: number = getCurrentAca
     case 'academic_fellow':
       return 'Academic Fellow';
     case 'family_medicine': {
-      if (row.cohort_year == null) return row.pgy || 'Resident';
+      if (row.cohort_year == null) return normalizePgy(row.pgy) || 'Resident';
       const pgy = derivePGY(row.cohort_year, academicYear);
       if (pgy < 1) return 'Incoming';
       if (pgy > 3) return 'Graduated';
-      return `PGY${pgy}`;
+      return `PGY-${pgy}`;
     }
     default:
-      return row.pgy || 'Resident'; // legacy fallback for rows not yet migrated
+      return normalizePgy(row.pgy) || 'Resident'; // legacy fallback for rows not yet migrated
   }
 }
 
@@ -150,27 +183,29 @@ export function residentMatchesCohort(
   academicYear: number = getCurrentAcademicYear(),
   facultyName?: string
 ): boolean {
-  if (!cohortFilter || cohortFilter === 'ALL') return true;
-  if (cohortFilter === 'MY_ADVISEES') {
+  if (!cohortFilter) return true;
+  const target = cohortFilter.toUpperCase().trim();
+  if (target === 'ALL') return true;
+
+  if (target === 'MY_ADVISEES') {
     if (!facultyName) return false;
     return (r.advisor || '').trim().toLowerCase() === facultyName.trim().toLowerCase();
   }
 
   const pgyNum = r.cohort_year != null ? derivePGY(r.cohort_year, academicYear) : null;
-  const derived = deriveLabel(r, academicYear).toUpperCase();
-  const rawPgy = (r.pgy || '').toUpperCase();
+  const derived = deriveLabel(r, academicYear);
+  const rawPgy = r.pgy || '';
   const classYear = getResidentClassYear(r)?.toString() || '';
-  const target = cohortFilter.toUpperCase().trim();
 
-  // Handle PGY levels (PGY-1, PGY1, 1)
-  if (target === 'PGY-1' || target === 'PGY1' || target === '1') {
-    return pgyNum === 1 || derived === 'PGY1' || rawPgy.includes('PGY-1') || rawPgy.includes('PGY1');
-  }
-  if (target === 'PGY-2' || target === 'PGY2' || target === '2') {
-    return pgyNum === 2 || derived === 'PGY2' || rawPgy.includes('PGY-2') || rawPgy.includes('PGY2');
-  }
-  if (target === 'PGY-3' || target === 'PGY3' || target === '3') {
-    return pgyNum === 3 || derived === 'PGY3' || rawPgy.includes('PGY-3') || rawPgy.includes('PGY3');
+  // Direct normalized PGY match (PGY-1 == PGY1 == 1)
+  const normTarget = normalizePgy(cohortFilter);
+  if (normTarget.startsWith('PGY-')) {
+    if (pgyNum != null && `PGY-${pgyNum}` === normTarget) return true;
+    if (arePgysEqual(derived, normTarget)) return true;
+    if (arePgysEqual(rawPgy, normTarget)) return true;
+    if (rawPgy.toUpperCase().includes(normTarget)) return true;
+    if (rawPgy.toUpperCase().includes(normTarget.replace('-', ''))) return true;
+    return false;
   }
 
   // Handle Class Year queries like "2029", "Class of 2029", "CLASS_2029"
@@ -179,6 +214,6 @@ export function residentMatchesCohort(
     return classYear === yearMatch[0] || rawPgy.includes(yearMatch[0]);
   }
 
-  return rawPgy.includes(target) || derived.includes(target);
+  return rawPgy.toUpperCase().includes(target) || derived.toUpperCase().includes(target);
 }
 

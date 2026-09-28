@@ -67,6 +67,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
   // Query Filters
   const [filterType, setFilterType] = useState<'all' | 'blocks' | 'qotd'>('all');
   const [pgyFilter, setPgyFilter] = useState<'all' | '1' | '2' | '3'>('all');
+  const [minAttempts, setMinAttempts] = useState<number>(3);
 
   // Client-side Display Filters
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -81,16 +82,19 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
     refetch,
     isFetching,
   } = useQuery<QuestionAnalyticsResponse>({
-    queryKey: ['admin', 'question_analytics', filterType, pgyFilter],
+    queryKey: ['admin', 'question_analytics', filterType, pgyFilter, minAttempts],
     queryFn: async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       const token = session?.access_token;
 
-      const res = await fetch(`/api/admin/question-analytics?type=${filterType}&pgy=${pgyFilter}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(
+        `/api/admin/question-analytics?type=${filterType}&pgy=${pgyFilter}&minAttempts=${minAttempts}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
+      );
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -282,6 +286,31 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
             </div>
           </div>
 
+          {/* Minimum Attempts Threshold Filter */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mr-1">
+              Threshold:
+            </span>
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
+              {[
+                { id: 3, label: '≥3 Attempts' },
+                { id: 2, label: '≥2 Attempts' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setMinAttempts(t.id)}
+                  className={`px-3 py-1 rounded-lg transition-all ${
+                    minAttempts === t.id
+                      ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Quiz Source Filter */}
           <div className="flex items-center gap-1.5 ml-auto">
             <span className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mr-1">
@@ -334,7 +363,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
               {analytics.summary.qualifiedQuestionsCount}
             </div>
             <span className="text-xs font-bold text-slate-400 mt-0.5 block">
-              Meeting &ge;3 attempts threshold
+              Meeting &ge;{analytics.summary.minQuestionAttemptsRequired || minAttempts} attempts threshold
             </span>
           </div>
 
@@ -552,6 +581,9 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
                           </button>
                           <span className="text-sm font-bold text-red-500 dark:text-red-400">
                             {q.wrongPct.toFixed(1)}% Failed ({q.wrong} of {q.total} attempts)
+                          </span>
+                          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
+                            {(100 - q.wrongPct).toFixed(0)}% Correct
                           </span>
                         </div>
 

@@ -60,6 +60,29 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-09-28 (Antigravity: BRQ Reporting & Trend Analysis Overhaul, Universal PGY/R1-R3 Normalization)
+**Shipped this session**:
+1. **Universal PGY & R1-R3 Term Equivalence (`lib/academicYear.ts`)**:
+   - Built `normalizePgy()` and `arePgysEqual()`: Automatically normalizes any resident class representation (`1`, `PGY1`, `PGY-1`, `pgy 1`, `R1`, `R-1`, `r1`, `R 1`, etc.) into canonical `PGY-1` / `PGY-2` / `PGY-3`.
+   - Updated `deriveLabel()` to emit standard hyphenated `PGY-${pgy}` across all resident rows.
+   - Fixed `residentMatchesCohort()` to handle case-insensitive `'all'` / `'ALL'` and resolve all PGY / R-term variants.
+2. **BRQ Cohort Reporting Fix (`app/api/admin/qotd-analytics/route.ts` & `components/QotdAnalytics.tsx`)**:
+   - Resolved the `n = 0 residents` bug across PGY-1, PGY-2, and PGY-3 benchmark cards by implementing normalized digit comparison in `pgyCohorts` grouping.
+   - PGY-1 (12 residents), PGY-2 (11 residents), and PGY-3 (12 residents) now calculate and display genuine program participation and accuracy metrics.
+   - Paginated QOTD attempts fetch to eliminate PostgREST 1,000-row query truncation.
+   - Updated `QotdAnalytics.tsx` resident roster dropdown filter to normalize cohort numbers.
+3. **Trend Analysis Heatmap Overhaul (`app/api/admin/question-analytics/route.ts` & `components/QuestionHeatmap.tsx`)**:
+   - Fixed zero-data bug caused by case-sensitive cohort comparison (`'all' !== 'ALL'`).
+   - Added paginated query loop (`.range()`) pulling all 4,340+ active resident attempts instead of truncating at 1,000 rows.
+   - Added selectable **Attempts Threshold Filter** (`≥3 Attempts` vs `≥2 Attempts`) in the toolbar so faculty can uncover high-failure questions early.
+   - Added dual **Failure Rate %** and **Pass Rate / Accuracy %** badges to question header cards.
+4. **Performance Score Trend Alignment (`components/AdminPerformance.tsx`)**:
+   - Aligned `scoresChrono` to use `curriculumQuizzes`, ensuring non-academic attendance records and manual entries never pollute longitudinal curriculum performance trends.
+5. **Quality & Build Gates**:
+   - Clean `npx tsc --noEmit` (0 errors).
+   - Clean `npm run lint` (`✔ No ESLint warnings or errors`).
+   - Clean `npm run build` (all 20 static and dynamic routes compiled successfully).
+
 ### ▶️ Session Handoff — 2026-09-23 (Antigravity: Admin KPI Metric Modals, Lean Snapshot, Q-Points Math Fix & Navigation)
 **Shipped this session**:
 1. **Information-Rich & Clickable Admin Performance Cards**:

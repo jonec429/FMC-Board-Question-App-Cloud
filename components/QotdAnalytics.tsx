@@ -145,7 +145,9 @@ export default function QotdAnalytics({ adminData, user, profile }: QotdAnalytic
         r.email.toLowerCase().includes(rosterSearch.toLowerCase()) ||
         (r.advisor && r.advisor.toLowerCase().includes(rosterSearch.toLowerCase()));
       const matchesPgy =
-        rosterPgyFilter === 'ALL' || r.pgy.toUpperCase().includes(rosterPgyFilter.toUpperCase());
+        rosterPgyFilter === 'ALL' ||
+        (r.pgy || '').replace(/[^0-9]/g, '') === rosterPgyFilter.replace(/[^0-9]/g, '') ||
+        r.pgy.toUpperCase().includes(rosterPgyFilter.toUpperCase());
       return matchesSearch && matchesPgy;
     });
   }, [data?.residentStats, rosterSearch, rosterPgyFilter]);

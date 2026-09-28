@@ -571,7 +571,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
         const complianceRisk = isFacultyUser ? 'gray' : getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
 
         // Early-warning: recent scores sliding vs earlier ones (even if the average still looks OK).
-        const scoresChrono = [...resResults]
+        const scoresChrono = [...curriculumQuizzes]
           .filter((r: Result & { email?: string | null }) => typeof r.percentage === 'number')
           .sort((a: Result, b: Result) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())
           .map((r: Result & { email?: string | null }) => r.percentage);
