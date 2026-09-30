@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import {
   Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Loader2, Megaphone, FileText
 } from './AppIcons';
-import { Flame } from 'lucide-react';
+import { Flame, Gift } from 'lucide-react';
 import AdminPerformance from './AdminPerformance';
 import AttendanceManager from './AttendanceManager';
 import RosterManager from './RosterManager';
@@ -15,12 +15,13 @@ import AdminReporting from './AdminReporting';
 import AnnualRollover from './AnnualRollover';
 import AssignQuizManager from './AssignQuizManager';
 import QotdAnalytics from './QotdAnalytics';
+import ChallengeTracker from './ChallengeTracker';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
 import { User, Profile } from '@/lib/types';
 
-export type TabId = 'performance' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications' | 'rollover' | 'assign' | 'qotd';
+export type TabId = 'performance' | 'challenge' | 'reporting' | 'roster' | 'attendance' | 'builder' | 'content' | 'questions' | 'notifications' | 'rollover' | 'assign' | 'qotd';
 
 interface AdminConsoleProps {
   user?: User | null;
@@ -50,6 +51,7 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
       heading: 'Reports',
       items: [
         { id: 'performance', label: 'Performance', icon: BarChartIcon, description: 'Resident progress & risk flags' },
+        { id: 'challenge', label: 'DoorDash Challenge', icon: Gift, description: '3x $50 prize competition & eligibility' },
         { id: 'qotd', label: 'QOTD Analytics', icon: Flame, description: 'Daily question participation & accuracy' },
         { id: 'assign', label: 'Assign Quizzes', icon: Sparkles, description: 'Assign targeted practice' },
         { id: 'reporting', label: 'Reports & CCC Export', icon: FileText, description: 'Customized CCC review packets, dossiers, & CSVs' },
@@ -183,7 +185,8 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
 
           {/* Main Content */}
           <main className="flex-1 min-w-0">
-            {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} />}
+            {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} onNavigateTab={(t) => setActiveTab(t as TabId)} />}
+            {activeTab === 'challenge' && <ChallengeTracker adminData={adminDataResult.data} user={user} profile={profile} />}
             {activeTab === 'qotd' && <QotdAnalytics adminData={adminDataResult.data} user={user} profile={profile} />}
             {activeTab === 'reporting' && adminDataResult.data && <AdminReporting adminData={adminDataResult.data} user={user} profile={profile} />}
             {activeTab === 'roster' && <RosterManager />}

@@ -7,7 +7,7 @@ import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, isFacultyRow, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
-import { Flame, Sparkles, HelpCircle, Eye, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Flame, Sparkles, HelpCircle, Eye, ArrowUpDown, ArrowUp, ArrowDown, Gift } from 'lucide-react';
 import QuestionHeatmap from './QuestionHeatmap';
 import AdviseeDossierModal from './AdviseeDossierModal';
 import RiskLegend from './RiskLegend';
@@ -70,11 +70,12 @@ import { useAdminData } from '@/hooks/useAdminData';
 interface AdminPerformanceProps {
   user?: User | null;
   profile?: Profile | null;
+  onNavigateTab?: (tab: string) => void;
 }
 
 type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'by_block' | 'my_advisees' | 'heatmap';
 
-export default function AdminPerformance({ user, profile }: AdminPerformanceProps) {
+export default function AdminPerformance({ user, profile, onNavigateTab }: AdminPerformanceProps) {
   const userIsAdmin = isAdmin(user, profile);
   const userIsFaculty = isFaculty(user, profile);
   const facultyName = getFacultyAdviseeFilter(user, profile);
@@ -815,6 +816,7 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           <ChevronRight className="w-5 h-5 text-slate-400 dark:text-slate-500 shrink-0" />
         </button>
       )}
+
 
       {/* Program Summary Cards - Rich & Interactive */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

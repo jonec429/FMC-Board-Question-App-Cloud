@@ -215,3 +215,76 @@ export interface ResidentQotdHistoryItem {
   peerOptionAgreementCount: number;
 }
 
+export interface BlockAuditItem {
+  title: string;
+  isCompleted: boolean;
+  timingStatus?: string | null;
+  score?: number | null;
+  total?: number | null;
+  percentage?: number | null;
+  academicPoints?: number;
+  completedAt?: string | null;
+}
+
+export interface ChallengeResidentStanding {
+  userId: string | null;
+  email: string;
+  name: string;
+  pgy: string;
+  // Block completion & eligibility
+  completedBlocksCount: number;
+  totalRequiredBlocks: number;
+  isEligible: boolean;
+  completedBlockTitles: string[];
+  missingBlockTitles: string[];
+  blockAudit: BlockAuditItem[];
+  // Challenge 1: APs (block + attendance + manual)
+  totalAp: number;
+  blockPoints: number;
+  attendancePoints: number;
+  manualPoints: number;
+  rankAp: number;
+  eligibleRankAp: number | null;
+  // Challenge 2: Most QOTDs Completed
+  qotdCompletedCount: number;
+  rankQotd: number;
+  eligibleRankQotd: number | null;
+  // Challenge 3: Longest QOTD Streak
+  longestStreak: number;
+  currentStreak: number;
+  rankStreak: number;
+  eligibleRankStreak: number | null;
+  // Projected Prize Winnings ($50 each, cumulative)
+  potentialWinnings: number;
+  winningCategories: string[];
+}
+
+export interface ChallengeStandingsResponse {
+  academicYear: number;
+  totalRequiredBlocks: number;
+  requiredBlockTitles: string[];
+  standings: ChallengeResidentStanding[];
+  eligibleCount: number;
+  totalResidentCount: number;
+  leaders: {
+    ap: {
+      overall: ChallengeResidentStanding | null;
+      eligible: ChallengeResidentStanding | null;
+      top3Eligible: ChallengeResidentStanding[];
+      top3Overall: ChallengeResidentStanding[];
+    };
+    qotd: {
+      overall: ChallengeResidentStanding | null;
+      eligible: ChallengeResidentStanding | null;
+      top3Eligible: ChallengeResidentStanding[];
+      top3Overall: ChallengeResidentStanding[];
+    };
+    streak: {
+      overall: ChallengeResidentStanding | null;
+      eligible: ChallengeResidentStanding | null;
+      top3Eligible: ChallengeResidentStanding[];
+      top3Overall: ChallengeResidentStanding[];
+    };
+  };
+}
+

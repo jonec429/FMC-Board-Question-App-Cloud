@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName, withTimeout } from '@/lib/utils';
 import { canAccessAdmin, getUserRole } from '@/lib/roles';
@@ -16,9 +16,11 @@ import InstallAppModal from './InstallAppModal';
 import QotdHistoryModal from './QotdHistoryModal';
 import ClassYoyModal from './ClassYoyModal';
 import AdviseeQuickAccessCard from './AdviseeQuickAccessCard';
+import ChallengeModal from './ChallengeModal';
+import { Gift } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
-import { User, Profile, Block, Result, Question, QuizSession, AssignedQuiz } from '@/lib/types';
+import { User, Profile, Block, Result, Question, QuizSession, AssignedQuiz, ChallengeStandingsResponse, ChallengeResidentStanding } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
 export interface StartQuizOptions {
@@ -134,16 +136,40 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showQotdHistoryModal, setShowQotdHistoryModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
+  const [leaderboardModalTab, setLeaderboardModalTab] = useState<'ap' | 'challenge'>('ap');
+  const [challengeData, setChallengeData] = useState<ChallengeStandingsResponse | null>(null);
   const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadChallenge() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+        const res = await fetch(`/api/resident/challenge-standings?academicYear=${selectedYear}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted) setChallengeData(json);
+        }
+      } catch {}
+    }
+    loadChallenge();
+    return () => { isMounted = false; };
+  }, [selectedYear]);
 
   const handleHomeRefresh = async () => {
     setIsRefreshing(true);
     try {
       setShowMyStats(false);
+      setShowChallengeModal(false);
       setShowSettings(false);
       setShowAchievements(false);
       setShowInstallApp(false);
@@ -250,6 +276,16 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
   const blocksCompleted = topicBestPts.size;
   const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
+
+  // Challenge eligibility calculations
+  const curriculumBlocks = blocks.filter(b => b.block_type !== 'demo' && !b.title?.toLowerCase().includes('demo'));
+  const myCompletedBlocksCount = curriculumBlocks.filter(b => {
+    const r = bestResultByTopic.get(b.title);
+    return !!r && ((r.academic_points || 0) > 0 || r.timing_status != null || (r.total || 0) > 0);
+  }).length;
+  const myTotalRequiredBlocks = curriculumBlocks.length;
+  const isResidentEligibleForChallenge = myTotalRequiredBlocks > 0 && myCompletedBlocksCount >= myTotalRequiredBlocks;
+  const blocksNeededForChallenge = Math.max(0, myTotalRequiredBlocks - myCompletedBlocksCount);
 
   // Average score strictly across completed quizzes with valid percentage and questions (excluding attendance)
   const gradedQuizzes = quizResults.filter(r => r.percentage != null && (r.total || 0) > 0);
@@ -513,7 +549,12 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
           {leaderboard.length > 0 && (
             <div className="space-y-4">
-              <LeaderboardWidget data={leaderboard} myEmail={user.email} />
+              <LeaderboardWidget
+                data={leaderboard}
+                myEmail={user.email}
+                challengeData={challengeData}
+                onOpenChallenge={() => setShowChallengeModal(true)}
+              />
               <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => setSelectedYoyClass(pgy)} />
             </div>
           )}
@@ -858,6 +899,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             </div>
           )}
 
+
           <div className="flex items-center justify-between gap-2 mb-3">
             <h3 className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-xs">Board Review Blocks</h3>
             {blocks.length > 1 && (
@@ -1030,6 +1072,17 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         />
       )}
 
+      {showChallengeModal && (
+        <ChallengeModal
+          isOpen={showChallengeModal}
+          onClose={() => setShowChallengeModal(false)}
+          user={user}
+          profile={profile}
+          academicYear={selectedYear}
+          onStartQuiz={onStartQuiz}
+        />
+      )}
+
       {/* Mobile Leaderboard Modal */}
       {showLeaderboardModal && (
         <div
@@ -1061,41 +1114,194 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
               </button>
             </div>
 
+            {/* Modal Tabs */}
+            <div className="px-5 pt-3 pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setLeaderboardModalTab('ap')}
+                className={`pb-2 px-3 text-xs font-black border-b-2 transition-all cursor-pointer ${
+                  leaderboardModalTab === 'ap'
+                    ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                }`}
+              >
+                🏆 Academic Points
+              </button>
+              <button
+                onClick={() => setLeaderboardModalTab('challenge')}
+                className={`pb-2 px-3 text-xs font-black border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  leaderboardModalTab === 'challenge'
+                    ? 'border-red-600 text-red-600 dark:text-red-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                }`}
+              >
+                <Gift className="w-3.5 h-3.5" />
+                <span>DoorDash Challenge ($150)</span>
+              </button>
+            </div>
+
             {/* Modal Content */}
             <div className="p-5 overflow-y-auto space-y-4">
-              {userStreak && (userStreak.current_qotd_streak > 0 || userStreak.current_block_streak > 0) && (
-                <div className="grid grid-cols-2 gap-2">
-                  {userStreak.current_qotd_streak > 0 && (
-                    <div className="p-2.5 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-xl border border-orange-100 dark:border-orange-900/40 flex items-center gap-2">
-                      <span className="text-lg">🔥</span>
-                      <div className="min-w-0">
-                        <div className="font-black text-xs truncate">{userStreak.current_qotd_streak}d Streak</div>
-                        <div className="text-[9px] font-bold opacity-75 truncate">QOTD</div>
-                      </div>
-                    </div>
-                  )}
-                  {userStreak.current_block_streak > 0 && (
-                    <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl border border-blue-100 dark:border-blue-900/40 flex items-center gap-2">
-                      <span className="text-lg">⚡</span>
-                      <div className="min-w-0">
-                        <div className="font-black text-xs truncate">{userStreak.current_block_streak} Blk Streak</div>
-                        <div className="text-[9px] font-bold opacity-75 truncate">On-Time</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {leaderboard.length > 0 ? (
+              {leaderboardModalTab === 'ap' ? (
                 <>
-                  <LeaderboardWidget data={leaderboard} myEmail={user.email} />
-                  <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => {
-                    setShowLeaderboardModal(false);
-                    setSelectedYoyClass(pgy);
-                  }} />
+                  {userStreak && (userStreak.current_qotd_streak > 0 || userStreak.current_block_streak > 0) && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {userStreak.current_qotd_streak > 0 && (
+                        <div className="p-2.5 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-xl border border-orange-100 dark:border-orange-900/40 flex items-center gap-2">
+                          <span className="text-lg">🔥</span>
+                          <div className="min-w-0">
+                            <div className="font-black text-xs truncate">{userStreak.current_qotd_streak}d Streak</div>
+                            <div className="text-[9px] font-bold opacity-75 truncate">QOTD</div>
+                          </div>
+                        </div>
+                      )}
+                      {userStreak.current_block_streak > 0 && (
+                        <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl border border-blue-100 dark:border-blue-900/40 flex items-center gap-2">
+                          <span className="text-lg">⚡</span>
+                          <div className="min-w-0">
+                            <div className="font-black text-xs truncate">{userStreak.current_block_streak} Blk Streak</div>
+                            <div className="text-[9px] font-bold opacity-75 truncate">On-Time</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {leaderboard.length > 0 ? (
+                    <>
+                      <LeaderboardWidget
+                        data={leaderboard}
+                        myEmail={user.email}
+                        challengeData={challengeData}
+                        onOpenChallenge={() => { setShowLeaderboardModal(false); setShowChallengeModal(true); }}
+                      />
+                      <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => {
+                        setShowLeaderboardModal(false);
+                        setSelectedYoyClass(pgy);
+                      }} />
+                    </>
+                  ) : (
+                    <p className="text-center py-6 text-slate-400 text-sm italic">No leaderboard data available.</p>
+                  )}
                 </>
               ) : (
-                <p className="text-center py-6 text-slate-400 text-sm italic">No leaderboard data available.</p>
+                /* DoorDash Challenge Tab Content */
+                <div className="space-y-4">
+                  {/* Eligibility summary */}
+                  <div className={`p-3.5 rounded-2xl border ${
+                    isResidentEligibleForChallenge
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900 text-emerald-900 dark:text-emerald-100'
+                      : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900 text-amber-900 dark:text-amber-100'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{isResidentEligibleForChallenge ? '✅' : '⏳'}</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black">
+                          {isResidentEligibleForChallenge ? 'You are Eligible to Win!' : 'Complete All Blocks to Qualify'}
+                        </p>
+                        <p className="text-[11px] opacity-90 mt-0.5">
+                          {isResidentEligibleForChallenge
+                            ? `You've completed all ${myTotalRequiredBlocks} required curriculum blocks!`
+                            : `Completed ${myCompletedBlocksCount} of ${myTotalRequiredBlocks} blocks. Late blocks count for eligibility!`}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3 Categories: Top 3 */}
+                  {challengeData ? (
+                    <div className="space-y-3">
+                      {/* APs */}
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-black text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            🍔 Most Academic Points
+                          </span>
+                          <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-black">
+                            $50 Card
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {(challengeData.leaders.ap.top3Overall || []).map((r, i) => (
+                            <div key={r.email} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800">
+                              <span className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                                {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} {r.name}
+                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                <span className="font-black text-slate-900 dark:text-white">{r.totalAp} pts</span>
+                                <span className="text-[10px]">{r.isEligible ? '✅' : '⏳'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* QOTD */}
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-black text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            📅 Most Completed QOTDs
+                          </span>
+                          <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-200 rounded-full text-[10px] font-black">
+                            $50 Card
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {(challengeData.leaders.qotd.top3Overall || []).map((r, i) => (
+                            <div key={r.email} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800">
+                              <span className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                                {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} {r.name}
+                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                <span className="font-black text-slate-900 dark:text-white">{r.qotdCompletedCount} Qs</span>
+                                <span className="text-[10px]">{r.isEligible ? '✅' : '⏳'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Streak */}
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-black text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                            🔥 Longest Streak
+                          </span>
+                          <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-200 rounded-full text-[10px] font-black">
+                            $50 Card
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {(challengeData.leaders.streak.top3Overall || []).map((r, i) => (
+                            <div key={r.email} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800">
+                              <span className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                                {i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} {r.name}
+                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                <span className="font-black text-slate-900 dark:text-white">{r.longestStreak}d</span>
+                                <span className="text-[10px]">{r.isEligible ? '✅' : '⏳'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-xs text-slate-400 italic">
+                      Loading challenge standings...
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setShowLeaderboardModal(false);
+                      setShowChallengeModal(true);
+                    }}
+                    className="w-full py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-xl text-xs font-black shadow-sm hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span>View Complete Challenge Rankings &amp; Rules</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -1142,49 +1348,179 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 }
 
 // === LEADERBOARD WIDGET ===
-function LeaderboardWidget({ data, myEmail }: { data: LeaderboardEntry[]; myEmail: string }) {
+function LeaderboardWidget({
+  data,
+  myEmail,
+  challengeData,
+  onOpenChallenge
+}: {
+  data: LeaderboardEntry[];
+  myEmail: string;
+  challengeData?: ChallengeStandingsResponse | null;
+  onOpenChallenge?: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'ap' | 'challenge'>('ap');
   const top = data.slice(0, 5);
   const myEntry = data.find(d => d.email.toLowerCase() === myEmail?.toLowerCase());
   const myRank = myEntry ? data.findIndex(d => d.email === myEntry.email) + 1 : null;
 
+  const myChallengeStanding = useMemo(() => {
+    if (!challengeData || !myEmail) return null;
+    return challengeData.standings.find(s => s.email.toLowerCase() === myEmail.toLowerCase()) || null;
+  }, [challengeData, myEmail]);
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm transition-colors">
+      {/* Tab Switcher Header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-slate-400 dark:text-slate-500" />
-          <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">Academic Points Leaderboard</h3>
+        <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl">
+          <button
+            onClick={() => setActiveTab('ap')}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+              activeTab === 'ap'
+                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+            }`}
+          >
+            🏆 APs
+          </button>
+          <button
+            onClick={() => setActiveTab('challenge')}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 cursor-pointer ${
+              activeTab === 'challenge'
+                ? 'bg-red-600 text-white shadow-xs'
+                : 'text-red-600 dark:text-red-400 hover:text-red-700'
+            }`}
+          >
+            <Gift className="w-3 h-3" />
+            <span>$50 Challenge</span>
+          </button>
         </div>
-        {myRank && <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>}
+
+        {activeTab === 'ap' && myRank && (
+          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>
+        )}
+        {activeTab === 'challenge' && myChallengeStanding && (
+          <span className={`text-[10px] font-black ${myChallengeStanding.isEligible ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+            {myChallengeStanding.isEligible ? 'Eligible ✅' : `${myChallengeStanding.completedBlocksCount}/${myChallengeStanding.totalRequiredBlocks} Blks`}
+          </span>
+        )}
       </div>
-      <div className="space-y-1">
-        {top.map((r, i) => {
-          const isMe = r.email.toLowerCase() === myEmail?.toLowerCase();
-          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
-          return (
-            <div
-              key={r.email}
-              className={`flex items-center justify-between py-1.5 px-2 rounded-lg transition-colors ${isMe ? 'bg-blue-50 dark:bg-blue-950/50' : ''}`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 w-5 shrink-0">
-                  {medal || `#${i + 1}`}
-                </span>
-                <div className="min-w-0">
-                  <p className={`text-xs font-bold truncate ${isMe ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
-                    {formatDisplayName(r.name)}
-                  </p>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                    {r.pgy.replace('Class of ', "'")}
-                  </p>
+
+      {activeTab === 'ap' ? (
+        <>
+          <div className="space-y-1">
+            {top.map((r, i) => {
+              const isMe = r.email.toLowerCase() === myEmail?.toLowerCase();
+              const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+              return (
+                <div
+                  key={r.email}
+                  className={`flex items-center justify-between py-1.5 px-2 rounded-lg transition-colors ${isMe ? 'bg-blue-50 dark:bg-blue-950/50' : ''}`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 w-5 shrink-0">
+                      {medal || `#${i + 1}`}
+                    </span>
+                    <div className="min-w-0">
+                      <p className={`text-xs font-bold truncate ${isMe ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
+                        {formatDisplayName(r.name)}
+                      </p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                        {r.pgy.replace('Class of ', "'")}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-black shrink-0 ml-2 ${isMe ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}`}>
+                    {r.totalPoints} pts
+                  </span>
                 </div>
-              </div>
-              <span className={`text-xs font-black shrink-0 ml-2 ${isMe ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}`}>
-                {r.totalPoints} pts
-              </span>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => setActiveTab('challenge')}
+            className="w-full mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] font-black text-rose-600 dark:text-rose-400 hover:text-rose-700 flex items-center justify-center gap-1 transition-colors group cursor-pointer"
+          >
+            <Gift className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+            <span>DoorDash Challenge: 3x $50 Prizes</span>
+          </button>
+        </>
+      ) : (
+        /* $50 Challenge View */
+        <div className="space-y-2">
+          {/* Category 1: APs */}
+          <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-800 dark:text-slate-200">
+              <span className="flex items-center gap-1">🍔 Most APs</span>
+              <span className="font-black text-amber-600 dark:text-amber-400">$50 Card</span>
             </div>
-          );
-        })}
-      </div>
+            {challengeData?.leaders.ap.eligible ? (
+              <div className="flex items-center justify-between mt-1 text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                  🥇 {challengeData.leaders.ap.eligible.name}
+                </span>
+                <span className="font-black text-slate-900 dark:text-white shrink-0 ml-1.5 text-[11px]">
+                  {challengeData.leaders.ap.eligible.totalAp} pts
+                </span>
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-400 italic mt-0.5">No eligible contenders yet</p>
+            )}
+          </div>
+
+          {/* Category 2: QOTD */}
+          <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-800 dark:text-slate-200">
+              <span className="flex items-center gap-1">📅 Most QOTDs</span>
+              <span className="font-black text-purple-600 dark:text-purple-400">$50 Card</span>
+            </div>
+            {challengeData?.leaders.qotd.eligible ? (
+              <div className="flex items-center justify-between mt-1 text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                  🥇 {challengeData.leaders.qotd.eligible.name}
+                </span>
+                <span className="font-black text-slate-900 dark:text-white shrink-0 ml-1.5 text-[11px]">
+                  {challengeData.leaders.qotd.eligible.qotdCompletedCount} Qs
+                </span>
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-400 italic mt-0.5">No eligible contenders yet</p>
+            )}
+          </div>
+
+          {/* Category 3: Streak */}
+          <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-800 dark:text-slate-200">
+              <span className="flex items-center gap-1">🔥 Longest Streak</span>
+              <span className="font-black text-orange-600 dark:text-orange-400">$50 Card</span>
+            </div>
+            {challengeData?.leaders.streak.eligible ? (
+              <div className="flex items-center justify-between mt-1 text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300 truncate">
+                  🥇 {challengeData.leaders.streak.eligible.name}
+                </span>
+                <span className="font-black text-slate-900 dark:text-white shrink-0 ml-1.5 text-[11px]">
+                  {challengeData.leaders.streak.eligible.longestStreak}d
+                </span>
+              </div>
+            ) : (
+              <p className="text-[10px] text-slate-400 italic mt-0.5">No eligible contenders yet</p>
+            )}
+          </div>
+
+          {onOpenChallenge && (
+            <button
+              onClick={onOpenChallenge}
+              className="w-full pt-1.5 text-[10px] font-black text-blue-600 dark:text-blue-400 hover:underline flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <span>View Full Standings &amp; Rules</span>
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

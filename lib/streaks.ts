@@ -38,6 +38,16 @@ function prevWeekday(dateStr: string): string {
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 }
 
+/** The next weekday (skips Sat/Sun) as an EST 'YYYY-MM-DD' string. */
+function nextWeekday(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  do {
+    dt.setDate(dt.getDate() + 1);
+  } while (dt.getDay() === 0 || dt.getDay() === 6);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
 /**
  * Current QOTD weekday streak, derived from the EST dates the user answered a
  * QOTD. `today` is an EST 'YYYY-MM-DD' string (e.g. from getTodayDateString()).
@@ -62,4 +72,26 @@ export function computeQotdStreak(answeredEstDates: string[], today: string): nu
     cursor = prevWeekday(cursor);
   }
   return streak;
+}
+
+/**
+ * Historical longest QOTD weekday streak across all answered dates.
+ */
+export function computeMaxQotdStreak(answeredEstDates: string[]): number {
+  const uniqueWeekdays = Array.from(new Set(answeredEstDates))
+    .filter(d => !isWeekend(d))
+    .sort();
+  if (uniqueWeekdays.length === 0) return 0;
+  let maxStreak = 1;
+  let currentStreak = 1;
+  for (let i = 1; i < uniqueWeekdays.length; i++) {
+    const expected = nextWeekday(uniqueWeekdays[i - 1]);
+    if (uniqueWeekdays[i] === expected) {
+      currentStreak++;
+      if (currentStreak > maxStreak) maxStreak = currentStreak;
+    } else {
+      currentStreak = 1;
+    }
+  }
+  return maxStreak;
 }
