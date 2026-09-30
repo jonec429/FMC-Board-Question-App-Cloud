@@ -105,10 +105,18 @@ export default function RosterManager() {
       if (error) throw error;
 
       if (editingPerson.has_account) {
+        const fullName = `${editingPerson.first_name} ${editingPerson.last_name}`.trim();
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({ role: editingPerson.role })
-          .eq('email', editingPerson.email);
+          .update({
+            role: editingPerson.role,
+            full_name: fullName,
+            first_name: editingPerson.first_name.trim(),
+            last_name: editingPerson.last_name.trim(),
+            pgy: fields.pgy,
+            advisor: editingPerson.advisor || null
+          })
+          .ilike('email', editingPerson.email.trim());
         
         if (profileError) throw profileError;
       }

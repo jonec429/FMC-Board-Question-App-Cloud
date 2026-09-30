@@ -121,7 +121,7 @@ export async function GET(request: Request) {
       const email = resident.email?.toLowerCase() || '';
       const prof = profileByEmail.get(email);
       const uid = prof?.id || null;
-      const name = prof?.full_name || resident.name || email;
+      const name = resident.name || prof?.full_name || email;
       const pgy = deriveLabel(resident, academicYear) || resident.pgy || 'Resident';
 
       // Gather this resident's results

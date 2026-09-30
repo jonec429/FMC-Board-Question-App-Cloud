@@ -66,44 +66,80 @@ export default function Home() {
   const envMissing = !supabaseUrl || !supabaseKey;
 
   const loadProfile = async (sessionUser: User) => {
-    // Try to find an existing profile row first
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', sessionUser.id)
-      .maybeSingle();
+    // Fetch profile and authorized_roster in parallel
+    const [profileRes, rosterRes] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', sessionUser.id)
+        .maybeSingle(),
+      supabase
+        .from('authorized_roster')
+        .select('name, first_name, last_name, pgy, advisor, role')
+        .ilike('email', sessionUser.email)
+        .maybeSingle(),
+    ]);
 
-    if (profileError) {
-      throw new Error(`Profile fetch failed: ${profileError.message}`);
+    if (profileRes.error) {
+      throw new Error(`Profile fetch failed: ${profileRes.error.message}`);
     }
 
-    if (profileData && (profileData.pgy || profileData.full_name)) {
+    const profileData = profileRes.data;
+    const rosterData = rosterRes.data;
+
+    if (rosterData) {
+      const canonicalName = rosterData.name || profileData?.full_name || '';
+      const canonicalFirstName = rosterData.first_name || profileData?.first_name || (canonicalName ? canonicalName.split(' ')[0] : '');
+      const canonicalLastName = rosterData.last_name || profileData?.last_name || (canonicalName && canonicalName.includes(' ') ? canonicalName.substring(canonicalName.indexOf(' ') + 1) : '');
+      const canonicalPgy = rosterData.pgy || profileData?.pgy || null;
+      const canonicalAdvisor = rosterData.advisor || profileData?.advisor || null;
+      const canonicalRole = rosterData.role || profileData?.role || (rosterData.pgy === 'Faculty' ? 'faculty' : 'resident');
+
+      // Check if profile needs updating from roster
+      const needsSync = !profileData ||
+        (rosterData.name && profileData.full_name !== rosterData.name) ||
+        (rosterData.pgy && profileData.pgy !== rosterData.pgy) ||
+        (rosterData.advisor && profileData.advisor !== rosterData.advisor);
+
+      if (needsSync && sessionUser.id) {
+        supabase
+          .from('profiles')
+          .upsert({
+            id: sessionUser.id,
+            email: sessionUser.email,
+            full_name: canonicalName,
+            first_name: canonicalFirstName,
+            last_name: canonicalLastName,
+            pgy: canonicalPgy,
+            advisor: canonicalAdvisor,
+            role: canonicalRole,
+          })
+          .then(({ error }) => {
+            if (error) console.warn('[App] Profile-roster auto-sync warning:', error);
+          });
+      }
+
+      setProfile({
+        ...(profileData || {}),
+        id: sessionUser.id,
+        email: sessionUser.email,
+        full_name: canonicalName,
+        first_name: canonicalFirstName,
+        last_name: canonicalLastName,
+        pgy: canonicalPgy,
+        advisor: canonicalAdvisor,
+        role: canonicalRole,
+        created_at: profileData?.created_at || new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (profileData) {
       setProfile(profileData);
       return;
     }
 
-    // Fallback: synthesize a profile from authorized_roster
-    const { data: rosterData, error: rosterError } = await supabase
-      .from('authorized_roster')
-      .select('name, pgy, advisor')
-      .eq('email', sessionUser.email)
-      .maybeSingle();
-
-    if (rosterData) {
-      setProfile({
-        first_name: '',
-        last_name: '',
-        created_at: new Date().toISOString(),
-        id: sessionUser.id,
-        email: sessionUser.email,
-        full_name: profileData?.full_name || rosterData.name,
-        pgy: rosterData.pgy,
-        advisor: rosterData.advisor,
-        role: profileData?.role || (rosterData.pgy === 'Faculty' ? 'faculty' : 'resident'),
-      });
-    } else {
-      setProfile(profileData || null);
-    }
+    setProfile(null);
   };
 
   const loadCurrentBlock = async () => {

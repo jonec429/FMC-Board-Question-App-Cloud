@@ -360,7 +360,7 @@ export async function GET(request: Request) {
         const p = profileByUserId.get(a.user_id);
         const r = p?.email ? rosterByEmail.get(p.email.toLowerCase()) : null;
         const pgy = r ? deriveLabel(r, academicYear) : (p?.pgy || 'Other');
-        const name = p?.full_name || r?.name || 'Anonymous Resident';
+        const name = r?.name || p?.full_name || 'Anonymous Resident';
 
         return {
           userId: a.user_id,
