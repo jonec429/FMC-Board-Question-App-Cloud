@@ -7,7 +7,7 @@ import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, isFacultyRow, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
-import { Flame, Sparkles, HelpCircle, Eye } from 'lucide-react';
+import { Flame, Sparkles, HelpCircle, Eye, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import QuestionHeatmap from './QuestionHeatmap';
 import AdviseeDossierModal from './AdviseeDossierModal';
 import RiskLegend from './RiskLegend';
@@ -105,6 +105,10 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
   const [selectedBlockDrilldown, setSelectedBlockDrilldown] = useState<any | null>(null);
   const [blockDrilldownSearch, setBlockDrilldownSearch] = useState('');
   const [blockDrilldownCohort, setBlockDrilldownCohort] = useState<'residents' | 'faculty'>('residents');
+  
+  type BlockSortKey = 'schedule' | 'title' | 'assigned' | 'completed' | 'points' | 'avgScore' | 'onTime';
+  const [blockSortKey, setBlockSortKey] = useState<BlockSortKey>('schedule');
+  const [blockSortAsc, setBlockSortAsc] = useState<boolean>(true);
   
   const [overviewSearch, setOverviewSearch] = useState('');
   const [overviewPgyFilter, setOverviewPgyFilter] = useState<'ALL' | 'PGY-1' | 'PGY-2' | 'PGY-3' | 'FACULTY'>('ALL');
@@ -1175,85 +1179,177 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
       )}
 
       {/* By Block Tab */}
-      {activeSubTab === 'by_block' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mt-6 transition-colors">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800 uppercase tracking-widest text-[10px] font-black text-slate-400 dark:text-slate-500 transition-colors">
-                <th className="px-6 py-4">Block Title</th>
-                <th className="px-4 py-4 text-center">Assigned</th>
-                <th className="px-4 py-4 text-center">Completed</th>
-                <th className="px-4 py-4 text-center">Attendance</th>
-                <th className="px-4 py-4 text-center">Avg Score</th>
-                <th className="px-4 py-4 text-center">On-Time %</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {(blocks || [])
-                .filter(b => {
-                  if (selectedYear === 0) return true;
-                  let year = b.academic_year ? Number(b.academic_year) : 0;
-                  if (!year || isNaN(year) || year === 0) {
-                    const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id);
-                    if (sched?.end_date) {
-                      const d = new Date(sched.end_date + "T12:00:00Z");
-                      year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0); // Approx getCurrentAcademicYear logic
-                    } else {
-                      year = getCurrentAcademicYear();
-                    }
-                  }
-                  return year === selectedYear;
-                })
-                .sort((a, b) => {
-                  const da = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === a.id)?.end_date || '';
-                  const db = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id)?.end_date || '';
-                  if (!da && !db) return (a.sort_order || 1000) - (b.sort_order || 1000);
-                  if (!da) return 1;
-                  if (!db) return -1;
-                  return da.localeCompare(db);
-                })
-                .map(block => {
-                // Determine completions by looking for results that matched this block's topic
-                const blockResults = allEnriched.filter(r => r.topic === block.title && (!r.academic_year || r.academic_year === selectedYear));
+      {activeSubTab === 'by_block' && (() => {
+        const blockRows = (blocks || [])
+          .filter(b => {
+            if (selectedYear === 0) return true;
+            let year = b.academic_year ? Number(b.academic_year) : 0;
+            if (!year || isNaN(year) || year === 0) {
+              const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id);
+              if (sched?.end_date) {
+                const d = new Date(sched.end_date + "T12:00:00Z");
+                year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0); // Approx getCurrentAcademicYear logic
+              } else {
+                year = getCurrentAcademicYear();
+              }
+            }
+            return year === selectedYear;
+          })
+          .map(block => {
+            // Determine completions by looking for results that matched this block's topic
+            const blockResults = allEnriched.filter(r => r.topic === block.title && (!r.academic_year || r.academic_year === selectedYear));
 
-                // Filter to resident completions for program stats
-                const residentEmails = new Set(scopedResidents.map(r => r.email?.toLowerCase()).filter(Boolean));
-                const residentUserIds = new Set(scopedResidents.map(r => emailToUserId.get(r.email?.toLowerCase())).filter(Boolean));
-                const isResidentRes = (r: Result & { email?: string | null }) => {
-                  const e = (r.email || r.legacy_email || '').toLowerCase();
-                  const u = r.user_id;
-                  return (e && residentEmails.has(e)) || (u && residentUserIds.has(u));
-                };
+            // Filter to resident completions for program stats
+            const residentEmails = new Set(scopedResidents.map(r => r.email?.toLowerCase()).filter(Boolean));
+            const residentUserIds = new Set(scopedResidents.map(r => emailToUserId.get(r.email?.toLowerCase())).filter(Boolean));
+            const isResidentRes = (r: Result & { email?: string | null }) => {
+              const e = (r.email || r.legacy_email || '').toLowerCase();
+              const u = r.user_id;
+              return (e && residentEmails.has(e)) || (u && residentUserIds.has(u));
+            };
 
-                const residentBlockResults = blockResults.filter(isResidentRes);
-                
-                // Keep only the highest academic_points attempt per resident
-                const userBestPts = new Map<string, Result & { email?: string | null }>();
-                residentBlockResults.forEach(r => {
-                  const uid = r.user_id || r.legacy_email || r.email;
-                  if (!uid) return;
-                  const cur = userBestPts.get(uid);
-                  if (!cur || (r.academic_points || 0) > (cur.academic_points || 0)) {
-                    userBestPts.set(uid, r);
-                  }
-                });
+            const residentBlockResults = blockResults.filter(isResidentRes);
+            
+            // Keep only the highest academic_points attempt per resident
+            const userBestPts = new Map<string, Result & { email?: string | null }>();
+            residentBlockResults.forEach(r => {
+              const uid = r.user_id || r.legacy_email || r.email;
+              if (!uid) return;
+              const cur = userBestPts.get(uid);
+              if (!cur || (r.academic_points || 0) > (cur.academic_points || 0)) {
+                userBestPts.set(uid, r);
+              }
+            });
 
-                const uniqueCompletions = Array.from(userBestPts.values());
-                const onTimeCount = uniqueCompletions.filter(r => (r.academic_points || 0) >= 2 || r.timing_status === 'On Time').length;
-                const completedCount = uniqueCompletions.length;
-                
-                const avgScore = completedCount > 0
-                  ? uniqueCompletions.reduce((acc, r) => acc + (r.percentage || 0), 0) / completedCount
-                  : 0;
-                  
-                const onTimePct = completedCount > 0 ? (onTimeCount / completedCount) * 100 : 0;
-                
-                const blockAttendance = adminData.attendance?.filter(a => 
-                  (selectedYear === 0 && a.topic?.includes(`Block: ${block.title}`)) ||
-                  a.topic?.startsWith(`[AY ${selectedYear}] Block: ${block.title}`)
-                ).length || 0;
+            const uniqueCompletions = Array.from(userBestPts.values());
+            const onTimeCount = uniqueCompletions.filter(r => (r.academic_points || 0) >= 2 || r.timing_status === 'On Time').length;
+            const completedCount = uniqueCompletions.length;
+            
+            const avgScore = completedCount > 0
+              ? uniqueCompletions.reduce((acc, r) => acc + (r.percentage || 0), 0) / completedCount
+              : 0;
+              
+            const onTimePct = completedCount > 0 ? (onTimeCount / completedCount) * 100 : 0;
+            
+            const quizPoints = uniqueCompletions.reduce((acc, r) => {
+              const pts = (r.academic_points != null && r.academic_points > 0)
+                ? r.academic_points
+                : (r.timing_status === 'Early' || r.timing_status === 'On Time')
+                  ? 2
+                  : (r.timing_status === 'Late' ? 1 : 0);
+              return acc + pts;
+            }, 0);
 
-                return (
+            const blockAttendance = adminData.attendance?.filter(a => 
+              (selectedYear === 0 && a.topic?.includes(`Block: ${block.title}`)) ||
+              a.topic?.startsWith(`[AY ${selectedYear}] Block: ${block.title}`)
+            ) || [];
+            const attendancePoints = blockAttendance.reduce((acc, a) => acc + (a.points || 1), 0);
+            const totalAcademicPoints = quizPoints + attendancePoints;
+
+            const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === block.id);
+            const endDate = sched?.end_date || '';
+
+            return {
+              block,
+              endDate,
+              assignedCount: scopedResidents.length,
+              completedCount,
+              quizPoints,
+              attendancePoints,
+              totalAcademicPoints,
+              avgScore,
+              onTimePct
+            };
+          })
+          .sort((a, b) => {
+            let cmp = 0;
+            if (blockSortKey === 'title') {
+              cmp = a.block.title.localeCompare(b.block.title);
+            } else if (blockSortKey === 'assigned') {
+              cmp = a.assignedCount - b.assignedCount;
+            } else if (blockSortKey === 'completed') {
+              cmp = a.completedCount - b.completedCount;
+            } else if (blockSortKey === 'points') {
+              cmp = a.totalAcademicPoints - b.totalAcademicPoints;
+            } else if (blockSortKey === 'avgScore') {
+              cmp = a.avgScore - b.avgScore;
+            } else if (blockSortKey === 'onTime') {
+              cmp = a.onTimePct - b.onTimePct;
+            } else {
+              if (!a.endDate && !b.endDate) cmp = (a.block.sort_order || 1000) - (b.block.sort_order || 1000);
+              else if (!a.endDate) cmp = 1;
+              else if (!b.endDate) cmp = -1;
+              else cmp = a.endDate.localeCompare(b.endDate);
+            }
+            return blockSortAsc ? cmp : -cmp;
+          });
+
+        const handleSort = (key: BlockSortKey) => {
+          if (blockSortKey === key) {
+            setBlockSortAsc(!blockSortAsc);
+          } else {
+            setBlockSortKey(key);
+            setBlockSortAsc(key === 'schedule' || key === 'title');
+          }
+        };
+
+        const renderSortIcon = (key: BlockSortKey) => {
+          if (blockSortKey !== key) {
+            return <ArrowUpDown className="w-3 h-3 text-slate-300 dark:text-slate-600 opacity-0 group-hover/col:opacity-100 transition-opacity ml-1 shrink-0" />;
+          }
+          return blockSortAsc ? (
+            <ArrowUp className="w-3 h-3 text-indigo-600 dark:text-indigo-400 ml-1 shrink-0" />
+          ) : (
+            <ArrowDown className="w-3 h-3 text-indigo-600 dark:text-indigo-400 ml-1 shrink-0" />
+          );
+        };
+
+        return (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden mt-6 transition-colors">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800 uppercase tracking-widest text-[10px] font-black text-slate-400 dark:text-slate-500 transition-colors select-none">
+                  <th onClick={() => handleSort('title')} className="px-6 py-4 cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 group/col transition-colors">
+                    <div className="flex items-center gap-1">
+                      <span>Block Title</span>
+                      {renderSortIcon('title')}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('assigned')} className="px-4 py-4 text-center cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 group/col transition-colors">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Assigned</span>
+                      {renderSortIcon('assigned')}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('completed')} className="px-4 py-4 text-center cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 group/col transition-colors">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Completed</span>
+                      {renderSortIcon('completed')}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('points')} className="px-4 py-4 text-center cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 group/col transition-colors">
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={blockSortKey === 'points' ? 'text-indigo-600 dark:text-indigo-400 font-black' : ''}>Academic Points</span>
+                      {renderSortIcon('points')}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('avgScore')} className="px-4 py-4 text-center cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 group/col transition-colors">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Avg Score</span>
+                      {renderSortIcon('avgScore')}
+                    </div>
+                  </th>
+                  <th onClick={() => handleSort('onTime')} className="px-4 py-4 text-center cursor-pointer hover:text-slate-700 dark:hover:text-slate-300 group/col transition-colors">
+                    <div className="flex items-center justify-center gap-1">
+                      <span>On-Time %</span>
+                      {renderSortIcon('onTime')}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {blockRows.map(({ block, assignedCount, completedCount, quizPoints, attendancePoints, totalAcademicPoints, avgScore, onTimePct }) => (
                   <tr 
                     key={block.id} 
                     onClick={() => {
@@ -1273,13 +1369,16 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">{block.question_count || 40} questions</div>
                     </td>
                     <td className="px-4 py-4 text-center font-bold text-slate-600 dark:text-slate-300">
-                      {scopedResidents.length}
+                      {assignedCount}
                     </td>
                     <td className="px-4 py-4 text-center font-bold text-slate-600 dark:text-slate-300">
                       {completedCount}
                     </td>
-                    <td className="px-4 py-4 text-center font-black text-indigo-600 dark:text-indigo-400 text-sm">
-                      {blockAttendance}
+                    <td 
+                      className="px-4 py-4 text-center font-black text-indigo-600 dark:text-indigo-400 text-sm"
+                      title={attendancePoints > 0 ? `${quizPoints} quiz pts + ${attendancePoints} attendance pts` : `${totalAcademicPoints} quiz points`}
+                    >
+                      {totalAcademicPoints}
                     </td>
                     <td className="px-4 py-4 text-center">
                       {completedCount > 0 ? (
@@ -1296,19 +1395,19 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
                     </td>
                   </tr>
-                );
-              })}
-              {(!blocks || blocks.length === 0) && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400 font-bold">
-                    No blocks scheduled for this academic year.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                ))}
+                {blockRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500 dark:text-slate-400 font-bold">
+                      No blocks scheduled for this academic year.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {activeSubTab === 'by_pgy' && (
         <div className="space-y-6">
@@ -1803,10 +1902,21 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
           ? uniqueCompletions.reduce((acc, r) => acc + (r.percentage || 0), 0) / completedCount
           : 0;
         const onTimePct = completedCount > 0 ? (onTimeCount / completedCount) * 100 : 0;
-        const blockAttendance = adminData?.attendance?.filter(a => 
+        const blockAttendanceRecords = adminData?.attendance?.filter(a => 
           (selectedYear === 0 && a.topic?.includes(`Block: ${block.title}`)) ||
-          a.topic === `[AY ${selectedYear}] Block: ${block.title}`
-        ).length || 0;
+          a.topic === `[AY ${selectedYear}] Block: ${block.title}` ||
+          a.topic?.startsWith(`[AY ${selectedYear}] Block: ${block.title}`)
+        ) || [];
+        const attendancePoints = blockAttendanceRecords.reduce((acc, a) => acc + (a.points || 1), 0);
+        const quizPoints = uniqueCompletions.reduce((acc, r) => {
+          const pts = (r.academic_points != null && r.academic_points > 0)
+            ? r.academic_points
+            : (r.timing_status === 'Early' || r.timing_status === 'On Time')
+              ? 2
+              : (r.timing_status === 'Late' ? 1 : 0);
+          return acc + pts;
+        }, 0);
+        const totalAcademicPoints = quizPoints + attendancePoints;
 
         const isViewingFaculty = blockDrilldownCohort === 'faculty';
         const currentCohortList = isViewingFaculty ? facultyStats : residentStats;
@@ -1862,9 +1972,12 @@ export default function AdminPerformance({ user, profile }: AdminPerformanceProp
                       </div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Cohort Avg</div>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl text-center border border-slate-100 dark:border-slate-800">
-                      <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">{blockAttendance}</div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Attendance</div>
+                    <div 
+                      className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl text-center border border-slate-100 dark:border-slate-800"
+                      title={attendancePoints > 0 ? `${quizPoints} quiz pts + ${attendancePoints} attendance pts` : `${totalAcademicPoints} quiz points`}
+                    >
+                      <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">{totalAcademicPoints}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Academic Points</div>
                     </div>
                   </div>
                 </div>
