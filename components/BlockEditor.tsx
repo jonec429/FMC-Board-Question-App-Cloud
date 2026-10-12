@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircle, AlertTriangle, Sparkles, Save, Loader2, X, Search, Clock, FileText } from './AppIcons';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW, LEGACY_WARNING_TITLE, LEGACY_WARNING_BODY } from '@/lib/questionFilters';
+import { formatIteId } from '@/lib/iteQuestionMap';
 
 export interface Block {
   id: string;
@@ -308,6 +309,12 @@ export default function BlockEditor({
                     <span className={`text-[10px] font-bold ${legacyYears.includes(q.year) ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-slate-400'}`}>
                       {q.year}{legacyYears.includes(q.year) ? ' · legacy' : ''}
                     </span>
+                    {formatIteId(q) && (
+                      <>
+                        <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600">·</span>
+                        <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400">{formatIteId(q)}</span>
+                      </>
+                    )}
                     <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600">·</span>
                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400">{q.options?.length || 0} options</span>
                   </div>

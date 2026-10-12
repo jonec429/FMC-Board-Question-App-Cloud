@@ -5,6 +5,7 @@ import { useAdminData } from '@/hooks/useAdminData';
 import { User, Profile, RosterEntry } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { Loader2, Sparkles, CheckCircle, AlertTriangle, Users, BookOpen } from './AppIcons';
+import { formatIteId } from '@/lib/iteQuestionMap';
 
 interface AssignQuizManagerProps {
   user?: User | null;
@@ -355,9 +356,22 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                           <p className={`text-sm font-medium line-clamp-2 ${selectedQuestionIds.includes(q.id) ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
                             {q.question_text}
                           </p>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 mt-1 inline-block">
-                            {q.category}
-                          </span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">
+                              {q.category}
+                            </span>
+                            {formatIteId(q) ? (
+                              <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                                · {formatIteId(q)}
+                              </span>
+                            ) : (
+                              q.year && (
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                                  · ITE {q.year}
+                                </span>
+                              )
+                            )}
+                          </div>
                         </div>
                       </label>
                     ))}

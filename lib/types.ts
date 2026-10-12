@@ -17,6 +17,7 @@ export type RosterEntry = Database['public']['Tables']['authorized_roster']['Row
 export type Question = Omit<Database['public']['Tables']['questions']['Row'], 'options'> & {
   options: string[];
   is_repeat?: boolean | null;
+  item_number?: number | null;
 };
 export type Block = Omit<Database['public']['Tables']['blocks']['Row'], 'question_ids' | 'category_filters' | 'keyword_filters'> & {
   question_ids: string[] | null;

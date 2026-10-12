@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle, MessageSquare } from './AppIcons';
+import { formatIteId, getQuestionExamNumber } from '@/lib/iteQuestionMap';
 
 interface Question {
   id?: string;
@@ -14,6 +15,7 @@ interface Question {
   category?: string;
   year?: string;
   is_repeat?: boolean | null;
+  item_number?: number | null;
 }
 
 // Known repeat questions that appear across multiple ITEs
@@ -461,12 +463,14 @@ function QuestionCard({
             </div>
             
             {(question.id || question.year) && (
-              <div className="text-right flex flex-col justify-center">
+              <div className="text-right flex flex-col justify-center gap-0.5">
+                <p className="text-slate-400 text-xs font-medium">
+                  ITE ID: <span className="text-slate-200 font-bold font-mono tracking-wide">{formatIteId(question)}</span>
+                </p>
                 {question.id && (
-                  <p className="text-slate-400 text-xs font-medium">ITE ID: <span className="text-slate-300 font-bold">{question.id}</span></p>
-                )}
-                {question.year && (
-                  <p className="text-slate-400 text-xs font-medium">Year: <span className="text-slate-300 font-bold">{question.year}</span></p>
+                  <p className="text-slate-500 text-[11px] font-medium" title={`Database UUID: ${question.id}`}>
+                    App Question ID: <span className="text-slate-400 font-mono font-normal select-all">{question.id}</span>
+                  </p>
                 )}
               </div>
             )}
@@ -510,7 +514,7 @@ function QuestionCard({
               Review Topic Material
             </a>
             <a
-              href={`https://mail.google.com/mail/?view=cm&fs=1&to=jonathan.carbungco@ascension.org&su=Question%20Feedback:%20FMC%20Board%20Review%20App%20-%20ID:%20${question.id || 'Unknown'}${userEmail ? `&authuser=${encodeURIComponent(userEmail)}` : ''}`}
+              href={`https://mail.google.com/mail/?view=cm&fs=1&to=jonathan.carbungco@ascension.org&su=Question%20Feedback:%20FMC%20Board%20Review%20App%20-%20${encodeURIComponent(formatIteId(question))}%20(App%20Question%20ID:%20${question.id || 'Unknown'})}${userEmail ? `&authuser=${encodeURIComponent(userEmail)}` : ''}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-500/10 hover:bg-slate-500/20 rounded-xl text-slate-300 text-sm font-bold transition-all border border-slate-500/20"

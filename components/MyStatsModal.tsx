@@ -9,6 +9,7 @@ import QuizReview from './QuizReview';
 import { exportIncorrectToAnki, exportQuestionsToAnki, downloadCsv } from '@/lib/anki';
 import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import RiskLegend from './RiskLegend';
+import { formatIteId } from '@/lib/iteQuestionMap';
 
 interface MyStatsModalProps {
   onClose: () => void;
@@ -911,7 +912,11 @@ export default function MyStatsModal({
                             <span>Question {currentIndex + 1} of {displayedMissedQuestions.length}</span>
                             <span className="opacity-30">·</span>
                             <span>{q.category}</span>
-                            {q.year && <span className="text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md">ITE {q.year}</span>}
+                            {formatIteId(q) ? (
+                              <span className="text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md font-mono">{formatIteId(q)}</span>
+                            ) : (
+                              q.year && <span className="text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md">ITE {q.year}</span>
+                            )}
                           </div>
 
                           <p className="text-slate-800 dark:text-slate-200 font-bold text-sm leading-relaxed">{q.question_text}</p>

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { KNOWN_REPEAT_IDS } from './QuestionCard';
+import { formatIteId } from '@/lib/iteQuestionMap';
 
 export interface QuizReviewItem {
   question: any;
@@ -132,6 +133,14 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
                     <span>High Yield Repeat Question</span>
                   </span>
                 )}
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                  {q.category && <span>{q.category}</span>}
+                  {formatIteId(q) ? (
+                    <span className="font-mono font-bold text-slate-500 dark:text-slate-400">· {formatIteId(q)}</span>
+                  ) : (
+                    q.year && <span>· ITE {q.year}</span>
+                  )}
+                </div>
                 <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{originalIndex + 1}. {q.question_text}</p>
               </div>
               <span

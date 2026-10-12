@@ -12,6 +12,7 @@ import { CANONICAL_CATEGORIES } from '@/lib/csvImport';
 import { withTimeout } from '@/lib/utils';
 import { AdminData } from '@/lib/types';
 import { KNOWN_REPEAT_IDS } from './QuestionCard';
+import { formatIteId } from '@/lib/iteQuestionMap';
 
 type SubTab = 'browse' | 'import';
 
@@ -162,12 +163,23 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
     },
     {
       accessorKey: 'year',
-      header: 'Year',
-      cell: info => (
-        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">
-          {(info.getValue() as string) || '—'}
-        </span>
-      ),
+      header: 'Year / ITE ID',
+      cell: info => {
+        const q = info.row.original;
+        const iteId = formatIteId(q);
+        return (
+          <div className="space-y-0.5 whitespace-nowrap">
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+              {(info.getValue() as string) || '—'}
+            </span>
+            {iteId && (
+              <span className="block text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400" title={q.id}>
+                {iteId}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'actions',
