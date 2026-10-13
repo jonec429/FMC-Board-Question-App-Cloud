@@ -60,6 +60,25 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-10-12 (Antigravity: Canonical ITE IDs, High-Yield Repeat DB Migration & Repo Cleanup)
+**Shipped this session**:
+1. **Canonical ITE Question IDs (`lib/iteQuestionMap.ts`, `QuestionCard.tsx`, `QuizReview.tsx`, `QuestionBankManager.tsx`, `BlockEditor.tsx`, `AssignQuizManager.tsx`, `MyStatsModal.tsx`)**:
+   - Built `lib/iteQuestionMap.ts` mapping all 600+ ITE and Demo questions to human-readable canonical IDs (e.g., `ITE2025Q15`, `ITE2024Q112`, `DemoQ1`) alongside full UUID copy/hover support across resident quiz cards, review screens, and admin editors.
+2. **Repeat Questions SQL Migration Verified (`supabase/migrations/20260918_add_is_repeat_to_questions.sql`)**:
+   - Applied and verified `questions.is_repeat` column and partial index in Supabase (`status: 200 OK`), flagging known repeat ITE items across 2025 exams.
+   - Hardened `QuestionBankManager.tsx` `openEditModal` lazy-fetch to use `.select('*')` for schema resilience.
+3. **Workspace & Script Archive Cleanup**:
+   - Archived one-off resident email migration script (`scripts/archive/migrate_isaac_smith.js`) and backup JSON (`data/scratch/isaac_smith_migration_backup.json`).
+
+### ▶️ Session Handoff — 2026-09-29 (Antigravity: Challenge Standings, Admin Audit, By-Block Sorting & Roster Name Sync)
+**Shipped this session**:
+1. **Residency Challenge Standings & Admin Verification Audit (`ChallengeModal.tsx`, `ChallengeTracker.tsx`, `app/api/resident/challenge-standings/route.ts`)**:
+   - Added resident-facing Challenge Standings modal integrated into the Dashboard leaderboard and an Admin Console Challenge Verification Audit view with full eligibility breakdown, tie-breaker tracking, and audit verification.
+2. **By-Block Aggregate Academic Points & Column Sorting (`components/AdminPerformance.tsx`)**:
+   - Added aggregate Academic Points summary and full multi-column sorting in the Admin Performance "By Block" view.
+3. **Canonical Roster Name Sync (`app/page.tsx`, `components/RosterManager.tsx`)**:
+   - Automatically syncs roster name updates to `profiles` and prioritizes canonical `authorized_roster` names across all leaderboards and analytics endpoints.
+
 ### ▶️ Session Handoff — 2026-09-28 (Antigravity: BRQ Reporting & Trend Analysis Overhaul, Universal PGY/R1-R3 Normalization)
 **Shipped this session**:
 1. **Universal PGY & R1-R3 Term Equivalence (`lib/academicYear.ts`)**:
@@ -254,7 +273,7 @@ This file serves as the shared source of truth for development progress between 
 - [x] **2026-06-08 — QOTD Top-Up Engine**: `20260608_qotd_topup.sql` — adds a `UNIQUE(question_id)` recycle guardrail to `qotd_schedule` plus the `qotd_topup()` function that powers the Annual Rollover "Update Daily Question pool" button. ✅ **Run by admin 2026-06-08.**
 - [x] **2026-06-08 — Badge Catalog Expansion**: `20260608_badges_expansion.sql` — seeds the 9 new achievement badges (Ironman, block-streak ladder, Sharpshooter, Early Bird, Weekend Warrior, Perfectionist, Procrastinator) and removes the duplicate "Marathoner". ✅ **Run by admin 2026-06-08 — new badges now live.**
 - [x] **2026-06-11 — Over Achiever Badge**: `20260611_over_achiever_badge.sql` — seeds the new "Over Achiever" milestone badge to the catalog so it shows as locked in the UI. **Admin must run it in Supabase.** ✅ *(Run by admin 2026-08-17)*
-- [ ] **2026-09-18 — Repeat Questions Migration**: `20260918_add_is_repeat_to_questions.sql` — adds `is_repeat` to `questions` and flags known duplicate questions. **Admin must run it in Supabase.**
+- [x] **2026-09-18 — Repeat Questions Migration**: `20260918_add_is_repeat_to_questions.sql` — adds `is_repeat` to `questions` and flags known duplicate questions. ✅ *(Run & verified in Supabase 2026-10-12)*
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Phase 2 — Final Items ✅
@@ -483,6 +502,23 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-10-12 — Canonical ITE Question IDs, High-Yield Repeat Tracking & Schema Finalization (Antigravity)
+*   **Canonical ITE Question IDs (`ITE2025Q15`, `DemoQ1`):** Every question across active quizzes, post-quiz reviews, My Performance history, the Question Bank Manager, Block Editor, and Custom Assignment Builder now displays a standardized, human-readable ITE ID badge (e.g., `ITE2025Q15`, `ITE2024Q112`) alongside the underlying App Question UUID for quick reference and faculty lookup.
+*   **High-Yield Repeat Question Badges & Database Sync:** Finalized and verified the `is_repeat` database migration in Supabase, flagging duplicate high-yield questions that appear across multiple ABFM ITE cycles with a prominent `🔁 High Yield Repeat` badge in quiz review, question cards, and admin views.
+*   **Question Editor Schema Resilience:** Hardened lazy-loading in the Question Bank Manager editor so full question explanations, resource links, and repeat flags load reliably.
+
+### 2026-09-29 — Residency Challenge Standings, Admin Audit & Roster Name Sync (Antigravity)
+*   **Residency Challenge Standings & Leaderboard Integration:** Launched the interactive Challenge Standings modal directly accessible from the Dashboard leaderboard, allowing residents to track competition progress, qualification criteria, and tie-breaker standings in real time.
+*   **Admin Challenge Verification Audit:** Added a dedicated Challenge Tracker & Verification Audit tab in the Admin Console with full eligibility breakdowns, tie-breaker metrics, and audit verification tools.
+*   **By-Block Aggregate Academic Points & Column Sorting:** Enhanced the Admin Performance "By Block" drilldown table with aggregate Academic Points totals and interactive multi-column sorting.
+*   **Canonical Roster Name Synchronization:** Updating a resident's name in the Roster Manager now automatically synchronizes to their user profile, and all leaderboards and analytics views prioritize canonical roster names.
+
+### 2026-09-28 — BRQ Cohort Reporting, Trend Analysis Heatmap Overhaul & PGY/R-Term Equivalence (Antigravity)
+*   **Universal PGY & R1–R3 Cohort Equivalence:** Built universal cohort normalization (`lib/academicYear.ts`) so any class format (`1`, `PGY-1`, `PGY1`, `R1`, `R-1`) resolves seamlessly to canonical `PGY-1` / `PGY-2` / `PGY-3` cohorts across the entire platform.
+*   **QOTD Cohort Benchmark Fix:** Resolved cohort grouping in QOTD Analytics so PGY-1, PGY-2, and PGY-3 comparison cards display accurate resident sample sizes (`n`), participation rates, and accuracy percentages without 1,000-row query truncation.
+*   **Trend Analysis Heatmap Upgrades:** Fixed cohort filtering and paginated all 4,340+ question attempts so no data is truncated. Added a selectable **Attempts Threshold Filter** (`≥3 Attempts` vs `≥2 Attempts`) and dual **Failure Rate %** / **Pass Rate %** badges on question cards.
+*   **Longitudinal Score Trend Precision:** Aligned Admin Performance chronological trendlines to strictly evaluate scheduled curriculum blocks, preventing attendance logs or manual point awards from skewing score trajectories.
 
 ### 2026-09-23 — Admin KPI Metric Deep-Dives, Lean Snapshot, Q-Points Math Fix & QOTD Analytics Suite (Antigravity)
 *   **Information-Rich & Clickable Admin Performance Cards:** The 4 top KPI cards on the Admin Performance dashboard now display rich micro-metrics (Curriculum vs. Independent average score split, Board Readiness counts for ≥70% and ≥65%, At Risk resident counts split by Red High-Risk vs. Yellow Monitoring, and Total active test-takers vs. total attempts).
