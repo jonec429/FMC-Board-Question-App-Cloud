@@ -1,8 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, Clock, ChevronDown, ChevronUp, GraduationCap, Users, Info, CheckCircle } from './AppIcons';
+import { Calendar, Clock, ChevronDown, ChevronUp, GraduationCap, Users, Info, CheckCircle, X } from './AppIcons';
+import { supabase } from '@/lib/supabase';
 import { Profile, User } from '@/lib/types';
+
+export interface IteDoctorEntry {
+  display: string;
+  lastName: string;
+  altLastNames?: string[];
+  firstInitial?: string;
+  defaultAdvisors: string[];
+}
 
 export interface IteSession {
   id: 'oct20' | 'oct28';
@@ -12,11 +21,8 @@ export interface IteSession {
   timeLabel: string;
   location: string;
   isoTarget: string;
-  doctors: {
-    display: string;
-    lastName: string;
-    firstInitial?: string;
-  }[];
+  isoEndTarget: string;
+  doctors: IteDoctorEntry[];
 }
 
 export const ITE_WHAT_TO_EXPECT = [
@@ -36,24 +42,25 @@ export const ITE_SESSIONS: IteSession[] = [
     timeLabel: '7:15 AM',
     location: 'FMC Conference Room A',
     isoTarget: '2026-10-20T07:15:00-04:00',
+    isoEndTarget: '2026-10-20T11:30:00-04:00',
     doctors: [
-      { display: 'Dr. Carson', lastName: 'carson' },
-      { display: 'Dr. Haddad', lastName: 'haddad' },
-      { display: 'Dr. Hobgood', lastName: 'hobgood' },
-      { display: 'Dr. Keenan', lastName: 'keenan' },
-      { display: 'Dr. A. Kemmer', lastName: 'kemmer', firstInitial: 'a' },
-      { display: 'Dr. B. Kemmer', lastName: 'kemmer', firstInitial: 'b' },
-      { display: 'Dr. Klem', lastName: 'klem' },
-      { display: 'Dr. Louis', lastName: 'louis' },
-      { display: 'Dr. Nguyen', lastName: 'nguyen' },
-      { display: 'Dr. Parker', lastName: 'parker' },
-      { display: 'Dr. Robak', lastName: 'robak' },
-      { display: 'Dr. Roland', lastName: 'roland' },
-      { display: 'Dr. Saavedra', lastName: 'saavedra' },
-      { display: 'Dr. Simon', lastName: 'simon' },
-      { display: 'Dr. Smith', lastName: 'smith' },
-      { display: 'Dr. Thiravialingam', lastName: 'thiravialingam' },
-      { display: 'Dr. Wilson', lastName: 'wilson' },
+      { display: 'Dr. Carson', lastName: 'carson', defaultAdvisors: ['napuri'] },
+      { display: 'Dr. Haddad', lastName: 'haddad', defaultAdvisors: ['peterson'] },
+      { display: 'Dr. Hobgood', lastName: 'hobgood', defaultAdvisors: ['snell', 'rowe', 'kellogg'] },
+      { display: 'Dr. Keenan', lastName: 'keenan', defaultAdvisors: ['iyengar'] },
+      { display: 'Dr. A. Kemmer', lastName: 'kemmer', firstInitial: 'a', defaultAdvisors: ['mcinnes'] },
+      { display: 'Dr. B. Kemmer', lastName: 'kemmer', firstInitial: 'b', defaultAdvisors: ['kellogg'] },
+      { display: 'Dr. Klem', lastName: 'klem', defaultAdvisors: ['kellogg'] },
+      { display: 'Dr. Louis', lastName: 'louis', defaultAdvisors: ['snell', 'rowe'] },
+      { display: 'Dr. Nguyen', lastName: 'nguyen', firstInitial: 'a', defaultAdvisors: ['mcinnes', 'dominguez'] },
+      { display: 'Dr. Parker', lastName: 'parker', defaultAdvisors: ['snell', 'rowe', 'watson'] },
+      { display: 'Dr. Robak', lastName: 'robak', defaultAdvisors: ['dela cruz', 'cruz'] },
+      { display: 'Dr. Roland', lastName: 'roland', defaultAdvisors: ['carbungco', 'soldo'] },
+      { display: 'Dr. Saavedra', lastName: 'saavedra', defaultAdvisors: ['stephenson'] },
+      { display: 'Dr. Simon', lastName: 'simon', defaultAdvisors: ['watson'] },
+      { display: 'Dr. Smith', lastName: 'smith', defaultAdvisors: ['peterson', 'largen'] },
+      { display: 'Dr. Thiravialingam', lastName: 'thiravialingam', defaultAdvisors: ['dela cruz', 'cruz'] },
+      { display: 'Dr. Wilson', lastName: 'wilson', defaultAdvisors: ['peterson'] },
     ],
   },
   {
@@ -64,24 +71,25 @@ export const ITE_SESSIONS: IteSession[] = [
     timeLabel: '7:15 AM',
     location: 'FMC Conference Room A',
     isoTarget: '2026-10-28T07:15:00-04:00',
+    isoEndTarget: '2026-10-28T11:30:00-04:00',
     doctors: [
-      { display: 'Dr. Ball', lastName: 'ball' },
-      { display: 'Dr. Boettcher', lastName: 'boettcher' },
-      { display: 'Dr. Brock', lastName: 'brock' },
-      { display: 'Dr. Celmins', lastName: 'celmins' },
-      { display: 'Dr. Dean', lastName: 'dean' },
-      { display: 'Dr. Doerger', lastName: 'doerger' },
-      { display: 'Dr. Fedotova', lastName: 'fedotova' },
-      { display: 'Dr. Frank', lastName: 'frank' },
-      { display: 'Dr. Lemus', lastName: 'lemus' },
-      { display: 'Dr. Martinez', lastName: 'martinez' },
-      { display: 'Dr. Miller', lastName: 'miller' },
-      { display: 'Dr. Parmer', lastName: 'parmer' },
-      { display: 'Dr. Perez', lastName: 'perez' },
-      { display: 'Dr. Shih', lastName: 'shih' },
-      { display: 'Dr. Shipp', lastName: 'shipp' },
-      { display: 'Dr. Sollee', lastName: 'sollee' },
-      { display: 'Dr. Varni', lastName: 'varni' },
+      { display: 'Dr. Ball', lastName: 'ball', defaultAdvisors: ['stephenson'] },
+      { display: 'Dr. Boettcher', lastName: 'boettcher', defaultAdvisors: ['iyengar'] },
+      { display: 'Dr. Brock', lastName: 'brock', defaultAdvisors: ['watson'] },
+      { display: 'Dr. Celmins', lastName: 'celmins', defaultAdvisors: ['potts', 'dela cruz', 'cruz'] },
+      { display: 'Dr. Dean', lastName: 'dean', defaultAdvisors: ['watson'] },
+      { display: 'Dr. Doerger', lastName: 'doerger', defaultAdvisors: ['mcinnes'] },
+      { display: 'Dr. Fedotova', lastName: 'fedotova', defaultAdvisors: ['potts'] },
+      { display: 'Dr. Frank', lastName: 'frank', defaultAdvisors: ['napuri'] },
+      { display: 'Dr. Lemus', lastName: 'lemus', defaultAdvisors: ['snell', 'rowe'] },
+      { display: 'Dr. Martinez', lastName: 'martinez', defaultAdvisors: ['alley', 'napuri'] },
+      { display: 'Dr. Miller', lastName: 'miller', altLastNames: ['lin'], defaultAdvisors: ['carbungco'] },
+      { display: 'Dr. Parmer', lastName: 'parmer', defaultAdvisors: ['dela cruz', 'cruz', 'potts'] },
+      { display: 'Dr. Perez', lastName: 'perez', defaultAdvisors: ['kellogg'] },
+      { display: 'Dr. Shih', lastName: 'shih', defaultAdvisors: ['alley'] },
+      { display: 'Dr. Shipp', lastName: 'shipp', defaultAdvisors: ['carbungco', 'soldo'] },
+      { display: 'Dr. Sollee', lastName: 'sollee', altLastNames: ['gravrok'], defaultAdvisors: ['napuri', 'alley'] },
+      { display: 'Dr. Varni', lastName: 'varni', defaultAdvisors: ['watson', 'iyengar'] },
     ],
   },
 ];
@@ -92,30 +100,27 @@ interface TimeRemaining {
   hours: number;
   minutes: number;
   seconds: number;
-  isPast: boolean;
-  isToday: boolean;
+  hasStarted: boolean;
+  isInProgress: boolean;
+  isCompleted: boolean;
 }
 
-function getTimeRemaining(isoTarget: string, nowMs: number): TimeRemaining {
-  const targetDate = new Date(isoTarget);
-  const targetMs = targetDate.getTime();
-  const diff = targetMs - nowMs;
-
-  const nowDate = new Date(nowMs);
-  const isToday =
-    nowDate.getFullYear() === targetDate.getFullYear() &&
-    nowDate.getMonth() === targetDate.getMonth() &&
-    nowDate.getDate() === targetDate.getDate();
+function getSessionStatus(session: IteSession, nowMs: number): TimeRemaining {
+  const startMs = new Date(session.isoTarget).getTime();
+  const endMs = new Date(session.isoEndTarget).getTime();
+  const diff = startMs - nowMs;
 
   if (diff <= 0) {
+    const isInProgress = nowMs < endMs;
     return {
       totalMs: diff,
       days: 0,
       hours: 0,
       minutes: 0,
       seconds: 0,
-      isPast: true,
-      isToday,
+      hasStarted: true,
+      isInProgress,
+      isCompleted: !isInProgress,
     };
   }
 
@@ -131,12 +136,18 @@ function getTimeRemaining(isoTarget: string, nowMs: number): TimeRemaining {
     hours,
     minutes,
     seconds,
-    isPast: false,
-    isToday,
+    hasStarted: false,
+    isInProgress: false,
+    isCompleted: false,
   };
 }
 
-function extractUserIdentity(user: User, profile: Profile | null): { lastName: string; firstInitial: string } {
+function extractUserIdentity(user: User, profile: Profile | null): {
+  lastName: string;
+  firstInitial: string;
+  emailLastToken: string;
+  fullNameLower: string;
+} {
   const rawLast = (profile?.last_name || '').trim().toLowerCase();
   const rawFirst = (profile?.first_name || '').trim().toLowerCase();
   const rawFull = (profile?.full_name || '').trim().toLowerCase();
@@ -154,23 +165,42 @@ function extractUserIdentity(user: User, profile: Profile | null): { lastName: s
     }
   }
 
-  if (!lastName && user?.email) {
+  let emailLastToken = '';
+  if (user?.email) {
     const localPart = user.email.split('@')[0] || '';
     const emailTokens = localPart
       .replace(/[0-9]/g, '')
       .split(/[._-]+/)
       .filter(Boolean);
     if (emailTokens.length >= 2) {
-      lastName = emailTokens[emailTokens.length - 1].toLowerCase();
-      if (!firstInitial) {
-        firstInitial = emailTokens[0][0]?.toLowerCase() || '';
-      }
+      emailLastToken = emailTokens[emailTokens.length - 1].toLowerCase();
+      if (!lastName) lastName = emailLastToken;
+      if (!firstInitial) firstInitial = emailTokens[0][0]?.toLowerCase() || '';
     } else if (emailTokens.length === 1) {
-      lastName = emailTokens[0].toLowerCase();
+      emailLastToken = emailTokens[0].toLowerCase();
+      if (!lastName) lastName = emailLastToken;
     }
   }
 
-  return { lastName, firstInitial };
+  return { lastName, firstInitial, emailLastToken, fullNameLower: rawFull };
+}
+
+function matchesDoctorIdentity(
+  doc: IteDoctorEntry,
+  lastName: string,
+  emailLastToken: string,
+  firstInitial: string
+): boolean {
+  const candidateLastNames = [doc.lastName, ...(doc.altLastNames || [])];
+  const lastMatches =
+    (Boolean(lastName) && candidateLastNames.includes(lastName)) ||
+    (Boolean(emailLastToken) && candidateLastNames.includes(emailLastToken));
+
+  if (!lastMatches) return false;
+  if (doc.firstInitial && firstInitial && doc.firstInitial !== firstInitial) {
+    return false;
+  }
+  return true;
 }
 
 interface IteCountdownBannerProps {
@@ -183,6 +213,8 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
   const [showSchedule, setShowSchedule] = useState(false);
   const [showExpectHover, setShowExpectHover] = useState(false);
+  const [postIteDismissed, setPostIteDismissed] = useState(false);
+  const [liveAdvisorMap, setLiveAdvisorMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -191,54 +223,137 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
     return () => clearInterval(interval);
   }, []);
 
-  const { lastName, firstInitial } = useMemo(
+  // Load persisted dismissal state for completed ITE banner
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(`fmc_ite_2026_completed_dismissed_${user.id}`) === 'true') {
+        setPostIteDismissed(true);
+      }
+    } catch {}
+  }, [user.id]);
+
+  const isFacultyOrAdmin =
+    effectiveRole === 'faculty' || effectiveRole === 'admin' || effectiveRole === 'gme_staff';
+
+  // Fetch live advisor mappings from authorized_roster for faculty/admin users
+  useEffect(() => {
+    if (!isFacultyOrAdmin) return;
+    let isMounted = true;
+    supabase
+      .from('authorized_roster')
+      .select('first_name, last_name, name, advisor, status')
+      .neq('pgy', 'Faculty')
+      .then(({ data }) => {
+        if (!isMounted || !data) return;
+        const map: Record<string, string> = {};
+        data.forEach((row) => {
+          if (row.status === 'graduated') return;
+          const rLast = (row.last_name || row.name?.split(' ').slice(-1)[0] || '').trim().toLowerCase();
+          const rFirstInit = (row.first_name || row.name || '').trim().toLowerCase()[0] || '';
+          if (rLast && row.advisor) {
+            map[`${rLast}_${rFirstInit}`] = row.advisor.toLowerCase();
+            map[rLast] = row.advisor.toLowerCase();
+          }
+        });
+        setLiveAdvisorMap(map);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isFacultyOrAdmin]);
+
+  const { lastName, firstInitial, emailLastToken, fullNameLower } = useMemo(
     () => extractUserIdentity(user, profile),
     [user, profile]
   );
 
-  const isStaffOrFaculty = effectiveRole === 'faculty' || effectiveRole === 'gme_staff';
+  const isGraduated2026 = profile?.pgy === 'Class of 2026';
 
   // Match resident to their assigned session and doctor entry
   const matchedAssignment = useMemo(() => {
-    if (!lastName || isStaffOrFaculty) return null;
+    if (isFacultyOrAdmin || isGraduated2026 || (!lastName && !emailLastToken)) return null;
 
     for (const session of ITE_SESSIONS) {
       for (const doc of session.doctors) {
-        if (doc.lastName === lastName) {
-          if (doc.firstInitial && firstInitial && doc.firstInitial !== firstInitial) {
-            continue;
-          }
+        if (matchesDoctorIdentity(doc, lastName, emailLastToken, firstInitial)) {
           return { session, doctor: doc };
         }
       }
     }
     return null;
-  }, [lastName, firstInitial, isStaffOrFaculty]);
+  }, [lastName, emailLastToken, firstInitial, isFacultyOrAdmin, isGraduated2026]);
 
-  // Hide banner completely after Oct 28, 2026 5:00 PM EDT
-  const finalCutoffMs = new Date('2026-10-28T17:00:00-04:00').getTime();
+  // Determine whether a doctor entry is an advisee of the logged-in faculty/admin
+  const isMyAdvisee = useMemo(() => {
+    return (doc: IteDoctorEntry): boolean => {
+      if (!isFacultyOrAdmin || (!lastName && !fullNameLower)) return false;
+
+      // Check live roster advisor string first if available
+      const specificKey = doc.firstInitial ? `${doc.lastName}_${doc.firstInitial}` : doc.lastName;
+      const liveAdvisorStr = liveAdvisorMap[specificKey] || liveAdvisorMap[doc.lastName];
+      if (liveAdvisorStr) {
+        if (lastName && liveAdvisorStr.includes(lastName)) return true;
+        if (emailLastToken && liveAdvisorStr.includes(emailLastToken)) return true;
+        if (fullNameLower && liveAdvisorStr.includes(fullNameLower)) return true;
+        return false;
+      }
+
+      // Fallback to built-in roster advisor tokens
+      return doc.defaultAdvisors.some(
+        (advToken) =>
+          (Boolean(lastName) && (lastName.includes(advToken) || advToken.includes(lastName))) ||
+          (Boolean(emailLastToken) && (emailLastToken.includes(advToken) || advToken.includes(emailLastToken))) ||
+          (Boolean(fullNameLower) && fullNameLower.includes(advToken))
+      );
+    };
+  }, [isFacultyOrAdmin, lastName, emailLastToken, fullNameLower, liveAdvisorMap]);
+
+  const myAdviseesBySession = useMemo(() => {
+    if (!isFacultyOrAdmin) return { oct20: [] as IteDoctorEntry[], oct28: [] as IteDoctorEntry[], total: 0 };
+    const oct20 = ITE_SESSIONS[0].doctors.filter((d) => isMyAdvisee(d));
+    const oct28 = ITE_SESSIONS[1].doctors.filter((d) => isMyAdvisee(d));
+    return { oct20, oct28, total: oct20.length + oct28.length };
+  }, [isFacultyOrAdmin, isMyAdvisee]);
+
+  // Auto-hide for everyone after Oct 29, 2026 (end of day EDT)
+  const finalCutoffMs = new Date('2026-10-30T00:00:00-04:00').getTime();
   if (nowMs > finalCutoffMs) {
     return null;
   }
 
-  const session1Remaining = getTimeRemaining(ITE_SESSIONS[0].isoTarget, nowMs);
-  const session2Remaining = getTimeRemaining(ITE_SESSIONS[1].isoTarget, nowMs);
+  const session1Status = getSessionStatus(ITE_SESSIONS[0], nowMs);
+  const session2Status = getSessionStatus(ITE_SESSIONS[1], nowMs);
+  const bothSessionsCompleted = session1Status.isCompleted && session2Status.isCompleted;
 
   // Determine primary session to count down to
   const primarySession = matchedAssignment
     ? matchedAssignment.session
-    : !session1Remaining.isPast
+    : !session1Status.isCompleted
     ? ITE_SESSIONS[0]
     : ITE_SESSIONS[1];
 
-  const primaryRemaining =
-    primarySession.id === 'oct20' ? session1Remaining : session2Remaining;
+  const primaryStatus =
+    primarySession.id === 'oct20' ? session1Status : session2Status;
 
-  const isDoctorMatch = (doc: { lastName: string; firstInitial?: string }) => {
-    if (!lastName || effectiveRole === 'faculty') return false;
-    if (doc.lastName !== lastName) return false;
-    if (doc.firstInitial && firstInitial && doc.firstInitial !== firstInitial) return false;
-    return true;
+  // Check if the current user's relevant ITE has completed
+  const isUserIteCompleted = matchedAssignment
+    ? primaryStatus.isCompleted
+    : bothSessionsCompleted;
+
+  if (isUserIteCompleted && postIteDismissed) {
+    return null;
+  }
+
+  const handleDismissCompleted = () => {
+    setPostIteDismissed(true);
+    try {
+      localStorage.setItem(`fmc_ite_2026_completed_dismissed_${user.id}`, 'true');
+    } catch {}
+  };
+
+  const isDoctorSelfMatch = (doc: IteDoctorEntry) => {
+    if (isFacultyOrAdmin || isGraduated2026) return false;
+    return matchesDoctorIdentity(doc, lastName, emailLastToken, firstInitial);
   };
 
   return (
@@ -256,16 +371,20 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30">
                 <GraduationCap className="w-3.5 h-3.5" />
-                2026 ABFM ITE Countdown
+                {isUserIteCompleted ? '2026 ABFM ITE' : '2026 ABFM ITE Countdown'}
               </span>
 
               {matchedAssignment ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
                   Assigned: {matchedAssignment.doctor.display}
                 </span>
+              ) : myAdviseesBySession.total > 0 ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
+                  Your Advisees ({myAdviseesBySession.total})
+                </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-indigo-200 border border-white/15">
-                  2 Exam Dates Scheduled
+                  2 ITE Dates Scheduled
                 </span>
               )}
 
@@ -277,7 +396,7 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
               >
                 <button
                   type="button"
-                  onClick={() => setShowSchedule(prev => !prev)}
+                  onClick={() => setShowSchedule((prev) => !prev)}
                   className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-400/20 hover:bg-indigo-400/30 text-indigo-100 border border-indigo-300/30 transition-colors cursor-pointer"
                 >
                   <Info className="w-3 h-3 text-amber-300" />
@@ -289,10 +408,10 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
                   <div className="hidden sm:block absolute left-0 top-full mt-2 w-72 p-4 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-indigo-400/40 shadow-2xl z-50 text-left animate-fade-in">
                     <h4 className="text-xs font-black uppercase tracking-wider text-amber-300 mb-2 flex items-center gap-1.5">
                       <Info className="w-3.5 h-3.5" />
-                      What to Expect on Exam Day
+                      What to Expect on ITE Day
                     </h4>
                     <ul className="space-y-1.5 text-xs text-slate-100 font-medium">
-                      {ITE_WHAT_TO_EXPECT.map(item => (
+                      {ITE_WHAT_TO_EXPECT.map((item) => (
                         <li key={item} className="flex items-start gap-2">
                           <span className="text-amber-400 font-black leading-tight">•</span>
                           <span>{item}</span>
@@ -307,7 +426,19 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
               </div>
             </div>
 
-            {matchedAssignment ? (
+            {/* Primary Content Area: Resident Completed vs Resident Upcoming vs Faculty Advisees First vs General */}
+            {isUserIteCompleted ? (
+              <div>
+                <h3 className="text-lg sm:text-xl font-black tracking-tight text-white flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span>ITE Completed! 🎉 Results expected in December</span>
+                </h3>
+                <p className="text-xs sm:text-sm text-indigo-200 font-medium mt-0.5">
+                  {matchedAssignment
+                    ? `Great job completing your ${matchedAssignment.session.fullDateLabel} ITE session. Official ABFM score reports are typically released in December.`
+                    : 'Both 2026 ITE sessions have concluded. Official ABFM score reports are typically released in December.'}
+                </p>
+              </div>
+            ) : matchedAssignment ? (
               <div>
                 <h3 className="text-lg sm:text-xl font-black tracking-tight text-white flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span>{matchedAssignment.session.fullDateLabel}</span>
@@ -320,32 +451,129 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
                   </span>
                 </p>
               </div>
+            ) : myAdviseesBySession.total > 0 ? (
+              <div>
+                <h3 className="text-base sm:text-lg font-black tracking-tight text-white mb-1.5">
+                  Your Advisees&apos; ITE Schedule · FMC Conference Room A (7:15 AM)
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Session 1 Advisees */}
+                  <div
+                    className={`px-3 py-2 rounded-xl border ${
+                      session1Status.isCompleted
+                        ? 'bg-white/5 border-white/10 text-slate-300'
+                        : 'bg-white/10 border-amber-400/30 text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-black flex items-center gap-1.5 text-amber-300">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        Tue, Oct 20 @ 7:15 AM
+                      </span>
+                      <span className="text-[10px] font-bold text-indigo-200">
+                        {session1Status.isCompleted
+                          ? 'ITE Completed 🎉'
+                          : session1Status.isInProgress
+                          ? 'In Progress'
+                          : `${session1Status.days}d ${session1Status.hours}h`}
+                      </span>
+                    </div>
+                    {myAdviseesBySession.oct20.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {myAdviseesBySession.oct20.map((doc) => (
+                          <span
+                            key={doc.display}
+                            className="px-2 py-0.5 rounded-md bg-amber-400/20 border border-amber-300/40 text-amber-100 text-[11px] font-bold"
+                          >
+                            {doc.display}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-indigo-300/70 italic">No advisees assigned to Oct 20</p>
+                    )}
+                  </div>
+
+                  {/* Session 2 Advisees */}
+                  <div
+                    className={`px-3 py-2 rounded-xl border ${
+                      session2Status.isCompleted
+                        ? 'bg-white/5 border-white/10 text-slate-300'
+                        : 'bg-white/10 border-cyan-400/30 text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-xs font-black flex items-center gap-1.5 text-cyan-300">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        Wed, Oct 28 @ 7:15 AM
+                      </span>
+                      <span className="text-[10px] font-bold text-indigo-200">
+                        {session2Status.isCompleted
+                          ? 'ITE Completed 🎉'
+                          : session2Status.isInProgress
+                          ? 'In Progress'
+                          : `${session2Status.days}d ${session2Status.hours}h`}
+                      </span>
+                    </div>
+                    {myAdviseesBySession.oct28.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {myAdviseesBySession.oct28.map((doc) => (
+                          <span
+                            key={doc.display}
+                            className="px-2 py-0.5 rounded-md bg-cyan-400/20 border border-cyan-300/40 text-cyan-100 text-[11px] font-bold"
+                          >
+                            {doc.display}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-indigo-300/70 italic">No advisees assigned to Oct 28</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             ) : (
               <div>
                 <h3 className="text-lg sm:text-xl font-black tracking-tight text-white">
-                  In-Training Exam Schedule · FMC Conference Room A
+                  In-Training Exam (ITE) Schedule · FMC Conference Room A
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5 text-xs sm:text-sm">
-                  <div className={`px-3 py-1 rounded-xl border flex items-center gap-2 ${
-                    session1Remaining.isPast
-                      ? 'bg-white/5 border-white/10 text-slate-400'
-                      : 'bg-white/10 border-white/20 text-white'
-                  }`}>
+                  <div
+                    className={`px-3 py-1 rounded-xl border flex items-center gap-2 ${
+                      session1Status.isCompleted
+                        ? 'bg-white/5 border-white/10 text-slate-400'
+                        : 'bg-white/10 border-white/20 text-white'
+                    }`}
+                  >
                     <Calendar className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                     <span className="font-bold">Tue, Oct 20 @ 7:15 AM</span>
                     <span className="text-[11px] text-indigo-200">
-                      ({session1Remaining.isPast ? (session1Remaining.isToday ? 'Today' : 'Done') : `${session1Remaining.days}d ${session1Remaining.hours}h`})
+                      (
+                      {session1Status.isCompleted
+                        ? 'Completed'
+                        : session1Status.isInProgress
+                        ? 'In Progress'
+                        : `${session1Status.days}d ${session1Status.hours}h`}
+                      )
                     </span>
                   </div>
-                  <div className={`px-3 py-1 rounded-xl border flex items-center gap-2 ${
-                    session2Remaining.isPast
-                      ? 'bg-white/5 border-white/10 text-slate-400'
-                      : 'bg-white/10 border-white/20 text-white'
-                  }`}>
+                  <div
+                    className={`px-3 py-1 rounded-xl border flex items-center gap-2 ${
+                      session2Status.isCompleted
+                        ? 'bg-white/5 border-white/10 text-slate-400'
+                        : 'bg-white/10 border-white/20 text-white'
+                    }`}
+                  >
                     <Calendar className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
                     <span className="font-bold">Wed, Oct 28 @ 7:15 AM</span>
                     <span className="text-[11px] text-indigo-200">
-                      ({session2Remaining.isPast ? (session2Remaining.isToday ? 'Today' : 'Done') : `${session2Remaining.days}d ${session2Remaining.hours}h`})
+                      (
+                      {session2Status.isCompleted
+                        ? 'Completed'
+                        : session2Status.isInProgress
+                        ? 'In Progress'
+                        : `${session2Status.days}d ${session2Status.hours}h`}
+                      )
                     </span>
                   </div>
                 </div>
@@ -353,72 +581,96 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
             )}
           </div>
 
-          {/* Right Live Countdown + Schedule Toggle */}
-          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3 shrink-0">
-            {!primaryRemaining.isPast ? (
+          {/* Right Live Countdown + Schedule Toggle + Optional Dismiss */}
+          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+            {!primaryStatus.hasStarted ? (
               <div
-                onClick={() => setShowSchedule(prev => !prev)}
-                title="Click to view What to Expect & Full Schedule"
-                className="flex items-center justify-center gap-1.5 sm:gap-2 bg-black/25 hover:bg-black/35 backdrop-blur-md px-3.5 py-2.5 rounded-2xl border border-white/10 cursor-pointer transition-colors"
+                onClick={() => setShowSchedule((prev) => !prev)}
+                title={`Countdown to ${primarySession.shortDate} @ 7:15 AM — Click for details`}
+                className="flex flex-col items-center bg-black/25 hover:bg-black/35 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/10 cursor-pointer transition-colors"
               >
-                <div className="text-center min-w-[42px]">
-                  <div className="text-lg sm:text-2xl font-black tabular-nums leading-none text-white">
-                    {String(primaryRemaining.days).padStart(2, '0')}
+                {!matchedAssignment && (
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-300 mb-1">
+                    Next: {primarySession.shortDate}
+                  </span>
+                )}
+                <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+                  <div className="text-center min-w-[38px]">
+                    <div className="text-lg sm:text-2xl font-black tabular-nums leading-none text-white">
+                      {String(primaryStatus.days).padStart(2, '0')}
+                    </div>
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-300 mt-1">
+                      Days
+                    </div>
                   </div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-300 mt-1">
-                    Days
+                  <span className="text-indigo-400 font-black text-base -mt-2">:</span>
+                  <div className="text-center min-w-[38px]">
+                    <div className="text-lg sm:text-2xl font-black tabular-nums leading-none text-white">
+                      {String(primaryStatus.hours).padStart(2, '0')}
+                    </div>
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-300 mt-1">
+                      Hrs
+                    </div>
                   </div>
-                </div>
-                <span className="text-indigo-400 font-black text-base -mt-2">:</span>
-                <div className="text-center min-w-[42px]">
-                  <div className="text-lg sm:text-2xl font-black tabular-nums leading-none text-white">
-                    {String(primaryRemaining.hours).padStart(2, '0')}
+                  <span className="text-indigo-400 font-black text-base -mt-2">:</span>
+                  <div className="text-center min-w-[38px]">
+                    <div className="text-lg sm:text-2xl font-black tabular-nums leading-none text-white">
+                      {String(primaryStatus.minutes).padStart(2, '0')}
+                    </div>
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-300 mt-1">
+                      Min
+                    </div>
                   </div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-300 mt-1">
-                    Hrs
-                  </div>
-                </div>
-                <span className="text-indigo-400 font-black text-base -mt-2">:</span>
-                <div className="text-center min-w-[42px]">
-                  <div className="text-lg sm:text-2xl font-black tabular-nums leading-none text-white">
-                    {String(primaryRemaining.minutes).padStart(2, '0')}
-                  </div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-300 mt-1">
-                    Min
-                  </div>
-                </div>
-                <span className="text-indigo-400 font-black text-base -mt-2">:</span>
-                <div className="text-center min-w-[42px]">
-                  <div className="text-lg sm:text-2xl font-black tabular-nums leading-none text-amber-300">
-                    {String(primaryRemaining.seconds).padStart(2, '0')}
-                  </div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-300 mt-1">
-                    Sec
+                  <span className="text-indigo-400 font-black text-base -mt-2">:</span>
+                  <div className="text-center min-w-[38px]">
+                    <div className="text-lg sm:text-2xl font-black tabular-nums leading-none text-amber-300">
+                      {String(primaryStatus.seconds).padStart(2, '0')}
+                    </div>
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-indigo-300 mt-1">
+                      Sec
+                    </div>
                   </div>
                 </div>
               </div>
+            ) : primaryStatus.isInProgress ? (
+              <div className="px-4 py-2.5 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-200 font-black text-xs sm:text-sm flex items-center justify-center gap-2">
+                <Clock className="w-4 h-4 text-amber-300 animate-pulse" />
+                <span>ITE Day — Good Luck!</span>
+              </div>
             ) : (
-              <div className="px-4 py-2.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 font-black text-xs sm:text-sm flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-300" />
-                {primaryRemaining.isToday
-                  ? 'Exam Day — Good Luck!'
-                  : `${primarySession.shortDate} Session Completed`}
+              <div className="px-4 py-2.5 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 font-black text-xs sm:text-sm flex items-center justify-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-300" />
+                <span>Results: December</span>
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={() => setShowSchedule(prev => !prev)}
-              className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center gap-1.5 border border-white/15 transition-all cursor-pointer shrink-0"
-            >
-              <Users className="w-3.5 h-3.5 text-indigo-200" />
-              <span>{showSchedule ? 'Hide Details' : 'Details & Roster'}</span>
-              {showSchedule ? (
-                <ChevronUp className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSchedule((prev) => !prev)}
+                className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center gap-1.5 border border-white/15 transition-all cursor-pointer shrink-0"
+              >
+                <Users className="w-3.5 h-3.5 text-indigo-200" />
+                <span>{showSchedule ? 'Hide Details' : 'Details & Roster'}</span>
+                {showSchedule ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </button>
+
+              {isUserIteCompleted && (
+                <button
+                  type="button"
+                  onClick={handleDismissCompleted}
+                  title="Dismiss ITE banner"
+                  aria-label="Dismiss ITE banner"
+                  className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white border border-white/15 transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               )}
-            </button>
+            </div>
           </div>
         </div>
 
@@ -432,7 +684,7 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
                 What to Expect
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-                {ITE_WHAT_TO_EXPECT.map(item => (
+                {ITE_WHAT_TO_EXPECT.map((item) => (
                   <div
                     key={item}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-xs font-bold text-white"
@@ -446,8 +698,8 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
 
             {/* Two-Day Session Roster Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {ITE_SESSIONS.map(session => {
-                const rem = session.id === 'oct20' ? session1Remaining : session2Remaining;
+              {ITE_SESSIONS.map((session) => {
+                const status = session.id === 'oct20' ? session1Status : session2Status;
                 const isUserSession = matchedAssignment?.session.id === session.id;
 
                 return (
@@ -461,7 +713,7 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
                   >
                     <div className="flex items-start justify-between gap-2 mb-2.5">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="font-black text-sm sm:text-base text-white">
                             {session.fullDateLabel} @ {session.timeLabel}
                           </h4>
@@ -476,27 +728,35 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
                         </p>
                       </div>
                       <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-white/10 text-indigo-100 shrink-0">
-                        {rem.isPast
-                          ? rem.isToday
-                            ? 'Today'
-                            : 'Completed'
-                          : `${rem.days}d ${rem.hours}h left`}
+                        {status.isCompleted
+                          ? 'ITE Completed 🎉'
+                          : status.isInProgress
+                          ? 'In Progress'
+                          : `${status.days}d ${status.hours}h left`}
                       </span>
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
-                      {session.doctors.map(doc => {
-                        const isMe = isDoctorMatch(doc);
+                      {session.doctors.map((doc) => {
+                        const isMe = isDoctorSelfMatch(doc);
+                        const adviseeMatch = isMyAdvisee(doc);
                         return (
                           <span
                             key={doc.display}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
                               isMe
                                 ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-200 shadow-sm font-black'
+                                : adviseeMatch
+                                ? 'bg-emerald-400/25 text-emerald-100 border border-emerald-300/50 ring-1 ring-emerald-400/30 font-black'
                                 : 'bg-white/10 text-indigo-100 border border-white/10'
                             }`}
                           >
-                            {doc.display}
+                            <span>{doc.display}</span>
+                            {adviseeMatch && !isMe && (
+                              <span className="text-[9px] uppercase tracking-wider px-1 py-0.2 rounded bg-emerald-400/30 text-emerald-200">
+                                Advisee
+                              </span>
+                            )}
                           </span>
                         );
                       })}
