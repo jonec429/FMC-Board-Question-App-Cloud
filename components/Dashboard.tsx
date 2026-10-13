@@ -17,6 +17,7 @@ import QotdHistoryModal from './QotdHistoryModal';
 import ClassYoyModal from './ClassYoyModal';
 import AdviseeQuickAccessCard from './AdviseeQuickAccessCard';
 import ChallengeModal from './ChallengeModal';
+import IteCountdownBanner from './IteCountdownBanner';
 import { Gift } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
@@ -421,6 +422,9 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           </button>
         </div>
       </div>
+
+      {/* 2026 ABFM ITE Countdown Banner */}
+      <IteCountdownBanner user={user} profile={profile} effectiveRole={effectiveRole} />
 
       {/* Onboarding Banner for New Users */}
       {!hasTakenDemo && !demoBannerDismissed && !mostRecentSession && !loading && (
