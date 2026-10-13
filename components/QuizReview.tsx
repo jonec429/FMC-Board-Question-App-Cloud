@@ -141,7 +141,7 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
                     q.year && <span>· ITE {q.year}</span>
                   )}
                 </div>
-                <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{originalIndex + 1}. {q.question_text}</p>
+                <p className="font-bold text-slate-800 dark:text-slate-100 text-sm whitespace-pre-line">{originalIndex + 1}. {q.question_text}</p>
               </div>
               <span
                 className={`shrink-0 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${

@@ -588,7 +588,7 @@ export default function QuestionHeatmap({ adminData }: QuestionHeatmapProps) {
                         </div>
 
                         {/* Question Stem */}
-                        <p className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-relaxed mb-4">
+                        <p className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-relaxed whitespace-pre-line mb-4">
                           {q.text}
                         </p>
 

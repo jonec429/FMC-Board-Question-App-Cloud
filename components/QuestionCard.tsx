@@ -378,7 +378,7 @@ function QuestionCard({
         <div
           ref={stemRef}
           onClick={handleStemClick}
-          className={`font-bold leading-relaxed text-slate-800 dark:text-slate-100 ${highlightMode ? 'cursor-text selection:bg-yellow-200 dark:selection:bg-blue-600 dark:selection:text-white' : ''}`}
+          className={`font-bold leading-relaxed whitespace-pre-line text-slate-800 dark:text-slate-100 ${highlightMode ? 'cursor-text selection:bg-yellow-200 dark:selection:bg-blue-600 dark:selection:text-white' : ''}`}
           style={{ fontSize: `${fontSize}px` }}
           dangerouslySetInnerHTML={{ __html: renderedStemHtml }}
         />
@@ -480,7 +480,7 @@ function QuestionCard({
             <div className={`inline-block px-4 py-1.5 rounded-lg text-sm font-black uppercase tracking-widest mb-4 ${isCorrect ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
               {isCorrect ? 'Correct' : 'Incorrect'}
             </div>
-            <div dangerouslySetInnerHTML={{ __html: typeof window !== 'undefined' ? DOMPurify.sanitize(question.explanation || 'No explanation provided.') : (question.explanation || 'No explanation provided.') }} />
+            <div className="whitespace-pre-line" dangerouslySetInnerHTML={{ __html: typeof window !== 'undefined' ? DOMPurify.sanitize(question.explanation || 'No explanation provided.') : (question.explanation || 'No explanation provided.') }} />
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3 animate-fade-in">
