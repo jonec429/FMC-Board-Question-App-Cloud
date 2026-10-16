@@ -21,6 +21,7 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
   const [showInstall, setShowInstall] = useState(false);
   const [changelog, setChangelog] = useState<{date: string, title: string, items: string[]}[]>([]);
   const [showPassword, setShowPassword] = useState(false);
+  const [resetSentMsg, setResetSentMsg] = useState('');
 
   useEffect(() => {
     const fetchChangelog = async () => {
@@ -154,20 +155,34 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
   };
 
   const handleForgotPassword = async () => {
-    if (!email || !isEmailValid) {
-      setError('Please enter a valid @ascension.org email address first.');
+    const cleanEmail = email.toLowerCase().trim();
+    if (!cleanEmail || !cleanEmail.endsWith('@ascension.org')) {
+      setError('Please enter your valid @ascension.org email address first.');
+      setResetSentMsg('');
       return;
     }
     setLoading(true);
     setError('');
+    setResetSentMsg('');
+
+    // Helpful check if someone typed isaac.smith instead of isaac.smith1
+    if (cleanEmail === 'isaac.smith@ascension.org') {
+      setError('Did you mean isaac.smith1@ascension.org? Please check your username format.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error } = await withTimeout(
-        supabase.auth.resetPasswordForEmail(email, {
+        supabase.auth.resetPasswordForEmail(cleanEmail, {
           redirectTo: `${window.location.origin}/auth/callback`,
         })
       );
-      if (error) setError(error.message);
-      else alert('Password reset link sent to your email.');
+      if (error) {
+        setError(error.message);
+      } else {
+        setResetSentMsg(`Password reset link sent to ${cleanEmail}! Please check your inbox. If Ascension hospital filters delay the email, contact Dr. Carbungco for an instant reset.`);
+      }
     } catch (err: any) {
       setError(err?.message || 'Could not send reset link. Please check your connection and try again.');
     } finally {
@@ -298,6 +313,12 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
               >
                 Forgot Password?
               </button>
+            )}
+
+            {resetSentMsg && (
+              <div className="bg-emerald-50 text-emerald-800 p-3.5 rounded-xl text-xs font-semibold leading-relaxed border border-emerald-200">
+                {resetSentMsg}
+              </div>
             )}
 
             {error && (

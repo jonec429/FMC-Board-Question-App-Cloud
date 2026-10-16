@@ -182,7 +182,7 @@ export default function AdviseeDossierModal({
         blocksCompleted: a.blocksCompleted,
         requiredBlocksTotal: a.blocksCompleted + a.overdueCount,
         onTimeRate: Math.round(a.onTimePct),
-        onTimeCount: Math.round((a.onTimePct / 100) * a.blocksCompleted),
+        onTimeCount: Math.round((a.onTimePct / 100) * (a.blocksCompleted + a.overdueCount)),
         overdueCount: a.overdueCount,
         overdueBlockTitles: [],
         totalPoints: a.totalPoints,

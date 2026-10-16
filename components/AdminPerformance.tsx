@@ -364,9 +364,10 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
       header: 'On-Time',
       cell: info => {
         const r = info.row.original;
+        const totalEvaluated = r.blocksCompleted + r.overdueCount;
         return (
           <div className="text-center">
-            {r.blocksCompleted > 0 ? (
+            {totalEvaluated > 0 ? (
               <span className={`text-sm font-bold ${r.onTimePct > 65 ? 'text-emerald-600 dark:text-emerald-400' : r.onTimePct > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                 {r.onTimePct.toFixed(0)}%
               </span>
@@ -547,10 +548,15 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
 
         const blocksCompleted = topicBestPts.size;
 
+        // Early-warning: past-due blocks this resident hasn't completed.
+        const completedTitles = new Set(Array.from(topicBestPts.keys()));
+        const overdueCount = isFacultyUser ? 0 : getOverdueBlocks(dueBlocks, completedTitles).length;
+
         const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(([topic]) => !topic?.toLowerCase().includes('bonus'));
         const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
-        const onTimePct = nonBonusBlocks.length > 0
-          ? (onTimeBlocks.length / nonBonusBlocks.length) * 100
+        const totalExpected = nonBonusBlocks.length + overdueCount;
+        const onTimePct = totalExpected > 0
+          ? (onTimeBlocks.length / totalExpected) * 100
           : 100;
 
         const curriculumQuizzes = assignedResults.filter((r: Result & { email?: string | null }) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]'));
@@ -568,10 +574,6 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
           ? resQuizzes.reduce((a: number, r: Result & { email?: string | null }) => a + (r.percentage || 0), 0) / resQuizzes.length
           : 0;
 
-        // Early-warning: past-due blocks this resident hasn't completed.
-        const completedTitles = new Set(Array.from(topicBestPts.keys()));
-        const overdueCount = isFacultyUser ? 0 : getOverdueBlocks(dueBlocks, completedTitles).length;
-        
         const academicRisk = isFacultyUser ? 'gray' : getRiskLevel(curriculumAvg, assignedResults.length);
         const complianceRisk = isFacultyUser ? 'gray' : getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
 
@@ -702,7 +704,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
         r.independentAttempts > 0 && r.independentAvg !== null ? r.independentAvg.toFixed(1) : '',
         r.totalAttempts > 0 ? r.overallAvg.toFixed(1) : '',
         String(r.blocksCompleted),
-        r.blocksCompleted > 0 ? r.onTimePct.toFixed(0) : '',
+        (r.blocksCompleted > 0 || r.overdueCount > 0) ? r.onTimePct.toFixed(0) : '',
         String(r.totalPoints),
         String(r.totalAttendance),
         `"${acadStatus}"`,
@@ -737,8 +739,9 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
     ? residentStats.filter(r => r.totalAttempts > 0).reduce((a, r) => a + r.overallAvg, 0) / (residentStats.filter(r => r.totalAttempts > 0).length || 1)
     : 0;
   const boardReadiness = Math.round(residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 65).length / (residentStats.filter(r => r.curriculumAttempts > 0).length || 1) * 100);
-  const onTimeProgramAvg = residentStats.length > 0
-    ? residentStats.filter(r => r.blocksCompleted > 0).reduce((a, r) => a + r.onTimePct, 0) / (residentStats.filter(r => r.blocksCompleted > 0).length || 1)
+  const onTimeEligible = residentStats.filter(r => (r.blocksCompleted > 0 || r.overdueCount > 0));
+  const onTimeProgramAvg = onTimeEligible.length > 0
+    ? onTimeEligible.reduce((a, r) => a + r.onTimePct, 0) / onTimeEligible.length
     : 0;
 
   const curriculumResidents = residentStats.filter(r => r.curriculumAttempts > 0);
@@ -1479,7 +1482,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Blocks Done</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xl font-black text-slate-800 dark:text-white">{selectedResident.blocksCompleted > 0 ? `${selectedResident.onTimePct.toFixed(0)}%` : '—'}</div>
+                    <div className="text-xl font-black text-slate-800 dark:text-white">{(selectedResident.blocksCompleted > 0 || selectedResident.overdueCount > 0) ? `${selectedResident.onTimePct.toFixed(0)}%` : '—'}</div>
                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">On-Time Rate</div>
                   </div>
                   <div className="text-center">

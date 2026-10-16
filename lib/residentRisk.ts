@@ -73,7 +73,8 @@ export function getOverdueBlocks(dueBlocks: DueBlock[], completedTitles: Set<str
  */
 export function getComplianceRisk(onTimePct: number, blocksCompleted: number, overdueCount: number): RiskLevel {
   let base: RiskLevel = 'green';
-  if (blocksCompleted < 3) {
+  const totalEvaluated = blocksCompleted + overdueCount;
+  if (totalEvaluated < 3) {
     base = 'gray';
   } else if (onTimePct <= 50) {
     base = 'red';
@@ -103,7 +104,8 @@ export function getRiskReasons(x: RiskInputs): string[] {
   const academic = getRiskLevel(x.curriculumAvg, x.curriculumAttempts);
   if (academic === 'red' || academic === 'yellow') reasons.push(`Avg ${Math.round(x.curriculumAvg)}%`);
   
-  if (x.blocksCompleted >= 3 && x.onTimePct <= 75) reasons.push(`On-time ${Math.round(x.onTimePct)}%`);
+  const totalEvaluated = x.blocksCompleted + x.overdueCount;
+  if (totalEvaluated >= 3 && x.onTimePct <= 75) reasons.push(`On-time ${Math.round(x.onTimePct)}%`);
   
   if (x.trendDelta != null && x.trendDelta <= -10) reasons.push(`Trending down ${Math.abs(Math.round(x.trendDelta))}%`);
   return reasons;

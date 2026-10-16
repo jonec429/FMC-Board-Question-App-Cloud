@@ -686,14 +686,14 @@ export default function AdminReporting({
                         <td className="py-3 px-2 text-center">
                           <span
                             className={`font-bold ${
-                              r.blocksCompleted === 0
+                              (r.blocksCompleted === 0 && r.overdueCount === 0)
                                 ? 'text-slate-400'
                                 : isOnTime
                                 ? 'text-emerald-700 print:text-black'
                                 : 'text-amber-700 print:text-black'
                             }`}
                           >
-                            {r.blocksCompleted > 0 ? `${r.onTimeRate}%` : '—'}
+                            {(r.blocksCompleted > 0 || r.overdueCount > 0) ? `${r.onTimeRate}%` : '—'}
                           </span>
                         </td>
                         <td className="py-3 px-2 text-center font-bold">
@@ -897,14 +897,14 @@ export default function AdminReporting({
                     </span>
                     <span
                       className={`text-2xl font-black block mt-1 ${
-                        r.blocksCompleted === 0
+                        (r.blocksCompleted === 0 && r.overdueCount === 0)
                           ? 'text-slate-400'
                           : r.onTimeRate >= 75
                           ? 'text-emerald-700 print:text-black'
                           : 'text-amber-700 print:text-black'
                       }`}
                     >
-                      {r.blocksCompleted > 0 ? `${r.onTimeRate}%` : '—'}
+                      {(r.blocksCompleted > 0 || r.overdueCount > 0) ? `${r.onTimeRate}%` : '—'}
                     </span>
                     <span className="text-[10px] text-slate-500 print:text-gray-600 block mt-0.5">
                       Program Benchmark: ≥ 75%

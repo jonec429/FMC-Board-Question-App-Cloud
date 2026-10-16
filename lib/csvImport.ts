@@ -10,6 +10,8 @@
  * embedded commas, embedded newlines (within quotes), and doubled-quote escapes.
  */
 
+import { sanitizeQuestionFields } from './questionSanitizer';
+
 // === Canonical category list (matches what's in the live questions table) ===
 export const CANONICAL_CATEGORIES = [
   'Cardiovascular',
@@ -296,11 +298,21 @@ function validateRow(headerMap: Map<string, number>, values: string[], lineNumbe
   }
 
   // explanation / resource_link — optional
-  const explanation = get('explanation');
+  const explanationRaw = get('explanation');
   const resource_link = get('resource_link');
-  if (!explanation) {
+  if (!explanationRaw) {
     warnings.push('No explanation provided — resident feedback will be limited');
   }
+
+  // Run text sanitizer + structural formatter (Unicode PUA, Greek symbols, PDF hyphens, Lab tables)
+  const sanitized = sanitizeQuestionFields({
+    question_text,
+    options: optionsRaw,
+    explanation: explanationRaw,
+  });
+
+  sanitized.repairs.forEach(r => warnings.push(`Auto-repaired: ${r}`));
+  sanitized.warnings.forEach(w => warnings.push(w));
 
   if (errors.length > 0) {
     return { line: lineNumber, raw, errors, warnings };
@@ -315,10 +327,10 @@ function validateRow(headerMap: Map<string, number>, values: string[], lineNumbe
       year,
       category: category!,
       system: category!, // mirror category to legacy system column
-      question_text,
-      options: optionsRaw,
+      question_text: sanitized.question_text,
+      options: sanitized.options,
       correct_index: correctIdx!,
-      explanation,
+      explanation: sanitized.explanation,
       resource_link,
     },
   };

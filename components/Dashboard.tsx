@@ -18,6 +18,7 @@ import ClassYoyModal from './ClassYoyModal';
 import AdviseeQuickAccessCard from './AdviseeQuickAccessCard';
 import ChallengeModal from './ChallengeModal';
 import IteCountdownBanner from './IteCountdownBanner';
+import ForcePasswordChangeModal from './ForcePasswordChangeModal';
 import { Gift } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
@@ -145,6 +146,13 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const [challengeData, setChallengeData] = useState<ChallengeStandingsResponse | null>(null);
   const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [mustResetPassword, setMustResetPassword] = useState(user?.user_metadata?.must_reset_password === true);
+
+  useEffect(() => {
+    if (user?.user_metadata?.must_reset_password === true) {
+      setMustResetPassword(true);
+    }
+  }, [user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1086,6 +1094,11 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           onStartQuiz={onStartQuiz}
         />
       )}
+
+      <ForcePasswordChangeModal
+        isOpen={mustResetPassword}
+        onSuccess={() => setMustResetPassword(false)}
+      />
 
       {/* Mobile Leaderboard Modal */}
       {showLeaderboardModal && (

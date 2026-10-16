@@ -79,8 +79,9 @@ export default function AdminMetricModal({
     ? independentResidents.reduce((a, r) => a + (r.independentAvg || 0), 0) / independentResidents.length
     : 0;
 
-  const onTimeAvg = residentStats.filter(r => r.blocksCompleted > 0).length > 0
-    ? residentStats.filter(r => r.blocksCompleted > 0).reduce((a, r) => a + r.onTimePct, 0) / residentStats.filter(r => r.blocksCompleted > 0).length
+  const onTimeEligible = residentStats.filter(r => (r.blocksCompleted > 0 || r.overdueCount > 0));
+  const onTimeAvg = onTimeEligible.length > 0
+    ? onTimeEligible.reduce((a, r) => a + r.onTimePct, 0) / onTimeEligible.length
     : 0;
 
   const above70Residents = residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 70);

@@ -189,7 +189,8 @@ export async function GET(request: Request) {
         ([topic]) => !topic?.toLowerCase().includes('bonus')
       );
       const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
-      const onTimePct = nonBonusBlocks.length > 0 ? (onTimeBlocks.length / nonBonusBlocks.length) * 100 : 100;
+      const totalExpected = nonBonusBlocks.length + overdueCount;
+      const onTimePct = totalExpected > 0 ? (onTimeBlocks.length / totalExpected) * 100 : 100;
 
       const curriculumAvg = assignedResults.length > 0
         ? assignedResults.reduce((a, r) => a + (r.percentage || 0), 0) / assignedResults.length

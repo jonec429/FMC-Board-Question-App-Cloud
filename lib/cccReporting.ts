@@ -354,24 +354,25 @@ export function computeCccReportData({
       }
     });
 
+    // Overdue Blocks (due up to dateRange.endDate)
+    const completedTitles = new Set(Array.from(topicBestPts.keys()));
+    const overdueList = getOverdueBlocks(dueBlocksAll, completedTitles);
+    const overdueCount = overdueList.length;
+    const overdueBlockTitles = overdueList.map(b => b.title);
+
     const blocksCompleted = topicBestPts.size;
     const nonBonus = Array.from(topicBestPts.entries()).filter(([t]) => !t.toLowerCase().includes('bonus'));
     const onTimeBlocks = nonBonus.filter(([, data]) => data.points >= 2);
     const onTimeCount = onTimeBlocks.length;
-    const onTimeRate = nonBonus.length > 0
-      ? Math.round((onTimeCount / nonBonus.length) * 100)
+    const totalExpected = nonBonus.length + overdueCount;
+    const onTimeRate = totalExpected > 0
+      ? Math.round((onTimeCount / totalExpected) * 100)
       : 100;
 
     // Curriculum Average
     const curriculumAvg = curriculumResults.length > 0
       ? Math.round(curriculumResults.reduce((s, r) => s + (r.percentage || 0), 0) / curriculumResults.length)
       : 0;
-
-    // Overdue Blocks (due up to dateRange.endDate)
-    const completedTitles = new Set(Array.from(topicBestPts.keys()));
-    const overdueList = getOverdueBlocks(dueBlocksAll, completedTitles);
-    const overdueCount = overdueList.length;
-    const overdueBlockTitles = overdueList.map(b => b.title);
 
     // Total Academic Engagement Points earned during this period
     const totalPoints = userResultsInDateRange.reduce((acc, r) => acc + (r.academic_points || 0), 0);
@@ -419,7 +420,7 @@ export function computeCccReportData({
     if (curriculumResults.length >= 2 && curriculumAvg < 70) {
       flags.push(`Curriculum Exam Average (${curriculumAvg}%) is below the 70% program passing benchmark`);
     }
-    if (blocksCompleted >= 2 && onTimeRate < 75) {
+    if ((blocksCompleted + overdueCount) >= 2 && onTimeRate < 75) {
       flags.push(`On-Time Submission Rate (${onTimeRate}%) is below the 75% timeliness benchmark`);
     }
     if (declining && trendDelta !== null) {

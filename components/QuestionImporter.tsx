@@ -317,9 +317,12 @@ export default function QuestionImporter() {
           </Section>
         )}
 
-        {/* Valid preview (collapsed by default) */}
+        {/* Valid preview (auto-expanded when warnings/auto-repairs exist) */}
         {buckets.valid.length > 0 && (
-          <details className="bg-white dark:bg-slate-900 rounded-3xl border border-emerald-100 dark:border-emerald-900/40 shadow-sm overflow-hidden group">
+          <details
+            open={summary.warningCount > 0}
+            className="bg-white dark:bg-slate-900 rounded-3xl border border-emerald-100 dark:border-emerald-900/40 shadow-sm overflow-hidden group"
+          >
             <summary className="cursor-pointer p-6 font-black text-emerald-700 dark:text-emerald-400 flex items-center gap-3 list-none border-b border-emerald-50 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-950/30">
               <CheckCircle className="w-5 h-5" />
               Valid Rows ({buckets.valid.length})
@@ -445,13 +448,13 @@ function ResultTable({ rows, kind }: { rows: RowResult[]; kind: 'valid' | 'dupe'
     },
     {
       id: 'question',
-      accessorFn: row => row.raw.question_text,
+      accessorFn: row => row.question?.question_text ?? row.raw.question_text,
       header: 'Question (preview)',
       cell: info => {
         const text = info.getValue() as string || '';
         return (
-          <div className="max-w-md truncate text-slate-800 dark:text-slate-200" title={text}>
-            {text.slice(0, 120)}{text.length > 120 ? '…' : ''}
+          <div className="max-w-md whitespace-pre-line line-clamp-3 text-slate-800 dark:text-slate-200" title={text}>
+            {text}
           </div>
         );
       },

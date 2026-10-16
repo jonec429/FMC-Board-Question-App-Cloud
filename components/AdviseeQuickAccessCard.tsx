@@ -148,12 +148,16 @@ export default function AdviseeQuickAccessCard({
       });
 
       const blocksCompleted = topicBestPts.size;
+      const completedTitles = new Set(Array.from(topicBestPts.keys()));
+      const overdueCount = getOverdueBlocks(dueBlocks, completedTitles).length;
+
       const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(
         ([topic]) => !topic?.toLowerCase().includes('bonus')
       );
       const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
+      const totalExpected = nonBonusBlocks.length + overdueCount;
       const onTimePct =
-        nonBonusBlocks.length > 0 ? (onTimeBlocks.length / nonBonusBlocks.length) * 100 : 100;
+        totalExpected > 0 ? (onTimeBlocks.length / totalExpected) * 100 : 100;
 
       const curriculumAvg =
         assignedResults.length > 0
@@ -167,9 +171,6 @@ export default function AdviseeQuickAccessCard({
 
       // Calculate total academic points
       const totalPoints = resResults.reduce((acc, r) => acc + (r.academic_points || 0), 0);
-
-      const completedTitles = new Set(Array.from(topicBestPts.keys()));
-      const overdueCount = getOverdueBlocks(dueBlocks, completedTitles).length;
 
       const academicRisk = getRiskLevel(curriculumAvg, assignedResults.length);
       const complianceRisk = getComplianceRisk(onTimePct, blocksCompleted, overdueCount);

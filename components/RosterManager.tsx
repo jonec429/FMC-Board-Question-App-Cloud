@@ -2,11 +2,12 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3 } from './AppIcons';
+import { Search, Users, Loader2, Mail, Trash2, Plus, Edit3, Key } from './AppIcons';
 import { AdminData } from '@/lib/types';
 import { deriveLabel, isGraduated, mapSelectionToFields, getRoleOptions } from '@/lib/academicYear';
 import { formatLastNameFirst } from '@/lib/utils';
 import TransitionWizard from './TransitionWizard';
+import PasswordManagerModal from './PasswordManagerModal';
 import { DataTable } from './DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 
@@ -22,6 +23,8 @@ export default function RosterManager() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPerson, setEditingPerson] = useState({ first_name: '', last_name: '', email: '', pgy: '', advisor: '', role: 'resident', has_account: false });
   const [submitting, setSubmitting] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [selectedMemberForPassword, setSelectedMemberForPassword] = useState<any>(null);
 
   // useAdminData filters out Faculty for the global roster slice. RosterManager
   // needs the full list (including Faculty) so we re-fetch the unfiltered roster
@@ -243,7 +246,18 @@ export default function RosterManager() {
       cell: info => {
         const member = info.row.original;
         return (
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-1.5">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedMemberForPassword(member);
+                setShowPasswordModal(true);
+              }}
+              className="p-2 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 rounded-lg transition-all"
+              title="Manage Password & Credentials"
+            >
+              <Key className="w-5 h-5" />
+            </button>
             <button 
               onClick={(e) => {
                 e.stopPropagation();
@@ -533,6 +547,31 @@ export default function RosterManager() {
                   <option value="admin">Administrator</option>
                 </select>
               </div>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black text-slate-700 dark:text-slate-300">Account Credentials</span>
+                  <span className="text-[10px] text-slate-400">Set password or generate reset link</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedMemberForPassword({
+                      full_name: `${editingPerson.first_name} ${editingPerson.last_name}`.trim(),
+                      first_name: editingPerson.first_name,
+                      last_name: editingPerson.last_name,
+                      email: editingPerson.email,
+                      has_account: editingPerson.has_account,
+                      pgy: editingPerson.pgy,
+                      role: editingPerson.role
+                    });
+                    setShowPasswordModal(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 rounded-xl text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-all"
+                >
+                  <Key className="w-3.5 h-3.5" />
+                  Manage Password
+                </button>
+              </div>
               <button 
                 type="submit" 
                 disabled={submitting}
@@ -552,6 +591,12 @@ export default function RosterManager() {
           onRefresh={fetchRoster}
         />
       )}
+
+      <PasswordManagerModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        member={selectedMemberForPassword}
+      />
     </div>
   );
 }
