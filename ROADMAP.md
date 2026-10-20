@@ -68,7 +68,7 @@ This file serves as the shared source of truth for development progress between 
 2. **Top 4 Hub Cards Grid (`components/Dashboard.tsx`)**:
    - Combined *My Performance* and *Achievements* into Card 1 across the top row, matching the exact size, shape, and rounded geometry (`min-h-[170px]`) of the other 3 cards.
    - Styled with gold trophy theming, live readiness badge, AP points counter, and active streak preview.
-   - Clean 4-card responsive grid: `[Performance & Badges] [QOTD] [Quiz Builder] [Resume / Active Block]`.
+   - Spanned the 4-card responsive grid across the full container width above the two columns (`gap-4 mb-6`), giving each card ample breathing room (~285px) so the Board Readiness badge and text never truncate.
 3. **Collapsible Board Prep Snapshot (`components/MyStatsModal.tsx`)**:
    - Added a collapse/expand toggle to the Board Prep Snapshot in personal stats.
    - In collapsed mode, shows only **Average Quiz Score** and the dual-color **Academic Points Tracker** progress bar, eliminating ~350px of vertical modal bulk.
@@ -81,7 +81,7 @@ This file serves as the shared source of truth for development progress between 
    - Relocated secondary actions (*Theme Toggle Light/Dark/Midnight*, *Install to Phone*, and *Send Feedback*) into the Settings modal.
 7. **Unified Tabbed Leaderboard Widget (`components/Dashboard.tsx`)**:
    - Combined individual AP leaderboard, Class YoY standings, and the $150 DoorDash Challenge into **one single tabbed widget**: `[🏆 APs] [🎓 Class] [🎁 $150 Challenge]`.
-   - Eliminated the separate stacked class leaderboard card on desktop and cleaned up mobile modal standings.
+   - Eliminated the separate stacked class leaderboard card on desktop, removed redundant DoorDash button at the bottom of AP tab, and moved the alumni/graduates toggle cleanly to the bottom of both APs and Class tabs to eliminate tab bar overflow.
 8. **Quality & Verification Gates**:
    - `npx tsc --noEmit` passed with 0 errors.
    - `npm run lint` passed with 0 warnings.

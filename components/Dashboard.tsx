@@ -492,30 +492,8 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         </div>
       )}
 
-      {/* Two-column body */}
-      <div className="flex flex-col md:flex-row gap-6">
-
-        {/* LEFT SIDEBAR */}
-        <div className="hidden md:flex md:w-80 flex-col gap-4 shrink-0">
-          {activeLeaderboard.length > 0 && (
-            <LeaderboardWidget
-              data={activeLeaderboard}
-              myEmail={user.email}
-              challengeData={challengeData}
-              onOpenChallenge={() => setShowChallengeModal(true)}
-              showGraduates={showGraduatesLeaderboard}
-              onToggleGraduates={() => setShowGraduatesLeaderboard(prev => !prev)}
-              myPgy={profile?.pgy}
-              onClassClick={(pgy) => setSelectedYoyClass(pgy)}
-            />
-          )}
-        </div>
-
-        {/* RIGHT MAIN */}
-        <div className="flex-1 flex flex-col min-w-0">
-          
-          {/* TOP ROW: 3 Compact Square-Styled Blocks (QOTD, Quiz Builder, Resume Block / Active Jump) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-4">
+      {/* TOP ROW: 3 Compact Square-Styled Blocks (QOTD, Quiz Builder, Resume Block / Active Jump) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             
             {/* Card 1: My Performance & Achievements */}
             <button
@@ -763,6 +741,28 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             )}
           </div>
 
+      {/* Two-column body */}
+      <div className="flex flex-col md:flex-row gap-6">
+
+        {/* LEFT SIDEBAR */}
+        <div className="hidden md:flex md:w-80 flex-col gap-4 shrink-0">
+          {activeLeaderboard.length > 0 && (
+            <LeaderboardWidget
+              data={activeLeaderboard}
+              myEmail={user.email}
+              challengeData={challengeData}
+              onOpenChallenge={() => setShowChallengeModal(true)}
+              showGraduates={showGraduatesLeaderboard}
+              onToggleGraduates={() => setShowGraduatesLeaderboard(prev => !prev)}
+              myPgy={profile?.pgy}
+              onClassClick={(pgy) => setSelectedYoyClass(pgy)}
+            />
+          )}
+        </div>
+
+        {/* RIGHT MAIN */}
+        <div className="flex-1 flex flex-col min-w-0">
+          
           {/* MOBILE ONLY: Standings Button */}
           <div className="mb-4 md:hidden">
             <button
@@ -1384,7 +1384,7 @@ function LeaderboardWidget({
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm transition-colors">
       {/* Tab Switcher Header */}
       <div className="flex items-center justify-between mb-3 gap-1">
-        <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl overflow-x-auto">
+        <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl">
           <button
             onClick={() => setActiveTab('ap')}
             className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer whitespace-nowrap ${
@@ -1419,19 +1419,6 @@ function LeaderboardWidget({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
-          {activeTab === 'ap' && onToggleGraduates && (
-            <button
-              onClick={onToggleGraduates}
-              title={showGraduates ? "Hide alumni/graduates" : "Show alumni/graduates"}
-              className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-colors cursor-pointer ${
-                showGraduates
-                  ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800"
-                  : "text-slate-400 hover:text-slate-600 dark:text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-800"
-              }`}
-            >
-              {showGraduates ? '🎓 Grads On' : '🎓 Grads'}
-            </button>
-          )}
           {activeTab === 'ap' && myRank && (
             <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>
           )}
@@ -1475,8 +1462,21 @@ function LeaderboardWidget({
               </button>
             );
           })}
+          {onToggleGraduates && (
+            <button
+              onClick={onToggleGraduates}
+              className={`w-full mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                showGraduates
+                  ? "text-purple-600 dark:text-purple-400"
+                  : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+              }`}
+            >
+              <span>🎓</span>
+              <span>{showGraduates ? 'Hide Alumni / Graduates' : 'Include Alumni / Graduates'}</span>
+            </button>
+          )}
           {onClassClick && (
-            <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-[9px] text-center text-slate-400 dark:text-slate-500 pt-1">
               Tap any class to view YoY trends
             </p>
           )}
@@ -1513,13 +1513,19 @@ function LeaderboardWidget({
             })}
           </div>
 
-          <button
-            onClick={() => setActiveTab('challenge')}
-            className="w-full mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] font-black text-rose-600 dark:text-rose-400 hover:text-rose-700 flex items-center justify-center gap-1 transition-colors group cursor-pointer"
-          >
-            <Gift className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-            <span>DoorDash Challenge: 3x $50 Prizes</span>
-          </button>
+          {onToggleGraduates && (
+            <button
+              onClick={onToggleGraduates}
+              className={`w-full mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                showGraduates
+                  ? "text-purple-600 dark:text-purple-400"
+                  : "text-slate-400 hover:text-slate-600 dark:text-slate-500"
+              }`}
+            >
+              <span>🎓</span>
+              <span>{showGraduates ? 'Hide Alumni / Graduates' : 'Include Alumni / Graduates'}</span>
+            </button>
+          )}
         </>
       ) : (
         /* $50 Challenge View */
