@@ -55,6 +55,7 @@ export interface LeaderboardEntry {
   totalPoints: number;
   totalQs: number;
   yoyStats?: Record<number, number>;
+  isGraduated?: boolean;
 }
 
 export interface AdminData {

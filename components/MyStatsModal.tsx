@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
 import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save, Check } from './AppIcons';
-import { LeaderboardEntry, Profile, Result, UserBadge, Question, QotdPeerComparisonResponse } from '@/lib/types';
+import { LeaderboardEntry, Profile, Result, UserBadge, Question, QotdPeerComparisonResponse, Block, BlockSchedule } from '@/lib/types';
+import { computeResidentReadiness, ResidentReadiness, ReadinessStatus } from '@/lib/residentRisk';
+import { ShieldCheck, AlertTriangle, AlertCircle, Clock, Info, ArrowRight, BookOpen, CheckCircle } from 'lucide-react';
 import QuizReview from './QuizReview';
 import { exportIncorrectToAnki, exportQuestionsToAnki, downloadCsv } from '@/lib/anki';
 import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
@@ -25,6 +27,8 @@ interface MyStatsModalProps {
   selectedYear: number;
   onYearChange: (year: number) => void;
   attendanceList?: any[];
+  blocks?: Block[];
+  blockSchedule?: BlockSchedule[];
 }
 
 export default function MyStatsModal({
@@ -41,7 +45,11 @@ export default function MyStatsModal({
   selectedYear,
   onYearChange,
   attendanceList = [],
+  blocks = [],
+  blockSchedule = [],
 }: MyStatsModalProps) {
+  const [showReadinessModal, setShowReadinessModal] = useState(false);
+  const [isHoveringStatus, setIsHoveringStatus] = useState(false);
   const [activeTab, setActiveTab] = useState<'stats' | 'weakAreas' | 'pastQuizzes'>('stats');
   const [selectedQuiz, setSelectedQuiz] = useState<Result | null>(null);
   const [reviewItems, setReviewItems] = useState<{ question: Question; selected: number }[] | null>(null);
@@ -72,6 +80,67 @@ export default function MyStatsModal({
 
   // Past Quizzes: the resident's completed blocks/customs (newest first). Excludes
   // QOTD, the demo, and attendance/manual credit records. New quizzes carry a `review_data` snapshot for full review.
+  
+  const readiness: ResidentReadiness = useMemo(() => {
+    return computeResidentReadiness({
+      results: myResults || [],
+      blocks: blocks || [],
+      blockSchedule: blockSchedule || [],
+      academicYear: selectedYear,
+    });
+  }, [myResults, blocks, blockSchedule, selectedYear]);
+
+  const statusConfig = {
+    'Board Ready': {
+      bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+      border: 'border-emerald-200 dark:border-emerald-800',
+      text: 'text-emerald-700 dark:text-emerald-300',
+      badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700',
+      gradient: 'from-emerald-500/15 via-teal-500/10 to-emerald-500/5',
+      icon: ShieldCheck,
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      tagline: 'On Track for Board Passing',
+      summary: `Your curriculum average of ${readiness.curriculumAvg > 0 ? readiness.curriculumAvg.toFixed(1) : '0'}% exceeds the 65% benchmark with 0 overdue blocks. Excellent job!`,
+    },
+    'Needs Attention': {
+      bg: 'bg-amber-50 dark:bg-amber-950/40',
+      border: 'border-amber-200 dark:border-amber-800',
+      text: 'text-amber-800 dark:text-amber-300',
+      badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 border-amber-300 dark:border-amber-700',
+      gradient: 'from-amber-500/15 via-yellow-500/10 to-amber-500/5',
+      icon: AlertTriangle,
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      tagline: 'Action Recommended',
+      summary: readiness.reasons.length > 0 
+        ? `Triggers: ${readiness.reasons.join(' · ')}. Catch up on pending blocks and review weak topics to reach Board Ready status.`
+        : 'Curriculum score is below the 65% target or an overdue block was detected. Reinforcement recommended.',
+    },
+    'At Risk': {
+      bg: 'bg-red-50 dark:bg-red-950/40',
+      border: 'border-red-200 dark:border-red-800',
+      text: 'text-red-700 dark:text-red-300',
+      badge: 'bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200 border-red-300 dark:border-red-700',
+      gradient: 'from-red-500/15 via-rose-500/10 to-red-500/5',
+      icon: AlertCircle,
+      iconColor: 'text-red-600 dark:text-red-400',
+      tagline: 'High Academic / Compliance Risk',
+      summary: readiness.reasons.length > 0
+        ? `Triggers: ${readiness.reasons.join(' · ')}. Please schedule a check-in with your faculty advisor to discuss study strategies.`
+        : 'Multiple performance flags detected. Prioritize completing required blocks and remediation.',
+    },
+    'Evaluating': {
+      bg: 'bg-slate-50 dark:bg-slate-900',
+      border: 'border-slate-200 dark:border-slate-800',
+      text: 'text-slate-700 dark:text-slate-300',
+      badge: 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200 border-slate-300 dark:border-slate-700',
+      gradient: 'from-slate-500/10 via-slate-400/5 to-slate-500/5',
+      icon: Clock,
+      iconColor: 'text-slate-500 dark:text-slate-400',
+      tagline: 'Gathering Initial Block Data',
+      summary: 'Complete at least 3 curriculum blocks to establish your baseline and generate your official Board Readiness status.',
+    },
+  }[readiness.status];
+
   const pastQuizzes = [...(myResults || [])]
     .filter(r => r.topic && !/question of the day|^demo|\[attendance\]|\[manual\]/i.test(r.topic))
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
@@ -98,11 +167,12 @@ export default function MyStatsModal({
   const profileResults = (myResults || []).filter(r => !r.topic?.toLowerCase().includes('demo'));
 
   const totalQs = profileResults.reduce((a, r) => a + (r.total || 0), 0);
-  const myRankIdx = leaderboard.findIndex(l => Boolean(l.email && userEmail && l.email.toLowerCase() === userEmail.toLowerCase()));
+  const activeLeaderboard = leaderboard.filter(l => !l.isGraduated);
+  const myRankIdx = activeLeaderboard.findIndex(l => Boolean(l.email && userEmail && l.email.toLowerCase() === userEmail.toLowerCase()));
   const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
 
   // Class leader: #1 within same PGY class
-  const classmates = profile?.pgy ? leaderboard.filter(l => l.pgy === profile.pgy) : [];
+  const classmates = profile?.pgy ? activeLeaderboard.filter(l => l.pgy === profile.pgy) : [];
   const classLeader = classmates.length > 0 ? classmates[0] : null;
   const isClassLeader = Boolean(classLeader?.email && userEmail && classLeader.email.toLowerCase() === userEmail.toLowerCase());
 
@@ -397,7 +467,36 @@ export default function MyStatsModal({
               <Trophy className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-xl font-black text-slate-800 dark:text-white truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-black text-slate-800 dark:text-white truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
+                <div className="relative inline-block">
+                  <button
+                    onClick={() => setShowReadinessModal(true)}
+                    onMouseEnter={() => setIsHoveringStatus(true)}
+                    onMouseLeave={() => setIsHoveringStatus(false)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border transition-all cursor-pointer hover:scale-105 shadow-sm ${statusConfig.badge}`}
+                    title="Click for Board Readiness & Risk breakdown"
+                  >
+                    <statusConfig.icon className="w-3.5 h-3.5" />
+                    <span>{readiness.status}</span>
+                    <Info className="w-3 h-3 opacity-60 ml-0.5" />
+                  </button>
+                  {isHoveringStatus && (
+                    <div className="hidden sm:block absolute left-0 top-full mt-2 w-72 p-3 bg-slate-900 text-white text-xs rounded-xl shadow-xl z-50 border border-slate-700 animate-fade-in pointer-events-none">
+                      <p className="font-black text-xs flex items-center gap-1.5 mb-1">
+                        <statusConfig.icon className={`w-3.5 h-3.5 ${statusConfig.iconColor}`} />
+                        Status: {readiness.status}
+                      </p>
+                      <p className="text-[11px] text-slate-300 leading-snug">
+                        {statusConfig.summary}
+                      </p>
+                      <p className="text-[10px] text-blue-300 font-bold mt-2">
+                        Click for full status guide & criteria →
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
               <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                 {profile?.pgy || 'No Designation Set'}{profile?.advisor ? ` · Advisor: ${profile.advisor}` : ''}
               </p>
@@ -445,6 +544,71 @@ export default function MyStatsModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {activeTab === 'stats' && (
             <div className="space-y-6 animate-fade-in">
+              {/* Resident Readiness & Academic Status Card */}
+              <div className={`p-4 sm:p-5 rounded-2xl border bg-gradient-to-br ${statusConfig.gradient} ${statusConfig.bg} ${statusConfig.border} shadow-sm transition-all relative overflow-hidden`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${statusConfig.badge} border`}>
+                      <statusConfig.icon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Board Preparation Status</span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase ${statusConfig.badge}`}>
+                          {readiness.status}
+                        </span>
+                      </div>
+                      <h4 className={`text-base font-black mt-0.5 ${statusConfig.text}`}>
+                        {statusConfig.tagline}
+                      </h4>
+                      <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 max-w-xl leading-relaxed">
+                        {statusConfig.summary}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowReadinessModal(true)}
+                    className="self-start sm:self-center px-3.5 py-2 rounded-xl text-xs font-black bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                  >
+                    <Info className="w-3.5 h-3.5 text-blue-500" />
+                    <span>What does this mean?</span>
+                  </button>
+                </div>
+
+                {/* Micro KPI strip for readiness drivers */}
+                <div className="mt-3.5 pt-3 border-t border-slate-200/60 dark:border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Curriculum Avg</span>
+                    <span className={`font-black ${readiness.curriculumAvg >= 65 ? 'text-emerald-600 dark:text-emerald-400' : readiness.curriculumAvg >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {readiness.curriculumAvg > 0 ? `${readiness.curriculumAvg.toFixed(1)}%` : '—'}
+                    </span>
+                    <span className="text-[9px] text-slate-400 block font-medium">Target: ≥65%</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">On-Time Rate</span>
+                    <span className={`font-black ${readiness.onTimePct > 75 ? 'text-emerald-600 dark:text-emerald-400' : readiness.onTimePct > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {readiness.onTimePct.toFixed(0)}%
+                    </span>
+                    <span className="text-[9px] text-slate-400 block font-medium">Target: &gt;75%</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Overdue Blocks</span>
+                    <span className={`font-black ${readiness.overdueCount === 0 ? 'text-emerald-600 dark:text-emerald-400' : readiness.overdueCount === 1 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {readiness.overdueCount} {readiness.overdueCount === 1 ? 'block' : 'blocks'}
+                    </span>
+                    <span className="text-[9px] text-slate-400 block font-medium">Target: 0 overdue</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Recent Trend</span>
+                    <span className={`font-black ${readiness.declining ? 'text-red-600 dark:text-red-400' : (readiness.trendDelta && readiness.trendDelta > 0) ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
+                      {readiness.trendDelta != null ? `${readiness.trendDelta > 0 ? '+' : ''}${readiness.trendDelta.toFixed(0)}%` : 'Stable'}
+                    </span>
+                    <span className="text-[9px] text-slate-400 block font-medium">{readiness.declining ? 'Drop alert (≥10%)' : 'Consistent'}</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Leaned-up Board Prep Snapshot Card */}
               <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-4 sm:p-5 text-white shadow-lg space-y-4">
                 <div className="flex items-center justify-between gap-2">
@@ -994,6 +1158,142 @@ export default function MyStatsModal({
           )}
         </div>
       </div>
+
+      {showReadinessModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-in">
+            {/* Header */}
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2 rounded-xl border ${statusConfig.badge}`}>
+                  <statusConfig.icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-slate-800 dark:text-white">Board Readiness & Status Guide</h3>
+                  <p className="text-xs text-slate-400 font-bold">Understanding your performance classification</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowReadinessModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-5">
+              {/* Current Standing Card */}
+              <div className={`p-4 rounded-2xl border ${statusConfig.bg} ${statusConfig.border}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Your Current Status</span>
+                  <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border uppercase ${statusConfig.badge}`}>
+                    {readiness.status}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-slate-700 dark:text-slate-200 leading-relaxed">
+                  {statusConfig.summary}
+                </p>
+                {readiness.overdueBlocks.length > 0 && (
+                  <div className="mt-3 p-2.5 bg-red-100/70 dark:bg-red-950/50 rounded-xl border border-red-200 dark:border-red-900/50 text-xs text-red-800 dark:text-red-300 space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5" /> Overdue Blocks ({readiness.overdueBlocks.length}):
+                    </p>
+                    <ul className="list-disc list-inside text-[11px] pl-1 space-y-0.5">
+                      {readiness.overdueBlocks.map((b, idx) => (
+                        <li key={idx}><span className="font-semibold">{b.title}</span> (Due: {b.endDate})</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Status Tiers Breakdown */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Status Definitions & Criteria</h4>
+                
+                {/* Tier 1: Board Ready */}
+                <div className="p-3.5 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/60 bg-emerald-50/40 dark:bg-emerald-950/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" /> Board Ready
+                    </span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Passing Trajectory</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <strong>Criteria:</strong> Curriculum quiz score ≥ 65% (target ≥ 70%), on-time completion &gt; 75%, and 0 overdue blocks.
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Indicates strong knowledge retention and passing likelihood on the ABFM ITE and Board certification exams.
+                  </p>
+                </div>
+
+                {/* Tier 2: Needs Attention */}
+                <div className="p-3.5 rounded-2xl border border-amber-200/80 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3" /> Needs Attention
+                    </span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Action Recommended</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <strong>Criteria:</strong> Curriculum score between 50%–65%, on-time rate ≤ 75%, 1 overdue block, or scores dropping by ≥ 10%.
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    An early warning to prevent slipping below board standards. Completing overdue quizzes and reviewing weak categories will restore Board Ready status.
+                  </p>
+                </div>
+
+                {/* Tier 3: At Risk */}
+                <div className="p-3.5 rounded-2xl border border-red-200/80 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-red-100 text-red-800 dark:bg-red-900/80 dark:text-red-200 border border-red-300 dark:border-red-700 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> At Risk
+                    </span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Academic Intervention</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <strong>Criteria:</strong> Curriculum score ≤ 50%, on-time rate ≤ 50%, or 2+ overdue blocks.
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Indicates significant risk for board exam underperformance. Requires direct coordination with your faculty advisor for remediation.
+                  </p>
+                </div>
+
+                {/* Tier 4: Evaluating */}
+                <div className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700 flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Evaluating
+                    </span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Preliminary Phase</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <strong>Criteria:</strong> Fewer than 3 blocks completed. Baseline performance is still being calculated.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action steps */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
+                <button
+                  onClick={() => { setShowReadinessModal(false); setActiveTab('weakAreas'); }}
+                  className="flex-1 py-2.5 px-3 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs rounded-xl transition-colors text-center cursor-pointer"
+                >
+                  Review Weak Areas →
+                </button>
+                <button
+                  onClick={() => setShowReadinessModal(false)}
+                  className="py-2.5 px-5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Got It
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

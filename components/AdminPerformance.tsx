@@ -7,7 +7,7 @@ import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, isFacultyRow, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
-import { Flame, Sparkles, HelpCircle, Eye, ArrowUpDown, ArrowUp, ArrowDown, Gift } from 'lucide-react';
+import { Flame, Sparkles, HelpCircle, Eye, ArrowUpDown, ArrowUp, ArrowDown, Gift , Pencil, Trash2 } from 'lucide-react';
 import QuestionHeatmap from './QuestionHeatmap';
 import AdviseeDossierModal from './AdviseeDossierModal';
 import RiskLegend from './RiskLegend';
@@ -84,7 +84,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
     !userIsAdmin && userIsFaculty && facultyName ? 'my_advisees' : 'overview'
   );
 
-  const { data: adminData, loading, error } = useAdminData();
+  const { data: adminData, loading, error, refetch } = useAdminData();
   const { roster, profiles, results: allResults, blocks, block_schedule } = adminData || { roster: [], profiles: [], results: [], blocks: [], block_schedule: [] };
 
   const [selectedResident, setSelectedResident] = useState<ResidentStat | null>(null);
@@ -98,6 +98,10 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
   const [adjustPointsValue, setAdjustPointsValue] = useState<number>(1);
   const [adjustPointsReason, setAdjustPointsReason] = useState('Noon Conference');
   const [isSubmittingPoints, setIsSubmittingPoints] = useState(false);
+  const [editingResultId, setEditingResultId] = useState<string | null>(null);
+  const [editingPointsValue, setEditingPointsValue] = useState<number>(1);
+  const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
+  const [deletingResultId, setDeletingResultId] = useState<string | null>(null);
 
   const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
   const [reviewItems, setReviewItems] = useState<any[] | null>(null);
@@ -248,6 +252,90 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
       alert('Error adding points');
     } finally {
       setIsSubmittingPoints(false);
+    }
+  };
+  const handleEditPoints = async (resultId: string) => {
+    try {
+      setIsSavingEdit(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/admin/points', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({
+          resultId,
+          points: editingPointsValue
+        })
+      });
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to update points');
+        return;
+      }
+
+      setEditingResultId(null);
+      if (refetch) await refetch();
+      if (selectedResident) {
+        setSelectedResident(prev => {
+          if (!prev) return null;
+          const updatedResults = prev.results.map(r => r.id === resultId ? { ...r, academic_points: editingPointsValue } : r);
+          return {
+            ...prev,
+            results: updatedResults,
+            totalPoints: updatedResults.reduce((acc, curr) => acc + (curr.academic_points || 0), 0)
+          };
+        });
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert('Error updating points: ' + (e?.message || 'Unknown error'));
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDeletePoints = async (resultId: string) => {
+    if (!confirm('Are you sure you want to delete this points/attendance entry? This cannot be undone.')) {
+      return;
+    }
+    try {
+      setDeletingResultId(resultId);
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/admin/points', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({ resultId })
+      });
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || 'Failed to delete entry');
+        return;
+      }
+
+      if (refetch) await refetch();
+      if (selectedResident) {
+        setSelectedResident(prev => {
+          if (!prev) return null;
+          const updatedResults = prev.results.filter(r => r.id !== resultId);
+          return {
+            ...prev,
+            results: updatedResults,
+            totalPoints: updatedResults.reduce((acc, curr) => acc + (curr.academic_points || 0), 0)
+          };
+        });
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert('Error deleting entry: ' + (e?.message || 'Unknown error'));
+    } finally {
+      setDeletingResultId(null);
     }
   };
 
@@ -1706,10 +1794,56 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                                       })()} · {r.topic?.includes('[Manual]') ? '✨ Manual Credit' : r.topic?.toLowerCase().includes('advisor meeting') ? '🗣️ Advisor Meeting' : 'Noon Conference Attendance'}
                                     </p>
                                   </div>
-                                  <div className="flex items-center gap-3 shrink-0">
-                                    <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center" title="Attendance/Manual Credit">
-                                      <Check className="w-4 h-4 mr-1" /> {pts} pt{pts !== 1 ? 's' : ''}
-                                    </span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {editingResultId === r.id ? (
+                                      <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 p-1 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+                                        <input
+                                          type="number"
+                                          value={editingPointsValue}
+                                          onChange={e => setEditingPointsValue(Number(e.target.value))}
+                                          className="w-16 px-2 py-1 text-xs font-black rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white outline-none"
+                                          min="0"
+                                        />
+                                        <button
+                                          disabled={isSavingEdit}
+                                          onClick={() => handleEditPoints(r.id)}
+                                          className="px-2.5 py-1 text-xs font-black bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                        >
+                                          {isSavingEdit ? '...' : 'Save'}
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingResultId(null)}
+                                          className="px-2 py-1 text-xs font-bold text-slate-400 hover:text-slate-600 rounded-lg"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <span className="text-sm font-black px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center" title="Attendance/Manual Credit">
+                                          <Check className="w-4 h-4 mr-1" /> {pts} pt{pts !== 1 ? 's' : ''}
+                                        </span>
+                                        {userIsAdmin && (
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              onClick={() => { setEditingResultId(r.id); setEditingPointsValue(pts); }}
+                                              title="Edit points"
+                                              className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                                            >
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              disabled={deletingResultId === r.id}
+                                              onClick={() => handleDeletePoints(r.id)}
+                                              title="Delete attendance / points entry"
+                                              className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
                                   </div>
                                 </div>
                               );

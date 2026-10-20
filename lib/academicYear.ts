@@ -115,7 +115,8 @@ export function isFacultyRow(row: RosterRow): boolean {
 }
 
 /** True if this row is an active FM resident — the cohort that takes ITE blocks. */
-export function isActiveResident(row: RosterRow): boolean {
+export function isActiveResident(row: RosterRow, academicYear: number = getCurrentAcademicYear()): boolean {
+  if (isGraduated(row, academicYear)) return false;
   if ((row.status ?? 'active') !== 'active') return false;
   if (isFacultyRow(row)) return false;
   if (row.track) return row.track === 'family_medicine';
@@ -125,8 +126,13 @@ export function isActiveResident(row: RosterRow): boolean {
 }
 
 /** True if the row should be hidden from default dashboards (graduated). */
-export function isGraduated(row: RosterRow): boolean {
-  return row.status === 'graduated';
+export function isGraduated(row: RosterRow, academicYear: number = getCurrentAcademicYear()): boolean {
+  if (row.status === 'graduated') return true;
+  if (row.pgy && row.pgy.toLowerCase().includes('graduat')) return true;
+  if (row.track === 'family_medicine' && row.cohort_year != null) {
+    return derivePGY(row.cohort_year, academicYear) > 3;
+  }
+  return false;
 }
 
 /**

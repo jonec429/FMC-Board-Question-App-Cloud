@@ -22,6 +22,7 @@ import ForcePasswordChangeModal from './ForcePasswordChangeModal';
 import { Gift } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
+import { computeResidentReadiness } from '@/lib/residentRisk';
 import { User, Profile, Block, Result, Question, QuizSession, AssignedQuiz, ChallengeStandingsResponse, ChallengeResidentStanding } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
@@ -62,6 +63,7 @@ export interface LeaderboardEntry {
   totalPoints: number;
   totalQs: number;
   yoyStats?: Record<number, number>;
+  isGraduated?: boolean;
 }
 
 export default function Dashboard({ user, profile, isActive = true, currentBlock, onOpenAdmin, onLogout, onStartQuiz, onOpenBuilder, onProfileUpdate }: DashboardProps) {
@@ -124,12 +126,12 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   }, []);
 
   const blocks = data?.blocks || [];
-  const myResults = data?.myResults || [];
+  const myResults = useMemo(() => data?.myResults || [], [data?.myResults]);
   const activeSessions = data?.activeSessions || [];
   const mostRecentSession = activeSessions.length > 0 ? activeSessions[0] : null;
 
   const getSessionForBlock = (topic: string) => activeSessions.find((s: QuizSession) => s.topic === topic);
-  const leaderboard = data?.leaderboard || [];
+  const leaderboard = useMemo(() => data?.leaderboard || [], [data?.leaderboard]);
   const hasTakenDemo = data?.hasTakenDemo || false;
   const qotdQuestion = data?.qotdQuestion || null;
   const qotdAttempt = data?.qotdAttempt || null;
@@ -143,6 +145,22 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const [showQotdHistoryModal, setShowQotdHistoryModal] = useState(false);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [leaderboardModalTab, setLeaderboardModalTab] = useState<'ap' | 'challenge'>('ap');
+  const [showGraduatesLeaderboard, setShowGraduatesLeaderboard] = useState(false);
+  const residentReadiness = useMemo(() => {
+    if (!data?.blocks || !data?.blockSchedule || !myResults) return null;
+    return computeResidentReadiness({
+      results: myResults,
+      blocks: data.blocks,
+      blockSchedule: data.blockSchedule,
+      academicYear: selectedYear,
+    });
+  }, [data?.blocks, data?.blockSchedule, myResults, selectedYear]);
+
+
+  const activeLeaderboard = useMemo(() => {
+    if (showGraduatesLeaderboard) return leaderboard;
+    return leaderboard.filter(d => !d.isGraduated);
+  }, [leaderboard, showGraduatesLeaderboard]);
   const [challengeData, setChallengeData] = useState<ChallengeStandingsResponse | null>(null);
   const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -302,7 +320,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     ? gradedQuizzes.reduce((a, r) => a + (r.percentage || 0), 0) / gradedQuizzes.length
     : null;
 
-  const myRankIdx = leaderboard.findIndex(d => Boolean(d.email && user.email && d.email.toLowerCase() === user.email.toLowerCase()));
+  const myRankIdx = activeLeaderboard.findIndex(d => Boolean(d.email && user.email && d.email.toLowerCase() === user.email.toLowerCase()));
   const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
 
   // Advisor Meeting logic
@@ -495,8 +513,23 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             <div className="p-3 bg-white/60 dark:bg-white/10 rounded-2xl group-hover:scale-110 transition-transform">
               <Trophy className="w-6 h-6 text-yellow-500" />
             </div>
-            <div className="text-left">
-              <p className="font-bold text-base">My Performance</p>
+            <div className="text-left flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <p className="font-bold text-base">My Performance</p>
+                {residentReadiness && (
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 border ${
+                    residentReadiness.status === 'Board Ready'
+                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                      : residentReadiness.status === 'Needs Attention'
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                      : residentReadiness.status === 'At Risk'
+                      ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-red-300 dark:border-red-700'
+                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                  }`}>
+                    {residentReadiness.status}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-yellow-600 dark:text-yellow-400">Stats, badges &amp; history</p>
             </div>
           </button>
@@ -559,15 +592,17 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             )}
           </div>
 
-          {leaderboard.length > 0 && (
+          {activeLeaderboard.length > 0 && (
             <div className="space-y-4">
               <LeaderboardWidget
-                data={leaderboard}
+                data={activeLeaderboard}
                 myEmail={user.email}
                 challengeData={challengeData}
                 onOpenChallenge={() => setShowChallengeModal(true)}
+                showGraduates={showGraduatesLeaderboard}
+                onToggleGraduates={() => setShowGraduatesLeaderboard(prev => !prev)}
               />
-              <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => setSelectedYoyClass(pgy)} />
+              <ClassLeaderboardWidget data={activeLeaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => setSelectedYoyClass(pgy)} />
             </div>
           )}
         </div>
@@ -785,7 +820,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                 Performance
               </span>
               <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 truncate w-full">
-                {totalPoints} AP{myRank ? ` · #${myRank}` : ''}
+                {residentReadiness ? residentReadiness.status : `${totalPoints} AP${myRank ? ` · #${myRank}` : ''}`}
               </span>
             </button>
 
@@ -1069,6 +1104,8 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           selectedYear={selectedYear}
           onYearChange={(year: number) => setSelectedYear(year)}
           attendanceList={data?.attendance || []}
+          blocks={data?.blocks || []}
+          blockSchedule={data?.blockSchedule || []}
         />
       )}
 
@@ -1183,15 +1220,17 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     </div>
                   )}
 
-                  {leaderboard.length > 0 ? (
+                  {activeLeaderboard.length > 0 ? (
                     <>
                       <LeaderboardWidget
-                        data={leaderboard}
+                        data={activeLeaderboard}
                         myEmail={user.email}
                         challengeData={challengeData}
                         onOpenChallenge={() => { setShowLeaderboardModal(false); setShowChallengeModal(true); }}
+                        showGraduates={showGraduatesLeaderboard}
+                        onToggleGraduates={() => setShowGraduatesLeaderboard(prev => !prev)}
                       />
-                      <ClassLeaderboardWidget data={leaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => {
+                      <ClassLeaderboardWidget data={activeLeaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => {
                         setShowLeaderboardModal(false);
                         setSelectedYoyClass(pgy);
                       }} />
@@ -1369,12 +1408,16 @@ function LeaderboardWidget({
   data,
   myEmail,
   challengeData,
-  onOpenChallenge
+  onOpenChallenge,
+  showGraduates,
+  onToggleGraduates
 }: {
   data: LeaderboardEntry[];
   myEmail: string;
   challengeData?: ChallengeStandingsResponse | null;
   onOpenChallenge?: () => void;
+  showGraduates?: boolean;
+  onToggleGraduates?: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<'ap' | 'challenge'>('ap');
   const top = data.slice(0, 5);
@@ -1414,9 +1457,24 @@ function LeaderboardWidget({
           </button>
         </div>
 
+        <div className="flex items-center gap-1.5">
+          {onToggleGraduates && (
+            <button
+              onClick={onToggleGraduates}
+              title={showGraduates ? "Hide alumni/graduates" : "Show alumni/graduates"}
+              className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-colors cursor-pointer ${
+                showGraduates
+                  ? "bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800"
+                  : "text-slate-400 hover:text-slate-600 dark:text-slate-500 border-transparent hover:bg-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              {showGraduates ? '🎓 Grads On' : '🎓 Grads'}
+            </button>
+          )}
         {activeTab === 'ap' && myRank && (
           <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>
         )}
+        </div>
         {activeTab === 'challenge' && myChallengeStanding && (
           <span className={`text-[10px] font-black ${myChallengeStanding.isEligible ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
             {myChallengeStanding.isEligible ? 'Eligible ✅' : `${myChallengeStanding.completedBlocksCount}/${myChallengeStanding.totalRequiredBlocks} Blks`}
@@ -1441,7 +1499,7 @@ function LeaderboardWidget({
                     </span>
                     <div className="min-w-0">
                       <p className={`text-xs font-bold truncate ${isMe ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'}`}>
-                        {formatDisplayName(r.name)}
+                        {formatDisplayName(r.name)}{r.isGraduated ? ' 🎓' : ''}
                       </p>
                       <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
                         {r.pgy.replace('Class of ', "'")}

@@ -5,10 +5,11 @@ import { supabase } from '@/lib/supabase';
 import { Users, Clipboard, Check, AlertTriangle, Save, Loader2, Database, PlusCircle, Calendar, FileText, Search } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
 import Papa from 'papaparse';
-import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel } from '@/lib/academicYear';
+import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isGraduated } from '@/lib/academicYear';
+import { Pencil, Trash2, History } from 'lucide-react';
 
 export default function AttendanceManager() {
-  const [activeTab, setActiveTab] = useState<'bulk' | 'manual'>('bulk');
+  const [activeTab, setActiveTab] = useState<'bulk' | 'manual' | 'history'>('bulk');
   const [pasteContent, setPasteContent] = useState('');
   const [parsedData, setParsedData] = useState<{
     raw: string;
@@ -20,7 +21,7 @@ export default function AttendanceManager() {
   }[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [roster, setRoster] = useState<{ email: string; full_name: string; class_label: string; matched_label: string }[]>([]);
+  const [roster, setRoster] = useState<{ email: string; full_name: string; class_label: string; matched_label: string; track?: string; status?: string }[]>([]);
   const [blocks, setBlocks] = useState<import('@/lib/types').Block[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentAcademicYear());
   const [selectedBlockId, setSelectedBlockId] = useState<string>('');
@@ -33,6 +34,15 @@ export default function AttendanceManager() {
   const [manualDescription, setManualDescription] = useState<string>('');
   const [manualSaving, setManualSaving] = useState(false);
   const [manualSuccessMsg, setManualSuccessMsg] = useState<string | null>(null);
+  const [showGraduates, setShowGraduates] = useState(false);
+
+  // History & Point Editor state
+  const [historyRecords, setHistoryRecords] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyEditingId, setHistoryEditingId] = useState<string | null>(null);
+  const [historyEditingPoints, setHistoryEditingPoints] = useState<number>(1);
+  const [historySaving, setHistorySaving] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -428,6 +438,81 @@ export default function AttendanceManager() {
     }
   };
 
+  const fetchAttendanceHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+      setHistoryRecords(data || []);
+    } catch (e) {
+      console.error('Error fetching attendance history:', e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchAttendanceHistory();
+    }
+  }, [activeTab]);
+
+  const handleEditHistoryPoints = async (id: string) => {
+    setHistorySaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/admin/points', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({ attendanceId: id, points: historyEditingPoints })
+      });
+      if (res.ok) {
+        setHistoryRecords(prev => prev.map(a => a.id === id ? { ...a, points: historyEditingPoints } : a));
+        setHistoryEditingId(null);
+      } else {
+        const err = await res.json();
+        alert('Failed to update points: ' + (err.error || 'Unknown error'));
+      }
+    } catch (e: any) {
+      alert('Error updating points: ' + e.message);
+    } finally {
+      setHistorySaving(false);
+    }
+  };
+
+  const handleDeleteHistory = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this attendance record? This will remove the points as well.')) {
+      return;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/admin/points', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
+        },
+        body: JSON.stringify({ attendanceId: id })
+      });
+      if (res.ok) {
+        setHistoryRecords(prev => prev.filter(a => a.id !== id));
+      } else {
+        const err = await res.json();
+        alert('Failed to delete attendance: ' + (err.error || 'Unknown error'));
+      }
+    } catch (e: any) {
+      alert('Error deleting attendance: ' + e.message);
+    }
+  };
+
   const handleManualSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setManualSuccessMsg(null);
@@ -663,7 +748,7 @@ export default function AttendanceManager() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'manual' ? (
         /* Manual Point Award Form */
         <div className="max-w-3xl mx-auto bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
@@ -883,6 +968,167 @@ export default function AttendanceManager() {
                 : 'Select Residents to Award Points'}
             </button>
           </form>
+        </div>
+      ) : (
+        /* History & Point Editor Tab */
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h3 className="text-xl font-black text-slate-800 dark:text-white flex items-center gap-2">
+                <History className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                Attendance Log & Point Editor
+              </h3>
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1">
+                View, adjust points, or remove individual attendance records
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter by name, topic, date..."
+                  value={historySearch}
+                  onChange={e => setHistorySearch(e.target.value)}
+                  className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white outline-none w-64"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowGraduates(!showGraduates)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  showGraduates
+                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                🎓 {showGraduates ? 'Hide Graduates' : 'Show Graduates'}
+              </button>
+
+              <button
+                type="button"
+                onClick={fetchAttendanceHistory}
+                disabled={loadingHistory}
+                className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              >
+                {loadingHistory ? <Loader2 className="w-4 h-4 animate-spin" /> : '↻ Refresh'}
+              </button>
+            </div>
+          </div>
+
+          {loadingHistory ? (
+            <div className="py-20 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
+              <p className="text-xs font-bold uppercase tracking-wider">Loading attendance records...</p>
+            </div>
+          ) : (() => {
+            const gradEmails = new Set(
+              roster.filter(r => r.status === 'graduated' || (r.class_label && r.class_label.toLowerCase().includes('graduat'))).map(r => r.email?.toLowerCase()).filter(Boolean)
+            );
+
+            const filtered = historyRecords.filter(a => {
+              if (!showGraduates && a.resident_email && gradEmails.has(a.resident_email.toLowerCase())) {
+                return false;
+              }
+              if (!historySearch.trim()) return true;
+              const q = historySearch.toLowerCase();
+              return (
+                (a.resident_name && a.resident_name.toLowerCase().includes(q)) ||
+                (a.resident_email && a.resident_email.toLowerCase().includes(q)) ||
+                (a.topic && a.topic.toLowerCase().includes(q)) ||
+                (a.date && a.date.includes(q))
+              );
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="py-16 text-center text-slate-400 dark:text-slate-500 font-bold text-sm bg-slate-50 dark:bg-slate-800/40 rounded-2xl">
+                  No attendance records found matching filters.
+                </div>
+              );
+            }
+
+            return (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[600px] overflow-y-auto">
+                {filtered.map((att: any) => {
+                  const isGrad = att.resident_email && gradEmails.has(att.resident_email.toLowerCase());
+                  const pts = att.points ?? 1;
+
+                  return (
+                    <div key={att.id} className="py-3.5 px-2 flex items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-slate-800 dark:text-white truncate">
+                            {att.resident_name || att.resident_email}
+                          </span>
+                          {isGrad && (
+                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300">
+                              Graduated
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+                            · {att.date || 'No Date'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          {att.topic}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {historyEditingId === att.id ? (
+                          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+                            <input
+                              type="number"
+                              min="0"
+                              value={historyEditingPoints}
+                              onChange={e => setHistoryEditingPoints(Number(e.target.value))}
+                              className="w-16 px-2 py-1 text-xs font-black rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-800 dark:text-white outline-none"
+                            />
+                            <button
+                              disabled={historySaving}
+                              onClick={() => handleEditHistoryPoints(att.id)}
+                              className="px-2.5 py-1 text-xs font-black bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {historySaving ? '...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => setHistoryEditingId(null)}
+                              className="px-2 py-1 text-xs font-bold text-slate-400 hover:text-slate-600"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-xs font-black px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                              {pts} pt{pts !== 1 ? 's' : ''}
+                            </span>
+                            <button
+                              onClick={() => { setHistoryEditingId(att.id); setHistoryEditingPoints(pts); }}
+                              title="Edit Points"
+                              className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteHistory(att.id)}
+                              title="Delete Record"
+                              className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

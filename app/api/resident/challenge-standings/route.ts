@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getCurrentAcademicYear, deriveLabel } from '@/lib/academicYear';
+import { getCurrentAcademicYear, deriveLabel, isGraduated } from '@/lib/academicYear';
 import { computeMaxQotdStreak } from '@/lib/streaks';
 import { getTodayDateString } from '@/lib/qotd';
 import { ChallengeResidentStanding, ChallengeStandingsResponse } from '@/lib/types';
@@ -49,6 +49,8 @@ export async function GET(request: Request) {
     const requiredBlockTitles = requiredBlocks.map((b) => b.title);
     const totalRequiredBlocks = requiredBlocks.length;
 
+    const showGraduatesParam = searchParams.get('showGraduates') === 'true';
+
     // 2. Fetch active roster (excluding faculty)
     const { data: rosterData, error: rosterErr } = await supabaseAdmin
       .from('authorized_roster')
@@ -56,7 +58,11 @@ export async function GET(request: Request) {
       .neq('pgy', 'Faculty');
 
     if (rosterErr) throw rosterErr;
-    const activeRoster = (rosterData || []).filter((r) => r.status !== 'archived' && r.status !== 'inactive');
+    const activeRoster = (rosterData || []).filter((r) => 
+      r.status !== 'archived' && 
+      r.status !== 'inactive' &&
+      (showGraduatesParam || !isGraduated(r, academicYear))
+    );
 
     // 3. Fetch user profiles
     const { data: profilesData } = await supabaseAdmin
@@ -70,13 +76,33 @@ export async function GET(request: Request) {
       if (p.id) profileByUserId.set(p.id, p);
     });
 
-    // 4. Fetch results for this academic year
-    const { data: resultsData, error: resultsErr } = await supabaseAdmin
-      .from('results')
-      .select('user_id, legacy_email, topic, academic_points, timing_status, score, total, percentage, created_at')
-      .eq('academic_year', academicYear);
+    // 4. Fetch results for this academic year (paginated to overcome PostgREST 1000 limit)
+    const resultsData: Array<{
+      user_id: string | null;
+      legacy_email: string | null;
+      topic: string | null;
+      academic_points: number | null;
+      timing_status: string | null;
+      score: number | null;
+      total: number | null;
+      percentage: number | null;
+      created_at: string | null;
+    }> = [];
+    let resPage = 0;
+    const resPageSize = 1000;
+    while (true) {
+      const { data: pageData, error: pageErr } = await supabaseAdmin
+        .from('results')
+        .select('user_id, legacy_email, topic, academic_points, timing_status, score, total, percentage, created_at')
+        .eq('academic_year', academicYear)
+        .range(resPage * resPageSize, (resPage + 1) * resPageSize - 1);
 
-    if (resultsErr) throw resultsErr;
+      if (pageErr) throw pageErr;
+      if (!pageData || pageData.length === 0) break;
+      resultsData.push(...pageData);
+      if (pageData.length < resPageSize) break;
+      resPage++;
+    }
 
     // 5. Fetch user streaks
     const { data: streaksData } = await supabaseAdmin

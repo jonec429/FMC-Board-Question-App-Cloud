@@ -1,4 +1,5 @@
-import { Block, BlockSchedule } from '@/lib/types';
+import { Block, BlockSchedule, Result } from '@/lib/types';
+import { getCurrentAcademicYear } from '@/lib/academicYear';
 /**
  * Shared Resident Risk logic — used by AdminPerformance (dashboard) and
  * AdminReporting (CSV/PDF) so the two never disagree.
@@ -139,4 +140,113 @@ export function computeTrend(scoresChrono: number[]): { delta: number | null; de
   return { delta, declining: delta <= -10 };
 }
 
+export type ReadinessStatus = 'Board Ready' | 'Needs Attention' | 'At Risk' | 'Evaluating';
 
+export interface ResidentReadiness {
+  status: ReadinessStatus;
+  academicRisk: RiskLevel;
+  complianceRisk: RiskLevel;
+  curriculumAvg: number;
+  onTimePct: number;
+  blocksCompleted: number;
+  overdueBlocks: DueBlock[];
+  overdueCount: number;
+  trendDelta: number | null;
+  declining: boolean;
+  reasons: string[];
+}
+
+export function computeResidentReadiness({
+  results,
+  blocks,
+  blockSchedule,
+  academicYear,
+}: {
+  results: Result[];
+  blocks: Block[];
+  blockSchedule: BlockSchedule[];
+  academicYear: number;
+}): ResidentReadiness {
+  const targetYear = academicYear === 0 ? getCurrentAcademicYear() : academicYear;
+  const dueBlocks = getDueBlocks(blocks || [], blockSchedule || [], targetYear);
+
+  const blockResults = (results || []).filter(
+    (r) => !r.topic?.includes('[Attendance]') && !r.topic?.includes('[Manual]') && !r.topic?.toLowerCase().includes('demo')
+  );
+
+  const assignedResults = blockResults.filter(
+    (r) => (r.academic_points || 0) > 0 || r.timing_status != null
+  );
+
+  const topicBestPts = new Map<string, number>();
+  (results || [])
+    .filter((r) => (r.academic_points || 0) > 0 || r.timing_status != null)
+    .forEach((r) => {
+      if (r.topic && !r.topic.includes('[Attendance]') && !r.topic.includes('[Manual]')) {
+        const pts = r.academic_points || 0;
+        const cur = topicBestPts.get(r.topic) || 0;
+        if (pts > cur) topicBestPts.set(r.topic, pts);
+      }
+    });
+
+  const completedTitles = new Set(Array.from(topicBestPts.keys()));
+  const overdueBlocks = getOverdueBlocks(dueBlocks, completedTitles);
+  const overdueCount = overdueBlocks.length;
+
+  const blocksCompleted = topicBestPts.size;
+  const nonBonusBlocks = Array.from(topicBestPts.entries()).filter(
+    ([topic]) => !topic?.toLowerCase().includes('bonus')
+  );
+  const onTimeBlocks = nonBonusBlocks.filter(([, pts]) => pts >= 2);
+  const totalExpected = nonBonusBlocks.length + overdueCount;
+  const onTimePct = totalExpected > 0 ? (onTimeBlocks.length / totalExpected) * 100 : 100;
+
+  const curriculumQuizzes = assignedResults.filter(
+    (r) => typeof r.percentage === 'number'
+  );
+  const curriculumAvg = curriculumQuizzes.length > 0
+    ? curriculumQuizzes.reduce((a, r) => a + (r.percentage || 0), 0) / curriculumQuizzes.length
+    : 0;
+
+  const scoresChrono = [...curriculumQuizzes]
+    .sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())
+    .map((r) => r.percentage as number);
+  const { delta: trendDelta, declining } = computeTrend(scoresChrono);
+
+  const academicRisk = getRiskLevel(curriculumAvg, assignedResults.length);
+  const complianceRisk = getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
+
+  const reasons = getRiskReasons({
+    curriculumAvg,
+    curriculumAttempts: assignedResults.length,
+    onTimePct,
+    blocksCompleted,
+    overdueCount,
+    trendDelta,
+  });
+
+  let status: ReadinessStatus = 'Evaluating';
+  if (assignedResults.length < 3 && blocksCompleted + overdueCount < 3) {
+    status = 'Evaluating';
+  } else if (academicRisk === 'red' || complianceRisk === 'red') {
+    status = 'At Risk';
+  } else if (academicRisk === 'yellow' || complianceRisk === 'yellow' || declining || curriculumAvg < 65) {
+    status = 'Needs Attention';
+  } else {
+    status = 'Board Ready';
+  }
+
+  return {
+    status,
+    academicRisk,
+    complianceRisk,
+    curriculumAvg,
+    onTimePct,
+    blocksCompleted,
+    overdueBlocks,
+    overdueCount,
+    trendDelta,
+    declining,
+    reasons,
+  };
+}

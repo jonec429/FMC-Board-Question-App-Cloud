@@ -2,19 +2,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { getQotdQuestion, getTodayDateString } from '@/lib/qotd';
 import { computeQotdStreak } from '@/lib/streaks';
-import { Block, Result, Question } from '@/lib/types';
-
-interface LeaderboardEntry {
-  email: string;
-  name: string;
-  pgy: string;
-  totalPoints: number;
-  totalQs: number;
-  yoyStats?: Record<number, number>;
-}
+import { Block, Result, Question, LeaderboardEntry, BlockSchedule } from '@/lib/types';
+import { isGraduated, getCurrentAcademicYear } from '@/lib/academicYear';
 
 interface DashboardData {
   blocks: Block[];
+  blockSchedule: BlockSchedule[];
   myResults: Result[];
   activeSessions: any[];
   leaderboard: LeaderboardEntry[];
@@ -50,7 +43,8 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         { data: streakData, error: streakErr },
         { data: badgesData, error: badgesErr },
         { data: assignedQuizzesData, error: assignedQuizzesErr },
-        qotd
+        qotd,
+        { data: scheduleData }
       ] = (await Promise.all([
         selectedYear === 0 
           ? supabase.from('blocks').select('*').eq('is_archived', false).abortSignal(signal)
@@ -68,7 +62,8 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         getQotdQuestion(signal).catch(e => {
           console.warn('QOTD fetch failed:', e);
           return null;
-        })
+        }),
+        supabase.from('block_schedule').select('*').abortSignal(signal)
       ])) as any[];
 
       const err1 = blockErr || sessionErr || streakErr || badgesErr;
@@ -115,7 +110,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           .limit(1)
           .abortSignal(signal),
         supabase.rpc('get_leaderboard_stats', { p_academic_year: selectedYear }).abortSignal(signal),
-        supabase.from('authorized_roster').select('name, email, pgy').neq('pgy', 'Faculty').abortSignal(signal),
+        supabase.from('authorized_roster').select('name, email, pgy, cohort_year, status, track, graduated_year, pgy_override').neq('pgy', 'Faculty').abortSignal(signal),
         qotd 
           ? supabase
               .from('question_attempts')
@@ -179,9 +174,15 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
       // Process leaderboard
       let leaderboard: LeaderboardEntry[] = [];
       if (allResults && rosterData) {
-        const rosterByEmail = new Map<string, { name: string; pgy: string }>();
+        const rosterByEmail = new Map<string, { name: string; pgy: string; isGraduated: boolean }>();
         rosterData.forEach((r: any) => {
-          if (r.email) rosterByEmail.set(r.email.toLowerCase(), { name: r.name, pgy: r.pgy });
+          if (r.email) {
+            rosterByEmail.set(r.email.toLowerCase(), {
+              name: r.name,
+              pgy: r.pgy,
+              isGraduated: isGraduated(r, selectedYear || getCurrentAcademicYear())
+            });
+          }
         });
 
         const aggregatedByEmail = new Map<string, { totalPoints: number; totalQs: number }>();
@@ -194,7 +195,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           });
         });
 
-        rosterByEmail.forEach(({ name, pgy }, email) => {
+        rosterByEmail.forEach(({ name, pgy, isGraduated: isGrad }, email) => {
           const entry = aggregatedByEmail.get(email);
           const totalPoints = entry ? entry.totalPoints : 0;
           const totalQs = entry ? entry.totalQs : 0;
@@ -212,7 +213,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
             }
           });
 
-          leaderboard.push({ email, name, pgy, totalPoints, totalQs, yoyStats });
+          leaderboard.push({ email, name, pgy, totalPoints, totalQs, yoyStats, isGraduated: isGrad });
         });
         leaderboard.sort((a, b) => b.totalPoints - a.totalPoints);
       }
@@ -236,6 +237,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
 
       return {
         blocks: sortedBlocks,
+        blockSchedule: scheduleData || [],
         myResults,
         activeSessions: sessionData || [],
         leaderboard,
