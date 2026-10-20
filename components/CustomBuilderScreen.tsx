@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Sliders, Shuffle, XCircle, CheckCircle, Database, Loader2, AlertTriangle, Clock } from './AppIcons';
+import { Sliders, Shuffle, XCircle, CheckCircle, Database, Loader2, AlertTriangle, Clock, Flag } from './AppIcons';
 import {
   RECENT_ITE_YEAR_WINDOW,
   LEGACY_WARNING_TITLE,
@@ -13,7 +13,7 @@ import { User, Question, QuestionAttempt } from '@/lib/types';
 
 interface CustomBuilderScreenProps {
   user: User;
-  onStart: (config: { years: string[]; categories: string[]; count: number; pool: 'all' | 'unused' | 'incorrect'; timerEnabled: boolean }) => void;
+  onStart: (config: { years: string[]; categories: string[]; count: number; pool: 'all' | 'unused' | 'incorrect' | 'flagged'; timerEnabled: boolean }) => void;
   onCancel: () => void;
 }
 
@@ -27,7 +27,8 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
   const [userAttempts, setUserAttempts] = useState<Pick<QuestionAttempt, 'question_id' | 'is_correct'>[]>([]);
 
   const [mode, setMode] = useState<'random' | 'custom'>('custom');
-  const [pool, setPool] = useState<'all' | 'unused' | 'incorrect'>('all');
+  const [pool, setPool] = useState<'all' | 'unused' | 'incorrect' | 'flagged'>('all');
+  const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [weakestCategories, setWeakestCategories] = useState<string[]>([]);
@@ -265,14 +266,15 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
               {/* Question Bank Selection */}
               <div className="bg-white dark:bg-slate-900/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">2. Question Bank</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {(['all', 'unused', 'incorrect'] as const).map(p => (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {(['all', 'unused', 'incorrect', 'flagged'] as const).map(p => (
                     <button
                       key={p}
                       onClick={() => setPool(p)}
-                      className={`py-3 px-4 rounded-xl border-2 font-bold text-sm transition-all text-center capitalize ${pool === p ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500'}`}
+                      className={`py-3 px-3 rounded-xl border-2 font-bold text-xs sm:text-sm transition-all text-center capitalize flex items-center justify-center gap-1.5 ${pool === p ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500'}`}
                     >
-                      {p} Questions
+                      {p === 'flagged' && <Flag className={`w-3.5 h-3.5 ${pool === 'flagged' ? 'fill-white' : 'text-red-500 fill-current'}`} />}
+                      <span>{p} Questions</span>
                     </button>
                   ))}
                 </div>

@@ -22,6 +22,7 @@ import {
   PendingSubmission,
 } from '@/lib/offlineSync';
 import { QotdPeerComparisonResponse } from '@/lib/types';
+import { getFlaggedQuestionIds, toggleFlaggedQuestion } from '@/lib/flaggedQuestions';
 
 interface QuizEngineProps {
   user: any;
@@ -36,7 +37,7 @@ interface QuizEngineProps {
   categories?: string[];
   keywords?: string[];
   years?: string[];
-  pool?: 'all' | 'unused' | 'incorrect';
+  pool?: 'all' | 'unused' | 'incorrect' | 'flagged';
   count?: number;
   timerEnabled?: boolean;
   forceNew?: boolean;
@@ -62,7 +63,10 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [resumingLater, setResumingLater] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(count * 90);
+  const [timerPace, setTimerPace] = useState<'abfm' | 'study'>('abfm');
+  const secondsPerQuestion = timerPace === 'abfm' ? 76 : 90;
+  const [timeLeft, setTimeLeft] = useState(count * 76);
+  const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
@@ -80,6 +84,24 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
 
   const confettiFiredRef = useRef(false);
+
+  // Load user's flagged question IDs
+  useEffect(() => {
+    if (user?.id) {
+      getFlaggedQuestionIds(user.id).then(ids => setFlaggedIds(new Set(ids)));
+    }
+  }, [user?.id]);
+
+  const handleToggleFlag = async (qId: string) => {
+    if (!user?.id || !qId) return;
+    const isNowFlagged = await toggleFlaggedQuestion(user.id, qId);
+    setFlaggedIds(prev => {
+      const next = new Set(prev);
+      if (isNowFlagged) next.add(qId);
+      else next.delete(qId);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (showResults && resultData && !confettiFiredRef.current) {
@@ -210,8 +232,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     setShowResults(false);
     setResultData(null);
     setSessionId(null);
-    setTimeLeft(missedList.length * 90);
-  }, [resultData?.missedQuestions]);
+    setTimeLeft(missedList.length * secondsPerQuestion);
+  }, [resultData?.missedQuestions, secondsPerQuestion]);
 
   const persistFontIndex = (idx: number) => {
     setFontIndex(idx);
@@ -230,7 +252,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
         if (isQotd && qotdQuestion) {
           setQuestions([qotdQuestion]);
-          setTimeLeft(90);
+          setTimeLeft(76);
           
           if (isQotdCompleted) {
              const isCorrect = qotdAttempt?.is_correct || false;
@@ -404,7 +426,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
         // Apply pool filters
         if (requireInclude) {
-           if (includeIds.length === 0) throw new Error('No incorrect questions found to review.');
+           if (includeIds.length === 0) throw new Error(pool === 'flagged' ? 'No flagged questions found to review. Flag questions during quizzes to practice them here!' : 'No incorrect questions found to review.');
            // chunking might be needed if >1000, but for now this is fine
            query = query.in('id', includeIds);
         } else if (excludeIds.length > 0) {
@@ -473,7 +495,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         }
         
         setQuestions(shuffled);
-        setTimeLeft(selected.length * 90);
+        setTimeLeft(selected.length * secondsPerQuestion);
 
         if (!sData) {
           const { data: newSession, error: insertError } = (await withTimeout(
@@ -527,6 +549,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     qotdQuestion,
     questionIds,
     fetchPeerComparison,
+    secondsPerQuestion,
   ]);
 
   const syncProgress = useCallback(async () => {
@@ -1649,17 +1672,61 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 : 'Answers stay hidden until you finish — then you get a full review.'}
             </p>
           </div>
-          <div className="bg-white dark:bg-slate-800/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
-                Exam Timer
+          <div className="bg-white dark:bg-slate-800/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
+                  Exam Timer
+                </label>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  {isTimed ? (timerPace === 'abfm' ? 'Strict ABFM Pace: 76s (1m 16s) / Q' : 'Study Pace: 90s (1m 30s) / Q') : 'Countdown timer disabled'}
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={isTimed} onChange={() => setIsTimed(!isTimed)} />
+                <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
               </label>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Enable 90-second countdown per question</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" checked={isTimed} onChange={() => setIsTimed(!isTimed)} />
-              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-            </label>
+
+            {isTimed && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 animate-fade-in space-y-2">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTimerPace('abfm');
+                      setTimeLeft((questions.length || count) * 76);
+                    }}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                      timerPace === 'abfm'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-300'
+                    }`}
+                  >
+                    Strict ABFM (76s)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTimerPace('study');
+                      setTimeLeft((questions.length || count) * 90);
+                    }}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                      timerPace === 'study'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-300'
+                    }`}
+                  >
+                    Study Pace (90s)
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center">
+                  {timerPace === 'abfm' 
+                    ? 'Official ABFM exam rate: 95 minutes ÷ 75 questions.'
+                    : 'Relaxed pacing buffer for initial learning.'}
+                </p>
+              </div>
+            )}
           </div>
           <button
             onClick={() => setStarted(true)}

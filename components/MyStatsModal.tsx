@@ -61,6 +61,8 @@ export default function MyStatsModal({
   // Weak Areas State
   const [loadingWeakAreas, setLoadingWeakAreas] = useState(false);
   const [missedQuestions, setMissedQuestions] = useState<Question[]>([]);
+  const [flaggedQuestions, setFlaggedQuestions] = useState<Question[]>([]);
+  const [weakAreasSubTab, setWeakAreasSubTab] = useState<'missed' | 'flagged'>('missed');
   const [latestStatus, setLatestStatus] = useState<Map<string, boolean>>(new Map());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
@@ -69,9 +71,10 @@ export default function MyStatsModal({
   const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
 
   // Filter missed questions by the selected topic
+  const activeWeakQuestions = weakAreasSubTab === 'missed' ? missedQuestions : flaggedQuestions;
   const displayedMissedQuestions = selectedTopic 
-    ? missedQuestions.filter(q => q.category === selectedTopic)
-    : missedQuestions;
+    ? activeWeakQuestions.filter(q => q.category === selectedTopic)
+    : activeWeakQuestions;
 
   // Reset index when changing filter
   useEffect(() => {
@@ -544,71 +547,6 @@ export default function MyStatsModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {activeTab === 'stats' && (
             <div className="space-y-6 animate-fade-in">
-              {/* Resident Readiness & Academic Status Card */}
-              <div className={`p-4 sm:p-5 rounded-2xl border bg-gradient-to-br ${statusConfig.gradient} ${statusConfig.bg} ${statusConfig.border} shadow-sm transition-all relative overflow-hidden`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${statusConfig.badge} border`}>
-                      <statusConfig.icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Board Preparation Status</span>
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border uppercase ${statusConfig.badge}`}>
-                          {readiness.status}
-                        </span>
-                      </div>
-                      <h4 className={`text-base font-black mt-0.5 ${statusConfig.text}`}>
-                        {statusConfig.tagline}
-                      </h4>
-                      <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1 max-w-xl leading-relaxed">
-                        {statusConfig.summary}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setShowReadinessModal(true)}
-                    className="self-start sm:self-center px-3.5 py-2 rounded-xl text-xs font-black bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-                  >
-                    <Info className="w-3.5 h-3.5 text-blue-500" />
-                    <span>What does this mean?</span>
-                  </button>
-                </div>
-
-                {/* Micro KPI strip for readiness drivers */}
-                <div className="mt-3.5 pt-3 border-t border-slate-200/60 dark:border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Curriculum Avg</span>
-                    <span className={`font-black ${readiness.curriculumAvg >= 65 ? 'text-emerald-600 dark:text-emerald-400' : readiness.curriculumAvg >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {readiness.curriculumAvg > 0 ? `${readiness.curriculumAvg.toFixed(1)}%` : '—'}
-                    </span>
-                    <span className="text-[9px] text-slate-400 block font-medium">Target: ≥65%</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">On-Time Rate</span>
-                    <span className={`font-black ${readiness.onTimePct > 75 ? 'text-emerald-600 dark:text-emerald-400' : readiness.onTimePct > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {readiness.onTimePct.toFixed(0)}%
-                    </span>
-                    <span className="text-[9px] text-slate-400 block font-medium">Target: &gt;75%</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Overdue Blocks</span>
-                    <span className={`font-black ${readiness.overdueCount === 0 ? 'text-emerald-600 dark:text-emerald-400' : readiness.overdueCount === 1 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {readiness.overdueCount} {readiness.overdueCount === 1 ? 'block' : 'blocks'}
-                    </span>
-                    <span className="text-[9px] text-slate-400 block font-medium">Target: 0 overdue</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Recent Trend</span>
-                    <span className={`font-black ${readiness.declining ? 'text-red-600 dark:text-red-400' : (readiness.trendDelta && readiness.trendDelta > 0) ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
-                      {readiness.trendDelta != null ? `${readiness.trendDelta > 0 ? '+' : ''}${readiness.trendDelta.toFixed(0)}%` : 'Stable'}
-                    </span>
-                    <span className="text-[9px] text-slate-400 block font-medium">{readiness.declining ? 'Drop alert (≥10%)' : 'Consistent'}</span>
-                  </div>
-                </div>
-              </div>
-
               {/* Leaned-up Board Prep Snapshot Card */}
               <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-4 sm:p-5 text-white shadow-lg space-y-4">
                 <div className="flex items-center justify-between gap-2">
@@ -987,7 +925,7 @@ export default function MyStatsModal({
                   <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" />
                   <p className="font-bold text-sm tracking-widest uppercase">Loading Weak Areas...</p>
                 </div>
-              ) : missedQuestions.length === 0 ? (
+              ) : activeWeakQuestions.length === 0 ? (
                 <div className="bg-slate-50 dark:bg-slate-800/60 rounded-3xl p-12 text-center border border-slate-100 dark:border-slate-800 transition-colors">
                   <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Target className="w-8 h-8" />
@@ -1014,8 +952,8 @@ export default function MyStatsModal({
                         </button>
                       </div>
                       <div className="space-y-2">
-                        {Array.from(new Set(missedQuestions.map(q => q.category).filter(Boolean))).map((cat) => {
-                          const count = missedQuestions.filter(q => q.category === cat).length;
+                        {Array.from(new Set(activeWeakQuestions.map(q => q.category).filter(Boolean))).map((cat) => {
+                          const count = activeWeakQuestions.filter(q => q.category === cat).length;
                           return (
                             <button 
                               key={cat} 

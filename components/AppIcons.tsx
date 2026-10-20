@@ -39,6 +39,7 @@ export const Trash2 = (p: React.SVGProps<SVGSVGElement>) => <Icon {...p}><polyli
 export const Edit = (p: React.SVGProps<SVGSVGElement>) => <Icon {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="10" y1="14" x2="21" y2="3" /></Icon>;
 export const Plus = (p: React.SVGProps<SVGSVGElement>) => <Icon {...p}><path d="M5 12h14" /><path d="M12 5v14" /></Icon>;
 export const PlusCircle = (p: React.SVGProps<SVGSVGElement>) => <Icon {...p}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></Icon>;
+export const Flag = (p: React.SVGProps<SVGSVGElement>) => <Icon {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></Icon>;
 export const Search = (p: React.SVGProps<SVGSVGElement>) => <Icon {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></Icon>;
 export const MessageSquare = (p: React.SVGProps<SVGSVGElement>) => <Icon {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></Icon>;
 export const AlertTriangle = (p: React.SVGProps<SVGSVGElement>) => <Icon {...p}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></Icon>;

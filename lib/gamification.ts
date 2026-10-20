@@ -340,6 +340,54 @@ export async function processGamification(
       }
     }
 
+    // 3e. Systems Explorer - answered questions across all 14 clinical systems
+    const ALL_14_SYSTEMS = [
+      'Cardiovascular', 'Endocrine', 'Gastrointestinal', 'Hematologic/Immune',
+      'Infectious Disease', 'Musculoskeletal', 'Nephrologic', 'Neurologic',
+      'Population Health/Epidemiology', 'Psychiatric/Behavioral', 'Pulmonary',
+      'Reproductive/Female', 'Skin/Subcutaneous', 'Special Sensory'
+    ];
+    const { data: userCategoryResults } = await supabase
+      .from('results')
+      .select('category_stats')
+      .eq('user_id', userId);
+
+    if (userCategoryResults && userCategoryResults.length > 0) {
+      const coveredSystems = new Set<string>();
+      userCategoryResults.forEach((r: { category_stats: any }) => {
+        if (r.category_stats) {
+          Object.keys(r.category_stats).forEach(cat => coveredSystems.add(cat));
+        }
+      });
+      const hasAll14 = ALL_14_SYSTEMS.every(cat => coveredSystems.has(cat));
+      if (hasAll14) {
+        await evaluateBadge('Systems Explorer', true, {
+          description: 'Answered questions across all 14 clinical Systems categories.',
+          icon: '🩺',
+          type: 'block'
+        });
+      }
+    }
+
+    // 3f. Repeat Master - scored 100% on a quiz of repeat questions
+    if (blockScorePercentage === 100 && topicCategory?.toLowerCase().includes('repeat')) {
+      await evaluateBadge('Repeat Master', true, {
+        description: 'Scored 100% on a custom quiz of High-Yield Repeat questions.',
+        icon: '🔁',
+        type: 'block'
+      });
+    }
+
+    // 3g. ITE Sprint - answered 100 questions in the fall ITE season (Sept-Oct)
+    const currentMonth = estNow.getMonth(); // 8 = Sept, 9 = Oct
+    if ((currentMonth === 8 || currentMonth === 9) && (totalQuestionsAnsweredInBlock || 0) >= 100) {
+      await evaluateBadge('ITE Sprint', true, {
+        description: 'Answered 100 questions during the fall ITE preparation season.',
+        icon: '🏆',
+        type: 'block'
+      });
+    }
+
     // 3d. Over Achiever
     // Get all standard badges (excluding Topic Master and Over Achiever itself)
     const baseBadges = (allBadgesData || []).filter((b: Badge) => 

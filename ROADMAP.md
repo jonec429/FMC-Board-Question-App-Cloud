@@ -60,6 +60,37 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-10-20 (Antigravity: Strict 76s ABFM Timer, Question Flagging, Keyword Search & Systems Badges)
+**Shipped this session**:
+1. **Strict 76s ABFM Exam Timer (`components/QuizEngine.tsx`)**:
+   - Updated timed block pacing to exact ABFM exam and ITE pace: **76 seconds (1m 16s) per question** (95 minutes ÷ 75 questions).
+   - Added interactive pre-quiz pacing selector allowing residents to choose between **Strict ABFM Pace (76s)** and **Study Pace (90s)**.
+2. **Question Flagging System (`components/QuestionCard.tsx`, `lib/flaggedQuestions.ts`, `components/CustomBuilderScreen.tsx`, `components/MyStatsModal.tsx`)**:
+   - Added interactive `🚩` flag toggle to all question cards across active quizzes and reviews.
+   - Synchronizes seamlessly with Supabase (`user_flagged_questions`) with automatic offline `localStorage` resilience.
+   - Added **Flagged Questions Only** pool option in the Custom Quiz Builder with real-time question capacity indicators.
+   - Added dedicated **Flagged Questions** sub-tab in `MyStatsModal` (Review Weak Areas) allowing residents to browse, review explanations, and manage flagged questions.
+3. **Question Bank Keyword Search Knowledge Base (`components/QuestionSearchModal.tsx`, `components/Dashboard.tsx`)**:
+   - Created full-text keyword search modal accessible directly from the Dashboard header navigation bar.
+   - Features smart stop-word filtering (ignoring low-value words like "the", "of", "patient", "and"), multi-token stem/explanation/pearl search, Systems Category filters, ITE exam year filters, and High-Yield Repeat toggles.
+   - Includes **Self-Test Mode ("Hide Answers")** with 1-click reveal, alongside **Quick Reference Mode** with immediate rationales and AAFP evidence links.
+4. **Systems-Specific Challenge Badges (`lib/gamification.ts`, `supabase/migrations/20261020_systems_challenge_badges.sql`)**:
+   - Added 4 targeted achievements using precise Systems Category terminology: *Systems Explorer* (questions across all 14 clinical systems), *Repeat Master* (100% on repeat question quiz), *ITE Sprint* (100 questions in fall crunch), and *Pearl Diver*.
+5. **Quality & Build Gates**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run lint` passed with 0 warnings.
+   - `npm run build` successfully compiled all 21 static and dynamic routes.
+
+**Shipped this session**:
+1. **Lean "My Performance" Layout (`components/MyStatsModal.tsx`)**:
+   - Eliminated the oversized, duplicate "Board Preparation Status" card from the scrollable stats view.
+   - Preserved the interactive header badge button (`[🛡️ BOARD READY ⓘ]` / `[⚠️ NEEDS ATTENTION ⓘ]` / `[🚨 AT RISK ⓘ]`) directly next to the resident's name, retaining full click-to-open drilldown into the criteria modal (`ReadinessModal`) and hover previews.
+   - Elevated the **Board Prep Snapshot** and dual-progress bars (Q-Points & Attendance Points) directly below the tabs above the fold without requiring vertical scrolling.
+2. **Quality & Build Gates**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run lint` passed with 0 warnings.
+   - `npm run build` successfully compiled all 21 routes.
+
 ### ▶️ Session Handoff — 2026-10-12 (Antigravity: Canonical ITE IDs, High-Yield Repeat DB Migration & Repo Cleanup)
 **Shipped this session**:
 1. **Canonical ITE Question IDs (`lib/iteQuestionMap.ts`, `QuestionCard.tsx`, `QuizReview.tsx`, `QuestionBankManager.tsx`, `BlockEditor.tsx`, `AssignQuizManager.tsx`, `MyStatsModal.tsx`)**:
@@ -274,6 +305,8 @@ This file serves as the shared source of truth for development progress between 
 - [x] **2026-06-08 — Badge Catalog Expansion**: `20260608_badges_expansion.sql` — seeds the 9 new achievement badges (Ironman, block-streak ladder, Sharpshooter, Early Bird, Weekend Warrior, Perfectionist, Procrastinator) and removes the duplicate "Marathoner". ✅ **Run by admin 2026-06-08 — new badges now live.**
 - [x] **2026-06-11 — Over Achiever Badge**: `20260611_over_achiever_badge.sql` — seeds the new "Over Achiever" milestone badge to the catalog so it shows as locked in the UI. **Admin must run it in Supabase.** ✅ *(Run by admin 2026-08-17)*
 - [x] **2026-09-18 — Repeat Questions Migration**: `20260918_add_is_repeat_to_questions.sql` — adds `is_repeat` to `questions` and flags known duplicate questions. ✅ *(Run & verified in Supabase 2026-10-12)*
+- [ ] **2026-10-20 — User Flagged Questions Migration**: `20261020_user_flagged_questions.sql` — creates `user_flagged_questions` table with RLS for persistent cross-device flags. (The app already operates seamlessly via local storage fallback).
+- [ ] **2026-10-20 — Systems Challenge Badges Migration**: `20261020_systems_challenge_badges.sql` — seeds the 4 new challenge badges (Systems Explorer, Repeat Master, Pearl Diver, ITE Sprint) into the catalog so they display as locked until earned.
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Phase 2 — Final Items ✅
@@ -471,6 +504,11 @@ This file serves as the shared source of truth for development progress between 
 - [x] ~~**RFID Kiosk Attendance System**~~ — **Scrapped (user decision):** Will not be implemented. Bulk HTML/CSV New Innovations import and manual point awards in Attendance Center serve program needs.
 
 ### Learning Features
+- [x] **Strict 76s ABFM Exam Timer**: Adjust countdown to 76 seconds per question to reflect official ABFM block pace (95 min / 75 questions) with pre-quiz pace selector.
+- [x] **Question Flagging (`🚩 Flag / Unflag`)**: Allow residents to flag questions during any quiz, add optional private notes, and review flagged questions in Resident Review.
+- [x] **Custom Quiz "Flagged Only" Pool**: Filter custom quizzes to practice flagged questions only with live capacity indicators.
+- [x] **Question Bank Keyword Search (Knowledge Base)**: Real-time full-text search across all 600+ questions, stems, options, explanations, and Board Prep Gems with stop-word filtering and self-test mode.
+- [x] **Systems-Specific Challenge Badges**: Targeted achievements (Systems Explorer, Repeat Master, ITE Sprint, Pearl Diver) using precise Systems vs Blueprint terminology.
 - [x] **Spaced Repetition / "Incorrects Only" Blocks**: Allow residents to auto-generate a custom block consisting solely of questions they've previously missed to reinforce weak areas.
 - [x] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
 - [x] **Faculty-Assigned Custom Quizzes**: Allow advisors or faculty department heads to create custom quizzes and explicitly assign them to specific residents (e.g., for remediation or individual improvement plans). Shipped via `AssignQuizManager.tsx` + `assigned_quizzes` DB table.
@@ -481,7 +519,12 @@ This file serves as the shared source of truth for development progress between 
 ---
 
 ## 💡 Parked Ideas & Future Considerations
-*Captured 2026-06-05. **✅ All shipped the same day** — #1–#5 built; #6 dropped → replaced by #4 (review). See the changelog above for each. Kept here for provenance.*
+*Captured 2026-06-05 and 2026-10-20. Tabled items kept here for future planning.*
+
+- **In-App Flashcards (Leitner Micro-Learning)** *(Tabled 2026-10-20)*: Flip-card micro-learning using Board Prep Gems & rationales. Tabled to prevent home screen clutter; will be designed as a dedicated, standalone module in a future UI/UX pass.
+- **Noon Conference Attendance Workflow Evolution** *(Tabled 2026-10-20)*: Tabled to troubleshoot the 1-screen lecture limitation, prevent group-chat QR photo sharing, and reconcile with New Innovations.
+- **Dual ABFM Blueprint Content Domains (5 Activity Domains)** *(Tabled 2026-10-20)*: Acute Care, Chronic Care, Emergent/Urgent, Preventive Care, and Foundations of Care. Tabled until questions can be tagged with the 5 clinical activity domains.
+- **Daily 5 Adaptive Quiz** *(Tabled 2026-10-20)*: Tabled to preserve high resident participation on the daily Question of the Day (QOTD).
 
 - **Block rename in Curriculum Manager**: Inline-edit a block's title. Intended for *planning* (before residents start a block) and to fix accidental "(Copy)" names — explicitly **not** for renaming blocks already in use. ⚠️ If a block with completions is ever renamed, the change must cascade to `results.topic` and `quiz_sessions.topic` (the title is the foreign key) to avoid orphaning scores — best done via a secure admin-only server route.
 - **Per-user quiz sorting**: Let every user sort their own quiz/block list however they want — independently on the resident side and the admin side (it does **not** need to be the same order for everyone). Supersedes the earlier "global admin-set block order via `sort_order`" idea.
@@ -497,11 +540,30 @@ This file serves as the shared source of truth for development progress between 
   - *Top of the Class*: Maintain the most academic points in the program for 3 consecutive months.
   - *Comeback Kid*: Improve performance in a block by 20% compared to the last block completed.
 
+## 🗄️ Abandoned / Dropped Ideas
+*Features explicitly evaluated and dropped to maintain app simplicity, clinical validity, and academic rigor.*
+
+- ~~**Scaled Score & Pass Probability Predictor**~~ — **DROPPED 2026-10-20 (user decision):** ABFM uses a proprietary Bayesian IRT model and does not publish raw-to-scaled conversion tables. Setting arbitrary score thresholds without empirical data is statistically unsound and gives misleading pass probabilities.
+- ~~**ACGME Milestone Competency Mapping**~~ — **DROPPED 2026-10-20 (user decision):** Residency board prep is organized around clinical systems; the existing score tracker, category radar charts, and CCC Dossier fulfill residency requirements without redundant ACGME milestone grids.
+- ~~**Noon Conference In-App QR Code**~~ — **DROPPED 2026-10-20 (user decision):** Disrupts 1-screen lecture presentations, enables group-chat photo fraud, and creates dual records with New Innovations (the official legal record). Bulk HTML/CSV NI import remains the single source of truth.
+- ~~**Migrate Study Materials to Supabase Storage**~~ — **DROPPED 2026-06-08 (user decision):** Keeping a Supabase Storage mirror in sync with live Google Drive is ongoing maintenance for little benefit.
+- ~~**RFID Kiosk Attendance System**~~ — **DROPPED (user decision):** Physical kiosk hardware deemed unnecessary; bulk NI import and manual awards serve program needs.
+- ~~**AI-Generated Explanations & Gemini Question Pulling**~~ — **DROPPED (user decision):** Strict adherence to verbatim source material required; no hallucination risk permitted.
+
 ### 🔒 Security / Maintenance Notes
 - **2026-06-05 — dotenv ad / agent-bait silenced & pinned (Claude)**: `dotenv@17.4.2` (genuine npm package; used only in `scripts/*.ts` dev tooling, **never** in the production bundle) prints rotating console "tips," one of which — `⌁ auth for agents [www.vestauth.com]` — is third-party bait aimed at AI agents. Confirmed it's only a console string: no network calls, no install/postinstall hooks, no exfiltration. Mitigation: added `quiet: true` to all 15 `dotenv.config()` calls in `scripts/`, and pinned `dotenv` to exact `17.4.2` (dropped the `^`) so `npm update` can't silently pull a more aggressive ad build. The domain was not visited. (Note: affects any project using this dotenv version.)
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-10-20 — Strict 76s ABFM Timer, Question Flagging, Keyword Search & Challenge Badges (Antigravity)
+*   **Strict 76s ABFM Exam Timer:** Aligned exam countdown pacing to the official ABFM Certification & ITE standard: **76 seconds (1m 16s) per question** (95 minutes ÷ 75 questions). Added a pre-quiz pace selector on the quiz start screen allowing residents to toggle between Strict ABFM Pace (76s) and Study Pace (90s).
+*   **Question Flagging (`🚩`) & Custom Practice Integration:** Residents can now flag tricky questions during any active quiz or review screen. Flagged questions can be practiced as a dedicated pool in the Custom Quiz Builder and reviewed at any time under My Performance → Review Weak Areas. Works offline via local storage and synchronizes with Supabase.
+*   **Question Bank Keyword Search (Knowledge Base):** Added an instant-search modal in the dashboard header navigation bar allowing residents to search all 600+ ITE clinical stems, explanations, options, and Board Prep Gems. Includes smart stop-word stripping, Systems Category filters, ITE exam year filters, and a Self-Test Mode with 1-click answer reveal.
+*   **Systems-Specific Challenge Badges:** Introduced four new challenge badges using explicit Systems Category terminology: *Systems Explorer* (covering all 14 clinical systems), *Repeat Master* (100% on high-yield repeat questions), *ITE Sprint* (100 questions in fall crunch), and *Pearl Diver*.
+
+### 2026-10-20 — Lean Performance Status & Layout Streamlining (Antigravity)
+*   **Streamlined Board Preparation Status in My Performance:** Removed the bulky in-body status card from `MyStatsModal.tsx`. The status is now cleanly represented by the interactive badge button in the modal header next to the resident's name (e.g., `[🛡️ BOARD READY ⓘ]`), which opens the full criteria and definition modal on click. The compact Board Prep Snapshot and progress metrics are now immediately visible above the fold.
 
 ### 2026-10-12 — Canonical ITE Question IDs, High-Yield Repeat Tracking & Schema Finalization (Antigravity)
 *   **Canonical ITE Question IDs (`ITE2025Q15`, `DemoQ1`):** Every question across active quizzes, post-quiz reviews, My Performance history, the Question Bank Manager, Block Editor, and Custom Assignment Builder now displays a standardized, human-readable ITE ID badge (e.g., `ITE2025Q15`, `ITE2024Q112`) alongside the underlying App Question UUID for quick reference and faculty lookup.

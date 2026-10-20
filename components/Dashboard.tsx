@@ -11,6 +11,7 @@ import {
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
+import QuestionSearchModal from './QuestionSearchModal';
 import AchievementsModal from './AchievementsModal';
 import InstallAppModal from './InstallAppModal';
 import QotdHistoryModal from './QotdHistoryModal';
@@ -37,7 +38,7 @@ export interface StartQuizOptions {
   categories?: string[];
   keywords?: string[];
   years?: string[];
-  pool?: 'all' | 'unused' | 'incorrect';
+  pool?: 'all' | 'unused' | 'incorrect' | 'flagged';
   isQotd?: boolean;
   qotdQuestion?: Question | null;
   isQotdCompleted?: boolean;
@@ -140,6 +141,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const [showChallengeModal, setShowChallengeModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showQotdHistoryModal, setShowQotdHistoryModal] = useState(false);
@@ -196,6 +198,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     setIsRefreshing(true);
     try {
       setShowMyStats(false);
+      setShowSearchModal(false);
       setShowChallengeModal(false);
       setShowSettings(false);
       setShowAchievements(false);
@@ -1365,6 +1368,15 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       )}
 
       {showInstallApp && <InstallAppModal onClose={() => setShowInstallApp(false)} />}
+
+      {showSearchModal && (
+        <QuestionSearchModal
+          isOpen={showSearchModal}
+          onClose={() => setShowSearchModal(false)}
+          userId={user.id}
+          userEmail={user.email}
+        />
+      )}
 
       {/* New Badge Overlay Modal */}
       {recentBadges.length > 0 && (

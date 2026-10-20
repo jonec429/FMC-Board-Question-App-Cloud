@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import DOMPurify from 'dompurify';
-import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle, MessageSquare } from './AppIcons';
+import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle, MessageSquare, Flag } from './AppIcons';
 import { formatIteId, getQuestionExamNumber } from '@/lib/iteQuestionMap';
 
 interface Question {
@@ -37,6 +37,8 @@ interface QuestionCardProps {
   onToolsChange?: (tools: { highlights: string[]; strikethroughs: number[] }) => void;
   userEmail?: string;
   onSelectOption?: (index: number) => void;
+  isFlagged?: boolean;
+  onToggleFlag?: (questionId: string) => void;
 }
 
 // Escape special regex characters in user-selected text so we can safely build a RegExp
@@ -191,6 +193,8 @@ function QuestionCard({
   initialStrikethroughs = [],
   onToolsChange,
   userEmail,
+  isFlagged = false,
+  onToggleFlag,
 }: QuestionCardProps) {
   const [highlights, setHighlights] = useState<string[]>(initialHighlights);
   const [strikethroughs, setStrikethroughs] = useState<Set<number>>(new Set(initialStrikethroughs));
@@ -359,6 +363,21 @@ function QuestionCard({
                 title="Clear all highlights"
               >
                 Clear ({highlights.length})
+              </button>
+            )}
+            {onToggleFlag && question.id && (
+              <button
+                type="button"
+                onClick={() => onToggleFlag(question.id!)}
+                className={`p-2 rounded-xl transition-all ${
+                  isFlagged
+                    ? 'text-red-600 bg-red-100 dark:bg-red-950/70 dark:text-red-400 ring-1 ring-red-400/50 shadow-inner'
+                    : 'text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-slate-800'
+                }`}
+                title={isFlagged ? "Flagged for review (Click to unflag)" : "Flag question for review"}
+                aria-label={isFlagged ? "Unflag question" : "Flag question"}
+              >
+                <Flag className={`w-5 h-5 ${isFlagged ? 'fill-current' : ''}`} />
               </button>
             )}
             <button

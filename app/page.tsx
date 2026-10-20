@@ -28,7 +28,7 @@ interface ActiveQuizState {
   categories?: string[];
   keywords?: string[];
   years?: string[];
-  pool?: 'all' | 'unused' | 'incorrect';
+  pool?: 'all' | 'unused' | 'incorrect' | 'flagged';
   count?: number;
   timerEnabled?: boolean;
   forceNew?: boolean;
