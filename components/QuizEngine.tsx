@@ -63,8 +63,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [resumingLater, setResumingLater] = useState(false);
-  const [timerPace, setTimerPace] = useState<'abfm' | 'study'>('abfm');
-  const secondsPerQuestion = timerPace === 'abfm' ? 76 : 90;
+  const SECONDS_PER_QUESTION = 76;
+  const secondsPerQuestion = SECONDS_PER_QUESTION;
   const [timeLeft, setTimeLeft] = useState(count * 76);
   const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -1672,61 +1672,19 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 : 'Answers stay hidden until you finish — then you get a full review.'}
             </p>
           </div>
-          <div className="bg-white dark:bg-slate-800/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
-                  Exam Timer
-                </label>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {isTimed ? (timerPace === 'abfm' ? 'Strict ABFM Pace: 76s (1m 16s) / Q' : 'Study Pace: 90s (1m 30s) / Q') : 'Countdown timer disabled'}
-                </p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" checked={isTimed} onChange={() => setIsTimed(!isTimed)} />
-                <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+          <div className="bg-white dark:bg-slate-800/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
+                ABFM Exam Timer
               </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                {isTimed ? '76s / question (Official 95 min / 75 Q pace)' : 'Timer disabled'}
+              </p>
             </div>
-
-            {isTimed && (
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-700/60 animate-fade-in space-y-2">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTimerPace('abfm');
-                      setTimeLeft((questions.length || count) * 76);
-                    }}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
-                      timerPace === 'abfm'
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-300'
-                    }`}
-                  >
-                    Strict ABFM (76s)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTimerPace('study');
-                      setTimeLeft((questions.length || count) * 90);
-                    }}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
-                      timerPace === 'study'
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-300'
-                    }`}
-                  >
-                    Study Pace (90s)
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center">
-                  {timerPace === 'abfm' 
-                    ? 'Official ABFM exam rate: 95 minutes ÷ 75 questions.'
-                    : 'Relaxed pacing buffer for initial learning.'}
-                </p>
-              </div>
-            )}
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" className="sr-only peer" checked={isTimed} onChange={() => setIsTimed(!isTimed)} />
+              <div className="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
           </div>
           <button
             onClick={() => setStarted(true)}

@@ -64,7 +64,7 @@ This file serves as the shared source of truth for development progress between 
 **Shipped this session**:
 1. **Strict 76s ABFM Exam Timer (`components/QuizEngine.tsx`)**:
    - Updated timed block pacing to exact ABFM exam and ITE pace: **76 seconds (1m 16s) per question** (95 minutes ÷ 75 questions).
-   - Added interactive pre-quiz pacing selector allowing residents to choose between **Strict ABFM Pace (76s)** and **Study Pace (90s)**.
+   - Strictly enforced official ABFM pacing (76s/Q) across all timed quizzes; study pace (90s) removed per user instruction to maintain board test validity.
 2. **Question Flagging System (`components/QuestionCard.tsx`, `lib/flaggedQuestions.ts`, `components/CustomBuilderScreen.tsx`, `components/MyStatsModal.tsx`)**:
    - Added interactive `🚩` flag toggle to all question cards across active quizzes and reviews.
    - Synchronizes seamlessly with Supabase (`user_flagged_questions`) with automatic offline `localStorage` resilience.
@@ -557,7 +557,7 @@ This file serves as the shared source of truth for development progress between 
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
 ### 2026-10-20 — Strict 76s ABFM Timer, Question Flagging, Keyword Search & Challenge Badges (Antigravity)
-*   **Strict 76s ABFM Exam Timer:** Aligned exam countdown pacing to the official ABFM Certification & ITE standard: **76 seconds (1m 16s) per question** (95 minutes ÷ 75 questions). Added a pre-quiz pace selector on the quiz start screen allowing residents to toggle between Strict ABFM Pace (76s) and Study Pace (90s).
+*   **Strict 76s ABFM Exam Timer:** Aligned exam countdown pacing to the official ABFM Certification & ITE standard: **76 seconds (1m 16s) per question** (95 minutes ÷ 75 questions). Strictly enforced official ABFM pacing (76s/Q) across all timed quizzes; study pace (90s) removed per user instruction to maintain test validity.
 *   **Question Flagging (`🚩`) & Custom Practice Integration:** Residents can now flag tricky questions during any active quiz or review screen. Flagged questions can be practiced as a dedicated pool in the Custom Quiz Builder and reviewed at any time under My Performance → Review Weak Areas. Works offline via local storage and synchronizes with Supabase.
 *   **Question Bank Keyword Search (Knowledge Base):** Added an instant-search modal in the dashboard header navigation bar allowing residents to search all 600+ ITE clinical stems, explanations, options, and Board Prep Gems. Includes smart stop-word stripping, Systems Category filters, ITE exam year filters, and a Self-Test Mode with 1-click answer reveal.
 *   **Systems-Specific Challenge Badges:** Introduced four new challenge badges using explicit Systems Category terminology: *Systems Explorer* (covering all 14 clinical systems), *Repeat Master* (100% on high-yield repeat questions), *ITE Sprint* (100 questions in fall crunch), and *Pearl Diver*.
