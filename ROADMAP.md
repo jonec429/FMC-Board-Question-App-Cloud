@@ -60,6 +60,33 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-10-20 (Antigravity: Resident Home Screen Streamlining & Unified Hub Layout)
+**Shipped this session**:
+1. **Collapsible 2026 ABFM ITE Countdown Banner (`components/IteCountdownBanner.tsx`)**:
+   - Added instant collapse/expand toggle allowing residents to shrink the large countdown banner into a sleek 1-line ticker showing their assigned date and countdown.
+   - Remembers preference across reloads via `localStorage` (`fmc_ite_banner_collapsed`).
+2. **Top 4 Hub Cards Grid (`components/Dashboard.tsx`)**:
+   - Combined *My Performance* and *Achievements* into Card 1 across the top row, matching the exact size, shape, and rounded geometry (`min-h-[170px]`) of the other 3 cards.
+   - Styled with gold trophy theming, live readiness badge, AP points counter, and active streak preview.
+   - Clean 4-card responsive grid: `[Performance & Badges] [QOTD] [Quiz Builder] [Resume / Active Block]`.
+3. **Collapsible Board Prep Snapshot (`components/MyStatsModal.tsx`)**:
+   - Added a collapse/expand toggle to the Board Prep Snapshot in personal stats.
+   - In collapsed mode, shows only **Average Quiz Score** and the dual-color **Academic Points Tracker** progress bar, eliminating ~350px of vertical modal bulk.
+4. **Dedicated Achievements & Badges Tab (`components/MyStatsModal.tsx`)**:
+   - Added an `Achievements` tab in `MyStatsModal` housing the consecutive QOTD streak (`🔥`), block submission streak (`⚡`), full earned badges shelf with tooltips, and next milestone indicators.
+5. **Condensed Advisor Meeting Strip (`components/Dashboard.tsx`)**:
+   - Transformed the bulky ~110px advisor meeting card into a sleek, compact 1-line strip (`mb-4 px-4 py-2.5 rounded-2xl border flex items-center justify-between text-xs`), saving prime dashboard space.
+6. **Streamlined Header Navigation Bar (`components/Dashboard.tsx`, `components/ProfileSettings.tsx`)**:
+   - Header cleaned down to core primary actions: **Search (`🔍`)**, **Admin (`🔒` if super admin)**, **Settings (`⚙️`)**, and **Logout (`🚪`)**.
+   - Relocated secondary actions (*Theme Toggle Light/Dark/Midnight*, *Install to Phone*, and *Send Feedback*) into the Settings modal.
+7. **Unified Tabbed Leaderboard Widget (`components/Dashboard.tsx`)**:
+   - Combined individual AP leaderboard, Class YoY standings, and the $150 DoorDash Challenge into **one single tabbed widget**: `[🏆 APs] [🎓 Class] [🎁 $150 Challenge]`.
+   - Eliminated the separate stacked class leaderboard card on desktop and cleaned up mobile modal standings.
+8. **Quality & Verification Gates**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run lint` passed with 0 warnings.
+   - `npm run build` compiled cleanly across all 21 routes.
+
 ### ▶️ Session Handoff — 2026-10-20 (Antigravity: Strict 76s ABFM Timer, Question Flagging, Keyword Search & Systems Badges)
 **Shipped this session**:
 1. **Strict 76s ABFM Exam Timer (`components/QuizEngine.tsx`)**:

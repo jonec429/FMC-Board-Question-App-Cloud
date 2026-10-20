@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
-import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, Save, Check } from './AppIcons';
+import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save, Check } from './AppIcons';
 import { LeaderboardEntry, Profile, Result, UserBadge, Question, QotdPeerComparisonResponse, Block, BlockSchedule } from '@/lib/types';
 import { computeResidentReadiness, ResidentReadiness, ReadinessStatus } from '@/lib/residentRisk';
 import { ShieldCheck, AlertTriangle, AlertCircle, Clock, Info, ArrowRight, BookOpen, CheckCircle } from 'lucide-react';
@@ -24,6 +24,8 @@ interface MyStatsModalProps {
   myResults: Result[];
   leaderboard: LeaderboardEntry[];
   userBadges: UserBadge[];
+  userStreak?: any;
+  initialTab?: 'stats' | 'achievements' | 'weakAreas' | 'pastQuizzes';
   selectedYear: number;
   onYearChange: (year: number) => void;
   attendanceList?: any[];
@@ -42,6 +44,8 @@ export default function MyStatsModal({
   myResults,
   leaderboard,
   userBadges,
+  userStreak,
+  initialTab,
   selectedYear,
   onYearChange,
   attendanceList = [],
@@ -50,7 +54,8 @@ export default function MyStatsModal({
 }: MyStatsModalProps) {
   const [showReadinessModal, setShowReadinessModal] = useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = useState(false);
-  const [activeTab, setActiveTab] = useState<'stats' | 'weakAreas' | 'pastQuizzes'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'achievements' | 'weakAreas' | 'pastQuizzes'>(initialTab || 'stats');
+  const [isSnapshotCollapsed, setIsSnapshotCollapsed] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<Result | null>(null);
   const [reviewItems, setReviewItems] = useState<{ question: Question; selected: number }[] | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
@@ -510,21 +515,30 @@ export default function MyStatsModal({
           </button>
         </div>
 
-        {/* QOTD Performance was moved into the snapshot card */}
         <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
           <button
             onClick={() => setActiveTab('stats')}
-            className={`flex-1 py-4 text-sm font-black uppercase tracking-widest transition-colors ${
+            className={`flex-1 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors ${
               activeTab === 'stats' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
-            Stats & Badges
+            Stats &amp; Prep
+          </button>
+          <button
+            onClick={() => setActiveTab('achievements')}
+            className={`flex-1 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors ${
+              activeTab === 'achievements' 
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
+                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+            }`}
+          >
+            Achievements
           </button>
           <button
             onClick={() => setActiveTab('weakAreas')}
-            className={`flex-1 py-4 text-sm font-black uppercase tracking-widest transition-colors ${
+            className={`flex-1 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors ${
               activeTab === 'weakAreas' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -534,7 +548,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
-            className={`flex-1 py-4 text-sm font-black uppercase tracking-widest transition-colors ${
+            className={`flex-1 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors ${
               activeTab === 'pastQuizzes'
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -556,18 +570,84 @@ export default function MyStatsModal({
                     </div>
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Board Prep Snapshot</h3>
                   </div>
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => onYearChange(parseInt(e.target.value, 10))}
-                    className="px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg font-bold text-white text-xs shadow-sm outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm cursor-pointer transition-colors"
-                  >
-                    <option value={0} className="text-slate-800">All Time (YoY Trend)</option>
-                    {getAvailableAcademicYears().map(year => (
-                      <option key={year} value={year} className="text-slate-800">{formatAcademicYear(year)}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => onYearChange(parseInt(e.target.value, 10))}
+                      className="px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg font-bold text-white text-xs shadow-sm outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm cursor-pointer transition-colors"
+                    >
+                      <option value={0} className="text-slate-800">All Time (YoY Trend)</option>
+                      {getAvailableAcademicYears().map(year => (
+                        <option key={year} value={year} className="text-slate-800">{formatAcademicYear(year)}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setIsSnapshotCollapsed(prev => !prev)}
+                      className="p-1 hover:bg-white/15 rounded-lg text-indigo-100 hover:text-white transition-colors cursor-pointer"
+                      title={isSnapshotCollapsed ? "Expand snapshot breakdown" : "Collapse snapshot"}
+                    >
+                      {isSnapshotCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
+                {isSnapshotCollapsed ? (
+                  /* Collapsed View: Average score & AP tracker only per user instruction */
+                  <div className="space-y-3 pt-1 animate-fade-in">
+                    <div className="flex items-center justify-between gap-4 bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+                      <div>
+                        <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest block">Average Quiz Score</span>
+                        <div className="text-2xl font-black mt-0.5">
+                          {accurateAvgScore !== null ? `${accurateAvgScore.toFixed(1)}%` : '—'}
+                        </div>
+                      </div>
+                      <div className="text-right text-[11px] text-indigo-100 font-medium">
+                        <div>{totalQs} Questions Done</div>
+                        <div className="opacity-80">{blocksCompleted} blocks complete</div>
+                      </div>
+                    </div>
+
+                    {/* Academic Points Tracker */}
+                    {(() => {
+                      const goal = selectedYear === 0 ? 300 : 100;
+                      const attendancePct = Math.min((computedAttendancePts / goal) * 100, 100);
+                      const questionPct = Math.min((computedQuestionPts / goal) * 100, 100 - attendancePct);
+
+                      return (
+                        <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">Academic Points Tracker</span>
+                            <span className="font-black text-white">{displayTotalPoints} / {goal} <span className="font-medium text-indigo-200 text-[10px]">({selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal)</span></span>
+                          </div>
+                          <div className="h-2 bg-indigo-950/60 rounded-full overflow-hidden flex">
+                            <div 
+                              className="h-full bg-blue-400 transition-all" 
+                              style={{ width: `${questionPct}%` }} 
+                              title={`${computedQuestionPts} points from Questions`}
+                            />
+                            <div 
+                              className="h-full bg-purple-400 transition-all" 
+                              style={{ width: `${attendancePct}%` }} 
+                              title={`${computedAttendancePts} points from Attendance`}
+                            />
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] font-bold">
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-400/20 text-blue-200 border border-blue-400/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                              {computedQuestionPts} Q-Points
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-purple-400/20 text-purple-200 border border-purple-400/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                              {computedAttendancePts} Attendance Points
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <>
                 {/* Compact Grid KPIs */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
@@ -712,6 +792,8 @@ export default function MyStatsModal({
                     </div>
                   </div>
                 )}
+                  </>
+                )}
               </div>
 
               {/* Block Performance - Clickable to Review */}
@@ -852,6 +934,84 @@ export default function MyStatsModal({
                   </>
                 )}
               </div>
+            </div>
+          )}
+
+                    {activeTab === 'achievements' && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Streaks Header */}
+              {userStreak && (userStreak.current_qotd_streak > 0 || userStreak.current_block_streak > 0) ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {userStreak.current_qotd_streak > 0 && (
+                    <div className="p-4 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-2xl border border-orange-200 dark:border-orange-900/40 flex items-center gap-3 shadow-xs">
+                      <span className="text-3xl animate-pulse">🔥</span>
+                      <div>
+                        <div className="font-black text-xl">{userStreak.current_qotd_streak} Day Streak</div>
+                        <div className="text-xs font-bold opacity-80">Question of the Day (Consecutive Weekdays)</div>
+                      </div>
+                    </div>
+                  )}
+                  {userStreak.current_block_streak > 0 && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-2xl border border-blue-200 dark:border-blue-900/40 flex items-center gap-3 shadow-xs">
+                      <span className="text-3xl animate-pulse">⚡</span>
+                      <div>
+                        <div className="font-black text-xl">{userStreak.current_block_streak} Block Streak</div>
+                        <div className="text-xs font-bold opacity-80">On-Time Block Submissions</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                  <span className="text-2xl">🔥</span>
+                  <div>
+                    <div className="font-bold text-sm text-slate-800 dark:text-slate-200">Start Your Daily Streak</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500">Answer today's Question of the Day before noon to ignite your streak counter!</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Earned Badges Showcase */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-black text-base text-slate-800 dark:text-white">Earned Badges ({userBadges.length})</h3>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">Badges unlocked through curriculum questions and milestones</p>
+                  </div>
+                </div>
+
+                {userBadges.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {userBadges.map((badge, idx) => (
+                      <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 shadow-xs border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xl shrink-0">
+                          {badge.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">{badge.name}</div>
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 line-clamp-2">{badge.description}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs italic">
+                    No badges earned yet. Answer daily questions and complete practice blocks to unlock badges!
+                  </div>
+                )}
+              </div>
+
+              {/* Next Milestone */}
+              {nextBadge && (
+                <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl flex items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Next Badge Milestone</span>
+                    <h4 className="font-black text-slate-800 dark:text-white text-sm mt-0.5">{nextBadge.name}</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{nextBadge.remaining} more question{nextBadge.remaining === 1 ? '' : 's'} to unlock</p>
+                  </div>
+                  <div className="text-2xl">🎯</div>
+                </div>
+              )}
             </div>
           )}
 

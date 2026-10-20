@@ -6,7 +6,7 @@ import { formatDisplayName, withTimeout } from '@/lib/utils';
 import { canAccessAdmin, getUserRole } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
-  LogOut, Lock, Trophy, BookOpen, Gem, CheckCircle, ChevronRight,
+  Search, LogOut, Lock, Trophy, BookOpen, Gem, CheckCircle, ChevronRight,
   PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info, Calendar, Users, Sun, Moon
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
@@ -409,44 +409,34 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2 relative z-20 shrink-0">
+          <button
+            onClick={() => setShowSearchModal(true)}
+            className="p-2 text-slate-400 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+            title="Search Question Bank"
+          >
+            <Search className="w-5 h-5" />
+          </button>
           {isSuperAdmin && (
             <button
               onClick={() => onOpenAdmin()}
-              className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer"
               title="Admin Console"
             >
               <Lock className="w-5 h-5" />
             </button>
           )}
           <button
-            onClick={toggleTheme}
-            className="p-2 text-slate-400 dark:text-slate-300 hover:text-amber-500 dark:hover:text-yellow-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
-            title={`Current Theme: ${theme.toUpperCase()} (Click to cycle Light / Dark / Midnight)`}
+            onClick={() => setShowSettings(true)}
+            className="p-2 text-slate-400 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+            title="Settings, Theme &amp; Shortcuts"
           >
-            {theme === 'light' ? (
-              <Sun className="w-5 h-5 text-amber-500" />
-            ) : theme === 'dark' ? (
-              <Moon className="w-5 h-5 text-blue-400" />
-            ) : (
-              <Sparkles className="w-5 h-5 text-indigo-400" />
-            )}
-          </button>
-          <button onClick={() => setShowInstallApp(true)} className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors" title="Install app on your phone">
-            <Smartphone className="w-5 h-5" />
-          </button>
-          <button onClick={() => setShowSettings(true)} className="p-2 text-slate-300 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors" title="Profile Settings">
             <Settings className="w-5 h-5" />
           </button>
-          <a
-            href={`https://mail.google.com/mail/?view=cm&fs=1&to=jonathan.carbungco@ascension.org&su=Feedback:%20FMC%20Board%20Question%20App${user.email ? `&authuser=${encodeURIComponent(user.email)}` : ''}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-            title="Send Feedback"
+          <button
+            onClick={onLogout}
+            className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-colors cursor-pointer"
+            title="Log Out"
           >
-            <MessageSquare className="w-5 h-5" />
-          </a>
-          <button onClick={onLogout} className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-xl transition-colors" title="Log Out">
             <LogOut className="w-5 h-5" />
           </button>
         </div>
@@ -507,106 +497,17 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
         {/* LEFT SIDEBAR */}
         <div className="hidden md:flex md:w-80 flex-col gap-4 shrink-0">
-          
-          {/* My Performance — yellow gradient (Positioned on top per user request) */}
-          <button
-            onClick={() => setShowMyStats(true)}
-            className="w-full flex items-center gap-4 p-5 bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-amber-950/30 dark:to-yellow-950/20 border border-yellow-200 dark:border-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded-3xl shadow-sm hover:-translate-y-1 hover:shadow-md transition-all duration-300 group"
-          >
-            <div className="p-3 bg-white/60 dark:bg-white/10 rounded-2xl group-hover:scale-110 transition-transform">
-              <Trophy className="w-6 h-6 text-yellow-500" />
-            </div>
-            <div className="text-left flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-1">
-                <p className="font-bold text-base">My Performance</p>
-                {residentReadiness && (
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 border ${
-                    residentReadiness.status === 'Board Ready'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                      : residentReadiness.status === 'Needs Attention'
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                      : residentReadiness.status === 'At Risk'
-                      ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-red-300 dark:border-red-700'
-                      : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700'
-                  }`}>
-                    {residentReadiness.status}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-yellow-600 dark:text-yellow-400">Stats, badges &amp; history</p>
-            </div>
-          </button>
-
-          {/* Achievements */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Achievements</h3>
-              <button
-                onClick={() => setShowAchievements(true)}
-                className="flex items-center gap-1 text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-              >
-                <Info className="w-3.5 h-3.5" /> View all
-              </button>
-            </div>
-            
-            {userStreak?.current_qotd_streak > 0 && (
-              <div 
-                className="flex items-center gap-3 mb-4 p-3 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-xl border border-orange-100 dark:border-orange-900/40 cursor-help transition-all hover:bg-orange-100 dark:hover:bg-orange-900/60"
-                title={`You've answered the Question of the Day for ${userStreak.current_qotd_streak} consecutive weekdays!`}
-              >
-                <div className="text-2xl animate-pulse">🔥</div>
-                <div>
-                  <div className="font-black text-lg">{userStreak.current_qotd_streak} Day Streak</div>
-                  <div className="text-xs font-bold opacity-80">Question of the Day</div>
-                </div>
-              </div>
-            )}
-
-            {userStreak?.current_block_streak > 0 && (
-              <div 
-                className="flex items-center gap-3 mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl border border-blue-100 dark:border-blue-900/40 cursor-help transition-all hover:bg-blue-100 dark:hover:bg-blue-900/60"
-                title={`You've submitted ${userStreak.current_block_streak} consecutive practice blocks On Time!`}
-              >
-                <div className="text-2xl animate-pulse">⚡</div>
-                <div>
-                  <div className="font-black text-lg">{userStreak.current_block_streak} Block Streak</div>
-                  <div className="text-xs font-bold opacity-80">On-Time Submissions</div>
-                </div>
-              </div>
-            )}
-
-            {userBadges.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {userBadges.map((badge, idx) => (
-                  <div key={idx} title={badge.name + ' - ' + badge.description} className="flex items-center justify-center w-10 h-10 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-full text-xl cursor-help hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm">
-                    {badge.icon}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!(userStreak?.current_qotd_streak > 0) && !(userStreak?.current_block_streak > 0) && userBadges.length === 0 && (
-              <button
-                onClick={() => setShowAchievements(true)}
-                className="w-full text-left text-xs font-medium text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                No badges yet — tap &ldquo;View all&rdquo; to see what you can earn.
-              </button>
-            )}
-          </div>
-
           {activeLeaderboard.length > 0 && (
-            <div className="space-y-4">
-              <LeaderboardWidget
-                data={activeLeaderboard}
-                myEmail={user.email}
-                challengeData={challengeData}
-                onOpenChallenge={() => setShowChallengeModal(true)}
-                showGraduates={showGraduatesLeaderboard}
-                onToggleGraduates={() => setShowGraduatesLeaderboard(prev => !prev)}
-              />
-              <ClassLeaderboardWidget data={activeLeaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => setSelectedYoyClass(pgy)} />
-            </div>
+            <LeaderboardWidget
+              data={activeLeaderboard}
+              myEmail={user.email}
+              challengeData={challengeData}
+              onOpenChallenge={() => setShowChallengeModal(true)}
+              showGraduates={showGraduatesLeaderboard}
+              onToggleGraduates={() => setShowGraduatesLeaderboard(prev => !prev)}
+              myPgy={profile?.pgy}
+              onClassClick={(pgy) => setSelectedYoyClass(pgy)}
+            />
           )}
         </div>
 
@@ -614,10 +515,63 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         <div className="flex-1 flex flex-col min-w-0">
           
           {/* TOP ROW: 3 Compact Square-Styled Blocks (QOTD, Quiz Builder, Resume Block / Active Jump) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-4">
             
-            {/* Block 1: Question of the Day */}
-            <div className="order-1 md:order-1 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 sm:p-5 text-white shadow-md relative overflow-hidden flex flex-col justify-between hover:-translate-y-0.5 transition-all group min-h-[170px]">
+            {/* Card 1: My Performance & Achievements */}
+            <button
+              onClick={() => setShowMyStats(true)}
+              className="order-1 bg-gradient-to-br from-amber-500/15 via-yellow-500/10 to-amber-500/5 dark:from-amber-950/40 dark:to-yellow-950/30 border border-amber-300/80 dark:border-amber-800/60 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px] cursor-pointer"
+            >
+              <div className="absolute top-0 right-0 -mr-6 -mt-6 w-20 h-20 bg-amber-400/10 rounded-full blur-xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
+              <div className="relative z-10 w-full">
+                <div className="flex items-center justify-between gap-2 mb-2 w-full">
+                  <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-amber-950 dark:text-amber-100">
+                    <div className="p-1.5 bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-900 rounded-lg group-hover:rotate-6 transition-transform shadow-xs">
+                      <Trophy className="w-3.5 h-3.5 text-slate-950" />
+                    </div>
+                    Performance
+                  </span>
+                  {residentReadiness ? (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 border ${
+                      residentReadiness.status === 'Board Ready'
+                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                        : residentReadiness.status === 'Needs Attention'
+                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                        : residentReadiness.status === 'At Risk'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-red-300 dark:border-red-700'
+                        : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                    }`}>
+                      {residentReadiness.status}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-bold">
+                      {totalPoints} AP
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs font-bold text-amber-900/90 dark:text-amber-200/90 mb-1">
+                  {totalPoints} Academic Points{myRank ? ` · Rank #${myRank}` : ''}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-amber-800/80 dark:text-amber-300/80 font-medium">
+                  {userStreak?.current_qotd_streak > 0 && <span>🔥 {userStreak.current_qotd_streak}d streak</span>}
+                  {userStreak?.current_block_streak > 0 && <span>⚡ {userStreak.current_block_streak} blk</span>}
+                  {userBadges.length > 0 && <span>• {userBadges.length} badges</span>}
+                  {!userStreak?.current_qotd_streak && !userStreak?.current_block_streak && userBadges.length === 0 && (
+                    <span>Stats, badges &amp; history</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="relative z-10 flex items-center gap-1 text-xs font-black text-amber-800 dark:text-amber-300 group-hover:translate-x-0.5 transition-transform mt-auto">
+                <span>View Performance &amp; Badges</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </div>
+            </button>
+
+            {/* Block 2: Question of the Day */}
+            <div className="order-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-4 sm:p-5 text-white shadow-md relative overflow-hidden flex flex-col justify-between hover:-translate-y-0.5 transition-all group min-h-[170px]">
               <div className="absolute top-0 right-0 -mr-8 -mt-8 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
               <div className="relative z-10">
                 <div className="flex items-center justify-between gap-2 mb-2">
@@ -710,7 +664,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             {/* Block 2: Quiz Builder */}
             <button
               onClick={onOpenBuilder}
-              className="order-3 md:order-2 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+              className="order-3 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
             >
               <div className="flex items-center justify-between gap-2 mb-2 w-full">
                 <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-indigo-900 dark:text-indigo-100">
@@ -744,7 +698,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     count: 40,
                   });
                 }}
-                className="order-2 md:order-3 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+                className="order-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
               >
                 <div className="flex items-center justify-between gap-2 mb-2 w-full">
                   <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-amber-900 dark:text-amber-100">
@@ -769,7 +723,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             ) : currentBlock ? (
               <button
                 onClick={() => onStartQuiz({ topic: currentBlock.title, quizId: currentBlock.id, count: 40 })}
-                className="order-2 md:order-3 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+                className="order-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
               >
                 <div className="flex items-center justify-between gap-2 mb-2 w-full">
                   <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-emerald-900 dark:text-emerald-100">
@@ -792,7 +746,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                 </div>
               </button>
             ) : (
-              <div className="order-2 md:order-3 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between text-left min-h-[170px]">
+              <div className="order-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between text-left min-h-[170px]">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
                     <CheckCircle className="w-4 h-4 text-emerald-500" />
@@ -809,58 +763,24 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             )}
           </div>
 
-          {/* MOBILE ONLY: 3 Compact App-Icon Cards (Performance, Badges, Leaderboard) */}
-          <div className="grid grid-cols-3 gap-2.5 mb-4 md:hidden">
-            {/* Card 1: Performance */}
-            <button
-              onClick={() => setShowMyStats(true)}
-              className="p-3 bg-gradient-to-br from-amber-500/10 to-yellow-500/10 dark:from-amber-500/15 dark:to-yellow-500/15 border border-amber-200/80 dark:border-amber-800/50 rounded-2xl flex flex-col items-center justify-center text-center group hover:scale-[1.02] active:scale-95 transition-all shadow-sm"
-            >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-white flex items-center justify-center mb-1.5 shadow-md shadow-amber-500/20 group-hover:rotate-6 transition-transform">
-                <Trophy className="w-4.5 h-4.5 text-amber-950" />
-              </div>
-              <span className="text-[11px] font-black text-slate-800 dark:text-slate-100 truncate w-full">
-                Performance
-              </span>
-              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 truncate w-full">
-                {residentReadiness ? residentReadiness.status : `${totalPoints} AP${myRank ? ` · #${myRank}` : ''}`}
-              </span>
-            </button>
-
-            {/* Card 2: Badges & Achievements */}
-            <button
-              onClick={() => setShowAchievements(true)}
-              className="p-3 bg-gradient-to-br from-purple-500/10 to-pink-500/10 dark:from-purple-500/15 dark:to-pink-500/15 border border-purple-200/80 dark:border-purple-800/50 rounded-2xl flex flex-col items-center justify-center text-center group hover:scale-[1.02] active:scale-95 transition-all shadow-sm"
-            >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center mb-1.5 shadow-md shadow-purple-500/20 group-hover:rotate-6 transition-transform">
-                <Sparkles className="w-4.5 h-4.5 text-yellow-300" />
-              </div>
-              <span className="text-[11px] font-black text-slate-800 dark:text-slate-100 truncate w-full">
-                Badges
-              </span>
-              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 truncate w-full">
-                {userStreak?.current_qotd_streak > 0 
-                  ? `🔥 ${userStreak.current_qotd_streak}d streak` 
-                  : userBadges.length > 0 
-                  ? `${userBadges.length} earned` 
-                  : 'View all'}
-              </span>
-            </button>
-
-            {/* Card 3: Leaderboard */}
+          {/* MOBILE ONLY: Standings Button */}
+          <div className="mb-4 md:hidden">
             <button
               onClick={() => setShowLeaderboardModal(true)}
-              className="p-3 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 dark:from-blue-500/15 dark:to-cyan-500/15 border border-blue-200/80 dark:border-blue-800/50 rounded-2xl flex flex-col items-center justify-center text-center group hover:scale-[1.02] active:scale-95 transition-all shadow-sm"
+              className="w-full p-3 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 dark:from-blue-950/40 dark:via-purple-950/40 dark:to-blue-950/40 border border-blue-200/80 dark:border-blue-800/50 rounded-2xl flex items-center justify-between text-left group shadow-xs cursor-pointer"
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white flex items-center justify-center mb-1.5 shadow-md shadow-blue-500/20 group-hover:rotate-6 transition-transform">
-                <Trophy className="w-4.5 h-4.5 text-white" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center shadow-xs">
+                  <Trophy className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <div className="text-xs font-black text-slate-800 dark:text-slate-100">Program Leaderboards</div>
+                  <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">
+                    {myRank ? `Your Rank: #${myRank}` : 'Standings'} · Class &amp; $150 Challenge
+                  </div>
+                </div>
               </div>
-              <span className="text-[11px] font-black text-slate-800 dark:text-slate-100 truncate w-full">
-                Leaderboard
-              </span>
-              <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 truncate w-full">
-                {myRank ? `Rank #${myRank}` : 'Standings'}
-              </span>
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
             </button>
           </div>
 
@@ -908,42 +828,40 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             </div>
           )}
 
-          {/* Active Block Advisor Meeting Self-Check */}
+          {/* Active Block Advisor Meeting Self-Check (Condensed Strip) */}
           {currentBlock && effectiveRole !== 'faculty' && effectiveRole !== 'admin' && (
-            <div className="mb-8 relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
-              <div className="flex items-start md:items-center justify-between gap-4 flex-col md:flex-row">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-2xl shrink-0 ${advisorMeetingCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                    {advisorMeetingCompleted ? <CheckCircle className="w-6 h-6" /> : <Users className="w-6 h-6" />}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg">
-                      {currentBlock.title} — Advisor Meeting
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      {advisorMeetingCompleted 
-                        ? 'Meeting completed. You earned 1 attendance point!' 
-                        : 'Honor system: Mark your block advisor meeting complete.'}
-                    </p>
-                    {advisorMeetingError && (
-                      <p className="text-xs text-red-500 font-bold mt-1 bg-red-50 dark:bg-red-950/40 inline-block px-2 py-1 rounded">{advisorMeetingError}</p>
-                    )}
-                  </div>
-                </div>
+            <div className={`mb-4 px-4 py-2.5 rounded-2xl border flex items-center justify-between gap-3 text-xs transition-all ${
+              advisorMeetingCompleted
+                ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                : 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/40 text-blue-900 dark:text-blue-200'
+            }`}>
+              <div className="flex items-center gap-2 min-w-0">
+                {advisorMeetingCompleted ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                ) : (
+                  <Users className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                )}
+                <span className="font-bold truncate">
+                  {currentBlock.title} — Advisor Meeting:
+                </span>
+                <span className="text-[11px] opacity-80 truncate hidden sm:inline">
+                  {advisorMeetingCompleted ? 'Completed (+1 Attendance Pt)' : 'Mark completed to earn attendance point'}
+                </span>
+              </div>
+              <div className="shrink-0">
                 {!advisorMeetingCompleted ? (
                   <button
                     onClick={handleClaimAdvisorMeeting}
                     disabled={claimingAdvisorMeeting}
-                    className="shrink-0 w-full md:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                   >
-                    {claimingAdvisorMeeting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                    {claimingAdvisorMeeting ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
                     Mark Complete
                   </button>
                 ) : (
-                  <div className="shrink-0 w-full md:w-auto px-5 py-2.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/50 rounded-xl font-black flex items-center justify-center gap-2">
-                    <CheckCircle className="w-4 h-4" />
-                    Completed
-                  </div>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+                    Done ✅
+                  </span>
                 )}
               </div>
             </div>
@@ -1089,6 +1007,8 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             setShowSettings(false);
             onProfileUpdate(updated);
           }}
+          onOpenInstallApp={() => setShowInstallApp(true)}
+          onLogout={onLogout}
         />
       )}
 
@@ -1104,6 +1024,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           myResults={myResults}
           leaderboard={leaderboard}
           userBadges={userBadges}
+          userStreak={userStreak}
           selectedYear={selectedYear}
           onYearChange={(year: number) => setSelectedYear(year)}
           attendanceList={data?.attendance || []}
@@ -1224,20 +1145,19 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                   )}
 
                   {activeLeaderboard.length > 0 ? (
-                    <>
-                      <LeaderboardWidget
-                        data={activeLeaderboard}
-                        myEmail={user.email}
-                        challengeData={challengeData}
-                        onOpenChallenge={() => { setShowLeaderboardModal(false); setShowChallengeModal(true); }}
-                        showGraduates={showGraduatesLeaderboard}
-                        onToggleGraduates={() => setShowGraduatesLeaderboard(prev => !prev)}
-                      />
-                      <ClassLeaderboardWidget data={activeLeaderboard} myPgy={profile?.pgy} onClassClick={(pgy) => {
+                    <LeaderboardWidget
+                      data={activeLeaderboard}
+                      myEmail={user.email}
+                      challengeData={challengeData}
+                      onOpenChallenge={() => { setShowLeaderboardModal(false); setShowChallengeModal(true); }}
+                      showGraduates={showGraduatesLeaderboard}
+                      onToggleGraduates={() => setShowGraduatesLeaderboard(prev => !prev)}
+                      myPgy={profile?.pgy}
+                      onClassClick={(pgy) => {
                         setShowLeaderboardModal(false);
                         setSelectedYoyClass(pgy);
-                      }} />
-                    </>
+                      }}
+                    />
                   ) : (
                     <p className="text-center py-6 text-slate-400 text-sm italic">No leaderboard data available.</p>
                   )}
@@ -1415,14 +1335,16 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   );
 }
 
-// === LEADERBOARD WIDGET ===
+// === LEADERBOARD WIDGET (UNIFIED AP + CLASS + CHALLENGE) ===
 function LeaderboardWidget({
   data,
   myEmail,
   challengeData,
   onOpenChallenge,
   showGraduates,
-  onToggleGraduates
+  onToggleGraduates,
+  myPgy,
+  onClassClick,
 }: {
   data: LeaderboardEntry[];
   myEmail: string;
@@ -1430,11 +1352,28 @@ function LeaderboardWidget({
   onOpenChallenge?: () => void;
   showGraduates?: boolean;
   onToggleGraduates?: () => void;
+  myPgy?: string;
+  onClassClick?: (pgy: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'ap' | 'challenge'>('ap');
+  const [activeTab, setActiveTab] = useState<'ap' | 'class' | 'challenge'>('ap');
   const top = data.slice(0, 5);
   const myEntry = data.find(d => d.email.toLowerCase() === myEmail?.toLowerCase());
   const myRank = myEntry ? data.findIndex(d => d.email === myEntry.email) + 1 : null;
+
+  const classTotals = useMemo(() => {
+    return data.reduce((acc, curr) => {
+      if (!curr.pgy || curr.pgy === 'Faculty') return acc;
+      if (!acc[curr.pgy]) acc[curr.pgy] = 0;
+      acc[curr.pgy] += curr.totalPoints;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [data]);
+
+  const classes = useMemo(() => {
+    return Object.entries(classTotals)
+      .map(([pgy, totalPoints]) => ({ pgy, totalPoints }))
+      .sort((a, b) => b.totalPoints - a.totalPoints);
+  }, [classTotals]);
 
   const myChallengeStanding = useMemo(() => {
     if (!challengeData || !myEmail) return null;
@@ -1444,11 +1383,11 @@ function LeaderboardWidget({
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm transition-colors">
       {/* Tab Switcher Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl">
+      <div className="flex items-center justify-between mb-3 gap-1">
+        <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl overflow-x-auto">
           <button
             onClick={() => setActiveTab('ap')}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'ap'
                 ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
@@ -1457,20 +1396,30 @@ function LeaderboardWidget({
             🏆 APs
           </button>
           <button
+            onClick={() => setActiveTab('class')}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'class'
+                ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-xs'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+            }`}
+          >
+            🎓 Class
+          </button>
+          <button
             onClick={() => setActiveTab('challenge')}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 cursor-pointer ${
+            className={`px-2 py-1 rounded-lg text-[10px] font-black transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap ${
               activeTab === 'challenge'
                 ? 'bg-red-600 text-white shadow-xs'
                 : 'text-red-600 dark:text-red-400 hover:text-red-700'
             }`}
           >
             <Gift className="w-3 h-3" />
-            <span>$50 Challenge</span>
+            <span>$150 Challenge</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          {onToggleGraduates && (
+        <div className="flex items-center gap-1.5 shrink-0">
+          {activeTab === 'ap' && onToggleGraduates && (
             <button
               onClick={onToggleGraduates}
               title={showGraduates ? "Hide alumni/graduates" : "Show alumni/graduates"}
@@ -1483,18 +1432,56 @@ function LeaderboardWidget({
               {showGraduates ? '🎓 Grads On' : '🎓 Grads'}
             </button>
           )}
-        {activeTab === 'ap' && myRank && (
-          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>
-        )}
+          {activeTab === 'ap' && myRank && (
+            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>
+          )}
         </div>
         {activeTab === 'challenge' && myChallengeStanding && (
-          <span className={`text-[10px] font-black ${myChallengeStanding.isEligible ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+          <span className={`text-[10px] font-black shrink-0 ${myChallengeStanding.isEligible ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
             {myChallengeStanding.isEligible ? 'Eligible ✅' : `${myChallengeStanding.completedBlocksCount}/${myChallengeStanding.totalRequiredBlocks} Blks`}
           </span>
         )}
       </div>
 
-      {activeTab === 'ap' ? (
+      {activeTab === 'class' ? (
+        /* Class Leaderboard Tab Content */
+        <div className="space-y-1">
+          {classes.map((c, i) => {
+            const isMyClass = c.pgy === myPgy;
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+            return (
+              <button
+                key={c.pgy}
+                onClick={() => onClassClick && onClassClick(c.pgy)}
+                className={`w-full text-left flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors cursor-pointer ${isMyClass ? 'bg-purple-50/70 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50' : ''}`}
+                title="Click to view Year-over-Year class performance comparison"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 w-5 shrink-0">
+                    {medal || `#${i + 1}`}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold truncate ${isMyClass ? 'text-purple-700 dark:text-purple-300' : 'text-slate-700 dark:text-slate-200'}`}>
+                      {c.pgy}
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                      {isMyClass ? 'Your Class' : 'Residents'}
+                    </p>
+                  </div>
+                </div>
+                <span className={`text-xs font-black shrink-0 ml-2 ${isMyClass ? 'text-purple-700 dark:text-purple-300' : 'text-slate-600 dark:text-slate-400'}`}>
+                  {c.totalPoints} pts
+                </span>
+              </button>
+            );
+          })}
+          {onClassClick && (
+            <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
+              Tap any class to view YoY trends
+            </p>
+          )}
+        </div>
+      ) : activeTab === 'ap' ? (
         <>
           <div className="space-y-1">
             {top.map((r, i) => {

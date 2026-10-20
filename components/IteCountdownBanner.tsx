@@ -214,6 +214,23 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
   const [showSchedule, setShowSchedule] = useState(false);
   const [showExpectHover, setShowExpectHover] = useState(false);
   const [postIteDismissed, setPostIteDismissed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('fmc_ite_banner_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCollapsed = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('fmc_ite_banner_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
   const [liveAdvisorMap, setLiveAdvisorMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -356,6 +373,47 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
     return matchesDoctorIdentity(doc, lastName, emailLastToken, firstInitial);
   };
 
+  if (isCollapsed) {
+    return (
+      <div className="mb-4 rounded-2xl bg-gradient-to-r from-blue-950/90 via-indigo-950/90 to-slate-900/90 border border-indigo-500/30 p-3 sm:px-4 text-white shadow-sm flex items-center justify-between gap-3 animate-fade-in">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 bg-amber-400/20 text-amber-300 rounded-lg shrink-0">
+            <GraduationCap className="w-4 h-4" />
+          </div>
+          <div className="min-w-0 flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-xs sm:text-sm text-white truncate">
+              2026 ABFM ITE
+            </span>
+            {matchedAssignment ? (
+              <span className="text-xs text-indigo-200 truncate">
+                • {matchedAssignment.doctor.display} ({matchedAssignment.session.shortDate} @ {matchedAssignment.session.timeLabel})
+              </span>
+            ) : (
+              <span className="text-xs text-indigo-200 truncate hidden sm:inline">
+                • Tue Oct 20 &amp; Wed Oct 28
+              </span>
+            )}
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              primaryStatus.isCompleted 
+                ? 'bg-emerald-400/20 text-emerald-200' 
+                : 'bg-white/10 text-amber-200'
+            }`}>
+              {primaryStatus.isCompleted ? 'Completed 🎉' : `${primaryStatus.days}d ${primaryStatus.hours}h left`}
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={toggleCollapsed}
+          className="px-2.5 py-1 text-xs font-bold text-indigo-200 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-all flex items-center gap-1 shrink-0 cursor-pointer"
+          title="Expand ITE Countdown Details"
+        >
+          <span>Expand</span>
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mb-6 rounded-3xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 text-white shadow-lg border border-indigo-500/30 relative animate-fade-in">
       {/* Subtle decorative glow */}
@@ -387,6 +445,17 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
                   2 ITE Dates Scheduled
                 </span>
               )}
+
+                            {/* Collapse Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/10 hover:bg-white/20 text-indigo-100 border border-white/15 transition-colors cursor-pointer"
+                title="Collapse ITE Banner"
+              >
+                <span>Collapse</span>
+                <ChevronUp className="w-3 h-3" />
+              </button>
 
               {/* Hover or Click "What to Expect" Trigger */}
               <div

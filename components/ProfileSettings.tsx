@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout } from '@/lib/utils';
-import { X, Loader2, CheckCircle, Lock, MailIcon, Sparkles, Eye, EyeOff, Sun, Moon } from './AppIcons';
+import { X, Loader2, CheckCircle, Lock, MailIcon, Sparkles, Eye, EyeOff, Sun, Moon, Smartphone, MessageSquare, LogOut } from './AppIcons';
 import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -15,9 +15,11 @@ interface ProfileSettingsProps {
   profile: any;
   onClose: () => void;
   onProfileUpdate: (updatedProfile: any) => void;
+  onOpenInstallApp?: () => void;
+  onLogout?: () => void;
 }
 
-export default function ProfileSettings({ user, profile, onClose, onProfileUpdate }: ProfileSettingsProps) {
+export default function ProfileSettings({ user, profile, onClose, onProfileUpdate, onOpenInstallApp, onLogout }: ProfileSettingsProps) {
   const { theme, setTheme } = useTheme();
   const [firstName, setFirstName] = useState(profile?.first_name || profile?.full_name?.split(' ')[0] || '');
   const [lastName, setLastName] = useState(profile?.last_name || profile?.full_name?.split(' ').slice(1).join(' ') || '');
@@ -593,6 +595,62 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
               {savingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : passwordSuccess ? <><CheckCircle className="w-4 h-4" /> Updated!</> : 'Update Password'}
             </button>
           </form>
+          {/* Divider */}
+          <div className="border-t border-slate-100 dark:border-slate-800" />
+
+          {/* Quick Actions & Help */}
+          <div className="space-y-3">
+            <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">App &amp; Support</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {onOpenInstallApp && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenInstallApp();
+                  }}
+                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-left flex items-center gap-3 transition-colors cursor-pointer group"
+                >
+                  <div className="p-2 bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-lg group-hover:scale-105 transition-transform">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-slate-800 dark:text-slate-200">Install to Phone</div>
+                    <div className="text-[10px] text-slate-400 dark:text-slate-500">Add to mobile home screen</div>
+                  </div>
+                </button>
+              )}
+
+              <a
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=jonathan.carbungco@ascension.org&su=Feedback:%20FMC%20Board%20Question%20App${user.email ? `&authuser=${encodeURIComponent(user.email)}` : ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-left flex items-center gap-3 transition-colors group"
+              >
+                <div className="p-2 bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-lg group-hover:scale-105 transition-transform">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="font-bold text-xs text-slate-800 dark:text-slate-200">Send Feedback</div>
+                  <div className="text-[10px] text-slate-400 dark:text-slate-500">Contact Dr. Carbungco</div>
+                </div>
+              </a>
+            </div>
+
+            {onLogout && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onLogout();
+                }}
+                className="w-full mt-2 p-3 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/40 text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Log Out of Account</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
