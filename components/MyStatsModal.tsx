@@ -601,10 +601,11 @@ export default function MyStatsModal({
                     <button
                       type="button"
                       onClick={toggleSnapshotCollapsed}
-                      className="p-1 hover:bg-white/15 rounded-lg text-indigo-100 hover:text-white transition-colors cursor-pointer"
-                      title={isSnapshotCollapsed ? "Expand snapshot breakdown" : "Collapse snapshot"}
+                      className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer shadow-sm"
+                      title={isSnapshotCollapsed ? "Expand snapshot breakdown" : "Collapse snapshot breakdown"}
                     >
-                      {isSnapshotCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                      <span>{isSnapshotCollapsed ? 'Expand' : 'Collapse'}</span>
+                      {isSnapshotCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </div>
@@ -662,6 +663,16 @@ export default function MyStatsModal({
                         </div>
                       );
                     })()}
+
+                    {/* Expand Breakdown Strip */}
+                    <button
+                      type="button"
+                      onClick={toggleSnapshotCollapsed}
+                      className="w-full pt-2.5 mt-1 border-t border-white/10 text-xs font-bold text-indigo-200 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <span>Show Full Breakdown &amp; KPIs</span>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ) : (
                   <>
@@ -809,6 +820,16 @@ export default function MyStatsModal({
                     </div>
                   </div>
                 )}
+
+                    {/* Collapse Breakdown Strip */}
+                    <button
+                      type="button"
+                      onClick={toggleSnapshotCollapsed}
+                      className="w-full pt-3 mt-3 border-t border-white/10 text-xs font-bold text-indigo-200 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <span>Collapse Snapshot</span>
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
                   </>
                 )}
               </div>

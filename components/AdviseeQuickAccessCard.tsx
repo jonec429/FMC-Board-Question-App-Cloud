@@ -498,10 +498,11 @@ export default function AdviseeQuickAccessCard({
 
             <button
               onClick={toggleExpanded}
-              className="p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-xl transition-colors ml-0.5"
+              className="px-2.5 py-1 text-xs font-bold text-indigo-200 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-all flex items-center gap-1.5 border border-white/10 cursor-pointer ml-0.5"
               title={isExpanded ? 'Collapse Advisee Hub' : 'Expand Advisee Hub'}
             >
-              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+              <span>{isExpanded ? 'Collapse' : 'Expand'}</span>
+              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
@@ -711,6 +712,14 @@ export default function AdviseeQuickAccessCard({
                 >
                   <BarChartIcon className="w-3.5 h-3.5 text-indigo-300" /> Faculty Console
                   <ExternalLink className="w-3 h-3 text-indigo-300" />
+                </button>
+                <button
+                  onClick={toggleExpanded}
+                  className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white font-bold rounded-xl transition-all flex items-center gap-1 border border-white/10 active:scale-95 cursor-pointer ml-auto"
+                  title="Collapse Advisee Hub"
+                >
+                  <span>Collapse Hub</span>
+                  <ChevronUp className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>

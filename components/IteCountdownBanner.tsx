@@ -451,11 +451,11 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
               <button
                 type="button"
                 onClick={toggleCollapsed}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/10 hover:bg-white/20 text-indigo-100 border border-white/15 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/10 hover:bg-white/20 text-indigo-100 border border-white/15 transition-colors cursor-pointer"
                 title="Collapse ITE Banner"
               >
                 <span>Collapse</span>
-                <ChevronUp className="w-3 h-3" />
+                <ChevronUp className="w-3.5 h-3.5" />
               </button>
 
               {/* Hover or Click "What to Expect" Trigger */}
@@ -837,6 +837,18 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
             </div>
           </div>
         )}
+
+        {/* Bottom Collapse Trigger */}
+        <div className="mt-4 pt-3 border-t border-white/15 flex justify-end">
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            className="px-3 py-1 text-xs font-bold text-indigo-200 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer border border-white/15 shadow-sm"
+          >
+            <span>Collapse ITE Banner</span>
+            <ChevronUp className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
