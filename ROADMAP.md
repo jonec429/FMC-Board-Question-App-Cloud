@@ -64,14 +64,14 @@ This file serves as the shared source of truth for development progress between 
 **Shipped this session**:
 1. **Collapsible 2026 ABFM ITE Countdown Banner (`components/IteCountdownBanner.tsx`)**:
    - Added instant collapse/expand toggle allowing residents to shrink the large countdown banner into a sleek 1-line ticker showing their assigned date and countdown.
-   - Remembers preference across reloads via `localStorage` (`fmc_ite_banner_collapsed`).
+   - Defaults to collapsed on first load and remembers preference across reloads via `localStorage` (`fmc_ite_banner_collapsed`).
 2. **Top 4 Hub Cards Grid (`components/Dashboard.tsx`)**:
    - Combined *My Performance* and *Achievements* into Card 1 across the top row, matching the exact size, shape, and rounded geometry (`min-h-[170px]`) of the other 3 cards.
    - Styled with gold trophy theming, live readiness badge, AP points counter, and active streak preview.
    - Spanned the 4-card responsive grid across the full container width above the two columns (`gap-4 mb-6`), giving each card ample breathing room (~285px) so the Board Readiness badge and text never truncate.
 3. **Collapsible Board Prep Snapshot (`components/MyStatsModal.tsx`)**:
    - Added a collapse/expand toggle to the Board Prep Snapshot in personal stats.
-   - In collapsed mode, shows only **Average Quiz Score** and the dual-color **Academic Points Tracker** progress bar, eliminating ~350px of vertical modal bulk.
+   - Defaults to collapsed on first load (showing Average Quiz Score + AP Tracker progress bar) and remembers preference across reloads via `localStorage` (`fmc_snapshot_collapsed`).
 4. **Dedicated Achievements & Badges Tab (`components/MyStatsModal.tsx`)**:
    - Added an `Achievements` tab in `MyStatsModal` housing the consecutive QOTD streak (`🔥`), block submission streak (`⚡`), full earned badges shelf with tooltips, and next milestone indicators.
 5. **Condensed Advisor Meeting Strip (`components/Dashboard.tsx`)**:

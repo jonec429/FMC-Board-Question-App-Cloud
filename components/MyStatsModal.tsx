@@ -55,7 +55,24 @@ export default function MyStatsModal({
   const [showReadinessModal, setShowReadinessModal] = useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = useState(false);
   const [activeTab, setActiveTab] = useState<'stats' | 'achievements' | 'weakAreas' | 'pastQuizzes'>(initialTab || 'stats');
-  const [isSnapshotCollapsed, setIsSnapshotCollapsed] = useState(false);
+  const [isSnapshotCollapsed, setIsSnapshotCollapsed] = useState(() => {
+    try {
+      // Default to collapsed unless explicitly expanded by user ('false')
+      return localStorage.getItem('fmc_snapshot_collapsed') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleSnapshotCollapsed = () => {
+    setIsSnapshotCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('fmc_snapshot_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
   const [selectedQuiz, setSelectedQuiz] = useState<Result | null>(null);
   const [reviewItems, setReviewItems] = useState<{ question: Question; selected: number }[] | null>(null);
   const [loadingReview, setLoadingReview] = useState(false);
@@ -583,7 +600,7 @@ export default function MyStatsModal({
                     </select>
                     <button
                       type="button"
-                      onClick={() => setIsSnapshotCollapsed(prev => !prev)}
+                      onClick={toggleSnapshotCollapsed}
                       className="p-1 hover:bg-white/15 rounded-lg text-indigo-100 hover:text-white transition-colors cursor-pointer"
                       title={isSnapshotCollapsed ? "Expand snapshot breakdown" : "Collapse snapshot"}
                     >
