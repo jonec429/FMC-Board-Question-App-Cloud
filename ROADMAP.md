@@ -596,6 +596,33 @@ This file serves as the shared source of truth for development progress between 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-10-21 — Universal Question Search by ITE ID & App ID, Admin Console Quick Search & Table Filtering (Antigravity)
+*   **Universal Search by App ID (UUID) & Canonical ITE ID:** The Question Bank Knowledge Base now supports instant lookup by Question UUID, partial hex IDs (e.g. `2b062a6e`), pasted feedback email subjects (`Question Feedback...`), canonical ITE IDs (`ITE2025Q15`, `DemoQ1`), spaced/hyphenated IDs (`2025 Q15`, `ITE-2025-Q15`), and single question numbers (`Q15`, `Item #15`).
+*   **Priority Match Ranking:** Exact ITE ID and App ID matches automatically receive top scoring priority and appear first in search results.
+*   **1-Click Copy Badges:** Every question card in the knowledge base search now features clickable badges for both ITE ID and App ID, with one-click copy-to-clipboard functionality and confirmation toasts.
+*   **Admin Console Top-Bar Search:** Added a dedicated **Search Bank** button directly to the top header of the Admin and Faculty Console for immediate access without navigating away.
+*   **Admin Question Table Filtering:** Updated the Question Bank Manager data table accessor so typing an ITE ID or App ID in the admin table search bar filters directly to the matching question.
+
+### 2026-10-21 — Dashboard Hub Streamlining, Full-Width Top Cards & Collapsible Widgets (Antigravity)
+*   **Rebalanced 4-Card Dashboard Hub:** Streamlined the home screen layout with 4 full-width top cards (My Performance & Achievements combined, Question of the Day, Custom Quiz Builder, and Active Curriculum Jump), matching identical geometry and responsiveness.
+*   **Collapsible ITE Banner & Board Prep Snapshot:** Defaulted both the 2026 ABFM ITE Countdown Banner and the Board Prep Status snapshot to clean, collapsed summaries to bring active quizzes and assigned curriculum above the fold.
+*   **Explicit Caret Controls:** Added clear interactive caret toggles (`▼` / `▲`) with intuitive hover states to expand/collapse widgets, with preference persisting across sessions via `localStorage`.
+*   **Leaderboard Tab Polish:** Relocated the "Include Grads" toggle to the bottom of the leaderboard tab content to declutter the tab header.
+
+### 2026-10-20 — 2026 ABFM ITE Personalized Countdown Banner & Advisor Scheduling (Antigravity)
+*   **Personalized ITE Countdown & Schedule:** Added an exam preparation banner showing each resident's specific assigned exam date, day-of-week, live countdown, and testing center details.
+*   **Post-Exam Completion State:** Automatically transitions to a completion summary once a resident completes their scheduled exam.
+*   **Faculty Advisor Advisee View:** Faculty advisors can view each advisee's upcoming ITE exam date directly from their advisee cards.
+
+### 2026-10-19 — Resident Board Readiness Guide, Admin Point Adjustments & Leaderboard Polish (Antigravity)
+*   **Board Readiness Milestone Guide:** Added an interactive guide detailing graduation milestones, core curriculum percentages, minimum question thresholds, and point targets.
+*   **Admin Manual Point Adjustments:** Introduced administrative point adjustment tooling to award or deduct Academic Points with custom reason codes and audit logging.
+*   **Leaderboard Filtering & Pagination:** Enabled graduate filtering and fixed pagination across the program-wide leaderboard.
+
+### 2026-10-18 — Admin Password Management & First-Login Security Protocol (Antigravity)
+*   **Admin Password Management Suite:** Enabled program leadership to securely reset and manage resident account passwords directly from the Roster Manager.
+*   **First-Login Password Reset Protocol:** Automatically prompts new residents to set a private permanent password upon their initial login with temporary credentials.
+
 ### 2026-10-20 — Strict 76s ABFM Timer, Question Flagging, Keyword Search & Challenge Badges (Antigravity)
 *   **Strict 76s ABFM Exam Timer:** Aligned exam countdown pacing to the official ABFM Certification & ITE standard: **76 seconds (1m 16s) per question** (95 minutes ÷ 75 questions). Strictly enforced official ABFM pacing (76s/Q) across all timed quizzes; study pace (90s) removed per user instruction to maintain test validity.
 *   **Question Flagging (`🚩`) & Custom Practice Integration:** Residents can now flag tricky questions during any active quiz or review screen. Flagged questions can be practiced as a dedicated pool in the Custom Quiz Builder and reviewed at any time under My Performance → Review Weak Areas. Works offline via local storage and synchronizes with Supabase.
