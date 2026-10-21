@@ -13,6 +13,7 @@ import { withTimeout } from '@/lib/utils';
 import { AdminData } from '@/lib/types';
 import { KNOWN_REPEAT_IDS } from './QuestionCard';
 import { formatIteId } from '@/lib/iteQuestionMap';
+import QuestionSearchModal from './QuestionSearchModal';
 
 type SubTab = 'browse' | 'import';
 
@@ -70,6 +71,7 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
   // Filters
   const [categoryFilter, setCategoryFilter] = useState('');
   const [yearFilter, setYearFilter] = useState('');
+  const [showSearchModal, setShowSearchModal] = useState(false);
   
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -162,7 +164,8 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
       ),
     },
     {
-      accessorKey: 'year',
+      id: 'year',
+      accessorFn: (q: any) => `${q.year || ''} ${formatIteId(q)} ${q.id || ''}`,
       header: 'Year / ITE ID',
       cell: info => {
         const q = info.row.original;
@@ -170,10 +173,10 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
         return (
           <div className="space-y-0.5 whitespace-nowrap">
             <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-              {(info.getValue() as string) || '—'}
+              {q.year || '—'}
             </span>
             {iteId && (
-              <span className="block text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400" title={q.id}>
+              <span className="block text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400" title={`App ID: ${q.id}`}>
                 {iteId}
               </span>
             )}
@@ -277,12 +280,20 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
           <option value="">All Years</option>
           {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        <button
+          type="button"
+          onClick={() => setShowSearchModal(true)}
+          className="w-full md:w-auto md:ml-auto px-5 py-3 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors shadow-sm"
+        >
+          <Search className="w-4 h-4" />
+          <span>Search Bank by ITE ID / App ID</span>
+        </button>
       </div>
 
       <DataTable 
         columns={columns} 
         data={displayQuestions} 
-        globalSearchPlaceholder="Search question text..."
+        globalSearchPlaceholder="Search question text, ITE ID (e.g. ITE2025Q15), or App ID..."
       />
 
       {/* Edit Modal */}
@@ -442,6 +453,13 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
 
           </div>
         </div>
+      )}
+
+      {showSearchModal && (
+        <QuestionSearchModal
+          isOpen={showSearchModal}
+          onClose={() => setShowSearchModal(false)}
+        />
       )}
     </div>
   );

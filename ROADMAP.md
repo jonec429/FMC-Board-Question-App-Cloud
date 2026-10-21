@@ -60,6 +60,19 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-10-21 (Antigravity: Question Search by ITE ID & App ID)
+**Shipped this session**:
+1. **Universal Question Search by ITE ID & App ID (`components/QuestionSearchModal.tsx`)**:
+   - Integrated intelligent query parsing for both **App ID (UUIDs)** and **Canonical / Colloquial ITE IDs**.
+   - Handles exact UUIDs, partial hex prefixes (e.g., `2b062a6e`), pasted feedback email subjects (e.g., `Question Feedback... (App Question ID: ...)`), canonical IDs (`ITE2025Q15`, `DemoQ1`), spaced/hyphenated formats (`2025 Q15`, `ITE-2025-Q15`), and question numbers (`Q15`, `Item #15`).
+   - Implemented priority scoring ensuring exact ID matches rank at the top of search results.
+   - Added one-click copy buttons for both ITE ID and App ID badges on result cards with feedback toast notification.
+2. **Admin & Faculty Console Integration (`components/AdminConsole.tsx`)**:
+   - Added a "Search Bank" button to the top header bar of the Admin and Faculty Console, enabling direct access to the question search modal without having to switch views.
+3. **Admin Question Bank Table Filtering (`components/QuestionBankManager.tsx`)**:
+   - Updated the data table accessor to index both `formatIteId(q)` and `q.id`, allowing admins to filter the question table directly by ITE ID or App ID.
+   - Added a direct "Search Bank by ITE ID / App ID" action button launching the full knowledge base modal with explanations and answer keys.
+
 ### ▶️ Session Handoff — 2026-10-20 (Antigravity: Resident Home Screen Streamlining & Unified Hub Layout)
 **Shipped this session**:
 1. **Collapsible 2026 ABFM ITE Countdown Banner (`components/IteCountdownBanner.tsx`)**:

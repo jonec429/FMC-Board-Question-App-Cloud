@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Loader2, Megaphone, FileText
+  Shield, LogOut, Database, PlusCircle, BarChartIcon, Users, Settings, Sparkles, Clock, Loader2, Megaphone, FileText, Search
 } from './AppIcons';
 import { Flame, Gift } from 'lucide-react';
 import AdminPerformance from './AdminPerformance';
@@ -16,6 +16,7 @@ import AnnualRollover from './AnnualRollover';
 import AssignQuizManager from './AssignQuizManager';
 import QotdAnalytics from './QotdAnalytics';
 import ChallengeTracker from './ChallengeTracker';
+import QuestionSearchModal from './QuestionSearchModal';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -36,6 +37,7 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
   // Faculty land directly on Performance (or initialTab); admins start on Performance too (most-used tab)
   const [activeTab, setActiveTab] = useState<TabId>(initialTab || 'performance');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   // Hoist the hook call to the top level to avoid React Rules of Hooks violations.
   // Questions are lazily fetched only on tabs that require them.
@@ -145,6 +147,16 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Search Question Bank */}
+            <button
+              type="button"
+              onClick={() => setShowSearchModal(true)}
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700/70 transition-all shadow-sm active:scale-95 text-xs sm:text-sm cursor-pointer"
+              title="Search Questions by ITE ID, App ID, or Topic"
+            >
+              <Search className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span className="hidden sm:inline">Search Bank</span>
+            </button>
             {/* Mobile nav toggle */}
             <button
               onClick={() => setMobileNavOpen(v => !v)}
@@ -199,6 +211,15 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
           </main>
         </div>
       </div>
+
+      {showSearchModal && (
+        <QuestionSearchModal
+          isOpen={showSearchModal}
+          onClose={() => setShowSearchModal(false)}
+          userId={user?.id}
+          userEmail={user?.email}
+        />
+      )}
     </div>
   );
 }
