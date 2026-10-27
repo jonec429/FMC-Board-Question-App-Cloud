@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Search, CheckCircle, AlertTriangle, Sparkles, X, Clock,
   ChevronDown, ChevronUp
 } from './AppIcons';
-import { Layers, RotateCcw } from 'lucide-react';
+import { Layers, CheckSquare, Trash2, Dices, Shuffle, Check, Filter } from 'lucide-react';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW, LEGACY_WARNING_TITLE, LEGACY_WARNING_BODY } from '@/lib/questionFilters';
 import { formatIteId } from '@/lib/iteQuestionMap';
 import { Question } from '@/lib/types';
@@ -20,6 +20,16 @@ export interface QuestionPickerProps {
   title?: string;
 }
 
+// Fisher-Yates array shuffle for unbiased random selection
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export default function QuestionPicker({
   allQuestions,
   selectedQuestionIds,
@@ -29,17 +39,28 @@ export default function QuestionPicker({
   maxHeight = 'max-h-[580px]',
   title = 'Select Questions',
 }: QuestionPickerProps) {
-  // Filters state
+  // Multi-Filter state
   const [search, setSearch] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategoryFilters);
-  const [filterYear, setFilterYear] = useState<string>('');
+  const [selectedYears, setSelectedYears] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'selected'>('all');
-  const [bulkCount, setBulkCount] = useState<number>(10);
+  const [bulkCount, setBulkCount] = useState<number>(targetCount || 10);
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
+
+  // Range selection state (Shift + Click)
+  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
 
   // Legacy ITE opt-in
   const [showLegacyYears, setShowLegacyYears] = useState(false);
   const [showLegacyWarning, setShowLegacyWarning] = useState(false);
+
+  // Master checkbox ref for indeterminate state
+  const masterCheckboxRef = useRef<HTMLInputElement>(null);
+
+  // Reset range tracking on filter/tab changes
+  useEffect(() => {
+    setLastClickedIndex(null);
+  }, [search, selectedCategories, selectedYears, showLegacyYears, activeTab]);
 
   // Derive categories and years from question bank
   const { categories, years, categoryCounts } = useMemo(() => {
@@ -71,7 +92,7 @@ export default function QuestionPicker({
 
   const selectedSet = useMemo(() => new Set(selectedQuestionIds), [selectedQuestionIds]);
 
-  // Filtered questions
+  // Filtered questions based on multiple active filters
   const filteredQuestions = useMemo(() => {
     const term = search.trim().toLowerCase();
     const legacySet = new Set(legacyYears);
@@ -84,14 +105,14 @@ export default function QuestionPicker({
         return false;
       }
 
-      // Year filter
-      if (filterYear && q.year !== filterYear) {
-        return false;
-      }
-
-      // Hide legacy unless explicitly shown
-      if (!showLegacyYears && legacySet.has(q.year)) {
-        return false;
+      // Year filter (multi-select)
+      if (selectedYears.length > 0) {
+        if (!selectedYears.includes(q.year)) return false;
+      } else {
+        // If no specific years selected, hide legacy unless legacy toggle is explicitly on
+        if (!showLegacyYears && legacySet.has(q.year)) {
+          return false;
+        }
       }
 
       // Search term
@@ -107,7 +128,7 @@ export default function QuestionPicker({
 
       return true;
     });
-  }, [allQuestions, selectedCategories, filterYear, showLegacyYears, legacyYears, search]);
+  }, [allQuestions, selectedCategories, selectedYears, showLegacyYears, legacyYears, search]);
 
   // Questions displayed based on Active Tab
   const displayedQuestions = useMemo(() => {
@@ -120,7 +141,26 @@ export default function QuestionPicker({
     return filteredQuestions;
   }, [activeTab, filteredQuestions, allQuestions, selectedQuestionIds]);
 
-  // Toggle single selection
+  // Selection counts for displayed & filtered lists
+  const displayedSelectedCount = useMemo(() => {
+    return displayedQuestions.filter(q => selectedSet.has(q.id)).length;
+  }, [displayedQuestions, selectedSet]);
+
+  const allDisplayedSelected = displayedQuestions.length > 0 && displayedSelectedCount === displayedQuestions.length;
+  const someDisplayedSelected = displayedSelectedCount > 0 && !allDisplayedSelected;
+
+  const filteredSelectedCount = useMemo(() => {
+    return filteredQuestions.filter(q => selectedSet.has(q.id)).length;
+  }, [filteredQuestions, selectedSet]);
+
+  // Update indeterminate state on master checkbox
+  useEffect(() => {
+    if (masterCheckboxRef.current) {
+      masterCheckboxRef.current.indeterminate = someDisplayedSelected;
+    }
+  }, [someDisplayedSelected]);
+
+  // Toggle single item selection
   const toggleSelect = (id: string) => {
     if (selectedSet.has(id)) {
       onChangeSelectedIds(selectedQuestionIds.filter(x => x !== id));
@@ -129,47 +169,101 @@ export default function QuestionPicker({
     }
   };
 
-  // Bulk actions
-  const handleSelectRandom = () => {
-    // Pick from currently filtered questions that are not yet selected
-    const unselectedFiltered = filteredQuestions.filter(q => !selectedSet.has(q.id));
-    if (unselectedFiltered.length === 0) return;
+  // Shift + Click Range Selection & Deselection handler
+  const handleItemSelect = (e: React.MouseEvent, qId: string, index: number) => {
+    if (e.shiftKey && lastClickedIndex !== null && lastClickedIndex !== index) {
+      window.getSelection()?.removeAllRanges();
 
-    const count = Math.min(bulkCount, unselectedFiltered.length);
-    const shuffled = [...unselectedFiltered].sort(() => Math.random() - 0.5);
-    const newIds = shuffled.slice(0, count).map(q => q.id);
+      const start = Math.min(lastClickedIndex, index);
+      const end = Math.max(lastClickedIndex, index);
+      const rangeQuestions = displayedQuestions.slice(start, end + 1);
+      const rangeIds = rangeQuestions.map(q => q.id);
+      const rangeSet = new Set(rangeIds);
 
-    onChangeSelectedIds(Array.from(new Set([...selectedQuestionIds, ...newIds])));
+      // If the target item is ALREADY selected, DESELECT the whole range
+      // If it is NOT selected, SELECT the whole range
+      const isTargetSelected = selectedSet.has(qId);
+      let nextIds: string[];
+      if (isTargetSelected) {
+        nextIds = selectedQuestionIds.filter(id => !rangeSet.has(id));
+      } else {
+        nextIds = Array.from(new Set([...selectedQuestionIds, ...rangeIds]));
+      }
+
+      onChangeSelectedIds(nextIds);
+      setLastClickedIndex(index);
+    } else {
+      toggleSelect(qId);
+      setLastClickedIndex(index);
+    }
   };
 
+  // Master checkbox toggle for displayed questions
+  const handleToggleMasterCheckbox = () => {
+    if (displayedQuestions.length === 0) return;
+    const displayedIds = displayedQuestions.map(q => q.id);
+    const displayedSet = new Set(displayedIds);
+
+    if (allDisplayedSelected || someDisplayedSelected) {
+      // Bulk deselect all displayed
+      onChangeSelectedIds(selectedQuestionIds.filter(id => !displayedSet.has(id)));
+    } else {
+      // Bulk select all displayed
+      onChangeSelectedIds(Array.from(new Set([...selectedQuestionIds, ...displayedIds])));
+    }
+  };
+
+  // Bulk Add / Select all currently filtered questions
   const handleSelectAllFiltered = () => {
     const newIds = filteredQuestions.map(q => q.id);
     onChangeSelectedIds(Array.from(new Set([...selectedQuestionIds, ...newIds])));
   };
 
+  // Bulk Deselect only the currently filtered questions
+  const handleDeselectAllFiltered = () => {
+    if (filteredSelectedCount === 0) return;
+    const filteredSet = new Set(filteredQuestions.map(q => q.id));
+    onChangeSelectedIds(selectedQuestionIds.filter(id => !filteredSet.has(id)));
+  };
+
+  // Auto Assign: Random Selection based strictly on currently filtered questions
+  const handleAddRandomFromFiltered = (countToPick: number = bulkCount) => {
+    // Pick unselected questions matching the active filters
+    const unselectedFiltered = filteredQuestions.filter(q => !selectedSet.has(q.id));
+    if (unselectedFiltered.length === 0) return;
+
+    const count = Math.min(countToPick, unselectedFiltered.length);
+    const shuffled = shuffleArray(unselectedFiltered);
+    const newIds = shuffled.slice(0, count).map(q => q.id);
+
+    onChangeSelectedIds(Array.from(new Set([...selectedQuestionIds, ...newIds])));
+  };
+
+  // Auto Assign: Replace entire selection with random questions matching active filters
+  const handleReplaceWithRandomFromFiltered = (countToPick: number = bulkCount) => {
+    if (filteredQuestions.length === 0) return;
+
+    const count = Math.min(countToPick, filteredQuestions.length);
+    const shuffled = shuffleArray(filteredQuestions);
+    const newIds = shuffled.slice(0, count).map(q => q.id);
+
+    onChangeSelectedIds(newIds);
+  };
+
+  // Auto-fill up to target count randomly from filtered questions
   const handleFillToTarget = () => {
     if (!targetCount) return;
     const needed = targetCount - selectedQuestionIds.length;
     if (needed <= 0) return;
 
-    // Pick from filtered first (or all valid non-legacy questions if filtered is empty)
-    const legacySet = new Set(legacyYears);
-    let pool = filteredQuestions.filter(q => !selectedSet.has(q.id));
-    if (pool.length === 0) {
-      pool = allQuestions.filter(q => {
-        if (q.category === 'Demo') return false;
-        if (!showLegacyYears && legacySet.has(q.year)) return false;
-        return !selectedSet.has(q.id);
-      });
-    }
-
-    // Sort by recent year first
-    const sorted = [...pool].sort((a, b) => (b.year || '').localeCompare(a.year || ''));
-    const picked = sorted.slice(0, needed).map(q => q.id);
+    const unselected = filteredQuestions.filter(q => !selectedSet.has(q.id));
+    const shuffled = shuffleArray(unselected);
+    const picked = shuffled.slice(0, needed).map(q => q.id);
 
     onChangeSelectedIds([...selectedQuestionIds, ...picked]);
   };
 
+  // Clear entire selection
   const handleClearSelection = () => {
     if (selectedQuestionIds.length === 0) return;
     if (window.confirm(`Remove all ${selectedQuestionIds.length} selected questions?`)) {
@@ -177,16 +271,48 @@ export default function QuestionPicker({
     }
   };
 
+  // Multi-Category Toggles
   const handleCategoryToggle = (cat: string) => {
     setSelectedCategories(prev =>
       prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
     );
   };
 
+  const handleSelectAllCategories = () => {
+    setSelectedCategories([...categories]);
+  };
+
+  const handleClearCategories = () => {
+    setSelectedCategories([]);
+  };
+
+  // Multi-Year Toggles
+  const handleYearToggle = (yr: string) => {
+    setSelectedYears(prev =>
+      prev.includes(yr) ? prev.filter(y => y !== yr) : [...prev, yr]
+    );
+  };
+
+  const handleSelectAllRecentYears = () => {
+    setSelectedYears([...recentYears]);
+  };
+
+  const handleClearYears = () => {
+    setSelectedYears([]);
+  };
+
+  const handleResetAllFilters = () => {
+    setSearch('');
+    setSelectedCategories([]);
+    setSelectedYears([]);
+  };
+
   const requestShowLegacyYears = () => {
     if (showLegacyYears) {
       setShowLegacyYears(false);
-      if (legacyYears.includes(filterYear)) setFilterYear('');
+      // Remove any selected legacy years
+      const legacySet = new Set(legacyYears);
+      setSelectedYears(prev => prev.filter(y => !legacySet.has(y)));
     } else {
       setShowLegacyWarning(true);
     }
@@ -197,82 +323,160 @@ export default function QuestionPicker({
     setShowLegacyWarning(false);
   };
 
+  const hasActiveFilters = search || selectedCategories.length > 0 || selectedYears.length > 0;
+
   return (
     <div className="space-y-4">
-      {/* Search and Year Bar */}
-      <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-        <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by keywords, text, or ITE ID (e.g. ITE2025Q14)..."
-              className="w-full pl-10 pr-9 py-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white placeholder:text-slate-400 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+      {/* Search & Multi-Filter Controls */}
+      <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3.5">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search keywords, question text, options, or ITE ID (e.g. ITE2025Q14)..."
+            className="w-full pl-10 pr-9 py-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white placeholder:text-slate-400 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-2xs"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Multi-Year Filter Pills */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                Filter by Exam Year ({selectedYears.length > 0 ? `${selectedYears.length} selected` : 'All Recent Years'})
+              </label>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-bold">
+              {selectedYears.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleClearYears}
+                  className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  Clear Years (Show All)
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSelectAllRecentYears}
+                  className="text-slate-500 hover:text-indigo-600 dark:text-slate-400"
+                >
+                  Select Recent {RECENT_ITE_YEAR_WINDOW} Years
+                </button>
+              )}
+
+              {legacyYears.length > 0 && (
+                <button
+                  type="button"
+                  onClick={requestShowLegacyYears}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-colors border ${
+                    showLegacyYears
+                      ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+                      : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-amber-600'
+                  }`}
+                  title="Toggle questions older than 3 years"
+                >
+                  {showLegacyYears ? 'Hide Legacy' : `+ Show Legacy (${legacyYears.length})`}
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <select
-              value={filterYear}
-              onChange={e => setFilterYear(e.target.value)}
-              className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500"
+          <div className="flex flex-wrap gap-1.5 p-0.5">
+            <button
+              type="button"
+              onClick={handleClearYears}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                selectedYears.length === 0
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
             >
-              <option value="">{showLegacyYears ? 'All Years' : `Recent ${RECENT_ITE_YEAR_WINDOW} Years`}</option>
-              {recentYears.map(y => (
-                <option key={y} value={y}>ITE {y}</option>
-              ))}
-              {showLegacyYears && legacyYears.map(y => (
-                <option key={y} value={y}>ITE {y} (Legacy)</option>
-              ))}
-            </select>
-
-            {legacyYears.length > 0 && (
-              <button
-                type="button"
-                onClick={requestShowLegacyYears}
-                className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors border ${
-                  showLegacyYears
-                    ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-                    : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-amber-600'
-                }`}
-                title="Toggle questions older than 3 years"
-              >
-                <Clock className="w-3 h-3" />
-                {showLegacyYears ? 'Hide Legacy' : `Legacy (${legacyYears.length})`}
-              </button>
-            )}
+              All Recent
+            </button>
+            {recentYears.map(yr => {
+              const active = selectedYears.includes(yr);
+              return (
+                <button
+                  key={yr}
+                  type="button"
+                  onClick={() => handleYearToggle(yr)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border ${
+                    active
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-500/20'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {active && <Check className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
+                  <span>ITE {yr}</span>
+                </button>
+              );
+            })}
+            {showLegacyYears && legacyYears.map(yr => {
+              const active = selectedYears.includes(yr);
+              return (
+                <button
+                  key={yr}
+                  type="button"
+                  onClick={() => handleYearToggle(yr)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border ${
+                    active
+                      ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-800 shadow-xs'
+                      : 'bg-white dark:bg-slate-900 text-amber-700/80 dark:text-amber-400/80 border-amber-200 dark:border-amber-900 hover:bg-amber-50'
+                  }`}
+                >
+                  {active && <Check className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
+                  <span>ITE {yr} (Legacy)</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Category Pills (Multi-Select) */}
+        {/* Multi-Category Filter Pills */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Filter by Category ({selectedCategories.length > 0 ? `${selectedCategories.length} active` : 'All'})
+          <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
+              <Filter className="w-3 h-3" />
+              Filter by Category ({selectedCategories.length > 0 ? `${selectedCategories.length} selected` : 'All Categories'})
             </label>
-            {selectedCategories.length > 0 && (
-              <button
-                onClick={() => setSelectedCategories([])}
-                className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                Clear Categories
-              </button>
-            )}
+            <div className="flex items-center gap-2 text-[10px] font-bold">
+              {selectedCategories.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={handleClearCategories}
+                  className="text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  Clear Categories
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSelectAllCategories}
+                  className="text-slate-500 hover:text-indigo-600 dark:text-slate-400"
+                >
+                  Select All Categories
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar p-0.5">
+          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scrollbar p-0.5">
             <button
-              onClick={() => setSelectedCategories([])}
+              type="button"
+              onClick={handleClearCategories}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border ${
                 selectedCategories.length === 0
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
@@ -287,16 +491,18 @@ export default function QuestionPicker({
               return (
                 <button
                   key={cat}
+                  type="button"
                   onClick={() => handleCategoryToggle(cat)}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 border ${
                     active
-                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800 shadow-xs'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-500/20'
                       : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
+                  {active && <Check className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />}
                   <span>{cat}</span>
                   <span className={`text-[9px] px-1 py-0.2 rounded-md ${
-                    active ? 'bg-indigo-200/60 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                    active ? 'bg-indigo-200/60 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 font-bold' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
                   }`}>
                     {count}
                   </span>
@@ -305,105 +511,236 @@ export default function QuestionPicker({
             })}
           </div>
         </div>
-      </div>
 
-      {/* Tabs & Bulk Actions Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
-        {/* View Tabs */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl self-start">
-          <button
-            type="button"
-            onClick={() => setActiveTab('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === 'all'
-                ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5 text-indigo-500" />
-            <span>Matching Questions</span>
-            <span className="px-1.5 py-0.2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded text-[10px]">
-              {filteredQuestions.length}
-            </span>
-          </button>
+        {/* Active Filter Summary Bar */}
+        {hasActiveFilters && (
+          <div className="pt-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700/60 flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-slate-700 dark:text-slate-200">
+                {filteredQuestions.length}
+              </span>
+              <span>questions match active filters:</span>
+              {selectedCategories.length > 0 && (
+                <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded font-semibold text-[11px]">
+                  {selectedCategories.length} categories
+                </span>
+              )}
+              {selectedYears.length > 0 && (
+                <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded font-semibold text-[11px]">
+                  {selectedYears.length} years
+                </span>
+              )}
+              {search && (
+                <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-mono text-[11px]">
+                  &quot;{search}&quot;
+                </span>
+              )}
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('selected')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === 'selected'
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-            }`}
-          >
-            <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Selected Questions</span>
-            <span className={`px-1.5 py-0.2 rounded text-[10px] font-black ${
-              targetCount && selectedQuestionIds.length === targetCount
-                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
-                : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
-            }`}>
-              {selectedQuestionIds.length} {targetCount ? `/ ${targetCount}` : ''}
-            </span>
-          </button>
-        </div>
-
-        {/* Bulk Actions */}
-        <div className="flex items-center gap-2 flex-wrap text-xs">
-          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <input
-              type="number"
-              min="1"
-              max={filteredQuestions.length || 40}
-              value={bulkCount}
-              onChange={e => setBulkCount(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-12 px-2 py-1 text-center font-bold text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none"
-              title="Number of random questions to add"
-            />
             <button
               type="button"
-              onClick={handleSelectRandom}
-              disabled={filteredQuestions.length === 0}
-              className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-slate-700 dark:text-slate-200 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 disabled:opacity-40"
+              onClick={handleResetAllFilters}
+              className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
             >
-              + Add Random
+              <X className="w-3 h-3" /> Reset all filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tabs & Bulk Assignment Toolbar */}
+      <div className="flex flex-col gap-3 pt-1">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* View Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl self-start">
+            <button
+              type="button"
+              onClick={() => setActiveTab('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'all'
+                  ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Matching Questions</span>
+              <span className="px-1.5 py-0.2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded text-[10px]">
+                {filteredQuestions.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('selected')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === 'selected'
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Selected Questions</span>
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-black ${
+                targetCount && selectedQuestionIds.length === targetCount
+                  ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300'
+              }`}>
+                {selectedQuestionIds.length} {targetCount ? `/ ${targetCount}` : ''}
+              </span>
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSelectAllFiltered}
-            disabled={filteredQuestions.length === 0}
-            className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold text-slate-700 dark:text-slate-200 rounded-xl transition-colors disabled:opacity-40"
-          >
-            Add All Filtered
-          </button>
-
-          {targetCount && selectedQuestionIds.length < targetCount && (
+          {/* Quick Bulk Select / Deselect Filtered Actions */}
+          <div className="flex items-center gap-2 flex-wrap text-xs">
             <button
               type="button"
-              onClick={handleFillToTarget}
-              className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 font-black text-indigo-700 dark:text-indigo-300 rounded-xl transition-colors flex items-center gap-1.5 border border-indigo-200 dark:border-indigo-800/60"
+              onClick={handleSelectAllFiltered}
+              disabled={filteredQuestions.length === 0 || filteredSelectedCount === filteredQuestions.length}
+              className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 font-bold text-indigo-700 dark:text-indigo-300 rounded-xl transition-colors disabled:opacity-40 border border-indigo-200/60 dark:border-indigo-800/60"
+              title="Add all matching questions to selection"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              Auto-Fill to {targetCount}
+              Select All Filtered ({filteredQuestions.length})
             </button>
-          )}
 
-          {selectedQuestionIds.length > 0 && (
+            {filteredSelectedCount > 0 && (
+              <button
+                type="button"
+                onClick={handleDeselectAllFiltered}
+                className="px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 font-bold text-amber-700 dark:text-amber-300 rounded-xl transition-colors border border-amber-200 dark:border-amber-800/60"
+                title="Remove all matching questions from selection"
+              >
+                Deselect Filtered ({filteredSelectedCount})
+              </button>
+            )}
+
+            {selectedQuestionIds.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="px-3 py-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 font-bold text-red-600 dark:text-red-400 rounded-xl transition-colors flex items-center gap-1"
+                title="Clear all selected questions"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear All ({selectedQuestionIds.length})
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Dedicated Auto-Assign / Random Picker Bar */}
+        <div className="bg-slate-100/70 dark:bg-slate-800/40 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+              <Dices className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              Auto-Assign Random:
+            </span>
+
+            {/* Quick preset chips */}
+            {[10, 20, 25, 40].map(cnt => (
+              <button
+                key={cnt}
+                type="button"
+                onClick={() => setBulkCount(cnt)}
+                className={`px-2 py-0.5 rounded-lg font-bold text-[11px] transition-all border ${
+                  bulkCount === cnt
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {cnt} Qs
+              </button>
+            ))}
+
+            <div className="flex items-center gap-1 ml-1">
+              <input
+                type="number"
+                min="1"
+                max={filteredQuestions.length || 100}
+                value={bulkCount}
+                onChange={e => setBulkCount(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-14 px-2 py-1 text-center font-bold text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg outline-none"
+                title="Custom number of questions"
+              />
+              <span className="text-[11px] text-slate-400 font-medium">questions</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              onClick={handleClearSelection}
-              className="px-3 py-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 font-bold text-red-600 dark:text-red-400 rounded-xl transition-colors"
+              onClick={() => handleAddRandomFromFiltered(bulkCount)}
+              disabled={filteredQuestions.length === 0}
+              className="px-3 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-indigo-700 dark:text-indigo-300 rounded-xl transition-all border border-slate-200 dark:border-slate-700 shadow-2xs disabled:opacity-40 flex items-center gap-1.5"
+              title="Add random unselected questions matching current filters"
             >
-              Clear Selection
+              <Shuffle className="w-3.5 h-3.5 text-indigo-500" />
+              + Add {bulkCount} Random
             </button>
-          )}
+
+            <button
+              type="button"
+              onClick={() => handleReplaceWithRandomFromFiltered(bulkCount)}
+              disabled={filteredQuestions.length === 0}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 font-bold text-white rounded-xl transition-all shadow-2xs disabled:opacity-40 flex items-center gap-1.5"
+              title="Replace selection with random questions matching current filters"
+            >
+              <Dices className="w-3.5 h-3.5" />
+              Pick {bulkCount} Random
+            </button>
+
+            {targetCount && selectedQuestionIds.length < targetCount && (
+              <button
+                type="button"
+                onClick={handleFillToTarget}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 font-black text-white rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
+                title={`Randomly fill remaining ${targetCount - selectedQuestionIds.length} questions from current filters`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Fill to {targetCount} ({targetCount - selectedQuestionIds.length} left)
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Questions Scrollable List */}
-      <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs flex flex-col`}>
+      {/* Questions Container with Master Checkbox & Shift+Click Header */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs flex flex-col">
+        {/* Master Selection Header Toolbar */}
+        <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                ref={masterCheckboxRef}
+                type="checkbox"
+                checked={allDisplayedSelected}
+                onChange={handleToggleMasterCheckbox}
+                disabled={displayedQuestions.length === 0}
+                className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-40"
+              />
+              <span className="font-bold text-slate-700 dark:text-slate-200">
+                {allDisplayedSelected || someDisplayedSelected
+                  ? `Deselect All in View (${displayedSelectedCount})`
+                  : `Select All in View (${displayedQuestions.length})`}
+              </span>
+            </label>
+
+            <span className="text-slate-400 dark:text-slate-500 font-medium text-[11px]">
+              • {displayedSelectedCount} of {displayedQuestions.length} selected
+            </span>
+          </div>
+
+          {/* Keyboard Shortcut & Tip */}
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-800">
+              <kbd className="font-mono text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1 py-0.2 rounded border border-slate-300 dark:border-slate-700">
+                Shift
+              </kbd>
+              + click row to select / deselect range
+            </span>
+          </div>
+        </div>
+
+        {/* Scrollable Questions List */}
         <div className={`${maxHeight} overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 custom-scrollbar p-1.5 space-y-1`}>
           {displayedQuestions.length === 0 ? (
             <div className="py-16 text-center text-slate-400 dark:text-slate-500">
@@ -412,10 +749,10 @@ export default function QuestionPicker({
                   ? 'No questions selected yet. Switch to "Matching Questions" to add questions.'
                   : 'No questions match your current search and filters.'}
               </p>
-              {(search || selectedCategories.length > 0 || filterYear) && (
+              {hasActiveFilters && (
                 <button
                   type="button"
-                  onClick={() => { setSearch(''); setSelectedCategories([]); setFilterYear(''); }}
+                  onClick={handleResetAllFilters}
                   className="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                 >
                   Reset all filters
@@ -423,7 +760,7 @@ export default function QuestionPicker({
               )}
             </div>
           ) : (
-            displayedQuestions.map(q => {
+            displayedQuestions.map((q, idx) => {
               const isSelected = selectedSet.has(q.id);
               const isExpanded = expandedQuestionId === q.id;
               const isLegacy = legacyYears.includes(q.year);
@@ -431,21 +768,32 @@ export default function QuestionPicker({
               return (
                 <div
                   key={q.id}
-                  className={`rounded-xl border transition-all ${
+                  className={`rounded-xl border transition-all select-none ${
                     isSelected
                       ? 'bg-indigo-50/40 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800/70 shadow-xs ring-1 ring-indigo-500/10'
                       : 'bg-white dark:bg-slate-900 border-transparent hover:border-slate-200 dark:hover:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-800/40'
                   }`}
                 >
-                  <div className="p-3.5 flex items-start gap-3">
+                  <div
+                    className="p-3.5 flex items-start gap-3 cursor-pointer"
+                    onClick={(e) => handleItemSelect(e, q.id, idx)}
+                  >
                     <input
                       type="checkbox"
                       checked={isSelected}
-                      onChange={() => toggleSelect(q.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        const nativeEvent = e.nativeEvent as MouseEvent;
+                        handleItemSelect(
+                          { shiftKey: nativeEvent.shiftKey } as React.MouseEvent,
+                          q.id,
+                          idx
+                        );
+                      }}
                       className="mt-1 w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500 shrink-0 cursor-pointer"
                     />
 
-                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => toggleSelect(q.id)}>
+                    <div className="min-w-0 flex-1">
                       <p className={`text-xs sm:text-sm leading-relaxed ${
                         isSelected ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-200'
                       }`}>
