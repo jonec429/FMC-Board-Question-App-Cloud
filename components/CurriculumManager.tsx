@@ -123,10 +123,8 @@ export default function CurriculumManager() {
     let errorCount = 0;
     for (const block of uninitialized) {
       const cats = block.category_filters || [];
-      if (cats.length === 0) continue;
-      
       const matching = questions
-        .filter(q => cats.includes(q.category) && !legacySet.has(q.year))
+        .filter(q => (cats.length === 0 || cats.includes(q.category)) && !legacySet.has(q.year))
         .sort((a, b) => (b.year || '').localeCompare(a.year || ''))
         .slice(0, block.question_count || 40);
         

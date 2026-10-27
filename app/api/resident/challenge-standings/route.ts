@@ -21,14 +21,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
     }
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // Authenticate with anon client for standard JWT verification
+    const anonSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { data: { user }, error: authError } = await anonSupabase.auth.getUser(token);
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const academicYearParam = searchParams.get('academicYear');
-    const academicYear = academicYearParam ? parseInt(academicYearParam, 10) : getCurrentAcademicYear();
+    const parsedYear = academicYearParam ? parseInt(academicYearParam, 10) : 0;
+    // Fall back to current academic year if 0 or invalid (challenge is AY specific)
+    const academicYear = parsedYear > 2000 ? parsedYear : getCurrentAcademicYear();
 
     // Academic year date range (e.g. AY 2027 runs July 1, 2026 -> June 30, 2027)
     const ayStartDate = `${academicYear - 1}-07-01T00:00:00.000Z`;
@@ -175,9 +182,11 @@ export async function GET(request: Request) {
           // Check if this result represents completion of a required curriculum block
           // Note: "even if it was completed late" -> timing_status === 'Late' or score/total exists
           if (r.timing_status != null || (r.academic_points || 0) > 0 || (r.total || 0) > 0) {
-            const matched = requiredBlocks.find(
-              (b) => b.title === top || top.startsWith(b.title) || b.id === (r as any).quiz_id
-            );
+            const cleanTop = top.trim().toLowerCase();
+            const matched = requiredBlocks.find((b) => {
+              const bTitle = (b.title || '').trim().toLowerCase();
+              return cleanTop === bTitle || cleanTop.startsWith(bTitle) || (b.id && (r as any).quiz_id === b.id);
+            });
             if (matched) {
               completedBlockTitles.add(matched.title);
             }
@@ -206,9 +215,11 @@ export async function GET(request: Request) {
 
       // Detailed Block Audit for verifying and spot checking
       const blockAudit = requiredBlocks.map((b) => {
-        const res = resList.find(
-          (r) => r.topic === b.title || (r.topic && r.topic.startsWith(b.title)) || (b.id && (r as any).quiz_id === b.id)
-        );
+        const bTitle = (b.title || '').trim().toLowerCase();
+        const res = resList.find((r) => {
+          const rTop = (r.topic || '').trim().toLowerCase();
+          return rTop === bTitle || rTop.startsWith(bTitle) || (b.id && (r as any).quiz_id === b.id);
+        });
         const isDone = !!res && (res.timing_status != null || (res.academic_points || 0) > 0 || (res.total || 0) > 0);
         return {
           title: b.title,

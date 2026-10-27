@@ -181,18 +181,31 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
         if (!token) return;
-        const res = await fetch(`/api/resident/challenge-standings?academicYear=${selectedYear}`, {
+        const targetYear = selectedYear > 0 ? selectedYear : getCurrentAcademicYear();
+        const res = await fetch(`/api/resident/challenge-standings?academicYear=${targetYear}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
           const json = await res.json();
           if (isMounted) setChallengeData(json);
         }
-      } catch {}
+      } catch (err) {
+        console.warn('Failed to load challenge standings:', err);
+      }
     }
     loadChallenge();
-    return () => { isMounted = false; };
-  }, [selectedYear]);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.access_token && isMounted) {
+        loadChallenge();
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [selectedYear, user?.id]);
 
   const handleHomeRefresh = async () => {
     setIsRefreshing(true);
@@ -1423,10 +1436,16 @@ function LeaderboardWidget({
             <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>
           )}
         </div>
-        {activeTab === 'challenge' && myChallengeStanding && (
-          <span className={`text-[10px] font-black shrink-0 ${myChallengeStanding.isEligible ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-            {myChallengeStanding.isEligible ? 'Eligible ✅' : `${myChallengeStanding.completedBlocksCount}/${myChallengeStanding.totalRequiredBlocks} Blks`}
-          </span>
+        {activeTab === 'challenge' && (
+          myChallengeStanding ? (
+            <span className={`text-[10px] font-black shrink-0 ${myChallengeStanding.isEligible ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              {myChallengeStanding.isEligible ? 'Eligible ✅' : `${myChallengeStanding.completedBlocksCount}/${myChallengeStanding.totalRequiredBlocks} Blks`}
+            </span>
+          ) : challengeData ? (
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 shrink-0">
+              {challengeData.eligibleCount > 0 ? `${challengeData.eligibleCount} Eligible ✅` : 'In Progress'}
+            </span>
+          ) : null
         )}
       </div>
 
@@ -1545,8 +1564,18 @@ function LeaderboardWidget({
                   {challengeData.leaders.ap.eligible.totalAp} pts
                 </span>
               </div>
+            ) : challengeData?.leaders.ap.overall ? (
+              <div className="flex items-center justify-between mt-1 text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300 truncate" title={`${challengeData.leaders.ap.overall.completedBlocksCount}/${challengeData.leaders.ap.overall.totalRequiredBlocks} blocks completed`}>
+                  🥇 {challengeData.leaders.ap.overall.name}
+                  <span className="text-[10px] text-amber-500 font-normal ml-1">(${challengeData.leaders.ap.overall.completedBlocksCount}/${challengeData.leaders.ap.overall.totalRequiredBlocks} blks)</span>
+                </span>
+                <span className="font-black text-slate-900 dark:text-white shrink-0 ml-1.5 text-[11px]">
+                  {challengeData.leaders.ap.overall.totalAp} pts
+                </span>
+              </div>
             ) : (
-              <p className="text-[10px] text-slate-400 italic mt-0.5">No eligible contenders yet</p>
+              <p className="text-[10px] text-slate-400 italic mt-0.5">No contenders yet</p>
             )}
           </div>
 
@@ -1565,8 +1594,18 @@ function LeaderboardWidget({
                   {challengeData.leaders.qotd.eligible.qotdCompletedCount} Qs
                 </span>
               </div>
+            ) : challengeData?.leaders.qotd.overall ? (
+              <div className="flex items-center justify-between mt-1 text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300 truncate" title={`${challengeData.leaders.qotd.overall.completedBlocksCount}/${challengeData.leaders.qotd.overall.totalRequiredBlocks} blocks completed`}>
+                  🥇 {challengeData.leaders.qotd.overall.name}
+                  <span className="text-[10px] text-amber-500 font-normal ml-1">(${challengeData.leaders.qotd.overall.completedBlocksCount}/${challengeData.leaders.qotd.overall.totalRequiredBlocks} blks)</span>
+                </span>
+                <span className="font-black text-slate-900 dark:text-white shrink-0 ml-1.5 text-[11px]">
+                  {challengeData.leaders.qotd.overall.qotdCompletedCount} Qs
+                </span>
+              </div>
             ) : (
-              <p className="text-[10px] text-slate-400 italic mt-0.5">No eligible contenders yet</p>
+              <p className="text-[10px] text-slate-400 italic mt-0.5">No contenders yet</p>
             )}
           </div>
 
@@ -1585,8 +1624,18 @@ function LeaderboardWidget({
                   {challengeData.leaders.streak.eligible.longestStreak}d
                 </span>
               </div>
+            ) : challengeData?.leaders.streak.overall ? (
+              <div className="flex items-center justify-between mt-1 text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300 truncate" title={`${challengeData.leaders.streak.overall.completedBlocksCount}/${challengeData.leaders.streak.overall.totalRequiredBlocks} blocks completed`}>
+                  🥇 {challengeData.leaders.streak.overall.name}
+                  <span className="text-[10px] text-amber-500 font-normal ml-1">(${challengeData.leaders.streak.overall.completedBlocksCount}/${challengeData.leaders.streak.overall.totalRequiredBlocks} blks)</span>
+                </span>
+                <span className="font-black text-slate-900 dark:text-white shrink-0 ml-1.5 text-[11px]">
+                  {challengeData.leaders.streak.overall.longestStreak}d
+                </span>
+              </div>
             ) : (
-              <p className="text-[10px] text-slate-400 italic mt-0.5">No eligible contenders yet</p>
+              <p className="text-[10px] text-slate-400 italic mt-0.5">No contenders yet</p>
             )}
           </div>
 

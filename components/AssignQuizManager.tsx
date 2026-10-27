@@ -5,7 +5,7 @@ import { useAdminData } from '@/hooks/useAdminData';
 import { User, Profile, RosterEntry } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { Loader2, Sparkles, CheckCircle, AlertTriangle, Users, BookOpen } from './AppIcons';
-import { formatIteId } from '@/lib/iteQuestionMap';
+import QuestionPicker from './QuestionPicker';
 
 interface AssignQuizManagerProps {
   user?: User | null;
@@ -14,15 +14,11 @@ interface AssignQuizManagerProps {
 
 export default function AssignQuizManager({ user, profile }: AssignQuizManagerProps) {
   const { data, loading, error } = useAdminData({ includeQuestions: true });
-  
+
   const [selectedAdvisees, setSelectedAdvisees] = useState<string[]>([]);
   const [title, setTitle] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
-  const [bulkCount, setBulkCount] = useState(10);
-  const [searchKeyword, setSearchKeyword] = useState('');
-  
+
   const [assigning, setAssigning] = useState(false);
   const [success, setSuccess] = useState(false);
   const [formError, setFormError] = useState('');
@@ -30,10 +26,10 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   // 1. Determine eligible residents to assign to (ALL residents, advisees sorted to top)
   const eligibleResidents = useMemo(() => {
     if (!data?.roster) return [];
-    
+
     const isAdmin = profile?.role === 'admin' && profile?.view_as !== 'faculty';
     const facultyName = profile?.full_name || (profile?.first_name + ' ' + profile?.last_name);
-    
+
     return data.roster
       .filter(r => (r.role === 'resident' || r.role === 'chief') && r.status !== 'graduated')
       .sort((a, b) => {
@@ -50,41 +46,6 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   const isAdvisee = (r: RosterEntry) => {
     const facultyName = profile?.full_name || (profile?.first_name + ' ' + profile?.last_name);
     return r.advisor === facultyName;
-  };
-
-  // 2. Extract unique categories from questions
-  const availableCategories = useMemo(() => {
-    if (!data?.questions) return [];
-    const cats = new Set(data.questions.filter(q => q.category !== 'Demo').map(q => q.category));
-    return Array.from(cats).sort();
-  }, [data?.questions]);
-
-  // 3. Calculate matching questions based on filters
-  const matchingQuestions = useMemo(() => {
-    if (!data?.questions) return [];
-    const lowerKeyword = searchKeyword.toLowerCase().trim();
-    return data.questions.filter(q => 
-      q.category !== 'Demo' && 
-      (selectedCategories.length === 0 || selectedCategories.includes(q.category)) &&
-      (!lowerKeyword || (q.question_text || '').toLowerCase().includes(lowerKeyword))
-    );
-  }, [data?.questions, selectedCategories, searchKeyword]);
-
-  // Bulk actions
-  const handleSelectRandom = () => {
-    const count = Math.min(bulkCount, matchingQuestions.length);
-    const shuffled = [...matchingQuestions].sort(() => Math.random() - 0.5);
-    const newIds = shuffled.slice(0, count).map(q => q.id);
-    
-    // Merge with currently selected ids, avoiding duplicates
-    const combined = Array.from(new Set([...selectedQuestionIds, ...newIds]));
-    setSelectedQuestionIds(combined);
-  };
-
-  const handleSelectAllFiltered = () => {
-    const newIds = matchingQuestions.map(q => q.id);
-    const combined = Array.from(new Set([...selectedQuestionIds, ...newIds]));
-    setSelectedQuestionIds(combined);
   };
 
   const handleAssign = async () => {
@@ -108,7 +69,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
     setAssigning(true);
 
     try {
-      // 1. We only have their name/email in the roster. We need their user IDs from `profiles`.
+      // 1. Resolve their user IDs from `profiles`
       const assignedToIds = selectedAdvisees.map(name => {
         const rosterEntry = data?.roster.find(r => (r.name || r.email) === name);
         const p = data?.profiles.find(p => p.email?.toLowerCase() === rosterEntry?.email.toLowerCase());
@@ -137,7 +98,6 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
       setTitle('');
       setSelectedAdvisees([]);
       setSelectedQuestionIds([]);
-      setSelectedCategories([]);
 
     } catch (err: any) {
       console.error(err);
@@ -167,7 +127,7 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+    <div className="p-4 md:p-6 lg:p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div>
         <div className="flex items-center gap-3 mb-2 flex-wrap">
           <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 flex items-center gap-3">
@@ -197,40 +157,82 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
         {/* LEFT COLUMN: Resident Selection */}
-        <div className="space-y-4 md:col-span-4">
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[800px]">
-            <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4 shrink-0">
-              <Users className="w-5 h-5 text-blue-500" />
-              1. Select Residents
-            </h2>
+        <div className="space-y-4 lg:col-span-4">
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col h-[750px]">
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-500" />
+                1. Select Residents
+              </h2>
+              {selectedAdvisees.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedAdvisees([])}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  Clear ({selectedAdvisees.length})
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-2 border-b border-slate-100 dark:border-slate-800 mb-2 shrink-0">
+              <span>{eligibleResidents.length} Eligible Residents</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedAdvisees.length === eligibleResidents.length) {
+                    setSelectedAdvisees([]);
+                  } else {
+                    setSelectedAdvisees(eligibleResidents.map(r => r.name || r.email));
+                  }
+                }}
+                className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                {selectedAdvisees.length === eligibleResidents.length ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
             
             {eligibleResidents.length === 0 ? (
               <p className="text-sm text-slate-500 dark:text-slate-400 italic">No residents found.</p>
             ) : (
-              <div className="space-y-2 overflow-y-auto pr-2 custom-scrollbar flex-1">
+              <div className="space-y-1.5 overflow-y-auto pr-1 custom-scrollbar flex-1">
                 {eligibleResidents.map(r => {
                   const advisee = isAdvisee(r);
+                  const isChecked = selectedAdvisees.includes(r.name || r.email);
                   return (
-                    <label key={r.email} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors">
+                    <label
+                      key={r.email}
+                      className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border transition-colors ${
+                        isChecked
+                          ? 'bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/80 shadow-xs'
+                          : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
                       <input 
                         type="checkbox" 
-                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500"
-                        checked={selectedAdvisees.includes(r.name || r.email)}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer"
+                        checked={isChecked}
                         onChange={(e) => {
                           const val = r.name || r.email;
                           if (e.target.checked) setSelectedAdvisees(prev => [...prev, val]);
                           else setSelectedAdvisees(prev => prev.filter(n => n !== val));
                         }}
                       />
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200 flex flex-col">
-                        <span className="flex items-center gap-2">
-                          {r.name || r.email}
-                          {advisee && <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold rounded-md">Advisee</span>}
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200 flex flex-col min-w-0">
+                        <span className="flex items-center gap-2 truncate">
+                          <span className={`truncate ${isChecked ? 'font-bold text-slate-900 dark:text-white' : ''}`}>
+                            {r.name || r.email}
+                          </span>
+                          {advisee && (
+                            <span className="px-1.5 py-0.2 bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-black rounded-md shrink-0">
+                              Advisee
+                            </span>
+                          )}
                         </span>
-                        <span className="text-slate-400 dark:text-slate-500 text-xs">PGY: {r.pgy_override || 'Resident'}</span>
+                        <span className="text-slate-400 dark:text-slate-500 text-xs">{r.pgy_override || 'Resident'}</span>
                       </span>
                     </label>
                   );
@@ -240,152 +242,42 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Quiz Config */}
-        <div className="space-y-4 md:col-span-8 flex flex-col h-[800px]">
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5 flex-1 flex flex-col min-h-0">
-            <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 shrink-0">
+        {/* RIGHT COLUMN: Quiz Config with Shared QuestionPicker */}
+        <div className="space-y-4 lg:col-span-8 flex flex-col">
+          <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+            <h2 className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-amber-500" />
-              2. Quiz Builder
+              2. Quiz Builder &amp; Questions
             </h2>
 
-            <div className="shrink-0">
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Assignment Title</label>
+            <div>
+              <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                Assignment Title
+              </label>
               <input 
                 type="text" 
-                placeholder="e.g. Needs Review: Endocrine & GI"
+                placeholder="e.g. Targeted Review: High Yield Cardiology &amp; Pulmonary"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
               />
             </div>
 
-            <div className="shrink-0 flex flex-col gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Search Questions</label>
-                <input 
-                  type="text" 
-                  placeholder="Search keywords..."
-                  value={searchKeyword}
-                  onChange={e => setSearchKeyword(e.target.value)}
-                  className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Filter by Category</label>
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar p-1">
-                {availableCategories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      if (selectedCategories.includes(cat)) setSelectedCategories(prev => prev.filter(c => c !== cat));
-                      else setSelectedCategories(prev => [...prev, cat]);
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      selectedCategories.includes(cat) 
-                        ? 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60 border' 
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-transparent hover:bg-slate-200 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-                {selectedCategories.length > 0 && (
-                  <button
-                    onClick={() => setSelectedCategories([])}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline"
-                  >
-                    Clear Filters
-                  </button>
-                )}
-              </div>
+            {/* Unified Question Picker */}
+            <div>
+              <QuestionPicker
+                allQuestions={data?.questions || []}
+                selectedQuestionIds={selectedQuestionIds}
+                onChangeSelectedIds={setSelectedQuestionIds}
+                maxHeight="max-h-[500px]"
+              />
             </div>
-            </div>
-
-            <div className="flex-1 min-h-0 flex flex-col mt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2 shrink-0">
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Select Questions <span className={selectedQuestionIds.length > 0 ? "text-indigo-600 dark:text-indigo-400 font-black" : ""}>({selectedQuestionIds.length} chosen)</span>
-                </label>
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                  <input 
-                    type="number" 
-                    min="1" 
-                    max={matchingQuestions.length} 
-                    value={bulkCount} 
-                    onChange={e => setBulkCount(parseInt(e.target.value) || 1)} 
-                    className="w-16 px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100" 
-                  />
-                  <button onClick={handleSelectRandom} className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-md font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                    Add Random
-                  </button>
-                  <button onClick={handleSelectAllFiltered} className="text-xs bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-md font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                    Add All Filtered
-                  </button>
-                  {selectedQuestionIds.length > 0 && (
-                    <button onClick={() => setSelectedQuestionIds([])} className="text-xs bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-md font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
-                      Clear Selection
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar border border-slate-200 dark:border-slate-800 rounded-xl p-2 bg-slate-50/50 dark:bg-slate-950/40">
-                {matchingQuestions.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-slate-400 dark:text-slate-500 text-sm">
-                    No questions match the selected filters.
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {matchingQuestions.map(q => (
-                      <label key={q.id} className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer border transition-colors ${
-                        selectedQuestionIds.includes(q.id) 
-                          ? 'bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800/80 shadow-sm ring-1 ring-indigo-500/10' 
-                          : 'bg-white dark:bg-slate-900 border-transparent hover:border-slate-200 dark:hover:border-slate-700'
-                      }`}>
-                        <input 
-                          type="checkbox" 
-                          checked={selectedQuestionIds.includes(q.id)} 
-                          onChange={(e) => {
-                            if (e.target.checked) setSelectedQuestionIds(p => [...p, q.id]);
-                            else setSelectedQuestionIds(p => p.filter(id => id !== q.id));
-                          }} 
-                          className="mt-0.5 w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500" 
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-sm font-medium line-clamp-2 ${selectedQuestionIds.includes(q.id) ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'}`}>
-                            {q.question_text}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500">
-                              {q.category}
-                            </span>
-                            {formatIteId(q) ? (
-                              <span className="text-[10px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                                · {formatIteId(q)}
-                              </span>
-                            ) : (
-                              q.year && (
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
-                                  · ITE {q.year}
-                                </span>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
           </div>
 
           <button
             onClick={handleAssign}
             disabled={assigning || eligibleResidents.length === 0 || selectedQuestionIds.length === 0 || !title.trim()}
-            className="w-full shrink-0 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-sm md:text-base flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-95 disabled:opacity-50 disabled:pointer-events-none shadow-md shadow-indigo-200 dark:shadow-none"
+            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm md:text-base flex items-center justify-center gap-2 transition-all hover:scale-[1.005] active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-lg shadow-indigo-100 dark:shadow-none cursor-pointer"
           >
             {assigning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
             Assign {selectedQuestionIds.length} {selectedQuestionIds.length === 1 ? 'Question' : 'Questions'} to {selectedAdvisees.length} {selectedAdvisees.length === 1 ? 'Resident' : 'Residents'}
