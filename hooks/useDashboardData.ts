@@ -69,10 +69,38 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
       const err1 = blockErr || sessionErr || streakErr || badgesErr;
       if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
       
-      if (assignedQuizzesErr) {
-        console.warn('Failed to fetch assigned quizzes:', assignedQuizzesErr);
+      let assignedQuizzes = assignedQuizzesData || [];
+      if (assignedQuizzesErr || assignedQuizzes.length === 0) {
+        try {
+          const { data: qData } = await supabase.from('quizzes').select('*');
+          if (qData && qData.length > 0) {
+            const parsed = qData
+              .filter(q => {
+                if (!q.description) return false;
+                try {
+                  const meta = JSON.parse(q.description);
+                  return meta.assigned_to === userId && !meta.is_completed;
+                } catch {
+                  return false;
+                }
+              })
+              .map(q => {
+                const meta = JSON.parse(q.description!);
+                return {
+                  id: q.id,
+                  title: q.title,
+                  question_ids: q.question_ids,
+                  created_at: q.created_at,
+                  due_date: meta.due_date,
+                  assigned_by: meta.assigned_by,
+                  assigned_to: meta.assigned_to,
+                  is_completed: false,
+                };
+              });
+            if (parsed.length > 0) assignedQuizzes = parsed;
+          }
+        } catch {}
       }
-      const assignedQuizzes = assignedQuizzesData || [];
 
       const availableYears = [new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2, new Date().getFullYear() - 3]; // getAvailableAcademicYears equivalent logic
 

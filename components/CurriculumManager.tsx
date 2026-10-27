@@ -319,7 +319,8 @@ export default function CurriculumManager() {
       <BlockEditor 
         block={block} 
         allQuestions={questions} 
-        residentsCount={resultsCount.get(block.title) || 0} 
+        residentsCount={resultsCount.get(block.title) || 0}
+        allBlocks={blocks} 
         onBack={() => setSelectedBlockId(null)}
         onSaved={onRefresh}
       />

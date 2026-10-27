@@ -436,7 +436,12 @@ function QuestionCard({
                 className={`w-full text-left py-2.5 md:py-3 pl-3 pr-10 rounded-2xl border-2 transition-all duration-200 flex items-center gap-3 ${stateStyles}`}
                 style={{ fontSize: `${optionFontSize}px` }}
               >
-                <div className={`w-7 h-7 text-sm rounded-xl flex items-center justify-center font-black shrink-0 ${isSelected ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700'}`}>
+                <div className={`w-7 h-7 text-sm rounded-xl flex items-center justify-center font-black shrink-0 relative ${isSelected ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700'}`}>
+                  {!showExplanation && !readOnly && (
+                    <span className="hidden md:inline-block absolute -top-1.5 -right-1.5 px-1 py-0.2 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 font-mono text-[8px] font-bold rounded shadow-2xs opacity-75">
+                      {index + 1}
+                    </span>
+                  )}
                   {String.fromCharCode(65 + index)}
                 </div>
                 <span className={`font-bold leading-snug flex-1 min-w-0 break-words ${isStruck ? 'line-through decoration-2' : ''}`}>

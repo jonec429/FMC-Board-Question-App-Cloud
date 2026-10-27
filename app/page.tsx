@@ -395,7 +395,18 @@ export default function Home() {
               if (activeQuiz.quizId?.startsWith('assigned-')) {
                 const assignedId = activeQuiz.quizId.replace('assigned-', '');
                 try {
-                  await supabase.from('assigned_quizzes').update({ is_completed: true, completed_at: new Date().toISOString() }).eq('id', assignedId);
+                  const { error: updErr } = await supabase.from('assigned_quizzes' as any).update({ is_completed: true, completed_at: new Date().toISOString() }).eq('id', assignedId);
+                  if (updErr) {
+                    const { data: qData } = await supabase.from('quizzes').select('*').eq('id', assignedId).maybeSingle();
+                    if (qData && qData.description) {
+                      try {
+                        const meta = JSON.parse(qData.description);
+                        meta.is_completed = true;
+                        meta.completed_at = new Date().toISOString();
+                        await supabase.from('quizzes').update({ description: JSON.stringify(meta) }).eq('id', assignedId);
+                      } catch {}
+                    }
+                  }
                 } catch (e) {
                   console.error('Failed to mark assigned quiz complete:', e);
                 }

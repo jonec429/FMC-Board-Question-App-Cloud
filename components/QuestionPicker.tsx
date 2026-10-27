@@ -5,10 +5,14 @@ import {
   Search, CheckCircle, AlertTriangle, Sparkles, X, Clock,
   ChevronDown, ChevronUp
 } from './AppIcons';
-import { Layers, CheckSquare, Trash2, Dices, Shuffle, Check, Filter } from 'lucide-react';
+import {
+  Layers, CheckSquare, Trash2, Dices, Shuffle, Check, Filter,
+  TrendingDown, TrendingUp, AlertCircle, BarChart3, PieChart
+} from 'lucide-react';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW, LEGACY_WARNING_TITLE, LEGACY_WARNING_BODY } from '@/lib/questionFilters';
 import { formatIteId } from '@/lib/iteQuestionMap';
 import { Question } from '@/lib/types';
+import { QuestionStat, getQuestionPerformanceStats } from '@/lib/questionStats';
 
 export interface QuestionPickerProps {
   allQuestions: Question[];
@@ -18,6 +22,8 @@ export interface QuestionPickerProps {
   initialCategoryFilters?: string[];
   maxHeight?: string;
   title?: string;
+  overlappingQuestionMap?: Record<string, string[]>;
+  questionStats?: Record<string, QuestionStat>;
 }
 
 // Fisher-Yates array shuffle for unbiased random selection
@@ -38,17 +44,30 @@ export default function QuestionPicker({
   initialCategoryFilters = [],
   maxHeight = 'max-h-[580px]',
   title = 'Select Questions',
+  overlappingQuestionMap = {},
+  questionStats: initialQuestionStats,
 }: QuestionPickerProps) {
   // Multi-Filter state
   const [search, setSearch] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategoryFilters);
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
+  const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'hard' | 'moderate' | 'high_yield' | 'untested'>('all');
+  const [hideOverlapping, setHideOverlapping] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'selected'>('all');
   const [bulkCount, setBulkCount] = useState<number>(targetCount || 10);
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
 
   // Range selection state (Shift + Click)
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
+
+  // Performance stats (auto-fetch if not provided by prop)
+  const [statsMap, setStatsMap] = useState<Record<string, QuestionStat>>(initialQuestionStats || {});
+
+  useEffect(() => {
+    if (!initialQuestionStats || Object.keys(initialQuestionStats).length === 0) {
+      getQuestionPerformanceStats().then(s => setStatsMap(s));
+    }
+  }, [initialQuestionStats]);
 
   // Legacy ITE opt-in
   const [showLegacyYears, setShowLegacyYears] = useState(false);
@@ -60,7 +79,7 @@ export default function QuestionPicker({
   // Reset range tracking on filter/tab changes
   useEffect(() => {
     setLastClickedIndex(null);
-  }, [search, selectedCategories, selectedYears, showLegacyYears, activeTab]);
+  }, [search, selectedCategories, selectedYears, difficultyFilter, hideOverlapping, showLegacyYears, activeTab]);
 
   // Derive categories and years from question bank
   const { categories, years, categoryCounts } = useMemo(() => {
@@ -92,6 +111,11 @@ export default function QuestionPicker({
 
   const selectedSet = useMemo(() => new Set(selectedQuestionIds), [selectedQuestionIds]);
 
+  // Count overlapping questions in current question pool
+  const overlappingPoolCount = useMemo(() => {
+    return allQuestions.filter(q => (overlappingQuestionMap[q.id]?.length || 0) > 0).length;
+  }, [allQuestions, overlappingQuestionMap]);
+
   // Filtered questions based on multiple active filters
   const filteredQuestions = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -99,6 +123,18 @@ export default function QuestionPicker({
 
     return allQuestions.filter(q => {
       if (q.category === 'Demo') return false;
+
+      // Overlap filter
+      if (hideOverlapping && (overlappingQuestionMap[q.id]?.length || 0) > 0) {
+        return false;
+      }
+
+      // Difficulty filter
+      if (difficultyFilter !== 'all') {
+        const stat = statsMap[q.id];
+        const diff = stat?.difficulty || 'untested';
+        if (diff !== difficultyFilter) return false;
+      }
 
       // Category filter (multi-select)
       if (selectedCategories.length > 0 && !selectedCategories.includes(q.category)) {
@@ -109,7 +145,6 @@ export default function QuestionPicker({
       if (selectedYears.length > 0) {
         if (!selectedYears.includes(q.year)) return false;
       } else {
-        // If no specific years selected, hide legacy unless legacy toggle is explicitly on
         if (!showLegacyYears && legacySet.has(q.year)) {
           return false;
         }
@@ -128,7 +163,7 @@ export default function QuestionPicker({
 
       return true;
     });
-  }, [allQuestions, selectedCategories, selectedYears, showLegacyYears, legacyYears, search]);
+  }, [allQuestions, selectedCategories, selectedYears, difficultyFilter, hideOverlapping, showLegacyYears, legacyYears, search, statsMap, overlappingQuestionMap]);
 
   // Questions displayed based on Active Tab
   const displayedQuestions = useMemo(() => {
@@ -140,6 +175,19 @@ export default function QuestionPicker({
     }
     return filteredQuestions;
   }, [activeTab, filteredQuestions, allQuestions, selectedQuestionIds]);
+
+  // Category Blueprint breakdown of currently selected questions
+  const selectedCategoryBreakdown = useMemo(() => {
+    const map = new Map(allQuestions.map(q => [q.id, q]));
+    const counts: Record<string, number> = {};
+    selectedQuestionIds.forEach(id => {
+      const q = map.get(id);
+      if (q?.category) {
+        counts[q.category] = (counts[q.category] || 0) + 1;
+      }
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [allQuestions, selectedQuestionIds]);
 
   // Selection counts for displayed & filtered lists
   const displayedSelectedCount = useMemo(() => {
@@ -180,8 +228,6 @@ export default function QuestionPicker({
       const rangeIds = rangeQuestions.map(q => q.id);
       const rangeSet = new Set(rangeIds);
 
-      // If the target item is ALREADY selected, DESELECT the whole range
-      // If it is NOT selected, SELECT the whole range
       const isTargetSelected = selectedSet.has(qId);
       let nextIds: string[];
       if (isTargetSelected) {
@@ -205,10 +251,8 @@ export default function QuestionPicker({
     const displayedSet = new Set(displayedIds);
 
     if (allDisplayedSelected || someDisplayedSelected) {
-      // Bulk deselect all displayed
       onChangeSelectedIds(selectedQuestionIds.filter(id => !displayedSet.has(id)));
     } else {
-      // Bulk select all displayed
       onChangeSelectedIds(Array.from(new Set([...selectedQuestionIds, ...displayedIds])));
     }
   };
@@ -228,7 +272,6 @@ export default function QuestionPicker({
 
   // Auto Assign: Random Selection based strictly on currently filtered questions
   const handleAddRandomFromFiltered = (countToPick: number = bulkCount) => {
-    // Pick unselected questions matching the active filters
     const unselectedFiltered = filteredQuestions.filter(q => !selectedSet.has(q.id));
     if (unselectedFiltered.length === 0) return;
 
@@ -305,12 +348,13 @@ export default function QuestionPicker({
     setSearch('');
     setSelectedCategories([]);
     setSelectedYears([]);
+    setDifficultyFilter('all');
+    setHideOverlapping(false);
   };
 
   const requestShowLegacyYears = () => {
     if (showLegacyYears) {
       setShowLegacyYears(false);
-      // Remove any selected legacy years
       const legacySet = new Set(legacyYears);
       setSelectedYears(prev => prev.filter(y => !legacySet.has(y)));
     } else {
@@ -323,7 +367,7 @@ export default function QuestionPicker({
     setShowLegacyWarning(false);
   };
 
-  const hasActiveFilters = search || selectedCategories.length > 0 || selectedYears.length > 0;
+  const hasActiveFilters = search || selectedCategories.length > 0 || selectedYears.length > 0 || difficultyFilter !== 'all' || hideOverlapping;
 
   return (
     <div className="space-y-4">
@@ -349,7 +393,7 @@ export default function QuestionPicker({
           )}
         </div>
 
-        {/* Multi-Year Filter Pills */}
+        {/* Multi-Year & Quick Toggles */}
         <div>
           <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
             <div className="flex items-center gap-2">
@@ -445,6 +489,56 @@ export default function QuestionPicker({
           </div>
         </div>
 
+        {/* Difficulty & Overlap Filters Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+          {/* Difficulty Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
+              <BarChart3 className="w-3 h-3 text-indigo-500" />
+              Difficulty:
+            </span>
+            {[
+              { id: 'all', label: 'All Levels' },
+              { id: 'hard', label: 'Hard (<50%)' },
+              { id: 'moderate', label: 'Moderate (50-75%)' },
+              { id: 'high_yield', label: 'High Yield (>75%)' },
+            ].map(d => {
+              const active = difficultyFilter === d.id;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setDifficultyFilter(d.id as any)}
+                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all border ${
+                    active
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  {d.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Overlap Toggle */}
+          {overlappingPoolCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setHideOverlapping(prev => !prev)}
+              className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border self-start sm:self-auto ${
+                hideOverlapping
+                  ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 shadow-2xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:text-amber-600'
+              }`}
+              title="Hide questions already used in other blocks"
+            >
+              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+              <span>{hideOverlapping ? 'Hiding Other Blocks Questions' : `Hide Questions in Other Blocks (${overlappingPoolCount})`}</span>
+            </button>
+          )}
+        </div>
+
         {/* Multi-Category Filter Pills */}
         <div>
           <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
@@ -515,7 +609,7 @@ export default function QuestionPicker({
         {/* Active Filter Summary Bar */}
         {hasActiveFilters && (
           <div className="pt-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700/60 flex-wrap gap-2">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="font-bold text-slate-700 dark:text-slate-200">
                 {filteredQuestions.length}
               </span>
@@ -528,6 +622,16 @@ export default function QuestionPicker({
               {selectedYears.length > 0 && (
                 <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded font-semibold text-[11px]">
                   {selectedYears.length} years
+                </span>
+              )}
+              {difficultyFilter !== 'all' && (
+                <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded font-semibold text-[11px] capitalize">
+                  {difficultyFilter}
+                </span>
+              )}
+              {hideOverlapping && (
+                <span className="px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded font-semibold text-[11px]">
+                  Unique to Block
                 </span>
               )}
               {search && (
@@ -547,6 +651,59 @@ export default function QuestionPicker({
           </div>
         )}
       </div>
+
+      {/* Live Category Blueprint Visualizer (Visible in Selected Tab or when questions selected) */}
+      {selectedQuestionIds.length > 0 && (
+        <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <PieChart className="w-3.5 h-3.5 text-indigo-500" />
+              Category Blueprint ({selectedQuestionIds.length} Selected)
+            </span>
+            <span className="text-[11px] font-bold text-slate-400">
+              {selectedCategoryBreakdown.length} Categories
+            </span>
+          </div>
+
+          {/* Segmented Category Progress Bar */}
+          <div className="h-2.5 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800 gap-0.5">
+            {selectedCategoryBreakdown.map(([cat, count], idx) => {
+              const pct = (count / selectedQuestionIds.length) * 100;
+              const colors = [
+                'bg-indigo-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500',
+                'bg-rose-500', 'bg-purple-500', 'bg-teal-500', 'bg-cyan-500', 'bg-orange-500'
+              ];
+              const color = colors[idx % colors.length];
+              return (
+                <div
+                  key={cat}
+                  className={`${color} h-full transition-all`}
+                  style={{ width: `${pct}%` }}
+                  title={`${cat}: ${count} (${Math.round(pct)}%)`}
+                />
+              );
+            })}
+          </div>
+
+          {/* Category Chips with percentage */}
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {selectedCategoryBreakdown.map(([cat, count]) => {
+              const pct = Math.round((count / selectedQuestionIds.length) * 100);
+              return (
+                <span
+                  key={cat}
+                  className="px-2 py-0.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200/80 dark:border-slate-700/80 text-[11px] font-semibold flex items-center gap-1.5"
+                >
+                  <span className="text-slate-700 dark:text-slate-200">{cat}</span>
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                    {count} ({pct}%)
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tabs & Bulk Assignment Toolbar */}
       <div className="flex flex-col gap-3 pt-1">
@@ -764,6 +921,8 @@ export default function QuestionPicker({
               const isSelected = selectedSet.has(q.id);
               const isExpanded = expandedQuestionId === q.id;
               const isLegacy = legacyYears.includes(q.year);
+              const overlappingBlocks = overlappingQuestionMap[q.id] || [];
+              const stat = statsMap[q.id];
 
               return (
                 <div
@@ -815,6 +974,35 @@ export default function QuestionPicker({
                               ITE {q.year}
                             </span>
                           )
+                        )}
+
+                        {/* Overlap Badge */}
+                        {overlappingBlocks.length > 0 && (
+                          <span className="px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 rounded text-[10px] font-black border border-amber-200/60 dark:border-amber-800/60 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 text-amber-500" />
+                            Also in: {overlappingBlocks.join(', ')}
+                          </span>
+                        )}
+
+                        {/* Difficulty / Accuracy Badge */}
+                        {stat && stat.totalAttempts >= 3 && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${
+                              stat.difficulty === 'hard'
+                                ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+                                : stat.difficulty === 'moderate'
+                                ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60'
+                                : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'
+                            }`}
+                            title={`${stat.correctAttempts} / ${stat.totalAttempts} attempts correct across residency`}
+                          >
+                            {stat.difficulty === 'hard' ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
+                            {stat.difficulty === 'hard'
+                              ? `Hard (${stat.accuracyRate}%)`
+                              : stat.difficulty === 'moderate'
+                              ? `Mod (${stat.accuracyRate}%)`
+                              : `High Yield (${stat.accuracyRate}%)`}
+                          </span>
                         )}
 
                         {isLegacy && (
