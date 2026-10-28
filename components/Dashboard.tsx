@@ -20,7 +20,9 @@ import AdviseeQuickAccessCard from './AdviseeQuickAccessCard';
 import ChallengeModal from './ChallengeModal';
 import IteCountdownBanner from './IteCountdownBanner';
 import ForcePasswordChangeModal from './ForcePasswordChangeModal';
-import { Gift } from 'lucide-react';
+import { Gift, Shield } from 'lucide-react';
+import StreakSaverModal from './StreakSaverModal';
+import { getStreakSaverStatus, getStreakSaverQuestions, StreakSaverStatus } from '@/lib/streakSaver';
 import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { computeResidentReadiness } from '@/lib/residentRisk';
@@ -43,6 +45,8 @@ export interface StartQuizOptions {
   qotdQuestion?: Question | null;
   isQotdCompleted?: boolean;
   qotdAttempt?: any;
+  isStreakSaver?: boolean;
+  streakSaverMeta?: any;
 }
 
 interface DashboardProps {
@@ -148,6 +152,18 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const [showLeaderboardModal, setShowLeaderboardModal] = useState(false);
   const [leaderboardModalTab, setLeaderboardModalTab] = useState<'ap' | 'challenge'>('ap');
   const [showGraduatesLeaderboard, setShowGraduatesLeaderboard] = useState(false);
+  const [showStreakSaverModal, setShowStreakSaverModal] = useState(false);
+  const [streakSaverStatus, setStreakSaverStatus] = useState<StreakSaverStatus | null>(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      getStreakSaverStatus(
+        user.id,
+        data?.qotdAnsweredDates || [],
+        userStreak
+      ).then(setStreakSaverStatus);
+    }
+  }, [user?.id, data?.qotdAnsweredDates, userStreak]);
   const residentReadiness = useMemo(() => {
     if (!data?.blocks || !data?.blockSchedule || !myResults) return null;
     return computeResidentReadiness({
@@ -570,12 +586,41 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     <Sparkles className="w-4 h-4 text-yellow-300" />
                     QOTD
                   </span>
-                  {userStreak?.current_qotd_streak > 0 && (
-                    <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-black text-amber-200 flex items-center gap-0.5">
-                      🔥 {userStreak.current_qotd_streak}d
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {userStreak?.current_qotd_streak > 0 && (
+                      <span className="px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-black text-amber-200 flex items-center gap-0.5">
+                        🔥 {userStreak.current_qotd_streak}d
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowStreakSaverModal(true)}
+                      className="px-2 py-0.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full text-[10px] font-black text-amber-200 flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Streak Saver"
+                    >
+                      <Shield className="w-3 h-3 text-amber-300" />
+                      <span>Saver ({streakSaverStatus?.savesRemaining ?? 3}/3)</span>
+                    </button>
+                  </div>
                 </div>
+
+                {streakSaverStatus?.isStreakBroken && streakSaverStatus?.savesRemaining > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowStreakSaverModal(true)}
+                    className="w-full mb-2 p-2 bg-amber-400/25 hover:bg-amber-400/35 rounded-xl border border-amber-300/40 text-left flex items-center justify-between gap-2 transition-all cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm">🛡️</span>
+                      <span className="font-bold text-[11px] text-amber-200 truncate">
+                        Streak broken ({streakSaverStatus.brokenStreakLength}d)! Restore now
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-black text-amber-200 group-hover:translate-x-0.5 transition-transform shrink-0">
+                      Save →
+                    </span>
+                  </button>
+                )}
 
                 <p className="text-indigo-100 text-xs line-clamp-2 mb-3 leading-snug">
                   {qotdQuestion ? (
@@ -1048,6 +1093,28 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
       {showQotdHistoryModal && (
         <QotdHistoryModal onClose={() => setShowQotdHistoryModal(false)} />
+      )}
+
+      {showStreakSaverModal && streakSaverStatus && (
+        <StreakSaverModal
+          status={streakSaverStatus}
+          onClose={() => setShowStreakSaverModal(false)}
+          onStartChallenge={async () => {
+            setShowStreakSaverModal(false);
+            const qs = await getStreakSaverQuestions(
+              streakSaverStatus.nextSaveQuestionCount,
+              streakSaverStatus.mostRecentYear
+            );
+            onStartQuiz({
+              topic: 'Streak Saver Challenge',
+              questionIds: qs.map(q => q.id),
+              count: streakSaverStatus.nextSaveQuestionCount,
+              isStreakSaver: true,
+              streakSaverMeta: streakSaverStatus,
+              forceNew: true,
+            });
+          }}
+        />
       )}
 
       {selectedYoyClass && (

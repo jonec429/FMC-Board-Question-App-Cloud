@@ -16,6 +16,10 @@ import { useDayChangeReload } from '@/hooks/useDayChangeReload';
 import { User, Profile, Block, Question, Result } from '@/lib/types';
 import { getTodayDateString } from '@/lib/qotd';
 import { Session } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
+import confetti from 'canvas-confetti';
+import { applyStreakSaveSuccess } from '@/lib/streakSaver';
+import { getCurrentAcademicYear } from '@/lib/academicYear';
 
 interface ActiveQuizState {
   isQotd?: boolean;
@@ -32,9 +36,12 @@ interface ActiveQuizState {
   count?: number;
   timerEnabled?: boolean;
   forceNew?: boolean;
+  isStreakSaver?: boolean;
+  streakSaverMeta?: any;
 }
 
 export default function Home() {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -391,7 +398,35 @@ export default function Home() {
             timerEnabled={activeQuiz.timerEnabled}
             forceNew={activeQuiz.forceNew}
             currentBlock={currentBlock}
-            onComplete={async () => {
+            onComplete={async (resultData?: any) => {
+              if (activeQuiz.isStreakSaver && user) {
+                const meta = activeQuiz.streakSaverMeta;
+                const score = resultData?.score ?? 0;
+                const total = resultData?.total ?? meta?.nextSaveQuestionCount ?? 5;
+                const pct = resultData?.percentage ?? Math.round((score / Math.max(1, total)) * 100);
+
+                if (pct >= 65) {
+                  await applyStreakSaveSuccess({
+                    userId: user.id,
+                    missedDate: meta?.missedDate,
+                    score,
+                    total,
+                    percentage: pct,
+                    restoredStreak: (meta?.brokenStreakLength || 1),
+                    academicYear: meta?.currentAcademicYear || getCurrentAcademicYear(),
+                    reviewData: resultData?.review_data || null,
+                  });
+
+                  try {
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                  } catch {}
+
+                  alert(`🎉 Streak Saved! You scored ${pct}% (${score}/${total}). Your ${meta?.brokenStreakLength || 1}-day streak has been restored!`);
+                  await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+                } else {
+                  alert(`Streak Saver completed: ${score}/${total} (${pct}%). A minimum score of 65% is required to restore your streak. Your annual save quota was not consumed. You can try again!`);
+                }
+              }
               if (activeQuiz.quizId?.startsWith('assigned-')) {
                 const assignedId = activeQuiz.quizId.replace('assigned-', '');
                 try {

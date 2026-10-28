@@ -18,6 +18,7 @@ interface DashboardData {
   userBadges: any[];
   assignedQuizzes: any[];
   attendance: any[];
+  qotdAnsweredDates: string[];
 }
 
 function getBlockSortKey(block: any): number {
@@ -284,6 +285,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         userBadges,
         assignedQuizzes,
         attendance: attendanceData || [],
+        qotdAnsweredDates,
       };
     },
     staleTime: 60000, // Data is fresh for 60 seconds
