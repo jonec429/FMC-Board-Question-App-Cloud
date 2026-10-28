@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { PlusCircle, Loader2, Database, Trash2, Calendar, CheckCircle, Save, X, Edit3, Sparkles, Archive, ArchiveRestore, Copy } from './AppIcons';
 import { AdminData } from '@/lib/types';
 import { partitionYears, RECENT_ITE_YEAR_WINDOW } from '@/lib/questionFilters';
-import { getCurrentAcademicYear, formatAcademicYear, getAvailableAcademicYears } from '@/lib/academicYear';
+import { getCurrentAcademicYear, formatAcademicYear, getAvailableAcademicYears, getBlockAcademicYear } from '@/lib/academicYear';
 import BlockEditor from './BlockEditor'; // We will extract this or keep it here
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -62,12 +62,7 @@ export default function CurriculumManager() {
       let year = b.academic_year ? Number(b.academic_year) : 0;
       if (!year || isNaN(year) || year === 0) {
         const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id);
-        if (sched?.end_date) {
-          const d = new Date(sched.end_date + "T12:00:00Z");
-          year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0);
-        } else {
-          year = getCurrentAcademicYear();
-        }
+        year = getBlockAcademicYear(sched?.start_date, sched?.end_date);
       }
       if (year > 0) years.add(year);
     });
@@ -80,12 +75,7 @@ export default function CurriculumManager() {
       let year = b.academic_year ? Number(b.academic_year) : 0;
       if (!year || isNaN(year) || year === 0) {
         const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id);
-        if (sched?.end_date) {
-          const d = new Date(sched.end_date + "T12:00:00Z");
-          year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0);
-        } else {
-          year = getCurrentAcademicYear();
-        }
+        year = getBlockAcademicYear(sched?.start_date, sched?.end_date);
       }
       return year === selectedYear;
     });
@@ -175,9 +165,8 @@ export default function CurriculumManager() {
         console.error("Failed to save dates:", resultError);
         alert("Database Error saving dates: " + resultError.message);
       } else {
-        // Automatically sync the block's Academic Year based on the Due Date (end_date)
-        const dueDateObj = new Date(dateForm.end + "T12:00:00Z");
-        const derivedAy = getCurrentAcademicYear(dueDateObj);
+        // Automatically sync the block's Academic Year based on the Start Date (falling back to Due Date if missing)
+        const derivedAy = getBlockAcademicYear(dateForm.start, dateForm.end);
         
         await supabase.from('blocks').update({ academic_year: derivedAy }).eq('id', blockId);
         

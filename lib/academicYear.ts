@@ -34,6 +34,19 @@ export function formatAcademicYear(year: number): string {
   return `AY ${start}-${end}`;
 }
 
+/**
+ * Derives the academic year for a block schedule.
+ * Uses the start_date as the primary marker (falling back to end_date if start_date is not set),
+ * ensuring late-year blocks (e.g. Block 12 running May 31 - June 27) remain in the correct AY
+ * instead of rolling over to the next AY due to an end date past the mid-June cutoff.
+ */
+export function getBlockAcademicYear(startDate?: string | null, endDate?: string | null): number {
+  const marker = startDate || endDate;
+  if (!marker) return getCurrentAcademicYear();
+  const d = new Date(marker.includes('T') ? marker : `${marker}T12:00:00Z`);
+  return getCurrentAcademicYear(d);
+}
+
 /** Returns a list of recent academic years for filtering (next year + current + 3 previous). */
 export function getAvailableAcademicYears(): number[] {
   const current = getCurrentAcademicYear();

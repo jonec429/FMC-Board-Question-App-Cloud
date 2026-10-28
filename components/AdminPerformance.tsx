@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName, formatLastNameFirst, formatTopicDisplay } from '@/lib/utils';
 import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
-import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, isFacultyRow, getResidentClassYear, residentMatchesCohort } from '@/lib/academicYear';
+import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, isFacultyRow, getResidentClassYear, residentMatchesCohort, getBlockAcademicYear } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
 import { Flame, Sparkles, HelpCircle, Eye, ArrowUpDown, ArrowUp, ArrowDown, Gift , Pencil, Trash2 } from 'lucide-react';
@@ -1279,12 +1279,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
             let year = b.academic_year ? Number(b.academic_year) : 0;
             if (!year || isNaN(year) || year === 0) {
               const sched = block_schedule.find((s: import('@/lib/types').BlockSchedule) => s.block_id === b.id);
-              if (sched?.end_date) {
-                const d = new Date(sched.end_date + "T12:00:00Z");
-                year = d.getFullYear() + (d.getMonth() >= 6 ? 1 : 0); // Approx getCurrentAcademicYear logic
-              } else {
-                year = getCurrentAcademicYear();
-              }
+              year = getBlockAcademicYear(sched?.start_date, sched?.end_date);
             }
             return year === selectedYear;
           })
