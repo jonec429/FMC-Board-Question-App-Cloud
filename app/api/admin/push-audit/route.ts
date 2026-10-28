@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       const { data, error } = await supabase
         .from('cron_logs')
         .select('*')
-        .in('cron_name', ['qotd-morning', 'qotd-noon', 'manual_broadcast'])
+        .in('cron_name', ['qotd-morning', 'qotd-reminder', 'qotd-noon', 'manual_broadcast'])
         .order('executed_at', { ascending: false })
         .limit(50);
       if (!error && data) cronLogs = data;
