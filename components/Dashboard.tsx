@@ -1031,7 +1031,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                           )}
                         </p>
                         <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
-                          {result ? `Best: ${(result.percentage || 0).toFixed(1)}%` : `${displayCount} Questions`}
+                          {result ? `${displayCount} Questions` : `${displayCount} Questions`}
                           {!isCompleted && hasResume && (
                             <span className="ml-2 text-amber-600 dark:text-amber-400 font-bold">
                               • In Progress (Q{(activeSession.current_index || 0) + 1}/{displayCount})
@@ -1040,7 +1040,34 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                         </p>
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 shrink-0" />
+                    <div className="flex items-center gap-3 shrink-0">
+                      {isCompleted && result && result.percentage != null && (
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="w-16 sm:w-24 md:w-28 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border border-slate-200/50 dark:border-slate-700/50">
+                            <div
+                              className={`h-full transition-all rounded-full ${
+                                (result.percentage || 0) >= 70
+                                  ? 'bg-emerald-500'
+                                  : (result.percentage || 0) >= 60
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.max(0, Math.min(100, result.percentage || 0))}%` }}
+                            />
+                          </div>
+                          <span className={`text-[10px] font-black ${
+                            (result.percentage || 0) >= 70
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : (result.percentage || 0) >= 60
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            Best: {(result.percentage || 0).toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+                      <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 dark:group-hover:text-blue-400 shrink-0" />
+                    </div>
                   </div>
                 );
               })}

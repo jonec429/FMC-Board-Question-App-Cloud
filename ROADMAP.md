@@ -60,6 +60,27 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-10-27 (Antigravity: My Performance Consolidation, Dedicated AP Tracker & Progress Bars)
+**Shipped this session**:
+1. **Dedicated AP Tracker Tab (`components/MyStatsModal.tsx`)**:
+   - Added a dedicated 5th tab to the `My Performance` modal (`AP Tracker`), eliminating the need to scroll to the bottom of the modal.
+   - Houses the dual-color Academic Points progress bar (Q-Points in blue, Attendance Points in purple) against yearly (100 AP) and graduation (300 AP) goals.
+   - Integrated PGY Milestone cards (PGY-1: 30 AP, PGY-2: 60 AP, PGY-3: 100 AP / graduation) with visual progress bars and completion status indicators.
+   - Dedicated Conference Attendance & Meeting History log detailing dates, blocks, titles, verified checkmarks, and points.
+2. **Decluttered "Stats & Prep" Tab (`components/MyStatsModal.tsx`)**:
+   - Removed the redundant Earned Badges shelf from inside the Board Prep Snapshot card (badges now live exclusively in the Achievements tab).
+   - Removed duplicate Block Performance and duplicate History lists from the Stats tab.
+   - Added two clean, high-density quick-navigation cards linking directly to the new AP Tracker and Past Quizzes tabs.
+3. **Reordered Achievements Tab (`components/MyStatsModal.tsx`)**:
+   - Relocated the "Next Badge Milestone" progress card to the very top of the Achievements tab, directly above the Earned Badges Showcase, giving residents an immediate target upon opening the tab.
+4. **Curriculum Block Breakdown & Visual Progress Bars (`components/MyStatsModal.tsx`, `components/Dashboard.tsx`)**:
+   - Moved the cumulative Block Performance breakdown into the `Past Quizzes` tab with visual accuracy progress bars ($\ge 70\%$ emerald, $60-69\%$ amber, $< 60\%$ red) and 1-click review shortcuts.
+   - Enhanced the Completed Assessments list in `Past Quizzes` with horizontal accuracy progress bars and percentage tags.
+   - Integrated the mini accuracy bar graph directly into the Homepage Board Review Blocks list (`components/Dashboard.tsx`) for all completed blocks alongside `Best: XX.X%`.
+5. **Quality & Verification Gates**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run build` compiled all 21 static and dynamic routes cleanly.
+
 ### ▶️ Session Handoff — 2026-10-27 (Antigravity: Block Builder Upgrades, Streak Saver Ecosystem, Badges & Weak Category Spotlight)
 **Shipped this session**:
 1. **Enhanced QuestionPicker & Block Builder (`components/QuestionPicker.tsx`, `components/BlockEditor.tsx`)**:

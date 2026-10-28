@@ -26,7 +26,7 @@ interface MyStatsModalProps {
   leaderboard: LeaderboardEntry[];
   userBadges: UserBadge[];
   userStreak?: any;
-  initialTab?: 'stats' | 'achievements' | 'weakAreas' | 'pastQuizzes';
+  initialTab?: 'stats' | 'apTracker' | 'achievements' | 'weakAreas' | 'pastQuizzes';
   selectedYear: number;
   onYearChange: (year: number) => void;
   attendanceList?: any[];
@@ -59,7 +59,7 @@ export default function MyStatsModal({
 }: MyStatsModalProps) {
   const [showReadinessModal, setShowReadinessModal] = useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = useState(false);
-  const [activeTab, setActiveTab] = useState<'stats' | 'achievements' | 'weakAreas' | 'pastQuizzes'>(initialTab || 'stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'apTracker' | 'achievements' | 'weakAreas' | 'pastQuizzes'>(initialTab || 'stats');
   const [isSnapshotCollapsed, setIsSnapshotCollapsed] = useState(() => {
     try {
       // Default to collapsed unless explicitly expanded by user ('false')
@@ -95,7 +95,6 @@ export default function MyStatsModal({
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [exportingAnki, setExportingAnki] = useState(false);
 
-  const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance'>('questions');
 
   // Filter missed questions by the selected topic
   const activeWeakQuestions = weakAreasSubTab === 'missed' ? missedQuestions : flaggedQuestions;
@@ -537,10 +536,10 @@ export default function MyStatsModal({
           </button>
         </div>
 
-        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
+        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('stats')}
-            className={`flex-1 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors ${
+            className={`flex-1 min-w-[90px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'stats' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -549,8 +548,18 @@ export default function MyStatsModal({
             Stats &amp; Prep
           </button>
           <button
+            onClick={() => setActiveTab('apTracker')}
+            className={`flex-1 min-w-[85px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+              activeTab === 'apTracker' 
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
+                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+            }`}
+          >
+            AP Tracker
+          </button>
+          <button
             onClick={() => setActiveTab('achievements')}
-            className={`flex-1 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors ${
+            className={`flex-1 min-w-[100px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'achievements' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -560,17 +569,17 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('weakAreas')}
-            className={`flex-1 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors ${
+            className={`flex-1 min-w-[95px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'weakAreas' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
-            Review Weak Areas
+            Weak Areas
           </button>
           <button
             onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
-            className={`flex-1 py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors ${
+            className={`flex-1 min-w-[95px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'pastQuizzes'
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -803,29 +812,6 @@ export default function MyStatsModal({
                   );
                 })()}
 
-                {/* Badges Shelf */}
-                {userBadges.length > 0 && (
-                  <div>
-                    <h3 className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest mb-1.5">Earned Badges</h3>
-                    <div className="flex flex-wrap gap-1.5">
-                      {userBadges.map((b, i) => (
-                        <div key={i} className="relative group">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-indigo-500/30 text-white border-indigo-400/30 cursor-help transition-transform hover:scale-105">
-                            <span>{b.icon}</span>
-                            <span>{b.name}</span>
-                          </span>
-                          {b.description && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs px-3 py-2 bg-slate-900 text-white text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl">
-                              {b.description}
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                     {/* Collapse Breakdown Strip */}
                     <button
                       type="button"
@@ -839,148 +825,247 @@ export default function MyStatsModal({
                 )}
               </div>
 
-              {/* Block Performance - Clickable to Review */}
-              {topicAverages.length > 0 && (
-                <div>
+              {/* Quick Navigation Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('apTracker')}
+                  className="text-left p-4 bg-gradient-to-br from-indigo-50/60 to-purple-50/60 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl transition-all group shadow-xs cursor-pointer"
+                >
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">Block Performance</h3>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Tap block to review</span>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                      Academic Points
+                    </span>
+                    <span className="text-xs font-black text-indigo-700 dark:text-indigo-300">
+                      {displayTotalPoints} AP Total
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    {topicAverages.map(({ topic, avg, attempts, qs }) => (
-                      <button
-                        key={topic}
-                        type="button"
-                        onClick={() => handleBlockReview(topic)}
-                        className="w-full text-left flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-700/60 rounded-xl transition-all cursor-pointer group"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                            {formatTopicDisplay(topic)}
+                  <h4 className="font-black text-sm text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
+                    <span>AP Tracker &amp; Attendance Log</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-indigo-500 group-hover:translate-x-1 transition-transform" />
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {computedQuestionPts} Q-Points · {computedAttendancePts} Attendance Points · PGY Milestones
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
+                  className="text-left p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-2xl transition-all group shadow-xs cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Curriculum History
+                    </span>
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+                      {pastQuizzes.length} Quizzes Taken
+                    </span>
+                  </div>
+                  <h4 className="font-black text-sm text-slate-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                    <span>Past Quizzes &amp; Block Breakdown</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-blue-500 group-hover:translate-x-1 transition-transform" />
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Topic performance bar graphs, scores, and 1-click question reviews
+                  </p>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'apTracker' && (
+            <div className="space-y-6 animate-fade-in">
+              {/* AP Progress & Breakdown Banner */}
+              {(() => {
+                const goal = selectedYear === 0 ? 300 : 100;
+                const attendancePct = Math.min((computedAttendancePts / goal) * 100, 100);
+                const questionPct = Math.min((computedQuestionPts / goal) * 100, 100 - attendancePct);
+                const totalPct = Math.min(100, Math.round((displayTotalPoints / goal) * 100));
+
+                return (
+                  <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-5 text-white shadow-lg space-y-4">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                          <Target className="w-4 h-4 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-black text-sm uppercase tracking-wider text-white">Academic Points Tracker</h3>
+                          <p className="text-[11px] text-indigo-200">
+                            {selectedYear === 0 ? 'All-Time Cumulative Progress' : `Academic Year ${formatAcademicYear(selectedYear)}`}
                           </p>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
                         </div>
-                        <div className="w-24 sm:w-32 shrink-0">
-                          <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all ${avg >= 70 ? 'bg-emerald-500' : avg >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
-                              style={{ width: `${Math.max(0, Math.min(100, avg))}%` }}
-                            />
-                          </div>
-                        </div>
-                        <span className={`text-xs font-black shrink-0 w-12 text-right ${avg >= 70 ? 'text-emerald-700 dark:text-emerald-400' : avg >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {avg.toFixed(1)}%
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-black">{displayTotalPoints} <span className="text-sm font-semibold text-indigo-200">/ {goal} AP</span></div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">
+                          {totalPct}% of {selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal
                         </span>
-                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
-                      </button>
+                      </div>
+                    </div>
+
+                    {/* Dual Progress Bar */}
+                    <div className="space-y-1.5">
+                      <div className="h-3 bg-indigo-950/60 rounded-full overflow-hidden flex p-0.5 border border-white/10">
+                        <div 
+                          className="h-full bg-blue-400 rounded-l-full transition-all" 
+                          style={{ width: `${questionPct}%` }} 
+                          title={`${computedQuestionPts} points from Questions`}
+                        />
+                        <div 
+                          className="h-full bg-purple-400 rounded-r-full transition-all" 
+                          style={{ width: `${attendancePct}%` }} 
+                          title={`${computedAttendancePts} points from Attendance`}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] font-medium text-indigo-200">
+                        <span>0 AP</span>
+                        <span>{Math.round(goal / 2)} AP</span>
+                        <span>{goal} AP</span>
+                      </div>
+                    </div>
+
+                    {/* Point Category Badges */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div className="bg-white/10 rounded-xl p-3 border border-white/10 backdrop-blur-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-200">
+                            <span className="w-2 h-2 rounded-full bg-blue-400" />
+                            Question Points (Q-Points)
+                          </span>
+                          <span className="text-base font-black text-white">{computedQuestionPts} pts</span>
+                        </div>
+                        <p className="text-[10px] text-indigo-200/80 mt-1">
+                          Earned by scoring on curriculum blocks and on-time submissions.
+                        </p>
+                      </div>
+
+                      <div className="bg-white/10 rounded-xl p-3 border border-white/10 backdrop-blur-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-200">
+                            <span className="w-2 h-2 rounded-full bg-purple-400" />
+                            Attendance Points
+                          </span>
+                          <span className="text-base font-black text-white">{computedAttendancePts} pts</span>
+                        </div>
+                        <p className="text-[10px] text-indigo-200/80 mt-1">
+                          Earned via verified noon conferences and advisor meetings.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* PGY Milestones */}
+              <div>
+                <h4 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5">
+                  Residency Graduation Milestones
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { pgy: 'PGY-1', label: 'Foundations', target: 30, desc: 'Target for promotion to PGY-2' },
+                    { pgy: 'PGY-2', label: 'Core Clinical', target: 60, desc: 'Target for senior resident promotion' },
+                    { pgy: 'PGY-3', label: 'Graduation Benchmark', target: 100, desc: 'Full academic requirement' },
+                  ].map((m) => {
+                    const isMet = displayTotalPoints >= m.target;
+                    const pct = Math.min(100, Math.round((displayTotalPoints / m.target) * 100));
+                    return (
+                      <div 
+                        key={m.pgy} 
+                        className={`p-4 rounded-2xl border transition-all ${
+                          isMet 
+                            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60' 
+                            : 'bg-white dark:bg-slate-850 border-slate-100 dark:border-slate-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-black text-xs text-slate-800 dark:text-slate-200">{m.pgy} · {m.label}</span>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            isMet 
+                              ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200' 
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {isMet ? 'Achieved' : `${m.target - displayTotalPoints} AP away`}
+                          </span>
+                        </div>
+                        <div className="text-xl font-black text-slate-800 dark:text-white">
+                          {m.target} <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">AP Goal</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mt-2">
+                          <div 
+                            className={`h-full rounded-full transition-all ${isMet ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">{m.desc}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Attendance Log */}
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <div>
+                    <h4 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      Conference Attendance &amp; Meeting History
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Verified noon conference sessions and faculty advisor check-ins
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
+                    {displayAttendance.length} {displayAttendance.length === 1 ? 'Record' : 'Records'}
+                  </span>
+                </div>
+
+                {displayAttendance.length > 0 ? (
+                  <div className="space-y-2">
+                    {displayAttendance.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3.5 bg-white dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-xl transition-all shadow-xs hover:border-slate-200 dark:hover:border-slate-700"
+                      >
+                        <div className="flex-1 min-w-0 pr-3">
+                          <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">
+                            {item.title}
+                          </p>
+                          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span className="text-emerald-700 dark:text-emerald-400 font-bold">{item.dateStr}</span>
+                            <span className="opacity-40">·</span>
+                            <span>Block: {item.block}</span>
+                            <span className="opacity-40">·</span>
+                            <span>{item.isManual ? '✨ Manual Credit' : 'Noon Conference'}</span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <span className="w-7 h-7 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center shrink-0" title="Attendance Verified">
+                            <Check className="w-3.5 h-3.5" />
+                          </span>
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded-lg border border-emerald-200/50 dark:border-emerald-800/40">
+                            +{item.points} pt
+                          </span>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* History */}
-              <div>
-                <div className="flex bg-slate-100/50 dark:bg-slate-800/60 p-1 rounded-2xl mb-4 transition-colors">
-                  <button 
-                    onClick={() => setActiveListTab('questions')}
-                    className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white dark:bg-slate-700 text-indigo-700 dark:text-indigo-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
-                  >
-                    Questions
-                  </button>
-                  <button 
-                    onClick={() => setActiveListTab('attendance')}
-                    className={`flex-1 text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
-                  >
-                    Attendance ({displayAttendance.length})
-                  </button>
-                </div>
-
-                {activeListTab === 'questions' ? (
-                  <>
-                    {myResults.filter(r => !/\[attendance\]|\[manual\]/i.test(r.topic || '')).length > 0 ? (
-                      <div className="space-y-2">
-                        {myResults.filter(r => !/\[attendance\]|\[manual\]/i.test(r.topic || '')).map((r, i) => {
-                          const pts = r.academic_points || 0;
-                          const timingEmoji = r.timing_status === 'Early' ? '🚀'
-                            : r.timing_status === 'On Time' ? '✅'
-                            : r.timing_status === 'Late' ? '⏰'
-                            : r.timing_status === 'Manual' ? '✨'
-                            : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'
-                            : pts === 1 ? '⏰'
-                            : pts >= 2 ? '⚡'
-                            : '—');
-                          return (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => { openReview(r); setActiveTab('pastQuizzes'); }}
-                              className="w-full text-left flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-200 dark:hover:border-indigo-800 rounded-xl transition-all cursor-pointer group"
-                            >
-                              <div className="flex-1 min-w-0 pr-2">
-                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
-                                  {formatTopicDisplay(r.topic)}
-                                </p>
-                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-2">
-                                  {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
-                                  {timingEmoji && <span className="ml-1">{timingEmoji}</span>}
-                                  <span className="text-[10px] text-indigo-500 dark:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">Review Block →</span>
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-xs font-black px-2 py-1 rounded-full ${(r.percentage || 0) >= 70 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400'}`}>
-                                  {(r.percentage || 0).toFixed(1)}%
-                                </span>
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{pts}pt</span>
-                                <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 transition-colors" />
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm italic">No assessments completed yet.</p>
-                    )}
-                  </>
                 ) : (
-                  <>
-                    {displayAttendance.length > 0 ? (
-                      <div className="space-y-2">
-                        {displayAttendance.map((item) => (
-                          <div
-                            key={item.id}
-                            className="flex items-center justify-between p-3 bg-emerald-50/30 dark:bg-emerald-950/20 border border-emerald-100/50 dark:border-emerald-900/40 rounded-xl transition-colors"
-                          >
-                            <div className="flex-1 min-w-0 pr-3">
-                              <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">
-                                {item.title}
-                              </p>
-                              <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                <span className="text-emerald-700 dark:text-emerald-400 font-bold">{item.dateStr}</span>
-                                <span className="opacity-40">·</span>
-                                <span>Block: {item.block}</span>
-                                <span className="opacity-40">·</span>
-                                <span>{item.isManual ? '✨ Manual Credit' : 'Noon Conference'}</span>
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="w-7 h-7 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center shrink-0" title="Attendance Verified">
-                                <Check className="w-3.5 h-3.5" />
-                              </span>
-                              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{item.points}pt</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm italic">No attendance recorded.</p>
-                    )}
-                  </>
+                  <div className="bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center">
+                    <Clock className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-600 dark:text-slate-400">No attendance recorded yet</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm mx-auto">
+                      Attend noon conferences and enter attendance codes, or log check-in meetings with your faculty advisor to earn attendance points.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
           )}
 
-                    {activeTab === 'achievements' && (
+          {activeTab === 'achievements' && (
             <div className="space-y-6 animate-fade-in">
               {/* Streaks Header */}
               {userStreak && (userStreak.current_qotd_streak > 0 || userStreak.current_block_streak > 0) ? (
@@ -1014,6 +1099,18 @@ export default function MyStatsModal({
                 </div>
               )}
 
+                            {/* Next Milestone */}
+              {nextBadge && (
+                <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl flex items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Next Badge Milestone</span>
+                    <h4 className="font-black text-slate-800 dark:text-white text-sm mt-0.5">{nextBadge.name}</h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{nextBadge.remaining} more question{nextBadge.remaining === 1 ? '' : 's'} to unlock</p>
+                  </div>
+                  <div className="text-2xl">🎯</div>
+                </div>
+              )}
+
               {/* Earned Badges Showcase */}
               <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
@@ -1043,18 +1140,6 @@ export default function MyStatsModal({
                   </div>
                 )}
               </div>
-
-              {/* Next Milestone */}
-              {nextBadge && (
-                <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl flex items-center justify-between gap-4">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Next Badge Milestone</span>
-                    <h4 className="font-black text-slate-800 dark:text-white text-sm mt-0.5">{nextBadge.name}</h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{nextBadge.remaining} more question{nextBadge.remaining === 1 ? '' : 's'} to unlock</p>
-                  </div>
-                  <div className="text-2xl">🎯</div>
-                </div>
-              )}
             </div>
           )}
 
@@ -1096,26 +1181,117 @@ export default function MyStatsModal({
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {pastQuizzes.length === 0 ? (
-                    <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-10">No completed quizzes yet.</p>
-                  ) : pastQuizzes.map((r: any) => (
-                    <button
-                      key={r.id}
-                      onClick={() => openReview(r)}
-                      className="w-full text-left p-4 bg-white dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-sm transition-all"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{formatTopicDisplay(r.topic)}</p>
-                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
-                          {r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                          {r.percentage != null ? ` · ${Number(r.percentage).toFixed(1)}%` : ''}
-                          {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
-                        </p>
+<div className="space-y-6">
+                  {/* Block Performance Breakdown */}
+                  {topicAverages.length > 0 && (
+                    <div className="bg-slate-50/50 dark:bg-slate-850/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                            Curriculum Block Breakdown
+                          </h3>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Cumulative topic performance across all attempts
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Tap block to review</span>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 shrink-0" />
-                    </button>
-                  ))}
+                      <div className="space-y-2">
+                        {topicAverages.map(({ topic, avg, attempts, qs }) => (
+                          <button
+                            key={topic}
+                            type="button"
+                            onClick={() => handleBlockReview(topic)}
+                            className="w-full text-left flex items-center gap-3 p-3 bg-white dark:bg-slate-800/80 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-700/60 rounded-xl transition-all cursor-pointer group shadow-2xs"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
+                                {formatTopicDisplay(topic)}
+                              </p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
+                            </div>
+                            <div className="w-24 sm:w-32 shrink-0">
+                              <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full transition-all ${avg >= 70 ? 'bg-emerald-500' : avg >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                  style={{ width: `${Math.max(0, Math.min(100, avg))}%` }}
+                                />
+                              </div>
+                            </div>
+                            <span className={`text-xs font-black shrink-0 w-12 text-right ${avg >= 70 ? 'text-emerald-700 dark:text-emerald-400' : avg >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {avg.toFixed(1)}%
+                            </span>
+                            <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Past Quizzes List */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        Assessment History ({pastQuizzes.length})
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Tap to review questions</span>
+                    </div>
+
+                    {pastQuizzes.length === 0 ? (
+                      <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-10">No completed quizzes yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {pastQuizzes.map((r: any) => {
+                          const pts = r.academic_points || 0;
+                          const timingEmoji = r.timing_status === 'Early' ? '🚀'
+                            : r.timing_status === 'On Time' ? '✅'
+                            : r.timing_status === 'Late' ? '⏰'
+                            : r.timing_status === 'Manual' ? '✨'
+                            : (pts >= 2 && !r.topic?.toLowerCase().includes('bonus') ? '✅'
+                            : pts === 1 ? '⏰'
+                            : pts >= 2 ? '⚡'
+                            : null);
+                          const pct = r.percentage != null ? Number(r.percentage) : null;
+
+                          return (
+                            <button
+                              key={r.id}
+                              onClick={() => openReview(r)}
+                              className="w-full text-left p-3.5 bg-white dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-xs transition-all group"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                  {formatTopicDisplay(r.topic)}
+                                </p>
+                                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                  <span>{r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</span>
+                                  {timingEmoji && <span>{timingEmoji}</span>}
+                                  {pts > 0 && <span className="text-indigo-600 dark:text-indigo-400 font-bold">+{pts} AP</span>}
+                                  {(!Array.isArray(r.review_data) || r.review_data.length === 0) && <span className="opacity-60">(review unavailable)</span>}
+                                </p>
+                              </div>
+
+                              {pct !== null && (
+                                <div className="flex items-center gap-2.5 shrink-0">
+                                  <div className="w-20 sm:w-28 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden hidden xs:block">
+                                    <div
+                                      className={`h-full transition-all ${pct >= 70 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                      style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+                                    />
+                                  </div>
+                                  <span className={`text-xs font-black w-12 text-right ${pct >= 70 ? 'text-emerald-700 dark:text-emerald-400' : pct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                                    {pct.toFixed(1)}%
+                                  </span>
+                                </div>
+                              )}
+
+                              <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
