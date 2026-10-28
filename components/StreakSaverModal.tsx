@@ -3,7 +3,7 @@
 import React from 'react';
 import { StreakSaverStatus } from '@/lib/streakSaver';
 import { X, Sparkles, CheckCircle, AlertTriangle } from './AppIcons';
-import { Shield, Flame, RotateCcw, Award, Check, Lock, BookOpen } from 'lucide-react';
+import { Shield, Flame, RotateCcw, Check, Lock, BookOpen, CheckCircle2 } from 'lucide-react';
 
 interface StreakSaverModalProps {
   status: StreakSaverStatus;
@@ -16,8 +16,6 @@ export default function StreakSaverModal({
   onClose,
   onStartChallenge,
 }: StreakSaverModalProps) {
-  const passingQuestionsCount = Math.ceil(status.nextSaveQuestionCount * 0.65);
-
   return (
     <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col">
@@ -37,7 +35,7 @@ export default function StreakSaverModal({
                 </span>
               </div>
               <p className="text-xs text-amber-100 font-medium">
-                Save your streak after a missed day with a rapid review challenge.
+                Save your streak after a missed day with a review challenge.
               </p>
             </div>
           </div>
@@ -45,7 +43,7 @@ export default function StreakSaverModal({
           <button
             type="button"
             onClick={onClose}
-            className="relative z-10 p-2 text-white/80 hover:text-white rounded-xl hover:bg-white/20 transition-colors"
+            className="relative z-10 p-2 text-white/80 hover:text-white rounded-xl hover:bg-white/20 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -53,7 +51,7 @@ export default function StreakSaverModal({
 
         {/* Modal Body */}
         <div className="p-6 space-y-5 text-xs text-slate-600 dark:text-slate-300">
-          {/* Annual Saves Quota (3 Shields) */}
+          {/* Annual Saves Quota (3 Shields: 10, 20, 30 questions) */}
           <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -66,9 +64,9 @@ export default function StreakSaverModal({
 
             <div className="grid grid-cols-3 gap-2">
               {[
-                { saveNum: 1, qCount: 5 },
-                { saveNum: 2, qCount: 10 },
-                { saveNum: 3, qCount: 15 },
+                { saveNum: 1, qCount: 10, badge: 'Streak Saver I', icon: '🛡️' },
+                { saveNum: 2, qCount: 20, badge: 'Streak Saver II', icon: '⚡' },
+                { saveNum: 3, qCount: 30, badge: 'Streak Saver III', icon: '👑' },
               ].map(tier => {
                 const isUsed = tier.saveNum <= status.savesUsedThisYear;
                 const isNext = tier.saveNum === status.savesUsedThisYear + 1;
@@ -97,6 +95,9 @@ export default function StreakSaverModal({
                     <span className="text-[10px] font-bold">
                       {isUsed ? 'Used' : `${tier.qCount} Questions`}
                     </span>
+                    <span className="text-[9px] font-medium text-slate-500 dark:text-slate-400">
+                      {tier.icon} {tier.badge}
+                    </span>
                   </div>
                 );
               })}
@@ -114,7 +115,7 @@ export default function StreakSaverModal({
                   Streak Broken ({status.brokenStreakLength} Days)
                 </h4>
                 <p className="text-orange-800 dark:text-orange-200 leading-relaxed text-[11px]">
-                  You missed your QOTD on <strong className="font-bold">{status.missedDate || 'a recent weekday'}</strong>. Complete the review challenge below to restore your full <strong className="font-bold">{status.brokenStreakLength}-day streak</strong>!
+                  You missed your QOTD on <strong className="font-bold">{status.missedDate || 'a recent weekday'}</strong>. Complete the review questions below to restore your full <strong className="font-bold">{status.brokenStreakLength}-day streak</strong>!
                 </p>
               </div>
             </div>
@@ -135,7 +136,7 @@ export default function StreakSaverModal({
           {/* Challenge Requirements */}
           <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-              Challenge Requirements:
+              Challenge Details:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-2.5">
@@ -151,13 +152,13 @@ export default function StreakSaverModal({
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center gap-2.5">
-                <Award className="w-4 h-4 text-emerald-500 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 <div>
                   <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                    Score ≥ 65% Required
+                    Completion-Based &amp; Badges
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    At least {passingQuestionsCount} of {status.nextSaveQuestionCount} correct
+                    Complete all {status.nextSaveQuestionCount} Qs (no score minimum) • Unlocks Streak Saver badge
                   </span>
                 </div>
               </div>
@@ -176,7 +177,7 @@ export default function StreakSaverModal({
             <button
               type="button"
               onClick={onStartChallenge}
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all hover:scale-[1.01] active:scale-95"
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
             >
               <Shield className="w-5 h-5" />
               <span>Start Streak Saver ({status.nextSaveQuestionCount} Questions)</span>
@@ -185,7 +186,7 @@ export default function StreakSaverModal({
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-sm transition-all text-center"
+              className="w-full py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold text-sm transition-all text-center cursor-pointer"
             >
               Got It
             </button>

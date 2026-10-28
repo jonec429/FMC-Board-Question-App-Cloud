@@ -19,6 +19,7 @@ import { Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { applyStreakSaveSuccess } from '@/lib/streakSaver';
+import { awardStreakSaverBadge } from '@/lib/gamification';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 
 interface ActiveQuizState {
@@ -402,30 +403,45 @@ export default function Home() {
               if (activeQuiz.isStreakSaver && user) {
                 const meta = activeQuiz.streakSaverMeta;
                 const score = resultData?.score ?? 0;
-                const total = resultData?.total ?? meta?.nextSaveQuestionCount ?? 5;
+                const total = resultData?.total ?? meta?.nextSaveQuestionCount ?? 10;
                 const pct = resultData?.percentage ?? Math.round((score / Math.max(1, total)) * 100);
 
-                if (pct >= 65) {
-                  await applyStreakSaveSuccess({
-                    userId: user.id,
-                    missedDate: meta?.missedDate,
-                    score,
-                    total,
-                    percentage: pct,
-                    restoredStreak: (meta?.brokenStreakLength || 1),
-                    academicYear: meta?.currentAcademicYear || getCurrentAcademicYear(),
-                    reviewData: resultData?.review_data || null,
-                  });
+                await applyStreakSaveSuccess({
+                  userId: user.id,
+                  missedDate: meta?.missedDate,
+                  score,
+                  total,
+                  percentage: pct,
+                  restoredStreak: (meta?.brokenStreakLength || 1),
+                  academicYear: meta?.currentAcademicYear || getCurrentAcademicYear(),
+                  reviewData: resultData?.review_data || null,
+                });
 
+                // Award Streak Saver badge (1, 2, or 3)
+                const saveNumber = (meta?.savesUsedThisYear || 0) + 1;
+                const newlyAwarded = await awardStreakSaverBadge(user.id, saveNumber);
+                if (newlyAwarded && newlyAwarded.length > 0) {
                   try {
-                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-                  } catch {}
-
-                  alert(`🎉 Streak Saved! You scored ${pct}% (${score}/${total}). Your ${meta?.brokenStreakLength || 1}-day streak has been restored!`);
-                  await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-                } else {
-                  alert(`Streak Saver completed: ${score}/${total} (${pct}%). A minimum score of 65% is required to restore your streak. Your annual save quota was not consumed. You can try again!`);
+                    const existingRecent = JSON.parse(localStorage.getItem('recent_badges') || '[]');
+                    const combined = [...existingRecent, ...newlyAwarded];
+                    const uniqueMap = new Map();
+                    combined.forEach((b: any) => uniqueMap.set(b.id || b.name, b));
+                    localStorage.setItem('recent_badges', JSON.stringify(Array.from(uniqueMap.values())));
+                  } catch (e) {
+                    console.warn('Failed to save recent badges:', e);
+                  }
                 }
+
+                try {
+                  confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                } catch {}
+
+                const badgeMsg = newlyAwarded.length > 0
+                  ? `\n🎖️ Badge Unlocked: ${newlyAwarded.map(b => b.name).join(', ')}!`
+                  : '';
+
+                alert(`🎉 Streak Saved! You completed the ${total}-question challenge (${score}/${total} correct). Your ${meta?.brokenStreakLength || 1}-day streak has been restored!${badgeMsg}`);
+                await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
               }
               if (activeQuiz.quizId?.startsWith('assigned-')) {
                 const assignedId = activeQuiz.quizId.replace('assigned-', '');

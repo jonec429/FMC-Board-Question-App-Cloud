@@ -391,7 +391,7 @@ export async function processGamification(
     // 3d. Over Achiever
     // Get all standard badges (excluding Topic Master and Over Achiever itself)
     const baseBadges = (allBadgesData || []).filter((b: Badge) => 
-      !b.name.startsWith('Topic Master: ') && b.name !== 'Over Achiever'
+      !b.name.startsWith('Topic Master: ') && b.name !== 'Over Achiever' && !b.name.startsWith('Streak Saver')
     );
     const baseBadgeIds = new Set(baseBadges.map((b: Badge) => b.id));
 
@@ -450,4 +450,97 @@ export async function processGamification(
 }
 
 
+/**
+ * Awards Streak Saver achievement badges (Tier 1, 2, or 3) upon completing
+ * a Streak Saver challenge.
+ */
+export async function awardStreakSaverBadge(
+  userId: string,
+  saveTier: number
+): Promise<{ id: string; name: string; description: string; icon: string }[]> {
+  try {
+    const STREAK_SAVER_BADGES = [
+      {
+        tier: 1,
+        name: 'Streak Saver I',
+        description: 'Rescued a broken daily streak by completing 10 questions from the most recent ITE.',
+        icon: '🛡️',
+        type: 'qotd',
+      },
+      {
+        tier: 2,
+        name: 'Streak Saver II',
+        description: 'Rescued a second daily streak in an academic year by conquering 20 questions.',
+        icon: '⚡',
+        type: 'qotd',
+      },
+      {
+        tier: 3,
+        name: 'Streak Saver III',
+        description: 'Rescued a third daily streak in an academic year by conquering 30 questions. True perseverance!',
+        icon: '👑',
+        type: 'qotd',
+      },
+    ];
 
+    const targetTiers = STREAK_SAVER_BADGES.filter((b) => b.tier <= saveTier);
+    if (targetTiers.length === 0) return [];
+
+    // 1. Fetch existing badges in catalog
+    const { data: allBadges } = await supabase.from('badges').select('id, name');
+    const badgeMap = new Map((allBadges || []).map((b: Badge) => [b.name, b.id]));
+
+    // 2. Fetch user's existing badges
+    const { data: userBadges } = await supabase
+      .from('user_badges')
+      .select('badge_id')
+      .eq('user_id', userId);
+    const userBadgeSet = new Set((userBadges || []).map((ub: UserBadge) => ub.badge_id));
+
+    const newlyAwarded: { id: string; name: string; description: string; icon: string }[] = [];
+
+    for (const badgeDef of targetTiers) {
+      let badgeId = badgeMap.get(badgeDef.name);
+
+      if (!badgeId) {
+        const { data: insertedBadge } = await supabase
+          .from('badges')
+          .insert({
+            name: badgeDef.name,
+            description: badgeDef.description,
+            icon: badgeDef.icon,
+            type: badgeDef.type,
+          })
+          .select('id')
+          .single();
+
+        if (insertedBadge) {
+          badgeId = insertedBadge.id;
+          badgeMap.set(badgeDef.name, badgeId);
+        }
+      }
+
+      if (badgeId && !userBadgeSet.has(badgeId)) {
+        const { error } = await supabase.from('user_badges').insert({
+          user_id: userId,
+          badge_id: badgeId,
+        });
+
+        if (!error) {
+          userBadgeSet.add(badgeId);
+          newlyAwarded.push({
+            id: badgeId,
+            name: badgeDef.name,
+            description: badgeDef.description,
+            icon: badgeDef.icon,
+          });
+        }
+      }
+    }
+
+    return newlyAwarded;
+  } catch (err) {
+    console.error('Error in awardStreakSaverBadge:', err);
+    return [];
+  }
+}

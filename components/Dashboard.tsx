@@ -89,6 +89,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
   // Check for recently earned badges
   useEffect(() => {
+    if (!isActive) return;
     try {
       const recent = localStorage.getItem('recent_badges');
       if (recent) {
@@ -128,7 +129,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     } catch (e) {
       console.warn('Failed to parse recent badges', e);
     }
-  }, []);
+  }, [isActive]);
 
   const blocks = data?.blocks || [];
   const myResults = useMemo(() => data?.myResults || [], [data?.myResults]);
@@ -1106,7 +1107,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
               streakSaverStatus.mostRecentYear
             );
             onStartQuiz({
-              topic: 'Streak Saver Challenge',
+              topic: 'Streak Saver',
               questionIds: qs.map(q => q.id),
               count: streakSaverStatus.nextSaveQuestionCount,
               isStreakSaver: true,

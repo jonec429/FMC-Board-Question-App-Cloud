@@ -120,7 +120,7 @@ export function detectBrokenStreak(
 
 /**
  * Retrieves the full streak saver status for a user, including used saves for current AY,
- * next required question count (5, 10, 15), and whether a streak can currently be saved.
+ * next required question count (10, 20, 30), and whether a streak can currently be saved.
  */
 export async function getStreakSaverStatus(
   userId: string,
@@ -131,16 +131,15 @@ export async function getStreakSaverStatus(
   const ayLabel = formatAcademicYear(currentAY);
   const mostRecentYear = await getMostRecentITEYear();
 
-  // Query successful saves in current academic year
+  // Query completed saves in current academic year
   let savesUsedThisYear = 0;
   try {
     const { data: saves } = await supabase
       .from('results')
-      .select('id, percentage')
+      .select('id')
       .eq('user_id', userId)
-      .eq('topic', 'Streak Saver')
-      .eq('academic_year', currentAY)
-      .gte('percentage', 65);
+      .in('topic', ['Streak Saver', 'Streak Saver Challenge'])
+      .eq('academic_year', currentAY);
 
     savesUsedThisYear = saves?.length || 0;
   } catch (err) {
@@ -150,8 +149,8 @@ export async function getStreakSaverStatus(
   const maxSavesPerYear = 3;
   const savesRemaining = Math.max(0, maxSavesPerYear - savesUsedThisYear);
 
-  // Question count scaling: 1st save = 5, 2nd save = 10, 3rd save = 15
-  const nextSaveQuestionCount = Math.min(15, (savesUsedThisYear + 1) * 5);
+  // Question count scaling: 1st save = 10, 2nd save = 20, 3rd save = 30
+  const nextSaveQuestionCount = Math.min(30, (savesUsedThisYear + 1) * 10);
 
   const brokenDetection = detectBrokenStreak(answeredEstDates);
   let isStreakBroken = brokenDetection.isBroken;
@@ -244,23 +243,34 @@ export async function applyStreakSaveSuccess({
   reviewData?: any;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    // 1. Insert into results
-    const { error: resultErr } = await supabase.from('results').insert({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      topic: 'Streak Saver',
-      academic_year: academicYear,
-      score,
-      total,
-      percentage,
-      academic_points: 0,
-      timing_status: 'On Time',
-      review_data: reviewData || null,
-      created_at: new Date().toISOString(),
-    });
+    // 1. Check if QuizEngine already inserted a result row for Streak Saver just now
+    const oneMinuteAgo = new Date(Date.now() - 60000).toISOString();
+    const { data: existingResult } = await supabase
+      .from('results')
+      .select('id')
+      .eq('user_id', userId)
+      .in('topic', ['Streak Saver', 'Streak Saver Challenge'])
+      .gte('created_at', oneMinuteAgo)
+      .order('created_at', { ascending: false })
+      .limit(1);
 
-    if (resultErr) {
-      console.warn('Results insert warning on streak save:', resultErr);
+    if (!existingResult || existingResult.length === 0) {
+      const { error: resultErr } = await supabase.from('results').insert({
+        id: crypto.randomUUID(),
+        user_id: userId,
+        topic: 'Streak Saver',
+        academic_year: academicYear,
+        score,
+        total,
+        percentage,
+        academic_points: 0,
+        timing_status: 'On Time',
+        review_data: reviewData || null,
+        created_at: new Date().toISOString(),
+      });
+      if (resultErr) {
+        console.warn('Results insert warning on streak save:', resultErr);
+      }
     }
 
     // 2. Bridge the missed date in question_attempts so computeQotdStreak self-heals
