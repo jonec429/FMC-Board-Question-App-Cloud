@@ -17,11 +17,19 @@ export async function POST(request: Request) {
     // Attempt to lookup the user's email based on the endpoint
     const { data: sub } = await supabase
       .from('web_push_subscriptions')
-      .select('email')
+      .select('user_id, legacy_email')
       .eq('endpoint', endpoint)
       .maybeSingle();
 
-    const email = sub?.email || 'unknown';
+    let email = sub?.legacy_email || 'unknown';
+    if (sub?.user_id && email === 'unknown') {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', sub.user_id)
+        .maybeSingle();
+      if (prof?.email) email = prof.email;
+    }
 
     // Insert the receipt
     const { error } = await supabase

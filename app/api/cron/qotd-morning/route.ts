@@ -123,7 +123,7 @@ export async function GET(request: Request) {
         };
 
         try {
-          await webpush.sendNotification(pushSubscription, payload, { urgency: 'high' });
+          await webpush.sendNotification(pushSubscription, payload, { urgency: 'high', TTL: 14400, topic: 'qotd-morning' });
           sent++;
         } catch (err: unknown) {
           const status = (err as { statusCode?: number }).statusCode;

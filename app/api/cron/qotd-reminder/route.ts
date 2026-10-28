@@ -148,7 +148,7 @@ export async function GET(request: Request) {
         };
 
         try {
-          await webpush.sendNotification(pushSubscription, payload, { urgency: 'high' });
+          await webpush.sendNotification(pushSubscription, payload, { urgency: 'high', TTL: 3600, topic: 'qotd-reminder' });
           sent++;
         } catch (err: unknown) {
           const status = (err as { statusCode?: number }).statusCode;
