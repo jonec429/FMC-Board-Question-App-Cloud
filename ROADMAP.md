@@ -60,6 +60,38 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-10-27 (Antigravity: Block Builder Upgrades, Streak Saver Ecosystem, Badges & Weak Category Spotlight)
+**Shipped this session**:
+1. **Enhanced QuestionPicker & Block Builder (`components/QuestionPicker.tsx`, `components/BlockEditor.tsx`)**:
+   - Shift+Click range selection and bulk deselection in the question picker table.
+   - Multi-category and multi-exam-year simultaneous filtering with clear-all toggles.
+   - Auto-assign random question generator based on active filters and target count.
+   - Live ABFM Category Blueprint progress indicators and curriculum overlap warnings.
+2. **Assignment Tracking & Faculty Print Review (`components/AssignQuizManager.tsx`, `components/PrintReviewModal.tsx`, `lib/questionStats.ts`)**:
+   - Assignment Tracking tab with due dates, completion percentages, resident progress statuses, and deletion controls.
+   - Print Review modal generating formatted resident worksheets and faculty answer keys with rationales.
+   - Question difficulty and pass/fail rate aggregation across 6,200+ program-wide attempts.
+3. **Streak Saver Ecosystem (`lib/streakSaver.ts`, `components/StreakSaverModal.tsx`, `app/page.tsx`)**:
+   - Progressive challenge tiers: 10 questions (Save 1), 20 questions (Save 2), and 30 questions (Save 3) pulled randomly from the most recent ITE exam.
+   - Maximum 3 saves per academic year with automatic rollover on July 1.
+   - Completion-based restoration (minimum score threshold removed).
+   - Database bridge attempt insertion to keep self-healing streak algorithm synchronized.
+   - Strict score isolation: counts toward attempts, accuracy, and question milestones with guaranteed 0 Academic Points.
+4. **Streak Saver Achievement Badges (`lib/gamification.ts`, `supabase/migrations/20261027_streak_saver_badges.sql`)**:
+   - 🛡️ *Streak Saver I* (1st save / 10 questions)
+   - ⚡ *Streak Saver II* (2nd save / 20 questions)
+   - 👑 *Streak Saver III* (3rd save / 30 questions)
+   - Dynamic catalog creation, database migration script, and celebratory modal popups on Dashboard return.
+5. **Dashboard "Weak Category Spotlight" Widget (`components/WeakCategorySpotlight.tsx`, `components/Dashboard.tsx`, `components/QuizEngine.tsx`)**:
+   - Analyzes resident performance across all 14 clinical categories, statistically prioritizing categories with $\ge 3$ attempts below the $70\%$ board readiness threshold.
+   - Visual progress bar vs. the $70\%$ Board Ready benchmark and real-time question bank availability count.
+   - 1-click "Practice 5 Questions →", "Practice 10 Qs", and Custom Quiz launch buttons.
+   - Collapsible widget state persisted in `localStorage`.
+   - Automatic `category_stats` tracking across all quiz blocks.
+6. **Quality & Verification Gates**:
+   - `npx tsc --noEmit` passed with 0 errors.
+   - `npm run build` successfully compiled all 21 static and dynamic routes.
+
 ### ▶️ Session Handoff — 2026-10-21 (Antigravity: Question Search by ITE ID & App ID)
 **Shipped this session**:
 1. **Universal Question Search by ITE ID & App ID (`components/QuestionSearchModal.tsx`)**:
