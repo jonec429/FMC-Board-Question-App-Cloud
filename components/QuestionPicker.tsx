@@ -13,6 +13,7 @@ import { partitionYears, RECENT_ITE_YEAR_WINDOW, LEGACY_WARNING_TITLE, LEGACY_WA
 import { formatIteId } from '@/lib/iteQuestionMap';
 import { Question } from '@/lib/types';
 import { QuestionStat, getQuestionPerformanceStats } from '@/lib/questionStats';
+import QuestionStemDisplay from './QuestionStemDisplay';
 
 export interface QuestionPickerProps {
   allQuestions: Question[];
@@ -953,11 +954,12 @@ export default function QuestionPicker({
                     />
 
                     <div className="min-w-0 flex-1">
-                      <p className={`text-xs sm:text-sm leading-relaxed ${
-                        isSelected ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-200'
-                      }`}>
-                        {q.question_text}
-                      </p>
+                      <QuestionStemDisplay
+                        text={q.question_text}
+                        className={`text-xs sm:text-sm leading-relaxed ${
+                          isSelected ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-200'
+                        }`}
+                      />
 
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold uppercase tracking-wider">

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { KNOWN_REPEAT_IDS } from './QuestionCard';
 import { formatIteId } from '@/lib/iteQuestionMap';
+import QuestionStemDisplay from './QuestionStemDisplay';
 
 export interface QuizReviewItem {
   question: any;
@@ -141,7 +142,15 @@ export default function QuizReview({ items }: { items: QuizReviewItem[] }) {
                     q.year && <span>· ITE {q.year}</span>
                   )}
                 </div>
-                <p className="font-bold text-slate-800 dark:text-slate-100 text-sm whitespace-pre-line">{originalIndex + 1}. {q.question_text}</p>
+                <div className="flex items-start gap-1.5">
+                  <span className="font-bold text-slate-800 dark:text-slate-100 text-sm shrink-0">{originalIndex + 1}.</span>
+                  <div className="flex-1 min-w-0">
+                    <QuestionStemDisplay
+                      text={q.question_text}
+                      className="font-bold text-slate-800 dark:text-slate-100 text-sm"
+                    />
+                  </div>
+                </div>
               </div>
               <span
                 className={`shrink-0 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${

@@ -5,6 +5,7 @@ import { Question } from '@/lib/types';
 import { formatIteId } from '@/lib/iteQuestionMap';
 import { X, CheckCircle } from './AppIcons';
 import { Printer, FileText, Check, BookOpen } from 'lucide-react';
+import QuestionStemDisplay from './QuestionStemDisplay';
 
 interface PrintReviewModalProps {
   title: string;
@@ -124,9 +125,10 @@ export default function PrintReviewModal({ title, questions, onClose }: PrintRev
                       {idx + 1}.
                     </span>
                     <div className="flex-1 space-y-1">
-                      <p className="text-sm font-medium leading-relaxed text-slate-900">
-                        {q.question_text}
-                      </p>
+                      <QuestionStemDisplay
+                        text={q.question_text}
+                        className="text-sm font-medium leading-relaxed text-slate-900"
+                      />
                       <div className="flex items-center gap-2 text-[10px] text-slate-500 font-semibold uppercase tracking-wider print:text-slate-400">
                         <span>Category: {q.category}</span>
                         {iteId && <span>• {iteId}</span>}

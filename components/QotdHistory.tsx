@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { getQotdHistory, QotdHistoryItem } from '@/lib/qotd';
 import { Loader2, ChevronDown, ChevronUp } from './AppIcons';
+import { parseQuestionStem } from '@/lib/questionStemParser';
 
 interface QotdHistoryProps {
   onBack: () => void;
@@ -107,7 +108,7 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
                     )}
                   </div>
                   <p className={`text-sm font-bold text-slate-700 dark:text-slate-200 leading-snug ${!isExpanded ? 'line-clamp-2' : ''}`}>
-                    {item.question.question_text}
+                    {parseQuestionStem(item.question.question_text).cleanText}
                   </p>
                   <div className="flex items-center gap-3 mt-2">
                     {/* Correct answer inline */}

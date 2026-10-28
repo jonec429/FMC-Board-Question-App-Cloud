@@ -73,7 +73,10 @@ This file serves as the shared source of truth for development progress between 
    - Added an "Abandon & Reset" button to the "Resume Block" Quick Actions card on the dashboard.
    - Upgraded `QuizEngine.tsx` so residents can abandon an in-progress session directly from the pre-start screen (even with 0 questions answered) or during an active quiz via the header "Abandon" button and modal dialog.
    - Cleaned stale persisted Block 6 (Heme/Onc) session in the database so new question assignments load fresh.
-3. **Modal Tabs Layout & Weak Areas Tab Squish Fix (`components/MyStatsModal.tsx`)**:
+3. **Clinical Image Rendering & Question Stem Parser (`lib/questionStemParser.ts`, `components/QuestionStemDisplay.tsx`)**:
+   - Resolved raw HTML string output (`<div style="..."><img src="..." /></div>`) in the Question Picker, Question Search Modal, Quiz Review, and My Stats views.
+   - Clinical photos (e.g. erythema nodosum, earlobe hemangioma, chest radiographs) now render as crisp, interactive image cards directly below the question stem with a click-to-zoom full-resolution Lightbox modal.
+4. **Modal Tabs Layout & Weak Areas Tab Squish Fix (`components/MyStatsModal.tsx`)**:
    - Added `shrink-0` to modal header and tab bar, added `min-h-0` to the scrollable container, and removed nested `h-full flex flex-col` / `flex-1` wrappers from the `weakAreas` tab. The tab navigation remains sticky, visible, and comfortably sized across all tabs.
 4. **Decluttered "Stats & Prep" Tab (`components/MyStatsModal.tsx`)**:
    - Removed the redundant Earned Badges shelf from inside the Board Prep Snapshot card (badges now live exclusively in the Achievements tab).

@@ -13,6 +13,7 @@ import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYea
 import RiskLegend from './RiskLegend';
 import WeakCategorySpotlight from './WeakCategorySpotlight';
 import { formatIteId } from '@/lib/iteQuestionMap';
+import QuestionStemDisplay from './QuestionStemDisplay';
 
 interface MyStatsModalProps {
   onClose: () => void;
@@ -1431,7 +1432,10 @@ export default function MyStatsModal({
                             )}
                           </div>
 
-                          <p className="text-slate-800 dark:text-slate-200 font-bold text-sm leading-relaxed">{q.question_text}</p>
+                          <QuestionStemDisplay
+                            text={q.question_text}
+                            className="text-slate-800 dark:text-slate-200 font-bold text-sm leading-relaxed"
+                          />
                           
                           <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
                             {(q.options as string[]).map((opt, idx) => (

@@ -14,6 +14,7 @@ import { AdminData } from '@/lib/types';
 import { KNOWN_REPEAT_IDS } from './QuestionCard';
 import { formatIteId } from '@/lib/iteQuestionMap';
 import QuestionSearchModal from './QuestionSearchModal';
+import { parseQuestionStem } from '@/lib/questionStemParser';
 
 type SubTab = 'browse' | 'import';
 
@@ -147,8 +148,8 @@ function QuestionBrowser({ adminData, onRefresh }: { adminData: AdminData, onRef
                 <span>High Yield Repeat</span>
               </span>
             )}
-            <div className="text-sm font-medium text-slate-800 dark:text-slate-200 line-clamp-2" title={info.getValue() as string}>
-              {info.getValue() as string}
+            <div className="text-sm font-medium text-slate-800 dark:text-slate-200 line-clamp-2" title={parseQuestionStem(info.getValue() as string).cleanText}>
+              {parseQuestionStem(info.getValue() as string).cleanText}
             </div>
           </div>
         );

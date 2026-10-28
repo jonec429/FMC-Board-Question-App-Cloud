@@ -5,6 +5,7 @@ import { formatIteId, getQuestionExamNumber } from '@/lib/iteQuestionMap';
 import { KNOWN_REPEAT_IDS } from './QuestionCard';
 import { getFlaggedQuestionIds, toggleFlaggedQuestion } from '@/lib/flaggedQuestions';
 import { Search, X, Flag, CheckCircle, ExternalLink, Loader2, Copy, Check } from './AppIcons';
+import QuestionStemDisplay from './QuestionStemDisplay';
 
 interface QuestionSearchModalProps {
   isOpen: boolean;
@@ -570,9 +571,10 @@ export default function QuestionSearchModal({
                     </div>
 
                     {/* Question Stem */}
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-line">
-                      {q.question_text}
-                    </p>
+                    <QuestionStemDisplay
+                      text={q.question_text}
+                      className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-relaxed"
+                    />
 
                     {/* Answer Options */}
                     <div className="space-y-1.5 pt-1">
