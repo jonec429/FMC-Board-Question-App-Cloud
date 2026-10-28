@@ -60,24 +60,32 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
-### ▶️ Session Handoff — 2026-10-27 (Antigravity: My Performance Consolidation, Dedicated AP Tracker & Progress Bars)
+### ▶️ Session Handoff — 2026-10-27 (Antigravity: My Performance Consolidation, AP Point Sync, Quiz Abandonment & Visual Progress Bars)
 **Shipped this session**:
-1. **Dedicated AP Tracker Tab (`components/MyStatsModal.tsx`)**:
+1. **Dedicated AP Tracker Tab & Points Synchronization (`components/MyStatsModal.tsx`, `components/Dashboard.tsx`)**:
    - Added a dedicated 5th tab to the `My Performance` modal (`AP Tracker`), eliminating the need to scroll to the bottom of the modal.
    - Houses the dual-color Academic Points progress bar (Q-Points in blue, Attendance Points in purple) against yearly (100 AP) and graduation (300 AP) goals.
    - Integrated PGY Milestone cards (PGY-1: 100 AP, PGY-2: 200 AP, PGY-3: 300 AP graduation requirement; 100 AP/year) with visual progress bars and completion status indicators.
    - Dedicated Conference Attendance & Meeting History log detailing dates, blocks, titles, verified checkmarks, and points.
-2. **Decluttered "Stats & Prep" Tab (`components/MyStatsModal.tsx`)**:
+   - **Point Synchronization**: Tied `computedAttendancePts` directly to deduplicated `displayAttendance` records and deduplicated in `Dashboard.tsx` to guarantee the AP totals and the attendance table always match exactly (cleaned 15 duplicate database entries from prior bulk uploads).
+2. **In-Progress Quiz Abandonment & Session Reset (`components/Dashboard.tsx`, `components/QuizEngine.tsx`)**:
+   - Added an interactive `✕` discard button on "In Progress" badges in the home screen curriculum list so residents can discard an in-progress quiz and start fresh with updated questions.
+   - Added an "Abandon & Reset" button to the "Resume Block" Quick Actions card on the dashboard.
+   - Upgraded `QuizEngine.tsx` so residents can abandon an in-progress session directly from the pre-start screen (even with 0 questions answered) or during an active quiz via the header "Abandon" button and modal dialog.
+   - Cleaned stale persisted Block 6 (Heme/Onc) session in the database so new question assignments load fresh.
+3. **Modal Tabs Layout & Weak Areas Tab Squish Fix (`components/MyStatsModal.tsx`)**:
+   - Added `shrink-0` to modal header and tab bar, added `min-h-0` to the scrollable container, and removed nested `h-full flex flex-col` / `flex-1` wrappers from the `weakAreas` tab. The tab navigation remains sticky, visible, and comfortably sized across all tabs.
+4. **Decluttered "Stats & Prep" Tab (`components/MyStatsModal.tsx`)**:
    - Removed the redundant Earned Badges shelf from inside the Board Prep Snapshot card (badges now live exclusively in the Achievements tab).
    - Removed duplicate Block Performance and duplicate History lists from the Stats tab.
    - Added two clean, high-density quick-navigation cards linking directly to the new AP Tracker and Past Quizzes tabs.
-3. **Reordered Achievements Tab (`components/MyStatsModal.tsx`)**:
+5. **Reordered Achievements Tab (`components/MyStatsModal.tsx`)**:
    - Relocated the "Next Badge Milestone" progress card to the very top of the Achievements tab, directly above the Earned Badges Showcase, giving residents an immediate target upon opening the tab.
-4. **Curriculum Block Breakdown & Visual Progress Bars (`components/MyStatsModal.tsx`, `components/Dashboard.tsx`)**:
+6. **Curriculum Block Breakdown & Visual Progress Bars (`components/MyStatsModal.tsx`, `components/Dashboard.tsx`)**:
    - Moved the cumulative Block Performance breakdown into the `Past Quizzes` tab with visual accuracy progress bars ($\ge 70\%$ emerald, $60-69\%$ amber, $< 60\%$ red) and 1-click review shortcuts.
    - Enhanced the Completed Assessments list in `Past Quizzes` with horizontal accuracy progress bars and percentage tags.
    - Integrated the mini accuracy bar graph directly into the Homepage Board Review Blocks list (`components/Dashboard.tsx`) for all completed blocks alongside `Best: XX.X%`.
-5. **Quality & Verification Gates**:
+7. **Quality & Verification Gates**:
    - `npx tsc --noEmit` passed with 0 errors.
    - `npm run build` compiled all 21 static and dynamic routes cleanly.
 
@@ -648,6 +656,15 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-10-27 — My Performance Redesign, AP Tracker Tab, In-Progress Quiz Abandonment & Visual Progress Bars (Antigravity)
+*   **Dedicated AP Tracker Tab:** Added a dedicated 5th tab to the `My Performance` modal (`AP Tracker`), eliminating the need to scroll through the main stats. Features a dual-color Academic Points progress bar (Q-Points in blue, Attendance Points in purple) against yearly (100 AP) and graduation (300 AP) milestones, PGY cards, and the complete Conference Attendance & Meeting History log.
+*   **AP Points Synchronization & Deduplication:** Synchronized the Academic Points summary cards and conference attendance log so that counts always match the verified attendance history, while guarding against duplicate database records.
+*   **In-Progress Quiz Abandonment & Reset:** Added an interactive `✕` discard button on "In Progress" badges in the home screen curriculum list and an "Abandon & Reset" button on the "Resume Block" quick action card, allowing residents to discard in-progress quiz sessions and start fresh with updated questions. Also accessible directly within active quizzes via the header "Abandon" button and pre-start screen.
+*   **Decluttered "Stats & Prep" Tab:** Streamlined the Board Prep Snapshot card by moving badges exclusively to Achievements and moving Block Performance to the Past Quizzes tab, adding high-density quick-navigation cards.
+*   **Curriculum Block Breakdown & Mini Progress Bars:** Integrated accuracy progress bars ($\ge 70\%$ emerald, $60-69\%$ amber, $< 60\%$ red) into both the Past Quizzes tab and the Homepage Board Review Blocks list for all completed blocks alongside `Best: XX.X%`.
+*   **Weak Areas Tab Polish:** Resolved tab-squishing layout issue in the My Performance modal when viewing the Weak Areas tab, ensuring tabs remain sticky and comfortable across all screen sizes.
+*   **Achievements Tab Milestone Prioritization:** Moved the "Next Badge Milestone" progress card to the very top of the Achievements tab directly above the Earned Badges Showcase.
 
 ### 2026-10-27 — Streak Saver Ecosystem, Weak Category Spotlight, Badges & Block Builder Upgrades (Antigravity)
 *   **Streak Saver Ecosystem:** Residents who miss a weekday QOTD can now rescue their active streak by completing a review challenge pulled randomly from the most recent ITE exam. Challenges scale progressively by tier: 10 questions (Save 1), 20 questions (Save 2), and 30 questions (Save 3), with a limit of 3 saves per academic year that automatically rolls over on July 1.

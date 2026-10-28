@@ -245,6 +245,17 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     }
   };
 
+  const handleAbandonSession = async (sessionId: string, blockTitle: string) => {
+    if (!window.confirm(`Abandon in-progress quiz for "${blockTitle}" and start fresh?`)) return;
+    try {
+      const { error } = await supabase.from('quiz_sessions').delete().eq('id', sessionId);
+      if (error) throw error;
+      await refetch();
+    } catch (err: any) {
+      alert('Failed to abandon quiz session: ' + err.message);
+    }
+  };
+
   useEffect(() => {
     try {
       if (
@@ -314,16 +325,22 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   });
 
   // Calculate points and blocks completed
-  // Dedupe quiz retakes by topic, while summing all attendance & manual points directly
+  // Dedupe quiz retakes by topic, while deduplicating attendance points by (topic, date)
   let attendancePoints = 0;
   let manualPoints = 0;
   const topicBestPts = new Map<string, number>();
+  const seenAttendance = new Set<string>();
 
   myResults
     .filter(r => (r.academic_points || 0) > 0 || r.timing_status != null)
     .forEach(r => {
       if (r.topic && /\[attendance\]/i.test(r.topic)) {
-        attendancePoints += (r.academic_points || 1);
+        const rawDate = r.attendance_date || r.created_at?.split('T')[0] || '';
+        const key = `${r.topic.toLowerCase().trim()}_${rawDate}`;
+        if (!seenAttendance.has(key)) {
+          seenAttendance.add(key);
+          attendancePoints += (r.academic_points || 1);
+        }
       } else if (r.topic && /\[manual\]/i.test(r.topic)) {
         manualPoints += (r.academic_points || 0);
       } else {
@@ -726,7 +743,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
             {/* Block 3: Resume Saved Block or Active Curriculum Jump */}
             {mostRecentSession ? (
-              <button
+              <div
                 onClick={() => {
                   const matchedBlock = blocks.find(b => b.title === mostRecentSession.topic || b.id === mostRecentSession.quiz_id);
                   onStartQuiz({
@@ -735,7 +752,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     count: 40,
                   });
                 }}
-                className="order-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
+                className="order-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px] cursor-pointer"
               >
                 <div className="flex items-center justify-between gap-2 mb-2 w-full">
                   <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-amber-900 dark:text-amber-100">
@@ -744,19 +761,45 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     </div>
                     Resume Block
                   </span>
-                  <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-bold">
-                    In Progress
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-bold">
+                      In Progress
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAbandonSession(mostRecentSession.id, mostRecentSession.topic);
+                      }}
+                      className="px-1.5 py-0.5 bg-amber-200/80 hover:bg-red-500 hover:text-white dark:bg-amber-900/70 dark:hover:bg-red-600 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-black transition-colors"
+                      title="Abandon quiz and start fresh"
+                      aria-label="Abandon quiz and start fresh"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
                 <p className="text-xs text-amber-800/80 dark:text-amber-300/80 font-medium truncate mb-3" title={mostRecentSession.topic}>
                   {mostRecentSession.topic} · Q{(mostRecentSession.current_index || 0) + 1}
                 </p>
 
-                <div className="flex items-center gap-1 text-xs font-black text-amber-700 dark:text-amber-300 group-hover:translate-x-0.5 transition-transform mt-auto">
-                  Continue Block <ChevronRight className="w-3.5 h-3.5" />
+                <div className="flex items-center justify-between mt-auto">
+                  <div className="flex items-center gap-1 text-xs font-black text-amber-700 dark:text-amber-300 group-hover:translate-x-0.5 transition-transform">
+                    Continue Block <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAbandonSession(mostRecentSession.id, mostRecentSession.topic);
+                    }}
+                    className="text-[10px] font-bold text-amber-700/80 dark:text-amber-400/80 hover:text-red-600 dark:hover:text-red-400 hover:underline transition-colors"
+                  >
+                    Reset & Start Over
+                  </button>
                 </div>
-              </button>
+              </div>
             ) : currentBlock ? (
               <button
                 onClick={() => onStartQuiz({ topic: currentBlock.title, quizId: currentBlock.id, count: 40 })}
@@ -1012,9 +1055,21 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     })}
                     className="shrink-0 p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl flex justify-between items-center cursor-pointer hover:-translate-y-1 hover:shadow-lg transition-all duration-300 group relative overflow-hidden ring-1 ring-slate-200/50 dark:ring-slate-800/80 hover:ring-blue-400 dark:hover:ring-blue-500"
                   >
-                    {hasResume && !isCompleted && (
-                      <div className="absolute top-0 right-0 bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-black text-[10px] px-2 py-0.5 rounded-bl-xl shadow-sm border-b border-l border-amber-200 dark:border-amber-900/50">
-                        In Progress
+                    {hasResume && !isCompleted && activeSession && (
+                      <div className="absolute top-0 right-0 flex items-center bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-black text-[10px] rounded-bl-xl shadow-sm border-b border-l border-amber-200 dark:border-amber-900/50 overflow-hidden z-10">
+                        <span className="px-2 py-0.5">In Progress</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAbandonSession(activeSession.id, block.title);
+                          }}
+                          className="px-1.5 py-0.5 hover:bg-red-500 hover:text-white dark:hover:bg-red-600 border-l border-amber-200 dark:border-amber-900/50 transition-colors"
+                          title="Abandon quiz and start fresh"
+                          aria-label="Abandon quiz and start fresh"
+                        >
+                          ✕
+                        </button>
                       </div>
                     )}
                     <div className="flex gap-3 items-center min-w-0">

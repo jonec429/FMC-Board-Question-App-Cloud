@@ -243,15 +243,6 @@ export default function MyStatsModal({
   });
   const computedQuestionPts = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
 
-  // Attendance points: from attendanceList if present, or from attendance results
-  const computedAttendancePts = (attendanceList && attendanceList.length > 0)
-    ? attendanceList.reduce((sum: number, a: any) => sum + (a.points || 1), 0)
-    : (myResults || [])
-        .filter(r => /\[attendance\]|\[manual\]/i.test(r.topic || ''))
-        .reduce((sum, r) => sum + (r.academic_points || 1), 0);
-
-  const displayTotalPoints = computedQuestionPts + computedAttendancePts;
-
   // Handler to open review from a topic name
   const handleBlockReview = (topic: string) => {
     const target = pastQuizzes.find(p => p.topic?.toLowerCase().trim() === topic.toLowerCase().trim())
@@ -309,14 +300,17 @@ export default function MyStatsModal({
           ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
           : (rawDate || '—');
 
-        list.push({
-          id: att.id || `att-${idx}`,
-          title,
-          block,
-          dateStr: dateFormatted,
-          points: att.points || 1,
-          isManual: false
-        });
+        const isDup = list.some(item => item.title === title && item.dateStr === dateFormatted);
+        if (!isDup) {
+          list.push({
+            id: att.id || `att-${idx}`,
+            title,
+            block,
+            dateStr: dateFormatted,
+            points: att.points || 1,
+            isManual: false
+          });
+        }
       });
     }
 
@@ -352,6 +346,10 @@ export default function MyStatsModal({
 
     return list;
   }, [attendanceList, myResults]);
+
+  // Attendance points: strictly mirrors the deduplicated displayAttendance list so counts and list always agree
+  const computedAttendancePts = displayAttendance.reduce((sum, item) => sum + (item.points || 1), 0);
+  const displayTotalPoints = computedQuestionPts + computedAttendancePts;
 
   const getNextBadgeInfo = () => {
     const clubs = [100, 140, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
@@ -490,7 +488,7 @@ export default function MyStatsModal({
   return (
     <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col transition-colors">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start shrink-0">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 bg-yellow-50 dark:bg-yellow-950/40 rounded-xl flex items-center justify-center shrink-0">
               <Trophy className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
@@ -536,10 +534,10 @@ export default function MyStatsModal({
           </button>
         </div>
 
-        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 overflow-x-auto no-scrollbar">
+        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 overflow-x-auto no-scrollbar shrink-0 min-h-[48px]">
           <button
             onClick={() => setActiveTab('stats')}
-            className={`flex-1 min-w-[90px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[90px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'stats' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -549,7 +547,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('apTracker')}
-            className={`flex-1 min-w-[85px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[85px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'apTracker' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -559,7 +557,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('achievements')}
-            className={`flex-1 min-w-[100px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[100px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'achievements' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -569,7 +567,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('weakAreas')}
-            className={`flex-1 min-w-[95px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[95px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'weakAreas' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -579,7 +577,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
-            className={`flex-1 min-w-[95px] py-3.5 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[95px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'pastQuizzes'
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -589,7 +587,7 @@ export default function MyStatsModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6">
           {activeTab === 'stats' && (
             <div className="space-y-6 animate-fade-in">
               {/* Leaned-up Board Prep Snapshot Card */}
@@ -1317,7 +1315,7 @@ export default function MyStatsModal({
           )}
 
           {activeTab === 'weakAreas' && (
-            <div className="space-y-6 animate-fade-in h-full flex flex-col">
+            <div className="space-y-6 animate-fade-in">
               {!selectedTopic && (
                 <WeakCategorySpotlight
                   myResults={myResults}
@@ -1348,7 +1346,7 @@ export default function MyStatsModal({
                   </p>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col space-y-6">
+                <div className="space-y-6">
                   {/* Category Grid or Question Viewer */}
                   {!selectedTopic ? (
                     <div className="space-y-4">
@@ -1388,7 +1386,7 @@ export default function MyStatsModal({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col space-y-6">
+                    <div className="space-y-6">
                       <div className="flex items-center justify-between">
                         <button onClick={() => setSelectedTopic(null)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:border-slate-300 hover:shadow-sm flex items-center gap-2 transition-all">
                           <ChevronLeft className="w-4 h-4" /> Back to Categories
@@ -1406,7 +1404,7 @@ export default function MyStatsModal({
                           <h3 className="font-bold text-[10px] text-blue-500 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/40">{selectedTopic} ({displayedMissedQuestions.length} Missed)</h3>
                         </div>
                       </div>
-                  <div className="bg-white dark:bg-slate-850 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-6 relative overflow-hidden flex-1 transition-colors">
+                  <div className="bg-white dark:bg-slate-850 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-6 relative overflow-hidden transition-colors">
                     {(() => {
                       const q = displayedMissedQuestions[currentIndex];
                       if (!q) return null;
