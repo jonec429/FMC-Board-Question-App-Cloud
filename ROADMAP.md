@@ -65,7 +65,7 @@ This file serves as the shared source of truth for development progress between 
 1. **Dedicated AP Tracker Tab (`components/MyStatsModal.tsx`)**:
    - Added a dedicated 5th tab to the `My Performance` modal (`AP Tracker`), eliminating the need to scroll to the bottom of the modal.
    - Houses the dual-color Academic Points progress bar (Q-Points in blue, Attendance Points in purple) against yearly (100 AP) and graduation (300 AP) goals.
-   - Integrated PGY Milestone cards (PGY-1: 30 AP, PGY-2: 60 AP, PGY-3: 100 AP / graduation) with visual progress bars and completion status indicators.
+   - Integrated PGY Milestone cards (PGY-1: 100 AP, PGY-2: 200 AP, PGY-3: 300 AP graduation requirement; 100 AP/year) with visual progress bars and completion status indicators.
    - Dedicated Conference Attendance & Meeting History log detailing dates, blocks, titles, verified checkmarks, and points.
 2. **Decluttered "Stats & Prep" Tab (`components/MyStatsModal.tsx`)**:
    - Removed the redundant Earned Badges shelf from inside the Board Prep Snapshot card (badges now live exclusively in the Achievements tab).

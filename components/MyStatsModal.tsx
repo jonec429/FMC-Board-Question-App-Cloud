@@ -845,7 +845,7 @@ export default function MyStatsModal({
                     <ArrowRight className="w-3.5 h-3.5 text-indigo-500 group-hover:translate-x-1 transition-transform" />
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {computedQuestionPts} Q-Points · {computedAttendancePts} Attendance Points · PGY Milestones
+                    {computedQuestionPts} Q-Points · {computedAttendancePts} Attendance Points · 100 AP/yr (300 AP Total)
                   </p>
                 </button>
 
@@ -960,14 +960,33 @@ export default function MyStatsModal({
 
               {/* PGY Milestones */}
               <div>
-                <h4 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5">
-                  Residency Graduation Milestones
-                </h4>
+                <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+                  <div>
+                    <h4 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      Residency Graduation Milestones (100 AP / Year · 300 AP Total)
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {selectedYear === 0
+                        ? '100 AP required per year across 3 residency years (300 AP total for graduation)'
+                        : `Viewing ${formatAcademicYear(selectedYear)} (${displayTotalPoints} / 100 AP annual goal). Switch to "All Time" to view 3-year cumulative progress.`}
+                    </p>
+                  </div>
+                  {selectedYear !== 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onYearChange(0)}
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline shrink-0"
+                    >
+                      Switch to All Time (300 AP) →
+                    </button>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { pgy: 'PGY-1', label: 'Foundations', target: 30, desc: 'Target for promotion to PGY-2' },
-                    { pgy: 'PGY-2', label: 'Core Clinical', target: 60, desc: 'Target for senior resident promotion' },
-                    { pgy: 'PGY-3', label: 'Graduation Benchmark', target: 100, desc: 'Full academic requirement' },
+                    { pgy: 'PGY-1', label: 'Year 1 Benchmark', target: 100, desc: '100 AP required per year (100 AP cumulative)' },
+                    { pgy: 'PGY-2', label: 'Year 2 Benchmark', target: 200, desc: '100 AP required per year (200 AP cumulative)' },
+                    { pgy: 'PGY-3', label: 'Graduation Benchmark', target: 300, desc: '300 AP total required for residency graduation' },
                   ].map((m) => {
                     const isMet = displayTotalPoints >= m.target;
                     const pct = Math.min(100, Math.round((displayTotalPoints / m.target) * 100));
