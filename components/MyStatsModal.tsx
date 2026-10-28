@@ -11,6 +11,7 @@ import QuizReview from './QuizReview';
 import { exportIncorrectToAnki, exportQuestionsToAnki, downloadCsv } from '@/lib/anki';
 import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import RiskLegend from './RiskLegend';
+import WeakCategorySpotlight from './WeakCategorySpotlight';
 import { formatIteId } from '@/lib/iteQuestionMap';
 
 interface MyStatsModalProps {
@@ -31,6 +32,8 @@ interface MyStatsModalProps {
   attendanceList?: any[];
   blocks?: Block[];
   blockSchedule?: BlockSchedule[];
+  onStartQuiz?: (options: any) => void;
+  onOpenBuilder?: () => void;
 }
 
 export default function MyStatsModal({
@@ -51,6 +54,8 @@ export default function MyStatsModal({
   attendanceList = [],
   blocks = [],
   blockSchedule = [],
+  onStartQuiz,
+  onOpenBuilder,
 }: MyStatsModalProps) {
   const [showReadinessModal, setShowReadinessModal] = useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = useState(false);
@@ -1118,6 +1123,20 @@ export default function MyStatsModal({
 
           {activeTab === 'weakAreas' && (
             <div className="space-y-6 animate-fade-in h-full flex flex-col">
+              {!selectedTopic && (
+                <WeakCategorySpotlight
+                  myResults={myResults}
+                  onStartQuiz={(opts) => {
+                    onClose();
+                    onStartQuiz?.(opts);
+                  }}
+                  onOpenBuilder={() => {
+                    onClose();
+                    onOpenBuilder?.();
+                  }}
+                />
+              )}
+
               {loadingWeakAreas ? (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
                   <Loader2 className="w-10 h-10 animate-spin mb-4 text-blue-500" />

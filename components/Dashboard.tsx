@@ -22,7 +22,6 @@ import IteCountdownBanner from './IteCountdownBanner';
 import ForcePasswordChangeModal from './ForcePasswordChangeModal';
 import { Gift, Shield } from 'lucide-react';
 import StreakSaverModal from './StreakSaverModal';
-import WeakCategorySpotlight from './WeakCategorySpotlight';
 import { getStreakSaverStatus, getStreakSaverQuestions, StreakSaverStatus } from '@/lib/streakSaver';
 import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
@@ -928,13 +927,6 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           )}
 
 
-          {/* Weak Category Spotlight Widget */}
-          <WeakCategorySpotlight
-            myResults={myResults}
-            onStartQuiz={onStartQuiz}
-            onOpenBuilder={onOpenBuilder}
-          />
-
           <div className="flex items-center justify-between gap-2 mb-3">
             <h3 className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-xs">Board Review Blocks</h3>
             {blocks.length > 1 && (
@@ -1097,6 +1089,8 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           attendanceList={data?.attendance || []}
           blocks={data?.blocks || []}
           blockSchedule={data?.blockSchedule || []}
+          onStartQuiz={onStartQuiz}
+          onOpenBuilder={onOpenBuilder}
         />
       )}
 
