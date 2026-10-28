@@ -628,6 +628,15 @@ This file serves as the shared source of truth for development progress between 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
 
+### 2026-10-27 — Streak Saver Ecosystem, Weak Category Spotlight, Badges & Block Builder Upgrades (Antigravity)
+*   **Streak Saver Ecosystem:** Residents who miss a weekday QOTD can now rescue their active streak by completing a review challenge pulled randomly from the most recent ITE exam. Challenges scale progressively by tier: 10 questions (Save 1), 20 questions (Save 2), and 30 questions (Save 3), with a limit of 3 saves per academic year that automatically rolls over on July 1.
+*   **Completion-Based Restoration:** Removed the minimum 65% score requirement—simply completing the required number of review questions instantly restores the full streak.
+*   **Streak Saver Badges (Tiers I, II, III):** Introduced 3 new achievement badges: 🛡️ **Streak Saver I** (first streak rescued), ⚡ **Streak Saver II** (second streak rescued), and 👑 **Streak Saver III** (all three saves conquered in an academic year).
+*   **Dashboard "Weak Category Spotlight" Widget:** Added a personalized topic spotlight on the resident dashboard that analyzes accuracy across all 14 clinical categories, highlights areas falling below the 70% Board Ready benchmark, displays remaining questions available in the bank, and provides a 1-click **"Practice 5 Questions →"** launcher.
+*   **Strict Academic Points Isolation:** Streak Saver challenges count towards lifetime question milestones and category accuracy while awarding strictly 0 Academic Points, ensuring leaderboard integrity.
+*   **Enhanced Block Builder & Question Picker:** Added Shift+Click range selection and bulk deselection in the question picker, multi-category and multi-exam-year filters, auto-assign random question generation based on active filters, and live ABFM Category Blueprint progress tracking.
+*   **Assignment Tracking & Printable Review Packets:** Introduced an Assignment Tracking tab with due dates, completion percentages, and progress statuses, alongside printable formatted resident worksheets and faculty answer keys with rationales.
+
 ### 2026-10-21 — Universal Question Search by ITE ID & App ID, Admin Console Quick Search & Table Filtering (Antigravity)
 *   **Universal Search by App ID (UUID) & Canonical ITE ID:** The Question Bank Knowledge Base now supports instant lookup by Question UUID, partial hex IDs (e.g. `2b062a6e`), pasted feedback email subjects (`Question Feedback...`), canonical ITE IDs (`ITE2025Q15`, `DemoQ1`), spaced/hyphenated IDs (`2025 Q15`, `ITE-2025-Q15`), and single question numbers (`Q15`, `Item #15`).
 *   **Priority Match Ranking:** Exact ITE ID and App ID matches automatically receive top scoring priority and appear first in search results.
