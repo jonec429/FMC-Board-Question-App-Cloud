@@ -74,15 +74,21 @@ export interface QotdHistoryItem {
   index: number;       // For UI numbering if needed
   stats: { correct: number; incorrect: number; total: number } | null;
   reactions: Record<string, number>;
+  userAttempt?: {
+    isCorrect: boolean;
+    selectedIndex: number | null;
+    answeredAt: string;
+  } | null;
 }
 
 /**
- * Fetches past QOTD questions with stats and reactions.
+ * Fetches past QOTD questions with stats, reactions, and the user's attempt status (if userId provided).
  * Returns `pageSize` items starting from offset, going backwards from yesterday.
  */
 export async function getQotdHistory(
   offset: number = 0,
-  pageSize: number = 20
+  pageSize: number = 20,
+  userId?: string
 ): Promise<{ items: QotdHistoryItem[]; hasMore: boolean }> {
   const todayStr = getTodayDateString();
 
@@ -125,6 +131,7 @@ export async function getQotdHistory(
       index: offset + idx,
       stats: null,
       reactions: {},
+      userAttempt: null,
     });
     questionIds.push(row.question.id);
   });
@@ -133,8 +140,8 @@ export async function getQotdHistory(
     return { items: [], hasMore: hasMore };
   }
 
-  // Batch-fetch stats via RPC and reactions via table read
-  const [attemptsResult, reactionsResult] = await Promise.all([
+  // Batch-fetch stats via RPC, reactions via table read, and user attempts if userId is given
+  const [attemptsResult, reactionsResult, userAttemptsResult] = await Promise.all([
     withTimeout(
       supabase.rpc('get_qotd_cohort_stats', { p_question_ids: questionIds }),
       10000
@@ -143,6 +150,15 @@ export async function getQotdHistory(
       .from('qotd_reactions')
       .select('question_id, reaction')
       .in('question_id', questionIds), 10000).catch(() => ({ data: null })) as any,
+    userId
+      ? withTimeout(supabase
+          .from('question_attempts')
+          .select('question_id, is_correct, selected_index, created_at')
+          .eq('user_id', userId)
+          .eq('is_qotd', true)
+          .in('question_id', questionIds)
+          .order('created_at', { ascending: false }), 10000).catch(() => ({ data: null })) as any
+      : Promise.resolve({ data: null }),
   ]);
 
   // Build stats map
@@ -168,7 +184,21 @@ export async function getQotdHistory(
     }
   }
 
-  // Merge stats and reactions into items
+  // Build user attempts map
+  const userAttemptsMap = new Map<string, { isCorrect: boolean; selectedIndex: number | null; answeredAt: string }>();
+  if (userAttemptsResult?.data) {
+    for (const ua of userAttemptsResult.data) {
+      if (!userAttemptsMap.has(ua.question_id)) {
+        userAttemptsMap.set(ua.question_id, {
+          isCorrect: ua.is_correct,
+          selectedIndex: ua.selected_index,
+          answeredAt: ua.created_at
+        });
+      }
+    }
+  }
+
+  // Merge stats, reactions, and user attempt into items
   for (const item of items) {
     const qid = item.question.id;
     const stats = statsMap.get(qid);
@@ -176,6 +206,7 @@ export async function getQotdHistory(
       item.stats = { correct: stats.correct, incorrect: stats.incorrect, total: stats.correct + stats.incorrect };
     }
     item.reactions = reactionsMap.get(qid) || {};
+    item.userAttempt = userAttemptsMap.get(qid) || null;
   }
 
   return { items, hasMore };

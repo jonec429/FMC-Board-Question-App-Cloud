@@ -50,9 +50,23 @@ export async function GET(request: Request) {
 
     if (blocksErr) throw blocksErr;
 
-    const requiredBlocks = (blocksData || []).filter(
-      (b) => b.block_type !== 'demo' && !b.title?.toLowerCase().includes('demo')
-    );
+    // Fetch block schedule to filter out future blocks not yet assigned/due
+    const { data: scheduleData } = await supabaseAdmin
+      .from('block_schedule')
+      .select('block_id, start_date, end_date');
+
+    const schedMap = new Map<string, any>();
+    (scheduleData || []).forEach((s) => {
+      if (s.block_id) schedMap.set(s.block_id, s);
+    });
+
+    const todayStr = getTodayDateString();
+    const requiredBlocks = (blocksData || []).filter((b) => {
+      if (b.block_type === 'demo' || b.title?.toLowerCase().includes('demo')) return false;
+      const sched = schedMap.get(b.id);
+      if (sched && sched.start_date && sched.start_date > todayStr) return false;
+      return true;
+    });
     const requiredBlockTitles = requiredBlocks.map((b) => b.title);
     const totalRequiredBlocks = requiredBlocks.length;
 

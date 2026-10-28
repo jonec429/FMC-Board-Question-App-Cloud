@@ -7,9 +7,10 @@ import { parseQuestionStem } from '@/lib/questionStemParser';
 
 interface QotdHistoryProps {
   onBack: () => void;
+  userId?: string;
 }
 
-export default function QotdHistory({ onBack }: QotdHistoryProps) {
+export default function QotdHistory({ onBack, userId }: QotdHistoryProps) {
   const [items, setItems] = useState<QotdHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -20,7 +21,7 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
     async function load() {
       setLoading(true);
       try {
-        const result = await getQotdHistory(0, 20);
+        const result = await getQotdHistory(0, 20, userId);
         setItems(result.items);
         setHasMore(result.hasMore);
       } catch (e) {
@@ -30,13 +31,13 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
       }
     }
     load();
-  }, []);
+  }, [userId]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const result = await getQotdHistory(items.length, 20);
+      const result = await getQotdHistory(items.length, 20, userId);
       setItems(prev => [...prev, ...result.items]);
       setHasMore(result.hasMore);
     } catch (e) {
@@ -94,8 +95,28 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5">
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                     <span className="text-xs font-black text-indigo-500 dark:text-indigo-400">{item.displayDate}</span>
+                    
+                    {/* User personal attempt indicator */}
+                    {userId && (
+                      item.userAttempt ? (
+                        item.userAttempt.isCorrect ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            ✓ You Answered (Correct)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            ✗ You Answered (Incorrect)
+                          </span>
+                        )
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                          ○ Not Answered
+                        </span>
+                      )
+                    )}
+
                     {topReactions.length > 0 && (
                       <div className="flex items-center gap-1 text-xs">
                         {topReactions.map(([emoji, count]) => (
@@ -110,7 +131,7 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
                   <p className={`text-sm font-bold text-slate-700 dark:text-slate-200 leading-snug ${!isExpanded ? 'line-clamp-2' : ''}`}>
                     {parseQuestionStem(item.question.question_text).cleanText}
                   </p>
-                  <div className="flex items-center gap-3 mt-2">
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
                     {/* Correct answer inline */}
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-lg border border-emerald-100 dark:border-emerald-900/40">
                       ✓ {String.fromCharCode(65 + item.question.correct_index)}. {(item.question.options as string[])[item.question.correct_index]?.substring(0, 60)}{((item.question.options as string[])[item.question.correct_index]?.length || 0) > 60 ? '...' : ''}
@@ -137,18 +158,36 @@ export default function QotdHistory({ onBack }: QotdHistoryProps) {
               <div className="px-4 pb-4 space-y-3 animate-fade-in border-t border-slate-50 dark:border-slate-800">
                 {/* All answer choices */}
                 <div className="space-y-1.5 pt-3">
-                  {(item.question.options as string[]).map((opt: string, oi: number) => (
-                    <div
-                      key={oi}
-                      className={`px-3 py-2 rounded-xl text-sm font-medium ${
-                        oi === item.question.correct_index
-                          ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-100 dark:border-emerald-900/40'
-                          : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60'
-                      }`}
-                    >
-                      {String.fromCharCode(65 + oi)}. {opt}
-                    </div>
-                  ))}
+                  {(item.question.options as string[]).map((opt: string, oi: number) => {
+                    const isCorrect = oi === item.question.correct_index;
+                    const isUserChoice = item.userAttempt?.selectedIndex === oi;
+
+                    return (
+                      <div
+                        key={oi}
+                        className={`px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-between gap-2 ${
+                          isCorrect
+                            ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-100 dark:border-emerald-900/40'
+                            : isUserChoice
+                              ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 font-bold border border-rose-200 dark:border-rose-800'
+                              : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60'
+                        }`}
+                      >
+                        <span>
+                          {String.fromCharCode(65 + oi)}. {opt}
+                        </span>
+                        {isUserChoice && (
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                            isCorrect
+                              ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100'
+                              : 'bg-rose-200 dark:bg-rose-800 text-rose-900 dark:text-rose-100'
+                          }`}>
+                            Your Choice
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Explanation */}

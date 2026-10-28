@@ -106,9 +106,15 @@ export function detectBrokenStreak(
     checkCursor = prevWeekday(checkCursor);
   }
 
-  // A streak is broken if they had a prior streak of >= 1 day and missed firstMissedWeekday
-  const isBroken = priorStreak > 0 && (!todayAnswered || currentStreak === 1);
-  const brokenStreakLength = priorStreak + (todayAnswered ? 1 : 0);
+  // A streak is broken if they had a prior streak of >= 1 day and missed firstMissedWeekday.
+  // Allow saving the broken streak within a 7-day grace window even if the resident
+  // has already answered questions on subsequent days (currentStreak >= 1).
+  const missedTime = new Date(firstMissedWeekday).getTime();
+  const todayTime = new Date(todayStr).getTime();
+  const daysSinceMiss = Math.round((todayTime - missedTime) / (1000 * 60 * 60 * 24));
+
+  const isBroken = priorStreak > 0 && daysSinceMiss <= 7 && (!todayAnswered || priorStreak >= currentStreak);
+  const brokenStreakLength = priorStreak + currentStreak + (todayAnswered && currentStreak === 0 ? 1 : 0);
 
   return {
     currentStreak,

@@ -654,11 +654,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       points = 0;
       timingStatus = null;
     } else {
-      if (currentBlock && currentBlock.topic === topicLabel) {
+      if (currentBlock && (currentBlock.title === topicLabel || currentBlock.topic === topicLabel)) {
         points = 2;
         timingStatus = 'On Time';
       } else {
-        points = 0;
+        points = 1;
         timingStatus = 'Late';
       }
     }
@@ -777,19 +777,21 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         }
 
         if (!isDemo && !attemptsSavedRef.current) {
-          await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
+          const { error: blockAttErr } = await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
+          if (blockAttErr) throw blockAttErr;
           attemptsSavedRef.current = true;
         }
       } else if (isQotd) {
         // For QOTD, only save the attempt, not a full block result
         if (!attemptsSavedRef.current) {
-          await withTimeout(supabase.from('question_attempts').insert({
+          const { error: qotdAttErr } = await withTimeout(supabase.from('question_attempts').insert({
             user_id: user.id,
             question_id: questions[0].id,
             is_correct: finalAnswers[0] === questions[0].correct_index,
             selected_index: finalAnswers[0] ?? null,
             is_qotd: true
           }), 30000);
+          if (qotdAttErr) throw qotdAttErr;
           attemptsSavedRef.current = true;
         }
       }

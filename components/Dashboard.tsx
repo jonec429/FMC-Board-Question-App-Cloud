@@ -325,22 +325,16 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   });
 
   // Calculate points and blocks completed
-  // Dedupe quiz retakes by topic, while deduplicating attendance points by (topic, date)
+  // Dedupe quiz retakes by topic, while summing attendance and manual points
   let attendancePoints = 0;
   let manualPoints = 0;
   const topicBestPts = new Map<string, number>();
-  const seenAttendance = new Set<string>();
 
   myResults
     .filter(r => (r.academic_points || 0) > 0 || r.timing_status != null)
     .forEach(r => {
       if (r.topic && /\[attendance\]/i.test(r.topic)) {
-        const rawDate = r.attendance_date || r.created_at?.split('T')[0] || '';
-        const key = `${r.topic.toLowerCase().trim()}_${rawDate}`;
-        if (!seenAttendance.has(key)) {
-          seenAttendance.add(key);
-          attendancePoints += (r.academic_points || 1);
-        }
+        attendancePoints += (r.academic_points || 1);
       } else if (r.topic && /\[manual\]/i.test(r.topic)) {
         manualPoints += (r.academic_points || 0);
       } else {
@@ -355,7 +349,19 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const totalPoints = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0) + attendancePoints + manualPoints;
 
   // Challenge eligibility calculations
-  const curriculumBlocks = blocks.filter(b => b.block_type !== 'demo' && !b.title?.toLowerCase().includes('demo'));
+  // Only blocks that have already started/are assigned so far in the academic year count towards current eligibility
+  const todayDateStr = getTodayDateString();
+  const schedByBlockId = new Map<string, any>();
+  (data?.blockSchedule || []).forEach((s: any) => {
+    if (s?.block_id) schedByBlockId.set(s.block_id, s);
+  });
+
+  const curriculumBlocks = blocks.filter(b => {
+    if (b.block_type === 'demo' || b.title?.toLowerCase().includes('demo')) return false;
+    const sched = schedByBlockId.get(b.id);
+    if (sched && sched.start_date && sched.start_date > todayDateStr) return false;
+    return true;
+  });
   const myCompletedBlocksCount = curriculumBlocks.filter(b => {
     const r = bestResultByTopic.get(b.title);
     return !!r && ((r.academic_points || 0) > 0 || r.timing_status != null || (r.total || 0) > 0);
@@ -1177,7 +1183,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       )}
 
       {showQotdHistoryModal && (
-        <QotdHistoryModal onClose={() => setShowQotdHistoryModal(false)} />
+        <QotdHistoryModal onClose={() => setShowQotdHistoryModal(false)} userId={user.id} />
       )}
 
       {showStreakSaverModal && streakSaverStatus && (

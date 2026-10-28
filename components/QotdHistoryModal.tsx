@@ -4,9 +4,10 @@ import QotdHistory from './QotdHistory';
 
 interface QotdHistoryModalProps {
   onClose: () => void;
+  userId?: string;
 }
 
-export default function QotdHistoryModal({ onClose }: QotdHistoryModalProps) {
+export default function QotdHistoryModal({ onClose, userId }: QotdHistoryModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
@@ -31,7 +32,7 @@ export default function QotdHistoryModal({ onClose }: QotdHistoryModalProps) {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 relative">
-          <QotdHistory onBack={onClose} />
+          <QotdHistory onBack={onClose} userId={userId} />
         </div>
       </div>
     </div>

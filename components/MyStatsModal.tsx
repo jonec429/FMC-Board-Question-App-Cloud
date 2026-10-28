@@ -291,9 +291,14 @@ export default function MyStatsModal({
       points: number;
       isManual: boolean;
     }> = [];
+    const seenIds = new Set<string>();
 
     if (attendanceList && attendanceList.length > 0) {
       attendanceList.forEach((att: any, idx: number) => {
+        const id = att.id || `att-${idx}`;
+        if (seenIds.has(id)) return;
+        seenIds.add(id);
+
         const { block, title } = formatConferenceInfo(att.topic);
         const rawDate = att.date || att.created_at;
         const d = rawDate ? new Date(rawDate.includes('T') ? rawDate : `${rawDate}T12:00:00`) : null;
@@ -301,17 +306,14 @@ export default function MyStatsModal({
           ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
           : (rawDate || '—');
 
-        const isDup = list.some(item => item.title === title && item.dateStr === dateFormatted);
-        if (!isDup) {
-          list.push({
-            id: att.id || `att-${idx}`,
-            title,
-            block,
-            dateStr: dateFormatted,
-            points: att.points || 1,
-            isManual: false
-          });
-        }
+        list.push({
+          id,
+          title,
+          block,
+          dateStr: dateFormatted,
+          points: att.points || 1,
+          isManual: false
+        });
       });
     }
 
@@ -322,8 +324,12 @@ export default function MyStatsModal({
       const isMan = /\[manual\]/i.test(r.topic);
       if (!isAtt && !isMan) return;
 
+      const id = r.id || `res-${idx}`;
+      if (seenIds.has(id)) return;
+
       const isMeeting = /advisor meeting/i.test(r.topic);
       if (!attendanceList || attendanceList.length === 0 || isMeeting || isMan) {
+        seenIds.add(id);
         const { block, title } = formatConferenceInfo(r.topic);
         const rawDate = r.attendance_date || r.created_at;
         const d = rawDate ? new Date(rawDate.includes('T') ? rawDate : `${rawDate}T12:00:00`) : null;
@@ -331,26 +337,23 @@ export default function MyStatsModal({
           ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
           : (rawDate || '—');
 
-        const isDup = list.some(item => item.title === title && item.dateStr === dateFormatted);
-        if (!isDup) {
-          list.push({
-            id: r.id || `res-${idx}`,
-            title: isMeeting ? 'Advisor Meeting' : title,
-            block: isMeeting ? (block || 'Meeting') : block,
-            dateStr: dateFormatted,
-            points: r.academic_points || 1,
-            isManual: isMan || isMeeting
-          });
-        }
+        list.push({
+          id,
+          title: isMeeting ? 'Advisor Meeting' : title,
+          block: isMeeting ? (block || 'Meeting') : block,
+          dateStr: dateFormatted,
+          points: r.academic_points || 1,
+          isManual: isMan || isMeeting
+        });
       }
     });
 
     return list;
   }, [attendanceList, myResults]);
 
-  // Attendance points: strictly mirrors the deduplicated displayAttendance list so counts and list always agree
-  const computedAttendancePts = displayAttendance.reduce((sum, item) => sum + (item.points || 1), 0);
-  const displayTotalPoints = computedQuestionPts + computedAttendancePts;
+  // Points tracking: aligns with the Dashboard totalPoints so stats modal and dashboard always agree
+  const displayTotalPoints = totalPoints != null ? totalPoints : (computedQuestionPts + displayAttendance.reduce((sum, item) => sum + (item.points || 1), 0));
+  const computedAttendancePts = Math.max(0, displayTotalPoints - computedQuestionPts);
 
   const getNextBadgeInfo = () => {
     const clubs = [100, 140, 200, 300, 400, 500, 600, 700, 800, 900, 1000];

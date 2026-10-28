@@ -12,6 +12,7 @@ import {
   ResidentQotdHistoryItem,
 } from '@/lib/types';
 import { getTodayDateString } from '@/lib/qotd';
+import { computeQotdStreak, computeMaxQotdStreak } from '@/lib/streaks';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -422,6 +423,15 @@ export async function GET(request: Request) {
         ? Math.round((attemptsCount / totalQuestionsServed) * 100)
         : 0;
 
+      // Self-healing derived streak from actual attempts history
+      const qotdDateStrings = userAtts
+        .map((a) => (a.created_at ? getTodayDateString(new Date(a.created_at)) : null))
+        .filter(Boolean) as string[];
+      const derivedStreak = computeQotdStreak(qotdDateStrings, getTodayDateString());
+      const derivedMax = computeMaxQotdStreak(qotdDateStrings);
+      const effectiveCurrentStreak = Math.max(derivedStreak, userStreak?.current_qotd_streak || 0);
+      const effectiveMaxStreak = Math.max(derivedMax, userStreak?.max_qotd_streak || 0, effectiveCurrentStreak);
+
       return {
         userId: uid,
         email: r.email || '',
@@ -432,8 +442,8 @@ export async function GET(request: Request) {
         correctCount,
         accuracy,
         participationRate,
-        currentStreak: userStreak?.current_qotd_streak || 0,
-        maxStreak: userStreak?.max_qotd_streak || 0,
+        currentStreak: effectiveCurrentStreak,
+        maxStreak: effectiveMaxStreak,
         lastAnsweredDate: userStreak?.last_qotd_date || (userAtts[0]?.created_at?.split('T')[0] ?? null),
       };
     });

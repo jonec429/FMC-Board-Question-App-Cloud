@@ -162,11 +162,19 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           .eq('user_id', userId)
           .eq('is_qotd', true)
           .abortSignal(signal),
-        supabase
-          .from('attendance')
-          .select('id, date, topic, status, points, created_at')
-          .ilike('resident_email', userEmail)
-          .abortSignal(signal),
+        selectedYear === 0
+          ? supabase
+              .from('attendance')
+              .select('id, date, topic, status, points, created_at')
+              .ilike('resident_email', userEmail)
+              .abortSignal(signal)
+          : supabase
+              .from('attendance')
+              .select('id, date, topic, status, points, created_at')
+              .ilike('resident_email', userEmail)
+              .gte('date', `${selectedYear - 1}-07-01`)
+              .lte('date', `${selectedYear}-06-30`)
+              .abortSignal(signal),
         // Fetch YOY breakdown
         ...availableYears.map(yr => supabase.rpc('get_leaderboard_stats', { p_academic_year: yr }).abortSignal(signal))
       ])) as any[];
