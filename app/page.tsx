@@ -415,6 +415,7 @@ export default function Home() {
                   restoredStreak: (meta?.brokenStreakLength || 1),
                   academicYear: meta?.currentAcademicYear || getCurrentAcademicYear(),
                   reviewData: resultData?.review_data || null,
+                  categoryStats: resultData?.category_stats || null,
                 });
 
                 // Award Streak Saver badge (1, 2, or 3)

@@ -645,7 +645,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     let timingStatus: string | null = null;
 
     const isDemo = currentBlock?.block_type === 'demo' || topicLabel.toLowerCase() === 'demo quiz';
-    const isCustomOrMixed = topicLabel === 'Mixed Review Block' || !topic || topicLabel.toLowerCase().includes('weakest topics');
+    const isCustomOrMixed = topicLabel === 'Mixed Review Block' || !topic || topicLabel.toLowerCase().includes('weakest topics') || topicLabel.toLowerCase().includes('streak saver') || topicLabel.toLowerCase().includes('target');
 
     if (isCustomOrMixed || isQotd || isDemo) {
       points = 0;
@@ -663,6 +663,17 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       }
     }
 
+    // Compute per-category performance for this block
+    const catStats: Record<string, { total: number; correct: number }> = {};
+    questions.forEach((q, idx) => {
+      const cat = q.category || 'General';
+      if (!catStats[cat]) catStats[cat] = { total: 0, correct: 0 };
+      catStats[cat].total++;
+      if (finalAnswers[idx] === q.correct_index) {
+        catStats[cat].correct++;
+      }
+    });
+
     const missedQuestions = questions
       .map((q, idx) => ({ q, idx, isCorrect: finalAnswers[idx] === q.correct_index }))
       .filter(({ isCorrect }) => !isCorrect);
@@ -676,6 +687,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       academic_points: points,
       timing_status: timingStatus,
       academic_year: getCurrentAcademicYear(),
+      category_stats: catStats,
       // Snapshot for reviewing this quiz later (My Performance): the questions in
       // the order taken + the resident's answer. Correct answer + explanation are
       // read live from the questions table at review time.

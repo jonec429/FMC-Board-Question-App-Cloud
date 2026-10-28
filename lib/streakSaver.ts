@@ -232,6 +232,7 @@ export async function applyStreakSaveSuccess({
   restoredStreak,
   academicYear,
   reviewData,
+  categoryStats,
 }: {
   userId: string;
   missedDate: string | null;
@@ -241,6 +242,7 @@ export async function applyStreakSaveSuccess({
   restoredStreak: number;
   academicYear: number;
   reviewData?: any;
+  categoryStats?: any;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     // 1. Check if QuizEngine already inserted a result row for Streak Saver just now
@@ -264,7 +266,8 @@ export async function applyStreakSaveSuccess({
         total,
         percentage,
         academic_points: 0,
-        timing_status: 'On Time',
+        timing_status: null,
+        category_stats: categoryStats || null,
         review_data: reviewData || null,
         created_at: new Date().toISOString(),
       });
