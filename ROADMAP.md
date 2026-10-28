@@ -617,6 +617,20 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
 - [x] **Faculty-Assigned Custom Quizzes**: Allow advisors or faculty department heads to create custom quizzes and explicitly assign them to specific residents (e.g., for remediation or individual improvement plans). Shipped via `AssignQuizManager.tsx` + `assigned_quizzes` DB table.
 
+### Curriculum & Question Bank
+- [ ] **Dual Question Tagging: Organ System Category & ABFM Blueprint Care Dimension (`abfm_category`)**:
+  - Keep **both** tags attached to every question in the question bank:
+    1. **Organ System Category (`category` / `system`)**: The 15 canonical clinical organ systems (`Cardiovascular`, `Musculoskeletal`, `Skin/Subcutaneous`, `Pulmonary`, `Endocrine`, `Gastrointestinal`, `Neurologic`, `Nephrologic`, `Infectious Disease`, `Hematologic/Immune`, `Reproductive/Female`, `Reproductive/Male`, `Psychiatric/Behavioral`, `Population Health/Epidemiology`, `Special Sensory`). Audit and correct legacy system misclassifications in the question bank (e.g. erythema nodosum $\rightarrow$ Skin/Subcutaneous, pneumonia $\rightarrow$ Pulmonary, hearing loss $\rightarrow$ Special Sensory).
+    2. **ABFM Blueprint Care Dimension (`abfm_category`)**: Populate the database `abfm_category` column with official ABFM clinical process domains:
+       - *Acute Care* (~25–30%)
+       - *Chronic Care* (~30–35%)
+       - *Health Promotion & Disease Prevention* (~15–20%)
+       - *Well Child / Pediatric Care* (~10–12%)
+       - *Maternity Care* (~3–5%)
+       - *Emergent / Palliative Care*
+  - Update the **Question Picker**, **Block Builder**, and **Custom Quiz Builder** with dual-filtering toggles so faculty and residents can build quizzes by Organ System, ABFM Care Dimension, or any intersection of both.
+  - Display both tag badges on question cards and add dual-category dropdown selectors to the **Question Bank Manager** edit modal.
+
 ### UI & UX
 - [x] **Dark Mode Toggle**: Implement a tri-theme system (Light, Dark, Midnight) using custom ThemeContext, CSS variables, and Tailwind `dark:` variants. Systematically updated all hardcoded Tailwind color classes across all screens, modals, quiz engines, and admin views.
 
@@ -627,7 +641,7 @@ This file serves as the shared source of truth for development progress between 
 
 - **In-App Flashcards (Leitner Micro-Learning)** *(Tabled 2026-10-20)*: Flip-card micro-learning using Board Prep Gems & rationales. Tabled to prevent home screen clutter; will be designed as a dedicated, standalone module in a future UI/UX pass.
 - **Noon Conference Attendance Workflow Evolution** *(Tabled 2026-10-20)*: Tabled to troubleshoot the 1-screen lecture limitation, prevent group-chat QR photo sharing, and reconcile with New Innovations.
-- **Dual ABFM Blueprint Content Domains (5 Activity Domains)** *(Tabled 2026-10-20)*: Acute Care, Chronic Care, Emergent/Urgent, Preventive Care, and Foundations of Care. Tabled until questions can be tagged with the 5 clinical activity domains.
+- **Dual ABFM Blueprint Content Domains** *(✅ Moved to Active Phase 5 Todo 2026-10-28)*: Re-mapping questions to retain both Organ System Categories and ABFM Care Dimensions.
 - **Daily 5 Adaptive Quiz** *(Tabled 2026-10-20)*: Tabled to preserve high resident participation on the daily Question of the Day (QOTD).
 
 - **Block rename in Curriculum Manager**: Inline-edit a block's title. Intended for *planning* (before residents start a block) and to fix accidental "(Copy)" names — explicitly **not** for renaming blocks already in use. ⚠️ If a block with completions is ever renamed, the change must cascade to `results.topic` and `quiz_sessions.topic` (the title is the foreign key) to avoid orphaning scores — best done via a secure admin-only server route.
