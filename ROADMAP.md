@@ -57,6 +57,7 @@ This file serves as the shared source of truth for development progress between 
 | **Phase 3 — Notifications & Intelligence** | ✅ Complete | QOTD ecosystem, Web Push, Analytics Heatmap, Resident Review |
 | **Phase 4 — Year-over-Year Transition** | ✅ Complete | YoY schema, derived-PGY model, Academic-Year filtering, Annual Rollover |
 | **Phase 5 — Feature Wishlist** | 🔄 Ongoing | Faculty tools, resident risk, dark mode, custom assignments |
+| **Phase 6 — Dual Tagging & Blueprint Matrix** | 📋 Planned | Organ System audit, ABFM Care Dimensions, dual-filter Block Builder |
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
@@ -617,22 +618,53 @@ This file serves as the shared source of truth for development progress between 
 - [x] **Custom Block Live Capacity Filter**: Add an active live filter when building a custom block. It will show exactly how many questions are available based on the selected criteria (e.g., Cardiology + Unused + 2025 ITE). If the requested number of questions exceeds the available pool, the system will block creation and show a popup error.
 - [x] **Faculty-Assigned Custom Quizzes**: Allow advisors or faculty department heads to create custom quizzes and explicitly assign them to specific residents (e.g., for remediation or individual improvement plans). Shipped via `AssignQuizManager.tsx` + `assigned_quizzes` DB table.
 
-### Curriculum & Question Bank
-- [ ] **Dual Question Tagging: Organ System Category & ABFM Blueprint Care Dimension (`abfm_category`)**:
-  - Keep **both** tags attached to every question in the question bank:
-    1. **Organ System Category (`category` / `system`)**: The 15 canonical clinical organ systems (`Cardiovascular`, `Musculoskeletal`, `Skin/Subcutaneous`, `Pulmonary`, `Endocrine`, `Gastrointestinal`, `Neurologic`, `Nephrologic`, `Infectious Disease`, `Hematologic/Immune`, `Reproductive/Female`, `Reproductive/Male`, `Psychiatric/Behavioral`, `Population Health/Epidemiology`, `Special Sensory`). Audit and correct legacy system misclassifications in the question bank (e.g. erythema nodosum $\rightarrow$ Skin/Subcutaneous, pneumonia $\rightarrow$ Pulmonary, hearing loss $\rightarrow$ Special Sensory).
-    2. **ABFM Blueprint Care Dimension (`abfm_category`)**: Populate the database `abfm_category` column with official ABFM clinical process domains:
-       - *Acute Care* (~25–30%)
-       - *Chronic Care* (~30–35%)
-       - *Health Promotion & Disease Prevention* (~15–20%)
-       - *Well Child / Pediatric Care* (~10–12%)
-       - *Maternity Care* (~3–5%)
-       - *Emergent / Palliative Care*
-  - Update the **Question Picker**, **Block Builder**, and **Custom Quiz Builder** with dual-filtering toggles so faculty and residents can build quizzes by Organ System, ABFM Care Dimension, or any intersection of both.
-  - Display both tag badges on question cards and add dual-category dropdown selectors to the **Question Bank Manager** edit modal.
-
 ### UI & UX
 - [x] **Dark Mode Toggle**: Implement a tri-theme system (Light, Dark, Midnight) using custom ThemeContext, CSS variables, and Tailwind `dark:` variants. Systematically updated all hardcoded Tailwind color classes across all screens, modals, quiz engines, and admin views.
+
+---
+
+## 📍 Phase 6: Dual Tagging & ABFM Examination Blueprint Matrix
+*Goal: Evolve the question bank, curriculum tools, and performance engines to support full two-dimensional ABFM Blueprint classification — retaining the 15 Organ System categories while populating official ABFM Care Dimensions (`abfm_category`), auditing legacy question classifications, and unlocking dual-matrix filtering across the app.*
+
+### 1. Database Schema & Dual Tag Taxonomy
+- [ ] **Dual-Field Persistence**: Retain `category` / `system` for the 15 canonical clinical organ systems and activate `abfm_category` for the 6 ABFM Care Dimensions across the full 600+ question bank.
+- [ ] **Canonical Care Dimensions (`CANONICAL_ABFM_DIMENSIONS`)**:
+  - `Acute Care` (~25–30% of ABFM Board Exam)
+  - `Chronic Care` (~30–35% of ABFM Board Exam)
+  - `Health Promotion & Disease Prevention` (~15–20% of ABFM Board Exam)
+  - `Well Child / Pediatric Care` (~10–12% of ABFM Board Exam)
+  - `Maternity Care` (~3–5% of ABFM Board Exam)
+  - `Emergent / Palliative Care` (~3–5% of ABFM Board Exam)
+- [ ] **Organ System Category Audit & Alignment**:
+  - Run medical keyword & clinical rationale verification to correct legacy misclassifications in `category`:
+    - `ITE2023Q24` (Erythema Nodosum): `Musculoskeletal` → `Skin/Subcutaneous` (✅ Completed)
+    - `ITE2023Q88` (Pediatric Pneumonia & CXR): `Musculoskeletal` → `Pulmonary`
+    - `ITE2023Q135` (Hearing loss Rinne/Weber): `Neurologic` → `Special Sensory`
+    - `ITE2024Q176` (Medicare hearing loss): `Neurologic` → `Special Sensory`
+    - `ITE2025Q...` (Diabetic vision/hearing screening): `Neurologic` → `Special Sensory`
+    - `ITE2023Q...` (Bedbound elderly pneumonia): `Musculoskeletal` → `Pulmonary`
+- [ ] **Care Dimension Classification Pipeline**:
+  - Script an automated NLP/heuristic classifier utilizing the critique explanations, age markers (e.g. 5-month-old, pediatric vs geriatric), and clinical intent (screening vs acute symptom vs chronic management) to suggest `abfm_category` values for all 603 questions.
+  - Generate an interactive Admin Review audit sheet for faculty/admin review before applying bulk updates.
+
+### 2. Block Builder & Question Picker Dual Matrix
+- [ ] **Dual-Filter Question Picker UI (`QuestionPicker.tsx`)**:
+  - Add parallel filter controls: **Organ System** filter chips and **ABFM Care Dimension** filter chips.
+  - Support multi-dimensional intersections (e.g., "Pulmonary" + "Chronic Care" = Asthma/COPD management; "Musculoskeletal" + "Acute Care" = Ankle sprains/fractures).
+  - Update the Live Category Blueprint Visualizer with dual tabs: *Organ System Blueprint* vs *Care Dimension Blueprint*.
+- [ ] **Block Template Dual Filtering (`BlockEditor.tsx`, `blocks` table)**:
+  - Add optional `abfm_category_filters` to block templates so faculty can design specialized blocks (e.g. "Acute Care Blitz" or "Preventive Medicine & Screening Review").
+- [ ] **Custom Quiz Builder Dual Filtering (`CustomQuizModal.tsx`)**:
+  - Allow residents to generate targeted study sets filtered by both system and care dimension.
+
+### 3. Question Bank Manager & Display Polish
+- [ ] **Admin Console Dual Tagging UI (`QuestionBankManager.tsx`)**:
+  - Update question browse table to display both badges (e.g. `[PULMONARY]` `[ACUTE CARE]`).
+  - Update question editor modal with two synchronized dropdowns: Organ System (`category`) and Care Dimension (`abfm_category`).
+- [ ] **Question Card Badges (`QuestionCard.tsx`, `QuestionSearchModal.tsx`)**:
+  - Display complementary color-coded badges for both dimensions on all question review cards.
+- [ ] **Performance & Weak Area Analytics Matrix (`MyStatsModal.tsx`, `ResidentReview.tsx`)**:
+  - Expand Weak Category Spotlight and radar breakdown to optionally view performance grouped by ABFM Care Dimension as well as Organ System.
 
 ---
 
@@ -641,7 +673,7 @@ This file serves as the shared source of truth for development progress between 
 
 - **In-App Flashcards (Leitner Micro-Learning)** *(Tabled 2026-10-20)*: Flip-card micro-learning using Board Prep Gems & rationales. Tabled to prevent home screen clutter; will be designed as a dedicated, standalone module in a future UI/UX pass.
 - **Noon Conference Attendance Workflow Evolution** *(Tabled 2026-10-20)*: Tabled to troubleshoot the 1-screen lecture limitation, prevent group-chat QR photo sharing, and reconcile with New Innovations.
-- **Dual ABFM Blueprint Content Domains** *(✅ Moved to Active Phase 5 Todo 2026-10-28)*: Re-mapping questions to retain both Organ System Categories and ABFM Care Dimensions.
+- **Dual ABFM Blueprint Content Domains** *(✅ Promoted to Phase 6: Dual Tagging & Blueprint Matrix 2026-10-28)*: Re-mapping questions to retain both Organ System Categories and ABFM Care Dimensions.
 - **Daily 5 Adaptive Quiz** *(Tabled 2026-10-20)*: Tabled to preserve high resident participation on the daily Question of the Day (QOTD).
 
 - **Block rename in Curriculum Manager**: Inline-edit a block's title. Intended for *planning* (before residents start a block) and to fix accidental "(Copy)" names — explicitly **not** for renaming blocks already in use. ⚠️ If a block with completions is ever renamed, the change must cascade to `results.topic` and `quiz_sessions.topic` (the title is the foreign key) to avoid orphaning scores — best done via a secure admin-only server route.
