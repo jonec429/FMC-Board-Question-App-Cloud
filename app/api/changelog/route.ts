@@ -2,6 +2,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const roadmapPath = path.join(process.cwd(), 'ROADMAP.md');
