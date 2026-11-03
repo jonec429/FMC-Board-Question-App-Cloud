@@ -1,5 +1,6 @@
 import { Block, BlockSchedule, Result } from '@/lib/types';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
+import { getEasternDateString } from '@/lib/timezone';
 /**
  * Shared Resident Risk logic — used by AdminPerformance (dashboard) and
  * AdminReporting (CSV/PDF) so the two never disagree.
@@ -29,7 +30,7 @@ export interface DueBlock {
 }
 
 function localDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return getEasternDateString(d);
 }
 
 /**

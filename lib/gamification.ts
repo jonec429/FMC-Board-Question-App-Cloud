@@ -1,6 +1,13 @@
 import { supabase } from './supabase';
 import { Badge, UserBadge, Result, Question } from '@/lib/types';
-import { getESTDate, getTodayDateString, isPastNoon } from './qotd';
+import { getTodayDateString, isPastNoon, getESTDate } from './qotd';
+import {
+  getEasternDateParts,
+  getEasternDateString,
+  isJustInTimeEastern,
+  isEarlyBirdEastern,
+  isWeekendEastern
+} from './timezone';
 import { getRecentITEYears } from './questionFilters';
 
 export async function processGamification(
@@ -16,10 +23,9 @@ export async function processGamification(
   blockDueDate?: string
 ) {
   try {
-    const todayStr = getTodayDateString();
+    const todayStr = getEasternDateString();
+    const { year: estYear, month: estMonth, day: estDayNum, hour: estHour, minute: estMinute, dayOfWeek: estDay } = getEasternDateParts();
     const estNow = getESTDate();
-    const estHour = estNow.getHours();
-    const estMinute = estNow.getMinutes();
 
     // 0. Fetch all existing badges to reduce DB calls during evaluation
     const { data: allBadgesData } = await supabase.from('badges').select('id, name');
@@ -83,27 +89,19 @@ export async function processGamification(
       // Check if they missed a weekday
       let streakBroken = false;
       if (last_qotd_date && last_qotd_date !== todayStr) {
-        // Parse YYYY-MM-DD as a LOCAL date. `new Date('2026-06-04')` parses as
-        // UTC midnight, which in Eastern time is the evening before — shifting the
-        // day back one and fabricating a "missed weekday" every single day, which
-        // reset the streak to 1. Mirrors the safe parse used in getQotdHistory.
+        // Parse YYYY-MM-DD anchored at UTC noon so DST 23h/25h shifts never corrupt the calendar iteration
         const [ly, lm, ld] = last_qotd_date.split('-').map(Number);
-        const lastDate = new Date(ly, lm - 1, ld);
-        const todayDate = getESTDate();
-        todayDate.setHours(0, 0, 0, 0);
-        lastDate.setHours(0, 0, 0, 0);
+        const [ty, tm, td] = todayStr.split('-').map(Number);
+        const todayNoon = new Date(Date.UTC(ty, tm - 1, td, 12, 0, 0));
+        const tempDate = new Date(Date.UTC(ly, lm - 1, ld + 1, 12, 0, 0));
 
-        // Count weekdays between last date and today
         let missedWeekdays = 0;
-        let tempDate = new Date(lastDate);
-        tempDate.setDate(tempDate.getDate() + 1);
-
-        while (tempDate < todayDate) {
-          const day = tempDate.getDay();
+        while (tempDate < todayNoon) {
+          const day = tempDate.getUTCDay();
           if (day !== 0 && day !== 6) {
             missedWeekdays++;
           }
-          tempDate.setDate(tempDate.getDate() + 1);
+          tempDate.setUTCDate(tempDate.getUTCDate() + 1);
         }
 
         // If they missed at least 1 weekday, or if they are submitting today but past noon (meaning they missed the 12pm deadline today, wait, the submission is blocked after 12pm anyway in UI)
@@ -172,7 +170,7 @@ export async function processGamification(
       if (estHour >= 22 || estHour < 4) {
         await evaluateBadge('Night Owl', true, { description: 'Completed questions late at night (10 PM – 4 AM).', icon: '🦉', type: 'general' });
       }
-      if (estHour < 7) {
+      if (isEarlyBirdEastern()) {
         await evaluateBadge('Early Bird', true, { description: 'Answered questions early in the morning before 7 AM.', icon: '🌅', type: 'general' });
       }
     }
@@ -235,12 +233,12 @@ export async function processGamification(
         await evaluateBadge('Night Owl', true, { description: 'Completed questions late at night (10 PM – 4 AM).', icon: '🦉', type: 'general' });
       }
 
-      if (estHour < 7) {
+      if (isEarlyBirdEastern()) {
         await evaluateBadge('Early Bird', true, { description: 'Answered questions early in the morning before 7 AM.', icon: '🌅', type: 'general' });
       }
 
       // Weekend Warrior — block completed on a weekend (EST)
-      const estDay = estNow.getDay(); // 0 = Sunday, 6 = Saturday
+      // estDay already computed via getEasternDateParts()
       if (estDay === 0 || estDay === 6) {
         await evaluateBadge('Weekend Warrior', true, { description: 'Completed a quiz block on the weekend.', icon: '⚔️', type: 'block' });
       }
@@ -379,8 +377,9 @@ export async function processGamification(
     }
 
     // 3g. ITE Sprint - answered 100 questions in the fall ITE season (Sept-Oct)
-    const currentMonth = estNow.getMonth(); // 8 = Sept, 9 = Oct
-    if ((currentMonth === 8 || currentMonth === 9) && (totalQuestionsAnsweredInBlock || 0) >= 100) {
+    // ITE season: Sept (9) - Oct (10) in Eastern Time
+    const isIteSeason = estMonth === 9 || estMonth === 10;
+    if (isIteSeason && (totalQuestionsAnsweredInBlock || 0) >= 100) {
       await evaluateBadge('ITE Sprint', true, {
         description: 'Answered 100 questions during the fall ITE preparation season.',
         icon: '🏆',

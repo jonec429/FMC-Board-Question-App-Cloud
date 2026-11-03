@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+import { getEasternDateParts, getEasternDateString, getEasternTimeString } from '@/lib/timezone';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,6 +35,15 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Early Trigger Guard (DST-safety): Target is 8:30 AM Eastern.
+    // If triggered before 8:20 AM Eastern (e.g. from a UTC-offset schedule mismatch), skip without logging success.
+    const estParts = getEasternDateParts();
+    const estTimeStr = getEasternTimeString();
+    if (estParts.hour < 8 || (estParts.hour === 8 && estParts.minute < 20)) {
+      console.log(`[qotd-morning] Early trigger received at ${estTimeStr} Eastern (target 08:30). Skipping early dispatch.`);
+      return NextResponse.json({ success: true, message: `Skipped early trigger at ${estTimeStr} Eastern (target 08:30).`, counts: { total: 0 } });
+    }
+
     // 1. Idempotency Check: Prevent duplicate runs on the same day
     const { data: existingLog, error: logError } = await supabase
       .from('cron_logs')
@@ -49,9 +59,8 @@ export async function GET(request: Request) {
 
     if (existingLog && existingLog.length > 0) {
       const lastRun = new Date(existingLog[0].executed_at);
-      const options: Intl.DateTimeFormatOptions = { timeZone: 'America/New_York', year: 'numeric', month: 'numeric', day: 'numeric' };
-      const todayEstStr = new Date().toLocaleDateString('en-US', options);
-      const lastRunEstStr = lastRun.toLocaleDateString('en-US', options);
+      const todayEstStr = getEasternDateString();
+      const lastRunEstStr = getEasternDateString(lastRun);
       if (todayEstStr === lastRunEstStr) {
         console.log('[qotd-morning] Already ran successfully today. Exiting early.');
         return NextResponse.json({ success: true, message: 'Already ran today.', counts: { total: 0 } });

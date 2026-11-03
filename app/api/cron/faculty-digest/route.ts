@@ -13,6 +13,7 @@ import {
 } from '@/lib/residentRisk';
 import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 import { Block, BlockSchedule, Result, RosterEntry, Profile } from '@/lib/types';
+import { getEasternDateParts, getEasternTimeString } from '@/lib/timezone';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -93,6 +94,14 @@ export async function GET(request: Request) {
   if (!isAuthorized) {
     console.warn('[faculty-digest] Unauthorized request — CRON_SECRET or Admin token required.');
     return new Response('Unauthorized', { status: 401 });
+  }
+
+  // Early Trigger Guard (DST-safety): Target is Monday 9:00 AM Eastern.
+  const estParts = getEasternDateParts();
+  const estTimeStr = getEasternTimeString();
+  if (!isForce && estParts.hour < 8) {
+    console.log(`[faculty-digest] Early trigger received at ${estTimeStr} Eastern (target 09:00). Skipping.`);
+    return NextResponse.json({ success: true, message: `Skipped early trigger at ${estTimeStr} Eastern.` });
   }
 
   try {

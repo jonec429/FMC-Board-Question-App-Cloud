@@ -1,45 +1,29 @@
 import { supabase } from './supabase';
 import { withTimeout } from './utils';
 import { Question } from '@/lib/types';
+import {
+  getEasternDateString,
+  getESTDate,
+  isPastNoonEastern
+} from './timezone';
 
-/**
- * Helper to get the current date explicitly in EST
- */
-export function getESTDate(date: Date = new Date()): Date {
-  return new Date(date.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-}
+// Re-export timezone helpers so existing imports stay intact
+export { getEasternDateString, getESTDate };
 
 /**
  * Returns true if the current time is past 12:30 PM Eastern Time — the QOTD unlock
  * time (correct answer, explanation, and cohort stats become visible).
+ * Uses robust hourCycle: 'h23' check in lib/timezone to prevent midnight glitches.
  */
 export function isPastNoon(date: Date = new Date()): boolean {
-  // Get time in Eastern Time
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: 'numeric',
-    minute: 'numeric',
-    hour12: false
-  });
-  
-  const parts = formatter.formatToParts(date);
-  const hourPart = parts.find(p => p.type === 'hour')?.value;
-  const minutePart = parts.find(p => p.type === 'minute')?.value;
-  
-  const currentHour = parseInt(hourPart || '0', 10);
-  const currentMinute = parseInt(minutePart || '0', 10);
-  
-  if (currentHour > 12) return true;
-  if (currentHour === 12 && currentMinute >= 30) return true;
-  return false;
+  return isPastNoonEastern(date);
 }
 
 /**
- * Helper to get today's date string (YYYY-MM-DD) in local time (EST)
+ * Helper to get today's date string (YYYY-MM-DD) in Eastern Time (America/New_York).
  */
 export function getTodayDateString(date: Date = new Date()): string {
-  const estDate = getESTDate(date);
-  return `${estDate.getFullYear()}-${String(estDate.getMonth() + 1).padStart(2, '0')}-${String(estDate.getDate()).padStart(2, '0')}`;
+  return getEasternDateString(date);
 }
 
 /**

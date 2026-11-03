@@ -1,4 +1,5 @@
 'use client';
+import { getEasternDateString } from '@/lib/timezone';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -2205,7 +2206,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                         const isOnTime = result?.timing_status === 'Early' || result?.timing_status === 'On Time' || (pts >= 2 && !result?.topic?.toLowerCase().includes('bonus'));
                         const isLate = result?.timing_status === 'Late' || pts === 1;
                         const status = isCompleted ? (isOnTime ? 'On Time' : isLate ? 'Late' : 'Completed') : 'Not Completed';
-                        const dateStr = result?.created_at ? new Date(result.created_at).toISOString().split('T')[0] : '';
+                        const dateStr = result?.created_at ? getEasternDateString(result.created_at) : '';
                         const scorePct = isCompleted ? (result.percentage || 0).toFixed(1) : '';
                         const scoreRaw = isCompleted ? String(result.score || 0) : '';
                         const totalQ = String(result?.total || block.question_count || 40);

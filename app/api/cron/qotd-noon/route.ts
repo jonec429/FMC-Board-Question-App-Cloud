@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+import { getEasternDateString, getEasternTimeString, isPastNoonEastern } from '@/lib/timezone';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -34,6 +35,14 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Unlock Guard (DST-safety): QOTD answer and cohort stats unlock at 12:30 PM Eastern.
+    // NEVER send the "answer is now available" push notification before the 12:30 PM unlock!
+    const estTimeStr = getEasternTimeString();
+    if (!isPastNoonEastern()) {
+      console.log(`[qotd-noon] Attempted to dispatch push at ${estTimeStr} Eastern before the 12:30 PM unlock. Skipping early dispatch.`);
+      return NextResponse.json({ success: true, message: `Skipped: QOTD answer unlocks at 12:30 PM Eastern (current time: ${estTimeStr}).`, counts: { total: 0 } });
+    }
+
     // 1. Idempotency Check: Prevent duplicate runs on the same day
     const { data: existingLog, error: logError } = await supabase
       .from('cron_logs')
@@ -49,9 +58,8 @@ export async function GET(request: Request) {
 
     if (existingLog && existingLog.length > 0) {
       const lastRun = new Date(existingLog[0].executed_at);
-      const options: Intl.DateTimeFormatOptions = { timeZone: 'America/New_York', year: 'numeric', month: 'numeric', day: 'numeric' };
-      const todayEstStr = new Date().toLocaleDateString('en-US', options);
-      const lastRunEstStr = lastRun.toLocaleDateString('en-US', options);
+      const todayEstStr = getEasternDateString();
+      const lastRunEstStr = getEasternDateString(lastRun);
       if (todayEstStr === lastRunEstStr) {
         console.log('[qotd-noon] Already ran successfully today. Exiting early.');
         return NextResponse.json({ success: true, message: 'Already ran today.', counts: { total: 0 } });
@@ -69,9 +77,8 @@ export async function GET(request: Request) {
     const { data: profs } = await supabase.from('profiles').select('id, notification_preferences');
     const prefsMap = new Map((profs || []).map(p => [p.id, p.notification_preferences || {}]));
 
-    // Find today's QOTD question ID
-    const estDate = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const todayStr = `${estDate.getFullYear()}-${String(estDate.getMonth() + 1).padStart(2, '0')}-${String(estDate.getDate()).padStart(2, '0')}`;
+    // Find today's QOTD question ID strictly in Eastern Time
+    const todayStr = getEasternDateString();
 
     const { data: qotdSchedule } = await supabase
       .from('qotd_schedule')

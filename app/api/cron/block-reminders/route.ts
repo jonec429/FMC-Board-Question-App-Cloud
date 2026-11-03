@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import webpush from 'web-push';
+import { getEasternDateParts, getEasternUpcomingSunday, getEasternTimeString } from '@/lib/timezone';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -22,13 +23,17 @@ export async function GET(request: Request) {
       { auth: { persistSession: false } }
     );
 
-    // Get dates
-    const today = new Date();
-    // This cron runs on Thursday. The due date is the upcoming Sunday.
-    // Sunday is 3 days away from Thursday.
-    const upcomingSunday = new Date(today);
-    upcomingSunday.setDate(today.getDate() + 3);
-    const sundayDateStr = upcomingSunday.toISOString().split('T')[0];
+    // Early Trigger Guard (DST-safety): Target is Thursday 9:00 AM Eastern.
+    const estParts = getEasternDateParts();
+    const estTimeStr = getEasternTimeString();
+    if (estParts.hour < 8) {
+      console.log(`[block-reminders] Early trigger received at ${estTimeStr} Eastern (target 09:00). Skipping.`);
+      return NextResponse.json({ success: true, message: `Skipped early trigger at ${estTimeStr} Eastern.` });
+    }
+
+    // Get dates strictly in Eastern Time (America/New_York)
+    // This cron runs on Thursday. The due date is the upcoming Sunday at 11:59 PM.
+    const sundayDateStr = getEasternUpcomingSunday();
 
     // Find if there is a block due on this upcoming Sunday
     const { data: scheduleData, error: scheduleError } = await supabase

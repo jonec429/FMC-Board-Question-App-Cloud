@@ -10,6 +10,7 @@ import { ChevronRight, ChevronLeft, Clock, Save, Loader2, X, CheckCircle, Sparkl
 import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { getTodayDateString, isPastNoon } from '@/lib/qotd';
+import { getEasternDateString, isPastNoonEastern, getEasternTzAbbreviation } from '@/lib/timezone';
 import { processGamification } from '@/lib/gamification';
 import { useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
@@ -734,33 +735,44 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     }
 
     try {
-      // Check if this is an early completion (the block's deadline hasn't passed yet)
-      if (timingStatus === 'Late' && quizId) {
-        const { data: bSched } = await supabase
-          .from('block_schedule')
-          .select('start_date, end_date')
-          .eq('block_id', quizId)
-          .maybeSingle();
-        
+      // Check block schedule deadline in Eastern Time (America/New_York)
+      // Resolves by quizId or by block title so timing status is always accurate
+      if (!isCustomOrMixed && !isQotd && !isDemo) {
+        let bSched: { start_date: string; end_date: string } | null = null;
+        if (quizId) {
+          const { data: sData } = await supabase
+            .from('block_schedule')
+            .select('start_date, end_date')
+            .eq('block_id', quizId)
+            .maybeSingle();
+          bSched = sData;
+        } else if (topicLabel) {
+          const { data: blk } = await supabase
+            .from('blocks')
+            .select('id, block_schedule(start_date, end_date)')
+            .eq('title', topicLabel)
+            .maybeSingle();
+          const schedList = blk?.block_schedule as any;
+          bSched = Array.isArray(schedList) ? schedList[0] : schedList;
+        }
+
         if (bSched) {
-          const now = new Date();
-          // Format current time in Eastern Time as YYYY-MM-DD
-          const estFormatter = new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'America/New_York',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit'
-          });
-          const todayEstStr = estFormatter.format(now);
-          
+          const todayEstStr = getEasternDateString();
           if (todayEstStr < bSched.start_date) {
             points = 2;
+            timingStatus = 'Early';
             result.academic_points = 2;
             result.timing_status = 'Early';
           } else if (todayEstStr <= bSched.end_date) {
             points = 2;
+            timingStatus = 'On Time';
             result.academic_points = 2;
             result.timing_status = 'On Time';
+          } else {
+            points = 1;
+            timingStatus = 'Late';
+            result.academic_points = 1;
+            result.timing_status = 'Late';
           }
         }
       }
@@ -1140,7 +1152,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             <div>
               <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100">Answer Recorded!</h2>
               <p className="text-slate-500 dark:text-slate-400 mt-3 text-lg leading-relaxed">
-                The correct answer, explanation, and cohort statistics will be revealed at <strong>12:30 PM EST</strong>.
+                The correct answer, explanation, and cohort statistics will be revealed at <strong>12:30 PM Eastern Time</strong>.
               </p>
             </div>
             
