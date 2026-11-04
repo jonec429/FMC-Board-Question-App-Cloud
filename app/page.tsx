@@ -412,7 +412,7 @@ export default function Home() {
                   score,
                   total,
                   percentage: pct,
-                  restoredStreak: (meta?.brokenStreakLength || 1),
+                  restoredStreak: meta?.restoredStreak || (meta?.brokenStreakLength ? meta.brokenStreakLength + 1 : 1),
                   academicYear: meta?.currentAcademicYear || getCurrentAcademicYear(),
                   reviewData: resultData?.review_data || null,
                   categoryStats: resultData?.category_stats || null,

@@ -115,19 +115,31 @@ export default function StreakSaverModal({
                   Streak Broken ({status.brokenStreakLength} Days)
                 </h4>
                 <p className="text-orange-800 dark:text-orange-200 leading-relaxed text-[11px]">
-                  You missed your QOTD on <strong className="font-bold">{status.missedDate || 'a recent weekday'}</strong>. Complete the review questions below to restore your full <strong className="font-bold">{status.brokenStreakLength}-day streak</strong>!
+                  You missed your QOTD on <strong className="font-bold">{status.missedDate || 'yesterday'}</strong>. Complete the review challenge below to restore your full <strong className="font-bold">{status.brokenStreakLength}-day streak</strong>! (Available today only).
                 </p>
               </div>
             </div>
-          ) : (
+          ) : (status.currentStreak ?? 0) > 0 ? (
             <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-start gap-3">
               <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-bold text-sm text-emerald-900 dark:text-emerald-100">
-                  Your Streak is Active!
+                  Your Streak is Active ({status.currentStreak} Days)!
                 </h4>
                 <p className="text-emerald-800 dark:text-emerald-200 leading-relaxed text-[11px]">
-                  You have not missed a QOTD day. If you ever miss one in the future, Streak Saver will be right here to restore it!
+                  You have not missed a QOTD day. If you ever miss one in the future, Streak Saver is available the following day to restore it!
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl flex items-start gap-3">
+              <Shield className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                  No Streak to Restore
+                </h4>
+                <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-[11px]">
+                  Streak Saver is only available for the day immediately after a streak is broken. Answer today&apos;s Question of the Day to start building a new streak!
                 </p>
               </div>
             </div>

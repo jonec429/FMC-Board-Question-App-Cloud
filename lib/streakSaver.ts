@@ -12,9 +12,11 @@ export interface StreakSaverStatus {
   nextSaveQuestionCount: number;
   isStreakBroken: boolean;
   brokenStreakLength: number;
+  restoredStreak?: number;
   missedDate: string | null;
   canSaveStreak: boolean;
   mostRecentYear: string;
+  currentStreak?: number;
 }
 
 /** Day-of-week for an EST date string (0 = Sun, 6 = Sat). */
@@ -65,7 +67,11 @@ export async function getMostRecentITEYear(): Promise<string> {
 }
 
 /**
- * Detects if a user had an active streak that was severed by missing a recent weekday.
+ * Detects if a user had an active streak that was severed by missing the previous weekday.
+ * Streak Saver is ONLY available for the day immediately after the streak is broken:
+ * - If a weekday (e.g. Tuesday) was missed: available on the following day (Wednesday) only.
+ * - If Friday was missed: available through Monday (next weekday / weekend) only.
+ * - Any earlier missed day is expired and cannot be saved.
  */
 export function detectBrokenStreak(
   answeredEstDates: string[],
@@ -74,11 +80,12 @@ export function detectBrokenStreak(
   currentStreak: number;
   isBroken: boolean;
   brokenStreakLength: number;
+  restoredStreak: number;
   missedDate: string | null;
 } {
   const answered = new Set(answeredEstDates);
 
-  // Check current active streak
+  // 1. Current active streak according to standard QOTD rules
   let cursor = todayStr;
   let todayAnswered = false;
   if (isWeekend(cursor)) {
@@ -95,32 +102,51 @@ export function detectBrokenStreak(
     cursor = prevWeekday(cursor);
   }
 
-  // 'cursor' right now is the first missed weekday going backwards from today
-  const firstMissedWeekday = cursor;
+  // 2. The ONLY candidate missed weekday that can be saved TODAY is prevWeekday(todayStr).
+  // Any weekday before that is >= 2 weekdays ago, so the 1-day save window has already expired.
+  const targetMissedDate = prevWeekday(todayStr);
 
-  // Count the streak that existed immediately BEFORE this missed weekday
-  let checkCursor = prevWeekday(firstMissedWeekday);
+  // If targetMissedDate was answered, no streak was broken on targetMissedDate.
+  if (answered.has(targetMissedDate)) {
+    return {
+      currentStreak,
+      isBroken: false,
+      brokenStreakLength: 0,
+      restoredStreak: currentStreak,
+      missedDate: null,
+    };
+  }
+
+  // 3. targetMissedDate was missed. Check if an active streak existed immediately before it.
+  let checkCursor = prevWeekday(targetMissedDate);
   let priorStreak = 0;
   while (!isWeekend(checkCursor) && answered.has(checkCursor)) {
     priorStreak++;
     checkCursor = prevWeekday(checkCursor);
   }
 
-  // A streak is broken if they had a prior streak of >= 1 day and missed firstMissedWeekday.
-  // Allow saving the broken streak within a 7-day grace window even if the resident
-  // has already answered questions on subsequent days (currentStreak >= 1).
-  const missedTime = new Date(firstMissedWeekday).getTime();
-  const todayTime = new Date(todayStr).getTime();
-  const daysSinceMiss = Math.round((todayTime - missedTime) / (1000 * 60 * 60 * 24));
+  // A streak can only be broken if there was an active streak (>= 1 day) prior to the missed date.
+  if (priorStreak === 0) {
+    return {
+      currentStreak,
+      isBroken: false,
+      brokenStreakLength: 0,
+      restoredStreak: currentStreak,
+      missedDate: null,
+    };
+  }
 
-  const isBroken = priorStreak > 0 && daysSinceMiss <= 7 && (!todayAnswered || priorStreak >= currentStreak);
-  const brokenStreakLength = priorStreak + currentStreak + (todayAnswered && currentStreak === 0 ? 1 : 0);
+  // 4. They missed targetMissedDate, had a prior streak of >= 1 day, and today is the day after!
+  const isBroken = true;
+  const brokenStreakLength = priorStreak;
+  const restoredStreak = priorStreak + 1 + (todayAnswered ? 1 : 0);
 
   return {
     currentStreak,
     isBroken,
     brokenStreakLength,
-    missedDate: isBroken ? firstMissedWeekday : null,
+    restoredStreak,
+    missedDate: targetMissedDate,
   };
 }
 
@@ -131,7 +157,7 @@ export function detectBrokenStreak(
 export async function getStreakSaverStatus(
   userId: string,
   answeredEstDates: string[],
-  userStreak?: any
+  _userStreak?: any
 ): Promise<StreakSaverStatus> {
   const currentAY = getCurrentAcademicYear();
   const ayLabel = formatAcademicYear(currentAY);
@@ -159,19 +185,10 @@ export async function getStreakSaverStatus(
   const nextSaveQuestionCount = Math.min(30, (savesUsedThisYear + 1) * 10);
 
   const brokenDetection = detectBrokenStreak(answeredEstDates);
-  let isStreakBroken = brokenDetection.isBroken;
-  let brokenStreakLength = brokenDetection.brokenStreakLength;
-  let missedDate = brokenDetection.missedDate;
-
-  // Fallback: If user_streaks has max_qotd_streak > 0 and current_qotd_streak === 0,
-  // allow streak saver even if dates array was partial
-  if (!isStreakBroken && userStreak && (userStreak.current_qotd_streak === 0 || !userStreak.current_qotd_streak)) {
-    if (userStreak.max_qotd_streak && userStreak.max_qotd_streak > 0) {
-      isStreakBroken = true;
-      brokenStreakLength = userStreak.max_qotd_streak;
-      missedDate = missedDate || prevWeekday(getTodayDateString());
-    }
-  }
+  const isStreakBroken = brokenDetection.isBroken;
+  const brokenStreakLength = brokenDetection.brokenStreakLength;
+  const restoredStreak = brokenDetection.restoredStreak;
+  const missedDate = brokenDetection.missedDate;
 
   const canSaveStreak = isStreakBroken && savesRemaining > 0 && brokenStreakLength > 0;
 
@@ -184,9 +201,11 @@ export async function getStreakSaverStatus(
     nextSaveQuestionCount,
     isStreakBroken,
     brokenStreakLength,
+    restoredStreak,
     missedDate,
     canSaveStreak,
     mostRecentYear,
+    currentStreak: brokenDetection.currentStreak,
   };
 }
 
