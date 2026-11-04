@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCurrentAcademicYear, deriveLabel, isGraduated } from '@/lib/academicYear';
-import { computeMaxQotdStreak } from '@/lib/streaks';
+import { computeMaxQotdStreak, computeQotdStreak } from '@/lib/streaks';
 import { getTodayDateString } from '@/lib/qotd';
 import { ChallengeResidentStanding, ChallengeStandingsResponse } from '@/lib/types';
 
@@ -220,7 +220,7 @@ export async function GET(request: Request) {
       const qotdDateStrings = userQotdTimestamps.map((ts) => getTodayDateString(new Date(ts)));
       const derivedMaxStreak = computeMaxQotdStreak(qotdDateStrings);
       const longestStreak = Math.max(rawUserStreak?.max_qotd_streak || 0, derivedMaxStreak);
-      const currentStreak = rawUserStreak?.current_qotd_streak || 0;
+      const currentStreak = computeQotdStreak(qotdDateStrings, getTodayDateString());
 
       const completedTitlesArray = Array.from(completedBlockTitles);
       const completedBlocksCount = completedTitlesArray.length;

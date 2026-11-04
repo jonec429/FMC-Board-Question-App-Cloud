@@ -429,7 +429,7 @@ export async function GET(request: Request) {
         .filter(Boolean) as string[];
       const derivedStreak = computeQotdStreak(qotdDateStrings, getTodayDateString());
       const derivedMax = computeMaxQotdStreak(qotdDateStrings);
-      const effectiveCurrentStreak = Math.max(derivedStreak, userStreak?.current_qotd_streak || 0);
+      const effectiveCurrentStreak = derivedStreak;
       const effectiveMaxStreak = Math.max(derivedMax, userStreak?.max_qotd_streak || 0, effectiveCurrentStreak);
 
       return {
