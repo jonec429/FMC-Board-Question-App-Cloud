@@ -618,9 +618,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     if (submittingRef.current) return;
     submittingRef.current = true;
 
+    const finalAnswers = overrideAnswers || answers;
+
     if (!autoSubmit) {
       const unansweredIndices = questions
-        .map((q, idx) => answers[idx] === undefined ? idx + 1 : -1)
+        .map((q, idx) => finalAnswers[idx] === undefined ? idx + 1 : -1)
         .filter(idx => idx !== -1);
       
       if (unansweredIndices.length > 0) {
@@ -636,7 +638,6 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     }
 
     setSubmitting(true);
-    const finalAnswers = overrideAnswers || answers;
     
     const score = questions.reduce((acc, q, idx) => acc + (finalAnswers[idx] === q.correct_index ? 1 : 0), 0);
     const percentage = questions.length > 0 ? (score / questions.length) * 100 : 0;
@@ -740,18 +741,24 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       if (!isCustomOrMixed && !isQotd && !isDemo) {
         let bSched: { start_date: string; end_date: string } | null = null;
         if (quizId) {
-          const { data: sData } = await supabase
-            .from('block_schedule')
-            .select('start_date, end_date')
-            .eq('block_id', quizId)
-            .maybeSingle();
+          const { data: sData } = await withTimeout(
+            supabase
+              .from('block_schedule')
+              .select('start_date, end_date')
+              .eq('block_id', quizId)
+              .maybeSingle(),
+            8000
+          ).catch(() => ({ data: null }));
           bSched = sData;
         } else if (topicLabel) {
-          const { data: blk } = await supabase
-            .from('blocks')
-            .select('id, block_schedule(start_date, end_date)')
-            .eq('title', topicLabel)
-            .maybeSingle();
+          const { data: blk } = await withTimeout(
+            supabase
+              .from('blocks')
+              .select('id, block_schedule(start_date, end_date)')
+              .eq('title', topicLabel)
+              .maybeSingle(),
+            8000
+          ).catch(() => ({ data: null }));
           const schedList = blk?.block_schedule as any;
           bSched = Array.isArray(schedList) ? schedList[0] : schedList;
         }
@@ -779,7 +786,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
       if (!isQotd) {
         if (!resultSavedRef.current) {
-          await withTimeout(supabase.from('results').insert(result), 10000);
+          const { error: resErr } = await withTimeout(supabase.from('results').insert(result), 15000);
+          if (resErr) throw resErr;
           resultSavedRef.current = true;
           if (isDemo) {
             try {
@@ -789,7 +797,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         }
 
         if (!isDemo && !attemptsSavedRef.current) {
-          const { error: blockAttErr } = await withTimeout(supabase.from('question_attempts').insert(attempts), 10000);
+          const { error: blockAttErr } = await withTimeout(supabase.from('question_attempts').insert(attempts), 20000);
           if (blockAttErr) throw blockAttErr;
           attemptsSavedRef.current = true;
         }
@@ -839,7 +847,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       .catch((e) => console.warn('Gamification processing skipped:', e));
 
       if (sessionId) {
-        await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 30000);
+        const { error: sessErr } = await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 30000);
+        if (sessErr) console.warn('Failed to mark quiz_session completed:', sessErr);
       }
 
       if (isQotd) {

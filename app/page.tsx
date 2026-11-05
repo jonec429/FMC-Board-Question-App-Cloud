@@ -463,6 +463,10 @@ export default function Home() {
                   console.error('Failed to mark assigned quiz complete:', e);
                 }
               }
+              if (user) {
+                flushPendingSubmissions(supabase).catch(console.warn);
+              }
+              await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
               setActiveQuiz(null);
             }}
             onCancel={() => setActiveQuiz(null)}
