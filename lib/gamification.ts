@@ -543,3 +543,117 @@ export async function awardStreakSaverBadge(
     return [];
   }
 }
+
+
+/**
+ * Awards Mock Exam achievement badges (Board Ready, The Marathoner, Honors Distinction, etc.)
+ */
+export async function awardMockExamBadges(
+  userId: string,
+  params: {
+    isAbfm: boolean;
+    isIte: boolean;
+    score: number;
+    total: number;
+    percentage: number;
+    breakTimePositive: boolean;
+  }
+): Promise<{ id: string; name: string; description: string; icon: string }[]> {
+  try {
+    const candidates = [
+      {
+        qualifies: params.isAbfm,
+        name: 'Board Ready',
+        description: 'Completed the full 300-question ABFM Board Exam simulation across all 4 sections.',
+        icon: '🎓',
+        type: 'mock_exam',
+      },
+      {
+        qualifies: params.isIte,
+        name: 'The Marathoner',
+        description: 'Completed the full 200-question ITE Mock Exam across all 4 sections.',
+        icon: '🏃',
+        type: 'mock_exam',
+      },
+      {
+        qualifies: params.percentage >= 80,
+        name: 'Honors Distinction',
+        description: 'Scored 80% or higher on a full 200+ question mock examination.',
+        icon: '🎯',
+        type: 'mock_exam',
+      },
+      {
+        qualifies: params.breakTimePositive,
+        name: 'Master Pacer',
+        description: 'Completed all 4 exam sections within time limits without exhausting pooled break time.',
+        icon: '⏱️',
+        type: 'mock_exam',
+      },
+      {
+        qualifies: true,
+        name: 'Strategic Breaker',
+        description: 'Completed a full mock exam utilizing pooled break time in the Break Lounge.',
+        icon: '☕',
+        type: 'mock_exam',
+      },
+    ];
+
+    const eligible = candidates.filter((c) => c.qualifies);
+    if (eligible.length === 0) return [];
+
+    const { data: allBadges } = await supabase.from('badges').select('id, name');
+    const badgeMap = new Map((allBadges || []).map((b: any) => [b.name, b.id]));
+
+    const { data: userBadges } = await supabase
+      .from('user_badges')
+      .select('badge_id')
+      .eq('user_id', userId);
+    const userBadgeSet = new Set((userBadges || []).map((ub: any) => ub.badge_id));
+
+    const newlyAwarded: { id: string; name: string; description: string; icon: string }[] = [];
+
+    for (const badgeDef of eligible) {
+      let badgeId = badgeMap.get(badgeDef.name);
+
+      if (!badgeId) {
+        const { data: insertedBadge } = await supabase
+          .from('badges')
+          .insert({
+            name: badgeDef.name,
+            description: badgeDef.description,
+            icon: badgeDef.icon,
+            type: badgeDef.type,
+          })
+          .select('id')
+          .single();
+
+        if (insertedBadge) {
+          badgeId = insertedBadge.id;
+          badgeMap.set(badgeDef.name, badgeId);
+        }
+      }
+
+      if (badgeId && !userBadgeSet.has(badgeId)) {
+        const { error } = await supabase.from('user_badges').insert({
+          user_id: userId,
+          badge_id: badgeId,
+        });
+
+        if (!error) {
+          userBadgeSet.add(badgeId);
+          newlyAwarded.push({
+            id: badgeId,
+            name: badgeDef.name,
+            description: badgeDef.description,
+            icon: badgeDef.icon,
+          });
+        }
+      }
+    }
+
+    return newlyAwarded;
+  } catch (err) {
+    console.error('Error in awardMockExamBadges:', err);
+    return [];
+  }
+}

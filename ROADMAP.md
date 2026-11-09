@@ -61,6 +61,25 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
+### ▶️ Session Handoff — 2026-11-09 (Antigravity: ABFM & ITE Mock Exam Simulations, Break Lounge, Emergency Pause & Universal Micro-Box Navigator)
+**Shipped this session**:
+1. **Authentic ABFM & ITE Mock Exam Simulations (`components/CustomBuilderScreen.tsx`, `components/QuizEngine.tsx`)**:
+   - Added ABFM Board Certification simulation (300 questions, 4 sections of 75 Qs, 95 min/section, 100 min pooled break bank).
+   - Added ABFM In-Training Examination simulation (200 questions, 4 sections of 50 Qs, 63 min/section, 45 min pooled break bank) with year filtering (2025, 2024, 2023, or mixed).
+2. **Prometric Section Locking & Intermediate Cloud Saves (`components/QuizEngine.tsx`)**:
+   - Section Lock Modal displaying answered, unanswered, and flagged question counts with irreversible lock confirmation.
+   - Saves section attempts to database immediately upon locking so progress is never lost.
+3. **"Break Glass" Emergency Pause Modal (`components/QuizEngine.tsx`)**:
+   - Allows safely freezing section and pooled break timers in emergency or battery loss situations, persisting state to Supabase and offline storage.
+4. **Wellness Break Lounge (`components/BreakLounge.tsx`)**:
+   - Intermission screen featuring 5 rotating residency wellness themes (☕ Coffee Bar, 🏖️ Eye Strain Reset, 🧘 Box Breathing, 🍎 Brain Fuel, 🔋 Mental Recharging) with live pooled timer countdown and overtime alerts.
+5. **Universal Micro-Box Question Navigator (`components/QuestionNavigator.tsx`, `components/QuizReview.tsx`)**:
+   - Applied micro-box matrix navigation to all active quizzes and all review modals (post-quiz results, "My Performance" past quizzes, and faculty admin reviews) with one-click page jumping and question highlighting.
+6. **Section Performance Trajectory & Review Pagination (`components/QuizReview.tsx`)**:
+   - Section Performance Trajectory hero card showing Blocks 1–4, section filters, and 25-item pagination.
+7. **Mock Exam Achievements (`lib/gamification.ts`)**:
+   - Added 5 new badges: `Board Ready` (300Q), `The Marathoner` (200Q), `Honors Distinction` (>=80%), `Master Pacer`, and `Strategic Breaker`.
+
 ### ▶️ Session Handoff — 2026-10-27 (Antigravity: My Performance Consolidation, AP Point Sync, Quiz Abandonment & Visual Progress Bars)
 **Shipped this session**:
 1. **Dedicated AP Tracker Tab & Points Synchronization (`components/MyStatsModal.tsx`, `components/Dashboard.tsx`)**:
@@ -705,6 +724,16 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-11-09 — ABFM & ITE Mock Exam Simulations, Wellness Break Lounge & Universal Micro-Box Question Navigator (Antigravity)
+*   **Authentic ABFM Board Exam Simulation (300 Questions):** Added a full 300-question testing simulation directly inside the Custom Quiz Builder modeled after official Prometric test conditions: 4 timed sections of 75 questions each, 95 minutes per section (76s/question pace), and a shared bank of 100 minutes of pooled break time.
+*   **Authentic In-Training Examination (ITE) Simulation (200 Questions):** Added a 200-question ITE simulation featuring 4 sections of 50 questions, 63 minutes per section, and 45 minutes of pooled break time. Supports selecting single ITE exam years (2025, 2024, or 2023) or a randomized mix across years.
+*   **Prometric Section Locking:** Enforced strict testing security where sections are locked upon submission. Features an interactive Section Lock Modal displaying answered, unanswered, and flagged question counts with irreversible submission confirmation. Intermediate database saves automatically secure question attempts after each section.
+*   **"Break Glass" Emergency Pause:** Added an emergency pause override accessible via the top exam toolbar with explicit exam-condition warnings. Freezes and records section timers, pooled break time, and question progress to Supabase and offline storage so residents can safely resume later in case of clinical duty or battery failure.
+*   **Wellness Break Lounge:** Introduced an intermission break screen between sections featuring rotating residency wellness themes (☕ Coffee Bar, 🏖️ Shoreline Eye Reset, 🧘 Box Breathing Guide, 🍎 Brain Fuel, and 🔋 Mental Recharging) with live pooled break timer countdowns and overtime alerts.
+*   **Universal Micro-Box Question Navigator:** Upgraded question navigation across the entire application with a high-density 32px tile grid, status color indicators (green correct, red missed, slate skipped, amber viewed), flagged pins, and jump buttons (`Next Unanswered`, `Next Flagged`). Embedded directly into all review modals (post-quiz results on desktop & mobile, "My Performance" past quizzes, and Faculty Admin Reviews).
+*   **Section Performance Trajectory & Review Pagination:** Enhanced quiz reviews with a Block 1–4 performance trajectory hero card showing per-section percentages and scores, section filter pills, and 25-item pagination to eliminate DOM lag on large exams.
+*   **Mock Exam Achievement Badges:** Added 5 new achievement badges: 🎓 **Board Ready** (300Q ABFM simulation), 🏃 **The Marathoner** (200Q ITE simulation), 🎯 **Honors Distinction** ($\ge 80\%$ on a mock exam), ⏱️ **Master Pacer** (finishing all sections with positive break time), and 🧘 **Strategic Breaker**.
 
 ### 2026-11-03 — Comprehensive Time Zone Management & DST-Proofing (Antigravity)
 *   **Centralized Time Zone Engine (`lib/timezone.ts`):** Established an authoritative time zone source of truth for all Eastern Time (`America/New_York`) date, cutoff, and schedule computations. Standardized date formatting with `en-CA` (`YYYY-MM-DD`) and strict `hourCycle: 'h23'` 24-hour time formatting across the entire app, completely eliminating local server/client offset discrepancies (e.g. UTC server execution vs. Eastern wall-clock time).

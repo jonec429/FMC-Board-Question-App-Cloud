@@ -1182,19 +1182,14 @@ export default function MyStatsModal({
                         {selectedQuiz.percentage != null ? ` · ${Number(selectedQuiz.percentage).toFixed(1)}%` : ''}
                       </p>
                     </div>
-                    {reviewItems && reviewItems.length > 0 && (
-                      <button
-                        onClick={() => setShowAllReview(!showAllReview)}
-                        className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-500 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:border-slate-300 transition-all shadow-sm"
-                      >
-                        {showAllReview ? 'Show Incorrect Only' : 'Show All Questions'}
-                      </button>
-                    )}
                   </div>
                   {loadingReview ? (
                     <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-blue-500 animate-spin" /></div>
                   ) : reviewItems && reviewItems.length > 0 ? (
-                    <QuizReview items={showAllReview ? reviewItems : reviewItems.filter((i: any) => i.selected !== i.question?.correct_index)} />
+                    <QuizReview
+                      items={reviewItems}
+                      questionsPerSection={selectedQuiz?.total === 300 ? 75 : selectedQuiz?.total === 200 ? 50 : undefined}
+                    />
                   ) : (
                     <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-10">
                       A reviewable copy of this quiz wasn't saved — it was taken before review was added.

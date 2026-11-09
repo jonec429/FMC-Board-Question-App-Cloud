@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Sliders, Shuffle, XCircle, CheckCircle, Database, Loader2, AlertTriangle, Clock, Flag } from './AppIcons';
+import { Award, Trophy, Coffee, ShieldAlert, Sparkles, BookOpen } from 'lucide-react';
 import {
   RECENT_ITE_YEAR_WINDOW,
   LEGACY_WARNING_TITLE,
@@ -13,7 +14,20 @@ import { User, Question, QuestionAttempt } from '@/lib/types';
 
 interface CustomBuilderScreenProps {
   user: User;
-  onStart: (config: { years: string[]; categories: string[]; count: number; pool: 'all' | 'unused' | 'incorrect' | 'flagged'; timerEnabled: boolean }) => void;
+  onStart: (config: {
+    years: string[];
+    categories: string[];
+    count: number;
+    pool: 'all' | 'unused' | 'incorrect' | 'flagged';
+    timerEnabled: boolean;
+    isMockExam?: boolean;
+    mockExamType?: 'abfm' | 'ite';
+    sectionsCount?: number;
+    questionsPerSection?: number;
+    timePerSectionMinutes?: number;
+    pooledBreakMinutes?: number;
+    topic?: string;
+  }) => void;
   onCancel: () => void;
 }
 
@@ -26,7 +40,9 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
   const [allQuestions, setAllQuestions] = useState<Pick<Question, 'id' | 'year' | 'category'>[]>([]);
   const [userAttempts, setUserAttempts] = useState<Pick<QuestionAttempt, 'question_id' | 'is_correct'>[]>([]);
 
-  const [mode, setMode] = useState<'random' | 'custom'>('custom');
+  const [mode, setMode] = useState<'random' | 'custom' | 'mock_exam'>('custom');
+  const [mockExamPreset, setMockExamPreset] = useState<'abfm' | 'ite'>('abfm');
+  const [iteSourceYear, setIteSourceYear] = useState<string>('2025');
   const [pool, setPool] = useState<'all' | 'unused' | 'incorrect' | 'flagged'>('all');
   const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
@@ -167,9 +183,27 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
       }
     }
     setShowErrors(false);
+
+    if (mode === 'mock_exam') {
+      const isAbfm = mockExamPreset === 'abfm';
+      onStart({
+        years: isAbfm ? recentYears : (iteSourceYear === 'unused' ? recentYears : [iteSourceYear]),
+        categories: [],
+        count: isAbfm ? 300 : 200,
+        pool: isAbfm ? 'all' : (iteSourceYear === 'unused' ? 'unused' : 'all'),
+        timerEnabled: true,
+        isMockExam: true,
+        mockExamType: mockExamPreset,
+        sectionsCount: 4,
+        questionsPerSection: isAbfm ? 75 : 50,
+        timePerSectionMinutes: isAbfm ? 95 : 63,
+        pooledBreakMinutes: isAbfm ? 100 : 45,
+        topic: isAbfm ? 'ABFM Board Exam Simulation' : `ITE ${iteSourceYear === 'unused' ? 'Mix' : iteSourceYear} Mock Exam`,
+      });
+      return;
+    }
+
     onStart({
-      // Mixed Review always uses the recent-N window (residents who want older content
-      // must switch to Custom and explicitly opt in via the legacy toggle below).
       years: mode === 'random' ? recentYears : selectedYears,
       categories: mode === 'random' ? [] : selectedCategories,
       count: qCount,
@@ -179,6 +213,18 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
   };
 
   const availableCount = useMemo(() => {
+    if (mode === 'mock_exam') {
+      if (mockExamPreset === 'abfm') {
+        return allQuestions.length; // 600 total questions
+      } else {
+        if (iteSourceYear === 'unused') {
+          const attemptedIds = new Set(userAttempts.map(a => a.question_id));
+          return allQuestions.filter(q => !attemptedIds.has(q.id)).length;
+        }
+        return allQuestions.filter(q => q.year === iteSourceYear).length;
+      }
+    }
+
     let qList = allQuestions;
 
     // 1. Filter by Pool
@@ -186,7 +232,6 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
       const attemptedIds = new Set(userAttempts.map(a => a.question_id));
       qList = qList.filter(q => !attemptedIds.has(q.id));
     } else if (pool === 'incorrect') {
-      // Find questions where the most recent attempt (or any attempt in this logic) was incorrect
       const incorrectIds = new Set(userAttempts.filter(a => !a.is_correct).map(a => a.question_id));
       qList = qList.filter(q => incorrectIds.has(q.id));
     }
@@ -213,7 +258,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
     }
 
     return qList.length;
-  }, [allQuestions, userAttempts, pool, mode, selectedYears, selectedCategories, recentYears]);
+  }, [allQuestions, userAttempts, pool, mode, mockExamPreset, iteSourceYear, selectedYears, selectedCategories, recentYears]);
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 dark:bg-slate-950 flex items-stretch sm:items-center justify-center sm:p-6 font-sans text-slate-800 dark:text-slate-100 transition-colors">
@@ -243,26 +288,160 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
               {/* Mode Toggle */}
               <div className="bg-white dark:bg-slate-900/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">1. Quiz Type</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     onClick={() => setMode('random')}
-                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 font-bold text-sm transition-all gap-2 ${mode === 'random' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500'}`}
+                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 font-bold text-sm transition-all gap-1.5 ${mode === 'random' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500'}`}
                   >
-                    <Shuffle className="w-6 h-6" />
-                    Quick Mixed Review
-                    <span className={`text-[10px] font-normal ${mode === 'random' ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>Pull from all topics &amp; years</span>
+                    <Shuffle className="w-5 h-5" />
+                    Quick Mixed
+                    <span className={`text-[10px] font-normal ${mode === 'random' ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'}`}>All topics &amp; years</span>
                   </button>
                   <button
                     onClick={() => setMode('custom')}
-                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 font-bold text-sm transition-all gap-2 ${mode === 'custom' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500'}`}
+                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 font-bold text-sm transition-all gap-1.5 ${mode === 'custom' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500'}`}
                   >
-                    <Sliders className="w-6 h-6" />
+                    <Sliders className="w-5 h-5" />
                     Custom Filters
-                    <span className={`text-[10px] font-normal ${mode === 'custom' ? 'text-indigo-100' : 'text-slate-400 dark:text-slate-500'}`}>Pick specific topics &amp; years</span>
+                    <span className={`text-[10px] font-normal ${mode === 'custom' ? 'text-indigo-100' : 'text-slate-400 dark:text-slate-500'}`}>Pick topics &amp; count</span>
+                  </button>
+                  <button
+                    onClick={() => setMode('mock_exam')}
+                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 font-bold text-sm transition-all gap-1.5 relative overflow-hidden ${mode === 'mock_exam' ? 'bg-gradient-to-br from-amber-500 to-amber-600 text-white border-amber-600 shadow-md' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400 dark:hover:border-amber-500'}`}
+                  >
+                    <span className="absolute top-1 right-2 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/80 dark:text-amber-200">New</span>
+                    <Trophy className="w-5 h-5 text-amber-300" />
+                    Mock Exam
+                    <span className={`text-[10px] font-normal ${mode === 'mock_exam' ? 'text-amber-100' : 'text-slate-400 dark:text-slate-500'}`}>ABFM 300Q / ITE 200Q</span>
                   </button>
                 </div>
               </div>
 
+              {/* MOCK EXAM SIMULATION CONFIGURATION */}
+              {mode === 'mock_exam' ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* Preset Choice */}
+                  <div className="bg-white dark:bg-slate-900/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                    <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">2. Choose Simulation Format</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {/* ABFM Certification Exam */}
+                      <button
+                        type="button"
+                        onClick={() => setMockExamPreset('abfm')}
+                        className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between ${mockExamPreset === 'abfm' ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-500 dark:border-amber-500 shadow-md' : 'bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-amber-300'}`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-full bg-amber-500 text-white">
+                              Board Exam
+                            </span>
+                            <span className="text-xs font-bold text-slate-400">PGY-3 &amp; Graduating</span>
+                          </div>
+                          <h4 className="text-base font-black text-slate-900 dark:text-white mb-1">ABFM Initial Certification</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                            Full board exam conditions with 4 sections of 75 questions and shared break time.
+                          </p>
+                        </div>
+                        <div className="pt-3 border-t border-slate-200/60 dark:border-slate-700/60 grid grid-cols-3 gap-2 text-center text-[11px] font-bold">
+                          <div>
+                            <span className="block text-base font-black text-amber-600 dark:text-amber-400">300</span>
+                            <span className="text-[10px] text-slate-400 uppercase">Questions</span>
+                          </div>
+                          <div>
+                            <span className="block text-base font-black text-slate-700 dark:text-slate-200">4 × 95m</span>
+                            <span className="text-[10px] text-slate-400 uppercase">Sections</span>
+                          </div>
+                          <div>
+                            <span className="block text-base font-black text-emerald-600 dark:text-emerald-400">100m</span>
+                            <span className="text-[10px] text-slate-400 uppercase">Pooled Break</span>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* ITE Exam */}
+                      <button
+                        type="button"
+                        onClick={() => setMockExamPreset('ite')}
+                        className={`p-4 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between ${mockExamPreset === 'ite' ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-500 dark:border-indigo-500 shadow-md' : 'bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 hover:border-indigo-300'}`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-full bg-indigo-600 text-white">
+                              In-Training Exam
+                            </span>
+                            <span className="text-xs font-bold text-slate-400">PGY-1 to PGY-3</span>
+                          </div>
+                          <h4 className="text-base font-black text-slate-900 dark:text-white mb-1">ABFM In-Training Exam (ITE)</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                            October exam simulation with 4 sections of 50 questions and structured break periods.
+                          </p>
+                        </div>
+                        <div className="pt-3 border-t border-slate-200/60 dark:border-slate-700/60 grid grid-cols-3 gap-2 text-center text-[11px] font-bold">
+                          <div>
+                            <span className="block text-base font-black text-indigo-600 dark:text-indigo-400">200</span>
+                            <span className="text-[10px] text-slate-400 uppercase">Questions</span>
+                          </div>
+                          <div>
+                            <span className="block text-base font-black text-slate-700 dark:text-slate-200">4 × 63m</span>
+                            <span className="text-[10px] text-slate-400 uppercase">Sections</span>
+                          </div>
+                          <div>
+                            <span className="block text-base font-black text-emerald-600 dark:text-emerald-400">45m</span>
+                            <span className="text-[10px] text-slate-400 uppercase">Pooled Break</span>
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* If ITE, allow source selection */}
+                  {mockExamPreset === 'ite' && (
+                    <div className="bg-white dark:bg-slate-900/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                      <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">3. Question Source</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {[
+                          { id: '2025', label: '2025 ITE (Latest)', desc: '200 Questions' },
+                          { id: '2024', label: '2024 ITE', desc: '200 Questions' },
+                          { id: '2023', label: '2023 ITE', desc: '200 Questions' },
+                          { id: 'unused', label: 'Unused Mix', desc: 'Fresh Questions' },
+                        ].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setIteSourceYear(opt.id)}
+                            className={`p-3 rounded-xl border-2 text-center font-bold text-xs transition-all ${iteSourceYear === opt.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300'}`}
+                          >
+                            <span className="block">{opt.label}</span>
+                            <span className={`text-[10px] font-normal ${iteSourceYear === opt.id ? 'text-indigo-100' : 'text-slate-400 dark:text-slate-500'}`}>{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Official Testing Conditions Card */}
+                  <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-950/40 dark:via-amber-950/20 p-5 rounded-2xl border border-amber-200 dark:border-amber-800/60">
+                    <div className="flex items-start gap-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                        <ShieldAlert className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                          Standard Exam Simulation Rules
+                        </h4>
+                        <ul className="list-disc list-inside space-y-1 text-slate-600 dark:text-slate-400">
+                          <li><strong>4 Timed Sections:</strong> Once you complete and submit a section, it is locked. You cannot return to change answers.</li>
+                          <li><strong>Pooled Break Time:</strong> Use your break bank ({mockExamPreset === 'abfm' ? '100' : '45'} minutes) across sections as you choose.</li>
+                          <li><strong>Emergency Pause Available:</strong> If an urgent situation arises or your battery is dying, you can use the "Break Glass" Emergency Pause to save your exact clock and resume later.</li>
+                          <li><strong>Detailed Score Report:</strong> Full explanations, section-by-section breakdown, and passing benchmarks unlock upon final completion.</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {mode !== 'mock_exam' && (<>
               {/* Question Bank Selection */}
               <div className="bg-white dark:bg-slate-900/60 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
                 <label className="block text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">2. Question Bank</label>
@@ -424,9 +603,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
                   </span>
                 </div>
               </div>
-
-
-
+              </>)}
             </div>
           )}
 
@@ -443,10 +620,21 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
             
             <button
               onClick={handleGenerate}
-              disabled={loading || allQuestions.length === 0 || availableCount < qCount}
-              className={`w-full py-4 text-white font-black rounded-2xl shadow-xl transition-all text-lg disabled:opacity-50 flex items-center justify-center gap-2 ${mode === 'random' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+              disabled={loading || allQuestions.length === 0 || (mode !== 'mock_exam' && availableCount < qCount)}
+              className={`w-full py-4 text-white font-black rounded-2xl shadow-xl transition-all text-lg disabled:opacity-50 flex items-center justify-center gap-2 ${
+                mode === 'mock_exam'
+                  ? 'bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 hover:from-amber-600 hover:to-amber-800 shadow-amber-200 dark:shadow-none'
+                  : mode === 'random'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
             >
-              {mode === 'random' ? (
+              {mode === 'mock_exam' ? (
+                <>
+                  <Trophy className="w-6 h-6 text-amber-200" />
+                  {mockExamPreset === 'abfm' ? 'Launch 300-Question ABFM Board Simulation' : 'Launch 200-Question ITE Mock Exam'}
+                </>
+              ) : mode === 'random' ? (
                 <>
                   <Shuffle className="w-5 h-5" />
                   Generate Mixed Review

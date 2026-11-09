@@ -39,6 +39,14 @@ interface ActiveQuizState {
   forceNew?: boolean;
   isStreakSaver?: boolean;
   streakSaverMeta?: any;
+  isMockExam?: boolean;
+  mockExamType?: 'abfm' | 'ite';
+  mockExamConfig?: {
+    sectionsCount: number;
+    questionsPerSection: number;
+    timePerSectionMinutes: number;
+    pooledBreakMinutes: number;
+  };
 }
 
 export default function Home() {
@@ -399,6 +407,9 @@ export default function Home() {
             timerEnabled={activeQuiz.timerEnabled}
             forceNew={activeQuiz.forceNew}
             currentBlock={currentBlock}
+            isMockExam={activeQuiz.isMockExam}
+            mockExamType={activeQuiz.mockExamType}
+            mockExamConfig={activeQuiz.mockExamConfig}
             onComplete={async (resultData?: any) => {
               if (activeQuiz.isStreakSaver && user) {
                 const meta = activeQuiz.streakSaverMeta;
@@ -481,13 +492,21 @@ export default function Home() {
             onStart={(config) => {
               setShowBuilder(false);
               setActiveQuiz({
-                topic: 'Mixed Review Block',
+                topic: config.topic || (config.isMockExam ? (config.mockExamType === 'abfm' ? 'ABFM Board Exam Simulation' : 'ITE Mock Exam Simulation') : 'Mixed Review Block'),
                 categories: config.categories.length > 0 ? config.categories : undefined,
                 years: config.years.length > 0 ? config.years : undefined,
                 count: config.count,
                 pool: config.pool as 'all' | 'incorrect' | 'unused',
                 timerEnabled: config.timerEnabled,
                 forceNew: true,
+                isMockExam: config.isMockExam,
+                mockExamType: config.mockExamType,
+                mockExamConfig: config.isMockExam ? {
+                  sectionsCount: config.sectionsCount || 4,
+                  questionsPerSection: config.questionsPerSection || (config.mockExamType === 'abfm' ? 75 : 50),
+                  timePerSectionMinutes: config.timePerSectionMinutes || (config.mockExamType === 'abfm' ? 95 : 63),
+                  pooledBreakMinutes: config.pooledBreakMinutes || (config.mockExamType === 'abfm' ? 100 : 45),
+                } : undefined,
               });
             }}
             onCancel={() => setShowBuilder(false)}

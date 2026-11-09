@@ -11,7 +11,9 @@ import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { getTodayDateString, isPastNoon } from '@/lib/qotd';
 import { getEasternDateString, isPastNoonEastern, getEasternTzAbbreviation } from '@/lib/timezone';
-import { processGamification } from '@/lib/gamification';
+import { processGamification, awardMockExamBadges } from '@/lib/gamification';
+import BreakLounge from './BreakLounge';
+import { Shield, AlertTriangle, Coffee, Play } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import {
@@ -43,6 +45,14 @@ interface QuizEngineProps {
   timerEnabled?: boolean;
   forceNew?: boolean;
   currentBlock?: any;
+  isMockExam?: boolean;
+  mockExamType?: 'abfm' | 'ite';
+  mockExamConfig?: {
+    sectionsCount: number;
+    questionsPerSection: number;
+    timePerSectionMinutes: number;
+    pooledBreakMinutes: number;
+  };
   onComplete: (results: any) => void;
   onCancel: () => void;
 }
@@ -52,7 +62,29 @@ const FONT_SIZES = [14, 16, 18, 20, 22, 24];
 const DEFAULT_FONT_INDEX = 1; // 16px
 const EMPTY_ARRAY: any[] = [];
 
-export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted, qotdAttempt, quizId, topic, questionIds, categories, keywords, years, pool = 'all', count = 40, timerEnabled = false, forceNew = false, currentBlock, onComplete, onCancel }: QuizEngineProps) {
+export default function QuizEngine({
+  user,
+  isQotd,
+  qotdQuestion,
+  isQotdCompleted,
+  qotdAttempt,
+  quizId,
+  topic,
+  questionIds,
+  categories,
+  keywords,
+  years,
+  pool = 'all',
+  count = 40,
+  timerEnabled = false,
+  forceNew = false,
+  currentBlock,
+  isMockExam = false,
+  mockExamType,
+  mockExamConfig,
+  onComplete,
+  onCancel,
+}: QuizEngineProps) {
   const queryClient = useQueryClient();
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -83,6 +115,26 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [newBadgesEarned, setNewBadgesEarned] = useState(false);
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+
+  // Mock Exam Parameters & Section States
+  const isMock = Boolean(isMockExam);
+  const mockSectionsCount = mockExamConfig?.sectionsCount || 4;
+  const mockQuestionsPerSection = mockExamConfig?.questionsPerSection || (mockExamType === 'abfm' ? 75 : 50);
+  const mockTimePerSectionSec = (mockExamConfig?.timePerSectionMinutes || (mockExamType === 'abfm' ? 95 : 63)) * 60;
+  const mockTotalPooledBreakSec = (mockExamConfig?.pooledBreakMinutes || (mockExamType === 'abfm' ? 100 : 45)) * 60;
+
+  const [currentSection, setCurrentSection] = useState<number>(1);
+  const [sectionTimeLeft, setSectionTimeLeft] = useState<number>(mockTimePerSectionSec);
+  const [pooledBreakTimeLeft, setPooledBreakTimeLeft] = useState<number>(mockTotalPooledBreakSec);
+  const [isBreakActive, setIsBreakActive] = useState<boolean>(false);
+  const [showSectionLockModal, setShowSectionLockModal] = useState<boolean>(false);
+  const [showEmergencyPauseModal, setShowEmergencyPauseModal] = useState<boolean>(false);
+  const [sectionSummaries, setSectionSummaries] = useState<any[]>([]);
+
+  const sectionStartIndex = isMock ? (currentSection - 1) * mockQuestionsPerSection : 0;
+  const sectionEndIndex = isMock
+    ? Math.min(questions.length, currentSection * mockQuestionsPerSection) - 1
+    : questions.length - 1;
 
   const confettiFiredRef = useRef(false);
 
@@ -350,6 +402,23 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               }
             }
             
+            if (isMock) {
+              setMode('quiz');
+              setIsTimed(true);
+              const mockStorageKey = `fmc_mock_state_${user.id}_${sData.id || topicLabel}`;
+              try {
+                const localSaved = localStorage.getItem(mockStorageKey);
+                if (localSaved) {
+                  const parsed = JSON.parse(localSaved);
+                  if (parsed.currentSection) setCurrentSection(parsed.currentSection);
+                  if (parsed.sectionTimeLeft !== undefined) setSectionTimeLeft(parsed.sectionTimeLeft);
+                  if (parsed.pooledBreakTimeLeft !== undefined) setPooledBreakTimeLeft(parsed.pooledBreakTimeLeft);
+                  if (parsed.isBreakActive !== undefined) setIsBreakActive(parsed.isBreakActive);
+                  if (parsed.sectionSummaries) setSectionSummaries(parsed.sectionSummaries);
+                }
+              } catch {}
+            }
+
             if (sData.questions && Array.isArray(sData.questions) && sData.questions.length > 0) {
               setQuestions(sData.questions);
               setLoading(false);
@@ -439,11 +508,17 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
         // Fetch a pool, sorted by year DESC (ITE Priority).
         // Fixed blocks: fetch all assigned IDs (no extra buffer needed).
+        const targetCount = isMock
+          ? mockSectionsCount * mockQuestionsPerSection
+          : (isFixedBlock ? questionIds!.length : count);
+
         const fetchLimit = isDemo
           ? 3
           : isFixedBlock
             ? questionIds!.length
-            : (pool === 'unused' ? count : count * 3); // Unused pool now gets exact count from RPC
+            : isMock
+              ? targetCount * 2
+              : (pool === 'unused' ? count : count * 3);
 
         let finalPool: any[] = [];
 
@@ -460,6 +535,23 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           )) as any;
           if (qError) throw qError;
           finalPool = qData || [];
+
+          if (isMock && finalPool.length < targetCount) {
+            const existingIds = new Set(finalPool.map((q: any) => q.id));
+            let fillQuery = supabase.from('questions').select('*').neq('year', 'Demo').neq('category', 'Demo');
+            if (years && years.length > 0) fillQuery = fillQuery.in('year', years);
+            if (categories && categories.length > 0) fillQuery = fillQuery.in('category', categories);
+            const { data: fillData } = await withTimeout(fillQuery.limit(targetCount * 2)) as any;
+            if (fillData) {
+              for (const q of fillData) {
+                if (!existingIds.has(q.id)) {
+                  finalPool.push(q);
+                  existingIds.add(q.id);
+                  if (finalPool.length >= targetCount) break;
+                }
+              }
+            }
+          }
         } else {
           // Legacy pathway for incorrect, all, demo, fixed blocks
           let dbQuery = query.order('year', { ascending: false }).limit(fetchLimit);
@@ -486,7 +578,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
 
         // For fixed blocks every resident takes the full assigned set; the only randomness
         // is the order of delivery. For other quiz types we still take the top N newest, then shuffle.
-        const selected = isFixedBlock ? finalPool : finalPool.slice(0, count);
+        const selected = (isFixedBlock || isMock) ? finalPool.slice(0, targetCount) : finalPool.slice(0, count);
         
         // Fisher-Yates shuffle (uniform shuffle)
         const shuffled = [...selected];
@@ -496,7 +588,16 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         }
         
         setQuestions(shuffled);
-        setTimeLeft(selected.length * secondsPerQuestion);
+        if (isMock) {
+          setMode('quiz');
+          setIsTimed(true);
+          setCurrentSection(1);
+          setSectionTimeLeft(mockTimePerSectionSec);
+          setPooledBreakTimeLeft(mockTotalPooledBreakSec);
+          setTimeLeft(mockTimePerSectionSec);
+        } else {
+          setTimeLeft(selected.length * secondsPerQuestion);
+        }
 
         if (!sData) {
           const { data: newSession, error: insertError } = (await withTimeout(
@@ -551,6 +652,11 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
     questionIds,
     fetchPeerComparison,
     secondsPerQuestion,
+    isMock,
+    mockQuestionsPerSection,
+    mockSectionsCount,
+    mockTimePerSectionSec,
+    mockTotalPooledBreakSec,
   ]);
 
   const syncProgress = useCallback(async () => {
@@ -595,15 +701,38 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // Quiz mode where answers are hidden until the end, so the timer runs normally.)
   const reviewingExplanation = !isQotd && mode === 'practice' && answers[currentIndex] !== undefined;
 
-  // Timer countdown — stops at 0, turns red as warning. Pauses while reviewing an
-  // explanation so reading it never counts against the resident's time.
+  // Timer countdown for standard quizzes
   useEffect(() => {
-    if (showResults || !isTimed || reviewingExplanation) return;
+    if (isMock || showResults || !isTimed || reviewingExplanation) return;
     const interval = setInterval(() => {
       setTimeLeft(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
-  }, [showResults, isTimed, reviewingExplanation]);
+  }, [isMock, showResults, isTimed, reviewingExplanation]);
+
+  // Section Timer for Mock Exam
+  useEffect(() => {
+    if (!isMock || isBreakActive || !started || showResults || showEmergencyPauseModal || showSectionLockModal) return;
+    const interval = setInterval(() => {
+      setSectionTimeLeft(prev => {
+        if (prev <= 1) {
+          setShowSectionLockModal(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isMock, isBreakActive, started, showResults, showEmergencyPauseModal, showSectionLockModal]);
+
+  // Pooled Break Timer for Mock Exam (Break Lounge)
+  useEffect(() => {
+    if (!isMock || !isBreakActive || showResults || showEmergencyPauseModal) return;
+    const interval = setInterval(() => {
+      setPooledBreakTimeLeft(prev => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isMock, isBreakActive, showResults, showEmergencyPauseModal]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -816,6 +945,36 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
         }
       }
 
+      // Award Mock Exam Badges if completing an ABFM or ITE simulation
+      if (isMock) {
+        awardMockExamBadges(user.id, {
+          isAbfm: mockExamType === 'abfm',
+          isIte: mockExamType === 'ite',
+          score,
+          total: questions.length,
+          percentage: result.percentage,
+          breakTimePositive: pooledBreakTimeLeft > 0,
+        }).then((newlyAwarded) => {
+          if (newlyAwarded && newlyAwarded.length > 0) {
+            setNewBadgesEarned(true);
+            try {
+              const existingRecent = JSON.parse(localStorage.getItem('recent_badges') || '[]');
+              const combined = [...existingRecent, ...newlyAwarded];
+              const uniqueMap = new Map();
+              combined.forEach((b: any) => uniqueMap.set(b.id || b.name, b));
+              localStorage.setItem('recent_badges', JSON.stringify(Array.from(uniqueMap.values())));
+            } catch (e) {
+              console.warn('Failed to save recent mock badges:', e);
+            }
+          }
+        }).catch((e) => console.warn('Mock exam badge award failed:', e));
+
+        try {
+          const mockStorageKey = `fmc_mock_state_${user.id}_${sessionId || topicLabel}`;
+          localStorage.removeItem(mockStorageKey);
+        } catch {}
+      }
+
       // Process Gamification (Streaks & Badges) — best-effort and detached so it
       // never blocks the results screen. Bounded by withTimeout so a hung query
       // can't leave a dangling promise, and .catch swallows any failure.
@@ -928,9 +1087,144 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   // Flush latest state to quiz_sessions BEFORE leaving — the 3s debounce sync
   // gets cancelled on unmount, so without this the user's last few actions
   // (answer changes, navigation) silently disappear if they exit quickly.
+  const handleLockSection = async () => {
+    setShowSectionLockModal(false);
+
+    // Calculate performance for the section just completed
+    const secQuestions = questions.slice(sectionStartIndex, sectionEndIndex + 1);
+    const secScore = secQuestions.reduce((acc, q, idx) => {
+      const globalIdx = sectionStartIndex + idx;
+      return acc + (answers[globalIdx] === q.correct_index ? 1 : 0);
+    }, 0);
+    const secTotal = secQuestions.length;
+    const secPct = secTotal > 0 ? (secScore / secTotal) * 100 : 0;
+    const timeSpent = Math.max(0, mockTimePerSectionSec - sectionTimeLeft);
+
+    const summary = {
+      sectionIndex: currentSection,
+      score: secScore,
+      total: secTotal,
+      percentage: Math.round(secPct * 10) / 10,
+      timeSpentSeconds: timeSpent,
+    };
+
+    const updatedSummaries = [...sectionSummaries, summary];
+    setSectionSummaries(updatedSummaries);
+
+    // Intermediate database save of completed section's attempts
+    const sectionAttempts = secQuestions.map((q, idx) => {
+      const globalIdx = sectionStartIndex + idx;
+      return {
+        user_id: user.id,
+        question_id: q.id,
+        is_correct: answers[globalIdx] === q.correct_index,
+        selected_index: answers[globalIdx] ?? null,
+      };
+    });
+
+    try {
+      await supabase.from('question_attempts').insert(sectionAttempts);
+    } catch (err) {
+      console.warn('Failed intermediate question_attempts save:', err);
+    }
+
+    if (currentSection < mockSectionsCount) {
+      setIsBreakActive(true);
+      setSectionTimeLeft(mockTimePerSectionSec);
+      const nextIndex = currentSection * mockQuestionsPerSection;
+      setCurrentIndex(nextIndex);
+
+      const mockStorageKey = `fmc_mock_state_${user.id}_${sessionId || topic || 'mock_exam'}`;
+      try {
+        localStorage.setItem(mockStorageKey, JSON.stringify({
+          currentSection: currentSection + 1,
+          sectionTimeLeft: mockTimePerSectionSec,
+          pooledBreakTimeLeft,
+          isBreakActive: true,
+          sectionSummaries: updatedSummaries,
+        }));
+      } catch {}
+    } else {
+      // Final section complete — submit overall exam
+      submitQuiz(true);
+    }
+  };
+
+  const handleEndBreak = () => {
+    setIsBreakActive(false);
+    const nextSec = currentSection + 1;
+    setCurrentSection(nextSec);
+    setCurrentIndex((nextSec - 1) * mockQuestionsPerSection);
+    setSectionTimeLeft(mockTimePerSectionSec);
+
+    const mockStorageKey = `fmc_mock_state_${user.id}_${sessionId || topic || 'mock_exam'}`;
+    try {
+      localStorage.setItem(mockStorageKey, JSON.stringify({
+        currentSection: nextSec,
+        sectionTimeLeft: mockTimePerSectionSec,
+        pooledBreakTimeLeft,
+        isBreakActive: false,
+        sectionSummaries,
+      }));
+    } catch {}
+  };
+
+  const handleEmergencyFreeze = async () => {
+    setShowEmergencyPauseModal(false);
+    setResumingLater(true);
+
+    const mockStorageKey = `fmc_mock_state_${user.id}_${sessionId || topic || 'mock_exam'}`;
+    try {
+      localStorage.setItem(mockStorageKey, JSON.stringify({
+        currentSection,
+        sectionTimeLeft,
+        pooledBreakTimeLeft,
+        isBreakActive,
+        sectionSummaries,
+      }));
+    } catch {}
+
+    saveOfflineSession(sessionId || topic || 'active_quiz', {
+      sessionId: sessionId || undefined,
+      topic,
+      currentIndex,
+      answers,
+      timeLeft: sectionTimeLeft,
+      lastUpdated: new Date().toISOString(),
+    });
+
+    try {
+      if (sessionId) {
+        await supabase.from('quiz_sessions').update({
+          current_index: currentIndex,
+          answers,
+          time_left: sectionTimeLeft,
+          last_updated: new Date().toISOString(),
+        }).eq('id', sessionId);
+      }
+    } catch (err) {
+      console.warn('Failed to freeze mock session in cloud:', err);
+    }
+
+    onCancel();
+  };
+
   const handleResumeLater = async () => {
     if (resumingLater) return;
     setResumingLater(true);
+
+    if (isMock) {
+      const mockStorageKey = `fmc_mock_state_${user.id}_${sessionId || topic || 'mock_exam'}`;
+      try {
+        localStorage.setItem(mockStorageKey, JSON.stringify({
+          currentSection,
+          sectionTimeLeft,
+          pooledBreakTimeLeft,
+          isBreakActive,
+          sectionSummaries,
+        }));
+      } catch {}
+    }
 
     // Always mirror to offline backup first
     saveOfflineSession(sessionId || topic || 'active_quiz', {
@@ -938,7 +1232,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       topic,
       currentIndex,
       answers,
-      timeLeft,
+      timeLeft: isMock ? sectionTimeLeft : timeLeft,
       lastUpdated: new Date().toISOString(),
     });
 
@@ -1224,6 +1518,7 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   stagedAnswers={{}}
                   viewedQuestions={new Set()}
                   reviewMode={true}
+                  flaggedQuestionIds={flaggedIds}
                   questions={questions}
                   onSelect={(idx) => {
                     const isCorrect = answers[idx] === questions[idx].correct_index;
@@ -1516,12 +1811,14 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   Review Questions &amp; Explanations
                 </h3>
               </div>
-              <QuizReview items={
-                questions.map((q: any, idx: number) => ({
+              <QuizReview
+                items={questions.map((q: any, idx: number) => ({
                   question: q,
                   selected: answers[idx]
-                }))
-              } />
+                }))}
+                sectionSummaries={isMock && sectionSummaries.length > 0 ? sectionSummaries : undefined}
+                questionsPerSection={isMock ? mockQuestionsPerSection : undefined}
+              />
             </div>
           )}
 
@@ -1626,9 +1923,91 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
   const answeredCount = Object.keys(answers).length;
   const isTimeLow = timeLeft > 0 && timeLeft < 300;
 
+  // Break Lounge screen during mock exam intermissions
+  if (isMock && isBreakActive) {
+    return (
+      <BreakLounge
+        completedSection={currentSection}
+        totalSections={mockSectionsCount}
+        pooledBreakTimeLeft={pooledBreakTimeLeft}
+        nextSectionQuestionsCount={mockQuestionsPerSection}
+        nextSectionTimeMinutes={mockExamConfig?.timePerSectionMinutes || (mockExamType === 'abfm' ? 95 : 63)}
+        onEndBreak={handleEndBreak}
+        onEmergencyPause={() => setShowEmergencyPauseModal(true)}
+      />
+    );
+  }
+
   // Pre-start screen: choose Practice vs Quiz before a non-QOTD, non-demo quiz begins.
   if (!isQotd && !((topic || '').toLowerCase().includes('demo')) && !started && currentQuestion) {
     const hasProgress = sessionId !== null;
+
+    if (isMock) {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-lg w-full space-y-6 animate-fade-in transition-colors">
+            <div className="text-center">
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 mb-2">
+                Prometric Testing Simulation
+              </span>
+              <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 leading-tight">
+                {mockExamType === 'abfm' ? 'ABFM Board Certification Exam Simulation' : 'ABFM In-Training Examination (ITE) Simulation'}
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">
+                {questions.length} questions across {mockSectionsCount} timed sections
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-left">
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Sections</div>
+                <div className="text-base font-black text-slate-800 dark:text-slate-100">{mockSectionsCount} Blocks</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">{mockQuestionsPerSection} Qs / block</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Block Pace</div>
+                <div className="text-base font-black text-slate-800 dark:text-slate-100">{mockExamConfig?.timePerSectionMinutes || (mockExamType === 'abfm' ? 95 : 63)} min</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">76s / question pace</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Break Bank</div>
+                <div className="text-base font-black text-slate-800 dark:text-slate-100">{mockExamConfig?.pooledBreakMinutes || (mockExamType === 'abfm' ? 100 : 45)} min</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Pooled between sections</div>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60">
+                <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Section Locking</div>
+                <div className="text-base font-black text-slate-800 dark:text-slate-100">Strict Lock</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">No return after lock</div>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/60 rounded-2xl p-4 text-xs text-amber-900 dark:text-amber-200 space-y-1.5 leading-relaxed">
+              <div className="font-black flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-amber-600 shrink-0" /> Exam Conditions Active
+              </div>
+              <p>
+                Answers and explanations are strictly hidden until the entire 4-section exam is finished. If your device battery is running low or an emergency occurs, use the <strong>Emergency Pause</strong> button in the top toolbar to safely freeze your exam clocks and progress.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setStarted(true)}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Play className="w-5 h-5 fill-current" />
+              {currentSection > 1 ? `Resume Section ${currentSection} of ${mockSectionsCount}` : `Launch Section 1 of ${mockSectionsCount}`}
+            </button>
+
+            <button
+              onClick={onCancel}
+              className="w-full py-2 text-slate-400 font-bold text-sm hover:text-slate-600 dark:hover:text-slate-200 transition-all cursor-pointer"
+            >
+              Exit to Dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     if (showAbandonConfirm) {
       return (
@@ -1762,36 +2141,69 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
               {resumingLater ? <Loader2 className="w-6 h-6 animate-spin pointer-events-none" /> : <ChevronLeft className="w-6 h-6 pointer-events-none" />}
             </button>
             <div>
-              <h2 className="font-black text-slate-800 dark:text-slate-100 leading-tight truncate max-w-[200px] md:max-w-none">{topic || 'FMC Board Review'}</h2>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-400 dark:text-slate-500">
-                {isTimed && (
+              <div className="flex items-center gap-2">
+                <h2 className="font-black text-slate-800 dark:text-slate-100 leading-tight truncate max-w-[200px] md:max-w-none">
+                  {topic || (mockExamType === 'abfm' ? 'ABFM Simulation' : 'ITE Simulation')}
+                </h2>
+                {isMock && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                    Section {currentSection} of {mockSectionsCount}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
+                {isMock ? (
                   <>
-                    <Clock className={`w-3 h-3 ${reviewingExplanation ? 'text-amber-500' : isTimeLow ? 'text-red-500' : ''}`} />
-                    <span
-                      className={reviewingExplanation ? 'text-amber-600 dark:text-amber-400 font-black' : isTimeLow ? 'text-red-500 font-black' : ''}
-                      role="timer"
-                      aria-live="polite"
-                      aria-label={reviewingExplanation ? `Timer paused while reviewing — ${formatTime(timeLeft)} remaining` : `${formatTime(timeLeft)} remaining`}
-                    >
-                      {formatTime(timeLeft)}{reviewingExplanation ? ' (paused)' : ''}
+                    <Clock className={`w-3 h-3 ${sectionTimeLeft < 300 ? 'text-red-500' : 'text-indigo-500'}`} />
+                    <span className={sectionTimeLeft < 300 ? 'text-red-500 font-black' : 'text-slate-700 dark:text-slate-200 font-bold'}>
+                      Section: {formatTime(sectionTimeLeft)}
                     </span>
                     <span className="opacity-30">·</span>
+                    <Coffee className="w-3 h-3 text-amber-500" />
+                    <span className={pooledBreakTimeLeft <= 0 ? 'text-red-500 font-black' : 'text-slate-700 dark:text-slate-200 font-bold'}>
+                      Break Bank: {formatTime(Math.max(0, pooledBreakTimeLeft))}
+                    </span>
+                    <span className="opacity-30">·</span>
+                    <button
+                      onClick={() => setShowNavigator(prev => !prev)}
+                      className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 font-bold"
+                    >
+                      <span>Q {currentIndex + 1 - sectionStartIndex} / {mockQuestionsPerSection}</span>
+                      <span className="text-[10px] opacity-70">({currentIndex + 1}/{questions.length})</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {isTimed && (
+                      <>
+                        <Clock className={`w-3 h-3 ${reviewingExplanation ? 'text-amber-500' : isTimeLow ? 'text-red-500' : ''}`} />
+                        <span
+                          className={reviewingExplanation ? 'text-amber-600 dark:text-amber-400 font-black' : isTimeLow ? 'text-red-500 font-black' : ''}
+                          role="timer"
+                          aria-live="polite"
+                          aria-label={reviewingExplanation ? `Timer paused while reviewing — ${formatTime(timeLeft)} remaining` : `${formatTime(timeLeft)} remaining`}
+                        >
+                          {formatTime(timeLeft)}{reviewingExplanation ? ' (paused)' : ''}
+                        </span>
+                        <span className="opacity-30">·</span>
+                      </>
+                    )}
+                    {isQotd || questions.length <= 1 ? (
+                      <span>Q {currentIndex + 1} / {questions.length}</span>
+                    ) : (
+                      <button 
+                        onClick={() => setShowNavigator(prev => !prev)}
+                        className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 font-bold xl:pointer-events-none"
+                        title="Show question navigator"
+                      >
+                        <span>Q {currentIndex + 1} / {questions.length}</span>
+                        <svg className={`w-3 h-3 xl:hidden transition-transform ${showNavigator ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                    )}
+                    <span className="opacity-30">·</span>
+                    <span>{answeredCount} answered</span>
                   </>
                 )}
-                {isQotd || questions.length <= 1 ? (
-                  <span>Q {currentIndex + 1} / {questions.length}</span>
-                ) : (
-                  <button 
-                    onClick={() => setShowNavigator(prev => !prev)}
-                    className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 font-bold xl:pointer-events-none"
-                    title="Show question navigator"
-                  >
-                    <span>Q {currentIndex + 1} / {questions.length}</span>
-                    <svg className={`w-3 h-3 xl:hidden transition-transform ${showNavigator ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
-                  </button>
-                )}
-                <span className="opacity-30">·</span>
-                <span>{answeredCount} answered</span>
               </div>
             </div>
           </div>
@@ -1818,6 +2230,17 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                 A+
               </button>
             </div>
+
+{isMock && (
+              <button
+                onClick={() => setShowEmergencyPauseModal(true)}
+                className="px-2.5 sm:px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-200/80 dark:border-amber-800/80 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-xs"
+                title="Emergency Pause (Break Glass) — saves your section and break clocks"
+              >
+                <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span className="hidden sm:inline">Emergency Pause</span>
+              </button>
+            )}
 
             {/* Keyboard Shortcuts Trigger */}
             <button
@@ -1857,11 +2280,15 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           <div className="xl:hidden max-w-5xl mx-auto mt-4 relative animate-in fade-in slide-in-from-top-2">
             <div className="absolute top-0 left-0 w-full z-50 md:w-[600px]">
               <QuestionNavigator
-                totalQuestions={questions.length}
+                totalQuestions={isMock ? mockQuestionsPerSection : questions.length}
                 currentIndex={currentIndex}
+                displayOffset={isMock ? sectionStartIndex : 0}
+                sectionLabel={isMock ? `Section ${currentSection} of ${mockSectionsCount}` : undefined}
                 answers={answers}
                 stagedAnswers={stagedAnswers}
                 viewedQuestions={viewedQuestions}
+                flaggedQuestionIds={flaggedIds}
+                questions={questions}
                 onSelect={(idx) => {
                   setCurrentIndex(idx);
                 }}
@@ -1884,11 +2311,15 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           <div className="hidden xl:block absolute top-4 md:top-6 right-[100%] mr-8 w-[280px]">
             <div className="sticky top-32">
               <QuestionNavigator
-                totalQuestions={questions.length}
+                totalQuestions={isMock ? mockQuestionsPerSection : questions.length}
                 currentIndex={currentIndex}
+                displayOffset={isMock ? sectionStartIndex : 0}
+                sectionLabel={isMock ? `Section ${currentSection} of ${mockSectionsCount}` : undefined}
                 answers={answers}
                 stagedAnswers={stagedAnswers}
                 viewedQuestions={viewedQuestions}
+                flaggedQuestionIds={flaggedIds}
+                questions={questions}
                 onSelect={(idx) => setCurrentIndex(idx)}
               />
             </div>
@@ -1912,8 +2343,8 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-100 dark:border-slate-800 p-4 pb-8 md:pb-4 shadow-2xl z-20 transition-colors">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
           <button
-            onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-            disabled={currentIndex === 0}
+            onClick={() => setCurrentIndex(prev => Math.max(sectionStartIndex, prev - 1))}
+            disabled={isMock ? currentIndex === sectionStartIndex : currentIndex === 0}
             className="flex-1 py-4 rounded-2xl font-black text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2 cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5 pointer-events-none" />
@@ -1923,12 +2354,20 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
           {/* Next Unanswered Jump Button */}
           {(() => {
             if (isQotd || questions.length <= 1) return null;
-            const unanswered = questions.filter((_, idx) => answers[idx] === undefined && stagedAnswers[idx] === undefined).length;
+            const effectiveStart = isMock ? sectionStartIndex : 0;
+            const effectiveEnd = isMock ? sectionEndIndex : questions.length - 1;
+            const sectionSlice = questions.slice(effectiveStart, effectiveEnd + 1);
+            const unanswered = sectionSlice.filter((_, idx) => {
+              const gIdx = effectiveStart + idx;
+              return answers[gIdx] === undefined && stagedAnswers[gIdx] === undefined;
+            }).length;
+
             if (unanswered === 0) return null;
 
             let nextUnansweredIndex = -1;
-            for (let i = 1; i < questions.length; i++) {
-              const candidate = (currentIndex + i) % questions.length;
+            const totalInRange = effectiveEnd - effectiveStart + 1;
+            for (let i = 1; i < totalInRange; i++) {
+              const candidate = effectiveStart + ((currentIndex - effectiveStart + i) % totalInRange);
               if (answers[candidate] === undefined && stagedAnswers[candidate] === undefined) {
                 nextUnansweredIndex = candidate;
                 break;
@@ -1973,6 +2412,19 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
                   {submitting ? <Loader2 className="w-5 h-5 animate-spin pointer-events-none" /> : (
                     <>Submit Answer <CheckCircle className="w-5 h-5 pointer-events-none" /></>
                   )}
+                </button>
+              );
+            }
+
+            if (isMock) {
+              const isSectionEnd = currentIndex === sectionEndIndex;
+              return (
+                <button
+                  onClick={isSectionEnd ? () => setShowSectionLockModal(true) : () => setCurrentIndex(prev => Math.min(sectionEndIndex, prev + 1))}
+                  className={`flex-1 py-4 text-white rounded-2xl font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-xl cursor-pointer animate-in fade-in active:scale-95 ${isSectionEnd ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-slate-900 hover:bg-slate-800 shadow-slate-200'}`}
+                >
+                  <span>{isSectionEnd ? (currentSection === mockSectionsCount ? 'Review & Submit Final Exam' : `Submit & Lock Section ${currentSection}`) : 'Next Question'}</span>
+                  <ChevronRight className="w-5 h-5 pointer-events-none" />
                 </button>
               );
             }
@@ -2038,6 +2490,132 @@ export default function QuizEngine({ user, isQotd, qotdQuestion, isQotdCompleted
             >
               Got it
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Section Lock Confirmation Modal */}
+      {showSectionLockModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-lg w-full space-y-6 text-center transition-colors">
+            <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto">
+              <Shield className="w-8 h-8" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+                Prometric Exam Section Lock
+              </span>
+              <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
+                {currentSection === mockSectionsCount ? 'Submit Final Examination?' : `Submit Section ${currentSection} of ${mockSectionsCount}?`}
+              </h2>
+            </div>
+
+            {/* Section Stats Grid */}
+            {(() => {
+              const secQuestions = questions.slice(sectionStartIndex, sectionEndIndex + 1);
+              const answered = secQuestions.filter((_, idx) => answers[sectionStartIndex + idx] !== undefined || stagedAnswers[sectionStartIndex + idx] !== undefined).length;
+              const unanswered = secQuestions.length - answered;
+              const flagged = secQuestions.filter(q => flaggedIds.has(q.id)).length;
+
+              return (
+                <div className="grid grid-cols-3 gap-2 py-2">
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 text-center">
+                    <div className="text-xl font-black text-indigo-600 dark:text-indigo-400">{answered}</div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Answered</div>
+                  </div>
+                  <div className={`p-3 rounded-2xl border text-center ${unanswered > 0 ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-100 dark:border-slate-700/60'}`}>
+                    <div className={`text-xl font-black ${unanswered > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>{unanswered}</div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Unanswered</div>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 text-center">
+                    <div className="text-xl font-black text-red-500">{flagged}</div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">Flagged</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/60 text-left text-xs text-amber-900 dark:text-amber-200 space-y-1">
+              <div className="font-black flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                Irreversible Section Submission
+              </div>
+              <p>
+                Once you submit this section, it will be permanently locked. You will not be able to revisit or modify questions in Section {currentSection}.
+                {currentSection < mockSectionsCount && ' You will enter the Break Lounge with access to your pooled break time.'}
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                onClick={handleLockSection}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-base transition-all shadow-xl shadow-indigo-200 dark:shadow-none flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>{currentSection === mockSectionsCount ? 'Lock Final Section & View Results' : `Confirm & Lock Section ${currentSection}`}</span>
+                <ChevronRight className="w-5 h-5 pointer-events-none" />
+              </button>
+              <button
+                onClick={() => setShowSectionLockModal(false)}
+                className="w-full py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              >
+                Return to Review Questions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Pause (Break Glass) Modal */}
+      {showEmergencyPauseModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full space-y-6 text-center transition-colors">
+            <div className="w-16 h-16 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto">
+              <Shield className="w-8 h-8" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                Break Glass Pause
+              </span>
+              <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
+                Emergency Exam Pause
+              </h2>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed text-left">
+              Standard ABFM and Prometric examinations do not permit pauses during an active block. Use this emergency override only if you need to attend to urgent clinical duties, your battery is dying, or an unexpected interruption occurs.
+            </p>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 text-left text-xs space-y-1">
+              <div className="font-bold text-slate-700 dark:text-slate-300">Frozen Status:</div>
+              <div className="text-slate-500 dark:text-slate-400 flex justify-between">
+                <span>Current Section:</span>
+                <span className="font-black text-slate-800 dark:text-slate-200">Section {currentSection} of {mockSectionsCount}</span>
+              </div>
+              <div className="text-slate-500 dark:text-slate-400 flex justify-between">
+                <span>Section Clock:</span>
+                <span className="font-mono font-black text-slate-800 dark:text-slate-200">{formatTime(sectionTimeLeft)} remaining</span>
+              </div>
+              <div className="text-slate-500 dark:text-slate-400 flex justify-between">
+                <span>Break Bank:</span>
+                <span className="font-mono font-black text-slate-800 dark:text-slate-200">{formatTime(Math.max(0, pooledBreakTimeLeft))} remaining</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <button
+                onClick={handleEmergencyFreeze}
+                disabled={resumingLater}
+                className="w-full py-4 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black text-base transition-all shadow-xl shadow-amber-200 dark:shadow-none flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {resumingLater ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Freeze Exam & Return to Dashboard'}
+              </button>
+              <button
+                onClick={() => setShowEmergencyPauseModal(false)}
+                className="w-full py-3.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              >
+                Resume Testing (Continue Block)
+              </button>
+            </div>
           </div>
         </div>
       )}

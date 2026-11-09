@@ -1659,7 +1659,10 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                     </div>
                   ) : (
                     <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-                      <QuizReview items={reviewItems || []} />
+                      <QuizReview
+                        items={reviewItems || []}
+                        questionsPerSection={selectedQuiz?.total === 300 ? 75 : selectedQuiz?.total === 200 ? 50 : undefined}
+                      />
                     </div>
                   )}
                 </div>
@@ -2262,7 +2265,10 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                       </div>
                     ) : (
                       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
-                        <QuizReview items={reviewItems || []} />
+                        <QuizReview
+                          items={reviewItems || []}
+                          questionsPerSection={selectedQuiz?.total === 300 ? 75 : selectedQuiz?.total === 200 ? 50 : undefined}
+                        />
                       </div>
                     )}
                   </div>
