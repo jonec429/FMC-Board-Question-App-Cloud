@@ -312,6 +312,7 @@ export type Database = {
           options: Json
           question_text: string
           resource_link: string | null
+          secondary_system: string | null
           system: string | null
           year: string | null
         }
@@ -326,6 +327,7 @@ export type Database = {
           options: Json
           question_text: string
           resource_link?: string | null
+          secondary_system?: string | null
           system?: string | null
           year?: string | null
         }
@@ -340,6 +342,7 @@ export type Database = {
           options?: Json
           question_text?: string
           resource_link?: string | null
+          secondary_system?: string | null
           system?: string | null
           year?: string | null
         }

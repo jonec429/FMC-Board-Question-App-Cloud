@@ -64,14 +64,22 @@ export default function MyStatsModal({
   const [showReadinessModal, setShowReadinessModal] = useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = useState(false);
   const [activeTab, setActiveTab] = useState<'stats' | 'readiness' | 'apTracker' | 'achievements' | 'weakAreas' | 'pastQuizzes'>(initialTab || 'stats');
-  const [isSnapshotCollapsed, setIsSnapshotCollapsed] = useState(() => {
-    try {
-      // Default to collapsed unless explicitly expanded by user ('false')
-      return localStorage.getItem('fmc_snapshot_collapsed') !== 'false';
-    } catch {
-      return true;
-    }
-  });
+  const [isSnapshotCollapsed, setIsSnapshotCollapsed] = useState(true);
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showReadinessModal) {
+          setShowReadinessModal(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, showReadinessModal]);
 
   const toggleSnapshotCollapsed = () => {
     setIsSnapshotCollapsed((prev) => {
@@ -521,10 +529,16 @@ export default function MyStatsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-1.5 sm:p-4 animate-fade-in">
-      <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl ${activeTab === 'readiness' ? 'max-w-4xl' : 'max-w-2xl'} w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col transition-all`}>
-        <div className="px-3.5 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start shrink-0">
-          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-1.5 sm:p-4 animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col transition-all"
+      >
+        <div className="px-3.5 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-50 dark:bg-yellow-950/40 rounded-xl flex items-center justify-center shrink-0">
               <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 dark:text-yellow-400" />
             </div>
@@ -572,7 +586,7 @@ export default function MyStatsModal({
         <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 overflow-x-auto no-scrollbar shrink-0 min-h-[40px] sm:min-h-[46px]">
           <button
             onClick={() => setActiveTab('stats')}
-            className={`flex-1 min-w-[82px] sm:min-w-[90px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`shrink-0 px-3.5 sm:px-4 py-2.5 sm:py-3 inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap ${
               activeTab === 'stats' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -582,17 +596,20 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('readiness')}
-            className={`flex-1 min-w-[115px] sm:min-w-[130px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`shrink-0 px-3.5 sm:px-4 py-2.5 sm:py-3 inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap ${
               activeTab === 'readiness'
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
             }`}
           >
-            Board Readiness <span className="text-[9px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded-full ml-0.5">Beta</span>
+            <span>Board Readiness</span>
+            <span className="shrink-0 text-[9px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60 px-1.5 py-0.5 rounded-full">
+              Beta
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('apTracker')}
-            className={`flex-1 min-w-[78px] sm:min-w-[85px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`shrink-0 px-3.5 sm:px-4 py-2.5 sm:py-3 inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap ${
               activeTab === 'apTracker' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -602,7 +619,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('achievements')}
-            className={`flex-1 min-w-[92px] sm:min-w-[100px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`shrink-0 px-3.5 sm:px-4 py-2.5 sm:py-3 inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap ${
               activeTab === 'achievements' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -612,7 +629,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('weakAreas')}
-            className={`flex-1 min-w-[85px] sm:min-w-[95px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`shrink-0 px-3.5 sm:px-4 py-2.5 sm:py-3 inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap ${
               activeTab === 'weakAreas' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -622,7 +639,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
-            className={`flex-1 min-w-[88px] sm:min-w-[95px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`shrink-0 px-3.5 sm:px-4 py-2.5 sm:py-3 inline-flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap ${
               activeTab === 'pastQuizzes'
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -1648,8 +1665,14 @@ export default function MyStatsModal({
       </div>
 
       {showReadinessModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[93vh] sm:max-h-[90vh] animate-fade-in">
+        <div
+          onClick={() => setShowReadinessModal(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-2 sm:p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[93vh] sm:max-h-[90vh] animate-fade-in"
+          >
             {/* Header */}
             <div className="p-3.5 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">

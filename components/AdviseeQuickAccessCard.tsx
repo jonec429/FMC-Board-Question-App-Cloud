@@ -60,15 +60,7 @@ export default function AdviseeQuickAccessCard({
   const [copied, setCopied] = useState(false);
 
   // Persistent collapsed state (defaulting to collapsed / false)
-  const [isExpanded, setIsExpanded] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('fmc_advisee_hub_expanded');
-      if (saved !== null) {
-        return saved === 'true';
-      }
-    }
-    return false;
-  });
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
   const toggleExpanded = () => {
     setIsExpanded((prev) => {
@@ -724,8 +716,14 @@ export default function AdviseeQuickAccessCard({
 
       {/* Advisor Meeting Modal */}
       {meetingModalAdvisee && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in">
-          <div className="bg-slate-900 border border-slate-700 text-white rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4">
+        <div
+          onClick={() => setMeetingModalAdvisee(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-slate-700 text-white rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-amber-400" />

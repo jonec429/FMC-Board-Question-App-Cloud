@@ -41,7 +41,7 @@ export default function QuizReview({
   const [filter, setFilter] = useState<'all' | 'incorrect' | 'correct'>('all');
   const [selectedSection, setSelectedSection] = useState<'all' | number>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [showMatrix, setShowMatrix] = useState<boolean>(true);
+  const [showMatrix, setShowMatrix] = useState<boolean>(false);
 
   const safeItems = useMemo(() => items || [], [items]);
 

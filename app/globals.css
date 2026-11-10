@@ -42,6 +42,44 @@ html.dark body {
 }
 
 /* ==========================================================================
+   SLEEK UNIVERSAL SCROLLBAR SYSTEM
+   Eliminates clunky OS-level scrollbar buttons, arrows, and harsh edges.
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+html.dark ::-webkit-scrollbar-thumb,
+html.midnight ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover,
+html.midnight ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+
+/* ==========================================================================
    TEXT HIGHLIGHTER SYSTEM
    Light mode: Vibrant yellow with dark charcoal font for maximum contrast.
    Dark & Midnight mode: Electric blue with crisp bold white font.

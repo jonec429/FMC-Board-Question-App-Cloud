@@ -71,6 +71,18 @@ export default function QuestionSearchModal({
     }
   }, [isOpen, userId, questions.length]);
 
+  // Handle Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Handle flag toggle
   const handleToggleFlag = async (qId: string) => {
     if (!userId || !qId) return;
@@ -332,8 +344,14 @@ export default function QuestionSearchModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col transition-colors">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col transition-colors"
+      >
         
         {/* Header */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center gap-3">

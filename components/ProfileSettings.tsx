@@ -50,6 +50,17 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
     faculty_digest: profile?.notification_preferences?.faculty_digest ?? true,
   });
 
+  // Handle Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleTogglePreference = async (key: keyof typeof notificationPreferences) => {
     const newPrefs = { ...notificationPreferences, [key]: !notificationPreferences[key] };
     setNotificationPreferences(newPrefs);
@@ -267,8 +278,14 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 dark:border dark:border-slate-800 rounded-[40px] shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col transition-colors">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900 dark:border dark:border-slate-800 rounded-[40px] shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden flex flex-col transition-colors"
+      >
         {/* Header */}
         <div className="p-6 md:p-8 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
           <div>

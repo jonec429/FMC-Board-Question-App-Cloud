@@ -214,14 +214,7 @@ export default function IteCountdownBanner({ user, profile, effectiveRole }: Ite
   const [showSchedule, setShowSchedule] = useState(false);
   const [showExpectHover, setShowExpectHover] = useState(false);
   const [postIteDismissed, setPostIteDismissed] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    try {
-      // Default to collapsed unless explicitly expanded by user ('false')
-      return localStorage.getItem('fmc_ite_banner_collapsed') !== 'false';
-    } catch {
-      return true;
-    }
-  });
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const toggleCollapsed = () => {
     setIsCollapsed((prev) => {

@@ -96,7 +96,7 @@ export default function FlashcardsModal({
       setLoading(true);
       supabase
         .from('questions')
-        .select('id, year, category, abfm_category, question_text, correct_index, explanation, options, resource_link, is_repeat')
+        .select('id, year, category, secondary_system, abfm_category, question_text, correct_index, explanation, options, resource_link, is_repeat')
         .order('year', { ascending: false })
         .then(({ data, error }) => {
           setLoading(false);
@@ -135,7 +135,7 @@ export default function FlashcardsModal({
   // Filter questions into the active study deck
   const activeDeck = useMemo(() => {
     let filtered = allQuestions.filter(q => {
-      if (selectedCategory !== 'all' && q.category !== selectedCategory) return false;
+      if (selectedCategory !== 'all' && q.category !== selectedCategory && q.secondary_system !== selectedCategory) return false;
       if (selectedCareDimension !== 'all' && q.abfm_category !== selectedCareDimension) return false;
       if (selectedYear !== 'all' && q.year !== selectedYear) return false;
 
@@ -268,8 +268,14 @@ export default function FlashcardsModal({
   const careMeta = currentQuestion?.abfm_category ? getCareDimensionMeta(currentQuestion.abfm_category) : null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[92vh] max-h-[880px] flex flex-col overflow-hidden transition-all text-slate-800 dark:text-slate-100">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-in fade-in duration-200"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-4xl h-[92vh] max-h-[880px] flex flex-col overflow-hidden transition-all text-slate-800 dark:text-slate-100"
+      >
         
         {/* Header Bar */}
         <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-900/50">
@@ -495,16 +501,30 @@ export default function FlashcardsModal({
                     </span>
                   )}
 
-                  {/* Organ System */}
+                  {/* Organ System Badges */}
                   {currentQuestion.category && (
-                    <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    <span
+                      className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                      title="Primary Organ System"
+                    >
                       {currentQuestion.category}
+                    </span>
+                  )}
+                  {currentQuestion.secondary_system && (
+                    <span
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                      title={`Secondary Organ System: ${currentQuestion.secondary_system}`}
+                    >
+                      + {currentQuestion.secondary_system}
                     </span>
                   )}
 
                   {/* ABFM Care Dimension Badge */}
                   {careMeta && (
-                    <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${careMeta.badgeBg} ${careMeta.badgeText} ${careMeta.badgeBorder}`}>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider border ${careMeta.badgeBg} ${careMeta.badgeText} ${careMeta.badgeBorder}`}
+                      title={`ABFM Care Dimension: ${careMeta.label} (${careMeta.blueprintWeight} of Blueprint)`}
+                    >
                       {careMeta.label}
                     </span>
                   )}

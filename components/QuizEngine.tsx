@@ -484,8 +484,10 @@ export default function QuizEngine({
           query = query.in('id', questionIds!);
         } else {
           // Legacy / Mixed Review path — sample from a category pool
+          // Matches either primary category or secondary_system
           if (categories && categories.length > 0) {
-            query = query.in('category', categories);
+            const catFilters = categories.map(c => `category.eq.${c},secondary_system.eq.${c}`).join(',');
+            query = query.or(catFilters);
           }
 
           if (keywords && keywords.length > 0) {
@@ -577,7 +579,10 @@ export default function QuizEngine({
             const existingIds = new Set(finalPool.map((q: any) => q.id));
             let fillQuery = supabase.from('questions').select('*').neq('year', 'Demo').neq('category', 'Demo');
             if (years && years.length > 0) fillQuery = fillQuery.in('year', years);
-            if (categories && categories.length > 0) fillQuery = fillQuery.in('category', categories);
+            if (categories && categories.length > 0) {
+              const catFilters = categories.map(c => `category.eq.${c},secondary_system.eq.${c}`).join(',');
+              fillQuery = fillQuery.or(catFilters);
+            }
             const { data: fillData } = await withTimeout(fillQuery.limit(targetCount * 2)) as any;
             if (fillData) {
               for (const q of fillData) {

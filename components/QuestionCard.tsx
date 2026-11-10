@@ -16,6 +16,7 @@ interface Question {
   explanation?: string;
   resource_link?: string;
   category?: string;
+  secondary_system?: string | null;
   abfm_category?: string | null;
   year?: string;
   is_repeat?: boolean | null;
@@ -346,16 +347,27 @@ function QuestionCard({
       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none p-3 md:p-5 border border-slate-100 dark:border-slate-800 relative group transition-colors">
         <div className="flex flex-wrap justify-between items-start mb-3 gap-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
+            <span
+              className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-black rounded-full uppercase tracking-widest shrink-0"
+              title="Primary Organ System"
+            >
               {question.category || 'General Medicine'}
             </span>
+            {question.secondary_system && (
+              <span
+                className="px-2.5 py-0.5 bg-slate-100/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 text-[11px] font-bold rounded-full uppercase tracking-wider border border-slate-200 dark:border-slate-700/60 shrink-0"
+                title={`Secondary Organ System: ${question.secondary_system}`}
+              >
+                + {question.secondary_system}
+              </span>
+            )}
             {(() => {
               const careMeta = getCareDimensionMeta(question.abfm_category);
               if (!careMeta) return null;
               return (
                 <span
                   className={`px-2.5 py-1 text-[11px] font-black rounded-full uppercase tracking-wider border shadow-xs select-none shrink-0 ${careMeta.badgeBg} ${careMeta.badgeText} ${careMeta.badgeBorder}`}
-                  title={`${careMeta.label} (${careMeta.blueprintWeight} of ABFM Blueprint)`}
+                  title={`ABFM Care Dimension: ${careMeta.label} (${careMeta.blueprintWeight} of Blueprint)`}
                 >
                   {careMeta.label}
                 </span>

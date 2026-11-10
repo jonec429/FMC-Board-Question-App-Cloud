@@ -39,7 +39,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
   const [categories, setCategories] = useState<string[]>([]);
   
   // Data for live capacity calculation
-  const [allQuestions, setAllQuestions] = useState<Pick<Question, 'id' | 'year' | 'category'>[]>([]);
+  const [allQuestions, setAllQuestions] = useState<Pick<Question, 'id' | 'year' | 'category' | 'secondary_system'>[]>([]);
   const [userAttempts, setUserAttempts] = useState<Pick<QuestionAttempt, 'question_id' | 'is_correct'>[]>([]);
 
   const [mode, setMode] = useState<'random' | 'custom' | 'mock_exam'>('custom');
@@ -75,7 +75,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
         const fetchTask = async () => {
           const { data: qData } = await supabase
             .from('questions')
-            .select('id, category, year')
+            .select('id, category, secondary_system, year')
             .neq('category', 'Demo')
             .neq('year', 'Demo');
             
@@ -249,7 +249,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
       
       if (selectedCategories.length > 0) {
         const cSet = new Set(selectedCategories);
-        qList = qList.filter(q => cSet.has(q.category));
+        qList = qList.filter(q => (q.category && cSet.has(q.category)) || (q.secondary_system && cSet.has(q.secondary_system)));
       } else {
         return 0;
       }

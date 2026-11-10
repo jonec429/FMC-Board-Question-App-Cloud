@@ -83,9 +83,18 @@ This file serves as the shared source of truth for development progress between 
    - Enhanced `ErrorBoundary.tsx` with in-place state resetting (`handleReset`) and retry buttons.
    - Isolated individual tabs in `AdminConsole.tsx` (`<ErrorBoundary key={activeTab}>`) and all modals in `Dashboard.tsx` so an error in one tab or modal never crashes the whole application.
 
-### ▶️ Session Handoff — 2026-11-10 (Antigravity: Phase 7 — Question-Weighted Statistics Engine, Responsive PWA Padding Overhaul, Code Health & 600-Question Organ System Audit)
+### ▶️ Session Handoff — 2026-11-10 (Antigravity: Phase 7 — Question-Weighted Statistics Engine, Responsive PWA Padding Overhaul, Code Health & 3-Tier Multi-System Classification)
 **Shipped this session**:
-1. **Question-Weighted Statistics Engine (`lib/quizMetrics.ts`)**:
+1. **Clean 3-Tier Nomenclature & Multi-System Classification**:
+   - Cleaned up the confusing nomenclature across the board into 3 distinct, clinical tiers:
+     - **Primary Organ System** (`category` / `system`): The single home for each question used for non-overlapping quiz statistics and program-wide curriculum tracking. Under Option B, broad USPSTF screening, wellness guidelines, and health maintenance questions have **`Population Health/Epidemiology` as their Primary System** (83 questions total).
+     - **Secondary Organ System** (`secondary_system`): Cross-disciplinary secondary tag (141 questions tagged). Allows multi-system questions to be discovered across both organ blocks without double-counting metrics (e.g., LDCT is Primary: `Pop Health` / Secondary: `Pulmonary`; Septic Shock is Primary: `Cardiovascular` / Secondary: `Infectious Disease`; Respiratory infections are Primary: `Pulmonary` / Secondary: `Infectious Disease`).
+     - **ABFM Care Dimension** (`abfm_category`): Official ABFM blueprint practice context (`Preventive Care`, `Acute Care and Diagnosis`, `Chronic Care Management`, `Emergent and Urgent Care`, `Foundations of Care`).
+   - Added `secondary_system text` column to Supabase `questions` table with indexing.
+   - Synchronized all 600 questions across live Supabase `questions`, [`questions.csv`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/questions.csv), and TypeScript schema definitions (`lib/database.types.ts`, `lib/types.ts`).
+   - Updated [`components/QuizEngine.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/QuizEngine.tsx) and [`components/CustomBuilderScreen.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/CustomBuilderScreen.tsx) to query on `category` OR `secondary_system`.
+   - Updated [`components/QuestionCard.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/QuestionCard.tsx) and [`components/FlashcardsModal.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/FlashcardsModal.tsx) with discrete dual badges (`[Primary System]`, `[+ Secondary System]`, and `[Care Dimension]`).
+2. **Question-Weighted Statistics Engine (`lib/quizMetrics.ts`)**:
    - Created a single authoritative source of truth (`lib/quizMetrics.ts`) for quiz accuracy and curriculum metrics: `isGradedQuizResult`, `extractQuizCorrectAndTotal`, `computeWeightedAccuracy`, and `computeTopicBreakdown`.
    - Fixed the macro-averaging flaw across the entire app where quiz percentages were previously averaged equally regardless of question count (e.g., 100% on a 10Q quiz + 50% on a 40Q quiz previously showed `75.0%` instead of the true question-weighted $\frac{10 + 20}{10 + 40} = 60.0\%$).
    - Replaced all 6+ unweighted `.reduce((acc, r) => acc + r.percentage, 0) / length` loops across:

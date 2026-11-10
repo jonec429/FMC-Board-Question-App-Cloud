@@ -173,7 +173,7 @@ export default function BoardReadinessTool({
                 <h3 className="text-sm font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
                   Board Readiness Tool (Experimental Beta)
                 </h3>
-                <span className="bg-amber-200/90 dark:bg-amber-800/80 text-amber-900 dark:text-amber-100 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
+                <span className="shrink-0 whitespace-nowrap inline-flex items-center bg-amber-200/90 dark:bg-amber-800/80 text-amber-900 dark:text-amber-100 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">
                   Beta Model • Study Guidance Only
                 </span>
               </div>
@@ -235,8 +235,8 @@ export default function BoardReadinessTool({
         )}
       </div>
 
-      {/* 2. Two-Column Split: Track A (Experimental App Readiness) & Track B (Official ITE Reference) */}
-      <div className={`grid grid-cols-1 ${compact ? '' : 'lg:grid-cols-2'} gap-5`}>
+      {/* 2. Track 1 (Experimental App Readiness) & Track 2 (Official ITE Reference) */}
+      <div className="space-y-6">
         {/* PANEL A: EXPERIMENTAL CURRICULUM READINESS MODEL (BETA) */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col justify-between">
           <div>
@@ -249,7 +249,7 @@ export default function BoardReadinessTool({
                   Experimental Readiness Range (Beta)
                 </h4>
               </div>
-              <span className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+              <span className="shrink-0 whitespace-nowrap inline-flex items-center bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
                 Beta Model
               </span>
             </div>
@@ -603,7 +603,7 @@ export default function BoardReadinessTool({
                     }`}
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider opacity-75 truncate">
+                      <span className="text-[10px] font-black uppercase tracking-wider opacity-75 whitespace-nowrap">
                         {key === 'certExam' ? 'ABFM Cert' : node.displayName}
                       </span>
                       {node.isObserved && (

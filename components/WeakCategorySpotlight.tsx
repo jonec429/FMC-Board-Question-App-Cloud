@@ -53,17 +53,9 @@ export default function WeakCategorySpotlight({
   onStartQuiz,
   onOpenBuilder,
 }: WeakCategorySpotlightProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [bankCount, setBankCount] = useState<number | null>(null);
   const [loadingCount, setLoadingCount] = useState(false);
-
-  // Restore collapsed state preference
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('fmc_weak_spotlight_collapsed');
-      if (saved === 'true') setCollapsed(true);
-    } catch {}
-  }, []);
 
   const toggleCollapsed = () => {
     const next = !collapsed;
