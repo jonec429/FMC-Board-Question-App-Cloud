@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StreakSaverStatus } from '@/lib/streakSaver';
 import { X, Sparkles, CheckCircle, AlertTriangle } from './AppIcons';
 import { Shield, Flame, RotateCcw, Check, Lock, BookOpen, CheckCircle2 } from 'lucide-react';
@@ -16,9 +16,25 @@ export default function StreakSaverModal({
   onClose,
   onStartChallenge,
 }: StreakSaverModalProps) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col"
+      >
         {/* Modal Header */}
         <div className="p-6 bg-gradient-to-br from-amber-500 via-orange-500 to-rose-600 text-white relative overflow-hidden flex items-start justify-between">
           <div className="absolute top-0 right-0 -mr-6 -mt-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />

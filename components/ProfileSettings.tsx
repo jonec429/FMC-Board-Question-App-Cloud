@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout } from '@/lib/utils';
 import { X, Loader2, CheckCircle, Lock, MailIcon, Sparkles, Eye, EyeOff, Sun, Moon, Smartphone, MessageSquare, LogOut } from './AppIcons';

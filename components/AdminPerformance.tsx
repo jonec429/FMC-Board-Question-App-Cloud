@@ -1536,8 +1536,14 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
 
       {/* Individual Resident Modal */}
       {selectedResident && (
-        <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-1.5 sm:p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800">
+        <div
+          onClick={() => setSelectedResident(null)}
+          className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-1.5 sm:p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800"
+          >
             <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
               <div className="w-full min-w-0">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 mb-1">
@@ -2090,8 +2096,14 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
         });
 
         return (
-          <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-1.5 sm:p-4">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+          <div
+            onClick={() => { setSelectedBlockDrilldown(null); setSelectedQuiz(null); }}
+            className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-1.5 sm:p-4"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200"
+            >
               <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
                 <div className="w-full min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">

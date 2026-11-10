@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import {
   X,
@@ -54,6 +54,17 @@ export default function PasswordManagerModal({ isOpen, onClose, member }: Passwo
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSuccessMsg, setEmailSuccessMsg] = useState('');
   const [emailError, setEmailError] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !member) return null;
 
@@ -191,8 +202,14 @@ export default function PasswordManagerModal({ isOpen, onClose, member }: Passwo
   };
 
   return (
-    <div className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in font-sans">
-      <div className="bg-white dark:bg-slate-900 rounded-[36px] shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col max-h-[92vh]">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[120] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in font-sans"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900 rounded-[36px] shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col max-h-[92vh]"
+      >
         {/* Header */}
         <div className="p-6 sm:p-7 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 bg-slate-50/50 dark:bg-slate-800/40">
           <div className="flex items-center gap-3.5">

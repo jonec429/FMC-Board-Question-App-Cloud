@@ -660,8 +660,12 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
 
       {/* Legacy ITE Year Warning Modal */}
       {showLegacyWarning && (
-        <div className="fixed inset-0 z-[90] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[32px] shadow-2xl max-w-md w-full overflow-hidden transition-colors">
+        <div
+          onClick={() => setShowLegacyWarning(false)}
+          className="fixed inset-0 z-[90] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[32px] shadow-2xl max-w-md w-full overflow-hidden transition-colors">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-start gap-4">
               <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-6 h-6" />

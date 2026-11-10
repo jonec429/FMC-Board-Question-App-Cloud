@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   X, TrendingUp, Target, BarChartIcon, Users, Search, 
   ChevronRight, Mail, AlertTriangle, CheckCircle, Clock, 
@@ -59,6 +59,17 @@ export default function AdminMetricModal({
 }: AdminMetricModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<'all' | 'above70' | 'borderline' | 'below65' | 'red' | 'yellow'>('all');
+
+  useEffect(() => {
+    if (!type) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [type, onClose]);
 
   // Cohort computations
   const totalResidents = residentStats.length;
@@ -158,7 +169,10 @@ export default function AdminMetricModal({
   if (!type) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 animate-fade-in">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 md:p-6 animate-fade-in"
+    >
       <div 
         className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col transition-colors"
         onClick={e => e.stopPropagation()}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Question } from '@/lib/types';
 import { formatIteId } from '@/lib/iteQuestionMap';
 import { X, CheckCircle } from './AppIcons';
@@ -17,13 +17,29 @@ export default function PrintReviewModal({ title, questions, onClose }: PrintRev
   const [includeAnswers, setIncludeAnswers] = useState(false);
   const [includeExplanations, setIncludeExplanations] = useState(false);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 print:p-0 print:bg-white animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 print:border-none print:shadow-none print:max-w-none print:max-h-none print:w-full">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 print:p-0 print:bg-white animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200 dark:border-slate-800 print:border-none print:shadow-none print:max-w-none print:max-h-none print:w-full"
+      >
         {/* Modal Controls (Hidden in Print) */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4 print:hidden bg-slate-50 dark:bg-slate-850">
           <div className="flex items-center gap-3">

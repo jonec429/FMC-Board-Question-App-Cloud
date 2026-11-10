@@ -2060,7 +2060,9 @@ export default function QuizEngine({
     if (showAbandonConfirm) {
       return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors">
-          <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full space-y-6 animate-fade-in text-center transition-colors">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full space-y-6 animate-fade-in text-center transition-colors">
             <div className="w-16 h-16 bg-red-50 dark:bg-red-950/60 text-red-500 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
               <X className="w-8 h-8" />
             </div>
@@ -2505,8 +2507,12 @@ export default function QuizEngine({
       </nav>
       {/* Keyboard Shortcuts Modal */}
       {showShortcutsHelp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] p-6 max-w-md w-full shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 transition-colors">
+        <div
+          onClick={() => setShowShortcutsHelp(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-slate-900 rounded-[32px] p-6 max-w-md w-full shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-xl">⌨️</span>
@@ -2741,7 +2747,9 @@ export default function QuizEngine({
       )}
 
       {showAbandonConfirm && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div
+          onClick={() => setShowAbandonConfirm(false)}
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 p-8 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full space-y-6 animate-fade-in text-center transition-colors">
             <div className="w-16 h-16 bg-red-50 dark:bg-red-950/60 text-red-500 dark:text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
               <X className="w-8 h-8" />
