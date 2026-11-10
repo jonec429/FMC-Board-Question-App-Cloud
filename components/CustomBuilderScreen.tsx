@@ -1,5 +1,7 @@
 'use client';
 
+import { REMOVED_BY_ABFM_IDS } from '@/lib/iteRemovedQuestions';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Sliders, Shuffle, XCircle, CheckCircle, Database, Loader2, AlertTriangle, Clock, Flag } from './AppIcons';
@@ -215,7 +217,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
   const availableCount = useMemo(() => {
     if (mode === 'mock_exam') {
       if (mockExamPreset === 'abfm') {
-        return allQuestions.length; // 600 total questions
+        return allQuestions.filter(q => !REMOVED_BY_ABFM_IDS.has(q.id)).length;
       } else {
         if (iteSourceYear === 'unused') {
           const attemptedIds = new Set(userAttempts.map(a => a.question_id));
@@ -225,7 +227,7 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
       }
     }
 
-    let qList = allQuestions;
+    let qList = allQuestions.filter(q => !REMOVED_BY_ABFM_IDS.has(q.id));
 
     // 1. Filter by Pool
     if (pool === 'unused') {

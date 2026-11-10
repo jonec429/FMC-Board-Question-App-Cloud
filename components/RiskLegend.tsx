@@ -9,19 +9,19 @@ export default function RiskLegend() {
         {/* Academic Risk */}
         <div>
           <h4 className="font-black tracking-widest uppercase text-xs text-slate-500 dark:text-slate-400 mb-3">Academic Risk</h4>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 italic">Requires at least 3 completed blocks.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 italic">Requires at least 3 completed blocks (120 questions). Calibrated to the 60% conservative ITE passing floor (±1 SEM buffer).</p>
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <span className="shrink-0 bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full">At Risk</span>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-snug">Average is ≤ 50%</p>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-snug">Average is &lt; 60% (below conservative passing standard)</p>
             </div>
             <div className="flex items-start gap-3">
               <span className="shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full">Attention</span>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-snug">Average is ≤ 65%</p>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-snug">Average is 60% – 65% (borderline; within 1 SEM margin of error)</p>
             </div>
             <div className="flex items-start gap-3">
               <span className="shrink-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-[10px] font-black px-2 py-1 uppercase tracking-widest rounded-full">On Track</span>
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-snug">Average is &gt; 65%</p>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300 leading-snug">Average is &gt; 65% (clears passing floor by &ge; 1 SEM buffer)</p>
             </div>
           </div>
         </div>

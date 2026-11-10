@@ -26,6 +26,7 @@ import {
 } from '@/lib/offlineSync';
 import { QotdPeerComparisonResponse } from '@/lib/types';
 import { getFlaggedQuestionIds, toggleFlaggedQuestion } from '@/lib/flaggedQuestions';
+import { REMOVED_BY_ABFM_IDS } from '@/lib/iteRemovedQuestions';
 
 interface QuizEngineProps {
   user: any;
@@ -567,6 +568,9 @@ export default function QuizEngine({
           if (qError) throw qError;
           finalPool = qData || [];
           
+          // Always exclude questions officially removed by ABFM from new practice quizzes & mock exams
+          finalPool = finalPool.filter((q: any) => !REMOVED_BY_ABFM_IDS.has(q.id));
+
           // Local exclusion filter (only for older methods, if excludeIds were populated)
           if (excludeIds.length > 0) {
             const exSet = new Set(excludeIds);

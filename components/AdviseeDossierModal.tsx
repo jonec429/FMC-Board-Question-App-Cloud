@@ -28,6 +28,7 @@ import {
   Download,
   Info,
 } from './AppIcons';
+import BoardReadinessTool from './BoardReadinessTool';
 
 export interface DossierAdviseeData {
   resident: RosterEntry;
@@ -194,7 +195,7 @@ export default function AdviseeDossierModal({
         trendDirection: 'stable',
         trendDelta: null,
         flags: a.riskReasons,
-        narrativeSummary: `${formatDisplayName(a.name)} (${fullPgyLabel}) is in ${standing}. The resident maintains a curriculum exam average of ${Math.round(a.curriculumAvg)}% (${a.curriculumAvg >= 70 ? 'meets 70% program standard' : 'below 70% passing standard'}) with ${a.blocksCompleted} completed blocks and an on-time submission rate of ${Math.round(a.onTimePct)}%. Total academic engagement credit is ${a.totalPoints} points.`,
+        narrativeSummary: `${formatDisplayName(a.name)} (${fullPgyLabel}) is in ${standing}. The resident maintains a curriculum exam average of ${Math.round(a.curriculumAvg)}% (${a.curriculumAvg > 65 ? 'meets >65% safe buffer standard' : a.curriculumAvg >= 60 ? 'in 60%–65% borderline zone (±1 SEM of passing)' : 'below 60% conservative passing benchmark'}) with ${a.blocksCompleted} completed blocks and an on-time submission rate of ${Math.round(a.onTimePct)}%. Total academic engagement credit is ${a.totalPoints} points.`,
         weakCategories: a.weakCategories.map((w) => ({ ...w, percentage: Math.round(w.percentage) })),
         strongCategories: [],
         blockSubmissions: a.blockHistory.map((b) => ({
@@ -431,7 +432,7 @@ export default function AdviseeDossierModal({
                           )}
                         </td>
                         <td className="py-2.5 px-2 text-center font-black text-slate-900 print:text-black">
-                          <span className={a.curriculumAvg >= 70 ? 'text-emerald-700 print:text-black' : 'text-red-700 print:text-black'}>
+                          <span className={a.curriculumAvg > 65 ? 'text-emerald-700 print:text-black' : a.curriculumAvg >= 60 ? 'text-amber-700 print:text-black' : 'text-red-700 print:text-black'}>
                             {a.curriculumAttempts > 0 ? `${a.curriculumAvg}%` : '—'}
                           </span>
                         </td>
@@ -582,10 +583,10 @@ export default function AdviseeDossierModal({
                       <span className="text-[10px] uppercase font-bold text-slate-500 print:text-gray-600 block">
                         Curriculum Exam Avg
                       </span>
-                      <span className={`text-xl font-black block mt-0.5 ${a.curriculumAvg >= 70 ? 'text-emerald-700 print:text-black' : 'text-red-700 print:text-black'}`}>
+                      <span className={`text-xl font-black block mt-0.5 ${a.curriculumAvg > 65 ? 'text-emerald-700 print:text-black' : a.curriculumAvg >= 60 ? 'text-amber-700 print:text-black' : 'text-red-700 print:text-black'}`}>
                         {a.curriculumAttempts > 0 ? `${a.curriculumAvg}%` : '—'}
                       </span>
-                      <span className="text-[9px] text-slate-400 print:text-gray-600 block">Target: ≥ 70%</span>
+                      <span className="text-[9px] text-slate-400 print:text-gray-600 block">Min Pass: ≥60% • Buffer: &gt;65%</span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 print:border-black print:bg-white">
                       <span className="text-[10px] uppercase font-bold text-slate-500 print:text-gray-600 block">
@@ -663,6 +664,19 @@ export default function AdviseeDossierModal({
                     ) : (
                       <p className="text-xs text-slate-400 italic">No subject category question breakdown data recorded.</p>
                     )}
+                  </div>
+
+                  {/* Board Readiness Tool (Experimental Beta) */}
+                  <div className="print:hidden pt-2">
+                    <BoardReadinessTool
+                      residentKey={a.email || a.id}
+                      residentName={a.formattedName}
+                      pgyLevel={/3/.test(a.pgy) ? 3 : /1/.test(a.pgy) ? 1 : 2}
+                      blocksCompleted={a.blocksCompleted}
+                      totalQuestionsAnswered={a.blockSubmissions.reduce((acc, b) => acc + (b.total || 0), 0)}
+                      curriculumAvgPct={a.curriculumAvg}
+                      isFacultyView={true}
+                    />
                   </div>
 
                   {/* Block History & Advisor Meetings */}

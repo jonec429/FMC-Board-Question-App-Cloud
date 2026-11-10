@@ -14,6 +14,7 @@ import RiskLegend from './RiskLegend';
 import WeakCategorySpotlight from './WeakCategorySpotlight';
 import { formatIteId } from '@/lib/iteQuestionMap';
 import QuestionStemDisplay from './QuestionStemDisplay';
+import BoardReadinessTool from './BoardReadinessTool';
 
 interface MyStatsModalProps {
   onClose: () => void;
@@ -27,7 +28,7 @@ interface MyStatsModalProps {
   leaderboard: LeaderboardEntry[];
   userBadges: UserBadge[];
   userStreak?: any;
-  initialTab?: 'stats' | 'apTracker' | 'achievements' | 'weakAreas' | 'pastQuizzes';
+  initialTab?: 'stats' | 'readiness' | 'apTracker' | 'achievements' | 'weakAreas' | 'pastQuizzes';
   selectedYear: number;
   onYearChange: (year: number) => void;
   attendanceList?: any[];
@@ -60,7 +61,7 @@ export default function MyStatsModal({
 }: MyStatsModalProps) {
   const [showReadinessModal, setShowReadinessModal] = useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = useState(false);
-  const [activeTab, setActiveTab] = useState<'stats' | 'apTracker' | 'achievements' | 'weakAreas' | 'pastQuizzes'>(initialTab || 'stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'readiness' | 'apTracker' | 'achievements' | 'weakAreas' | 'pastQuizzes'>(initialTab || 'stats');
   const [isSnapshotCollapsed, setIsSnapshotCollapsed] = useState(() => {
     try {
       // Default to collapsed unless explicitly expanded by user ('false')
@@ -491,7 +492,7 @@ export default function MyStatsModal({
 
   return (
     <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col transition-colors">
+      <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl ${activeTab === 'readiness' ? 'max-w-4xl' : 'max-w-2xl'} w-full max-h-[90vh] overflow-hidden flex flex-col transition-all`}>
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start shrink-0">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-10 h-10 bg-yellow-50 dark:bg-yellow-950/40 rounded-xl flex items-center justify-center shrink-0">
@@ -548,6 +549,16 @@ export default function MyStatsModal({
             }`}
           >
             Stats &amp; Prep
+          </button>
+          <button
+            onClick={() => setActiveTab('readiness')}
+            className={`flex-1 min-w-[130px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+              activeTab === 'readiness'
+                ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
+                : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+            }`}
+          >
+            Board Readiness <span className="text-[9px] bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-1.5 py-0.5 rounded-full ml-0.5">Beta</span>
           </button>
           <button
             onClick={() => setActiveTab('apTracker')}
@@ -872,7 +883,51 @@ export default function MyStatsModal({
                     Topic performance bar graphs, scores, and 1-click question reviews
                   </p>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('readiness')}
+                  className="sm:col-span-2 text-left p-4 bg-gradient-to-r from-amber-50/80 via-indigo-50/60 to-emerald-50/70 dark:from-amber-950/30 dark:via-indigo-950/30 dark:to-emerald-950/30 border border-amber-200/80 dark:border-amber-800/60 hover:border-indigo-400 dark:hover:border-indigo-600 rounded-2xl transition-all group shadow-xs cursor-pointer"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                      <span>ABFM ITE &amp; Certification Exam Readiness</span>
+                      <span className="bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                        Experimental Beta
+                      </span>
+                    </span>
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+                      {blocksCompleted >= 3 || totalQs >= 120 ? 'Readiness Range Unlocked' : `${blocksCompleted}/3 Blocks to Unlock`}
+                    </span>
+                  </div>
+                  <h4 className="font-black text-sm text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
+                    <span>Open Board Readiness Tool (Beta) &amp; Official ITE Reference</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-indigo-500 group-hover:translate-x-1 transition-transform" />
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                    Compare your curriculum accuracy against the 60% conservative passing benchmark (±38 SEM band) and enter official ITE / Step 2 / COMLEX scores.
+                  </p>
+                </button>
               </div>
+            </div>
+          )}
+
+          {activeTab === 'readiness' && (
+            <div className="animate-fade-in">
+              <BoardReadinessTool
+                residentKey={userEmail || userId}
+                residentName={formatDisplayName(profile?.full_name)}
+                pgyLevel={
+                  /3/.test(profile?.pgy || '')
+                    ? 3
+                    : /1/.test(profile?.pgy || '')
+                    ? 1
+                    : 2
+                }
+                blocksCompleted={blocksCompleted}
+                totalQuestionsAnswered={totalQs}
+                curriculumAvgPct={readiness.curriculumAvg || accurateAvgScore || 0}
+              />
             </div>
           )}
 
@@ -1568,13 +1623,13 @@ export default function MyStatsModal({
                     <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3" /> Board Ready
                     </span>
-                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Passing Trajectory</span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Safe Buffer (&gt; 65%)</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    <strong>Criteria:</strong> Curriculum quiz score ≥ 65% (target ≥ 70%), on-time completion &gt; 75%, and 0 overdue blocks.
+                    <strong>Criteria:</strong> Curriculum quiz score &gt; 65%, on-time completion &gt; 75%, and 0 overdue blocks (requires ≥ 3 completed blocks).
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Indicates strong knowledge retention and passing likelihood on the ABFM ITE and Board certification exams.
+                    Clears the 60% conservative passing standard by at least 1 Standard Error of Measurement (±38 scaled points) for the ABFM ITE and ABFM Certification Exam.
                   </p>
                 </div>
 
@@ -1584,13 +1639,13 @@ export default function MyStatsModal({
                     <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3" /> Needs Attention
                     </span>
-                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Action Recommended</span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Borderline / Narrow Margin (60%–65%)</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    <strong>Criteria:</strong> Curriculum score between 50%–65%, on-time rate ≤ 75%, 1 overdue block, or scores dropping by ≥ 10%.
+                    <strong>Criteria:</strong> Curriculum score between 60%–65%, on-time rate ≤ 75%, 1 overdue block, or scores dropping by ≥ 10%.
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    An early warning to prevent slipping below board standards. Completing overdue quizzes and reviewing weak categories will restore Board Ready status.
+                    At 60%–65%, your ±1 SEM margin of error (~5% / 38 scaled pts) still dips below the 380 passing line on exam day. Completing overdue quizzes and reviewing weak categories will build a safe buffer.
                   </p>
                 </div>
 
@@ -1600,13 +1655,13 @@ export default function MyStatsModal({
                     <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-red-100 text-red-800 dark:bg-red-900/80 dark:text-red-200 border border-red-300 dark:border-red-700 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" /> At Risk
                     </span>
-                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Academic Intervention</span>
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Below Passing Floor (&lt; 60%)</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    <strong>Criteria:</strong> Curriculum score ≤ 50%, on-time rate ≤ 50%, or 2+ overdue blocks.
+                    <strong>Criteria:</strong> Curriculum score &lt; 60%, on-time rate ≤ 50%, or 2+ overdue blocks.
                   </p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Indicates significant risk for board exam underperformance. Requires direct coordination with your faculty advisor for remediation.
+                    Below the 60% conservative passing standard (~380 scaled score). Coordinate with your faculty advisor for targeted board prep support.
                   </p>
                 </div>
 

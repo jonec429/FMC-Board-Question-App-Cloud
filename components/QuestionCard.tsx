@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle, MessageSquare, Flag } from './AppIcons';
 import { formatIteId, getQuestionExamNumber } from '@/lib/iteQuestionMap';
+import { isQuestionRemovedByAbfm } from '@/lib/iteRemovedQuestions';
+import { AlertTriangle } from './AppIcons';
 
 interface Question {
   id?: string;

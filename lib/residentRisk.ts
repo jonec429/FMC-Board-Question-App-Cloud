@@ -16,10 +16,14 @@ import { getEasternDateString } from '@/lib/timezone';
 
 export type RiskLevel = 'red' | 'yellow' | 'green' | 'gray';
 
-/** Score-based level. <3 attempts = "evaluating" (gray). */
+/**
+ * Score-based level. <3 attempts = "evaluating" (gray).
+ * Calibrated to ABFM ITE Conservative Passing Standard (60% = 380 scaled score;
+ * 60–65% = within 1 SEM [±38 pts] borderline zone; >65% = safe buffer).
+ */
 export function getRiskLevel(pct: number, attempts: number): RiskLevel {
   if (attempts < 3) return 'gray';
-  if (pct <= 50) return 'red';
+  if (pct < 60) return 'red';
   if (pct <= 65) return 'yellow';
   return 'green';
 }

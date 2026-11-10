@@ -229,8 +229,15 @@ function generateNarrative(data: {
     weakestCategory,
   } = data;
 
+  const scoreStatusText =
+    curriculumAvg > 65
+      ? 'meets program standard (>65% safe buffer)'
+      : curriculumAvg >= 60
+      ? 'within the 60%–65% borderline monitoring zone (±1 SEM of passing)'
+      : 'below the 60% conservative passing benchmark';
+
   const scoreText = attempts > 0
-    ? `maintains a curriculum exam average of ${Math.round(curriculumAvg)}% across ${attempts} assigned question module${attempts === 1 ? '' : 's'} (${curriculumAvg >= 70 ? 'meets program standard' : 'below 70% passing standard'})`
+    ? `maintains a curriculum exam average of ${Math.round(curriculumAvg)}% across ${attempts} assigned question module${attempts === 1 ? '' : 's'} (${scoreStatusText})`
     : 'has not yet recorded question module attempts in this evaluation period';
 
   const blockText = requiredTotal > 0
@@ -417,8 +424,10 @@ export function computeCccReportData({
     if (overdueCount > 0) {
       flags.push(`${overdueCount} Required Assignment${overdueCount === 1 ? ' is' : 's are'} Overdue (${overdueBlockTitles.join(', ')})`);
     }
-    if (curriculumResults.length >= 2 && curriculumAvg < 70) {
-      flags.push(`Curriculum Exam Average (${curriculumAvg}%) is below the 70% program passing benchmark`);
+    if (curriculumResults.length >= 3 && curriculumAvg < 60) {
+      flags.push(`Curriculum Exam Average (${curriculumAvg}%) is below the 60% conservative passing benchmark`);
+    } else if (curriculumResults.length >= 3 && curriculumAvg <= 65) {
+      flags.push(`Curriculum Exam Average (${curriculumAvg}%) is in the 60%–65% borderline zone (within 1 SEM of passing)`);
     }
     if ((blocksCompleted + overdueCount) >= 2 && onTimeRate < 75) {
       flags.push(`On-Time Submission Rate (${onTimeRate}%) is below the 75% timeliness benchmark`);
