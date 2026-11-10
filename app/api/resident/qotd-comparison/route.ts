@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { QotdPeerComparisonResponse, QotdOptionDistribution } from '@/lib/types';
+import { getTodayDateString } from '@/lib/qotd';
+import { computeQotdStreak, computeMaxQotdStreak } from '@/lib/streaks';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,54 +25,62 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const questionId = searchParams.get('questionId');
+    const todayStr = getTodayDateString();
 
     // 1. If questionId is provided, calculate anonymous option breakdown
     let questionStats: QotdPeerComparisonResponse['questionStats'] = null;
 
     if (questionId) {
-      const { data: qAttempts, error: qErr } = await supabaseAdmin
-        .from('question_attempts')
-        .select('is_correct, selected_index')
-        .eq('question_id', questionId)
-        .eq('is_qotd', true);
+      const [qDataRes, qAttemptsRes] = await Promise.all([
+        supabaseAdmin
+          .from('questions')
+          .select('options')
+          .eq('id', questionId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('question_attempts')
+          .select('is_correct, selected_index')
+          .eq('question_id', questionId)
+          .eq('is_qotd', true),
+      ]);
 
-      if (!qErr && qAttempts && qAttempts.length > 0) {
-        const totalResponders = qAttempts.length;
-        let correctCount = 0;
-        const rawOptionCounts: Record<number, number> = {};
+      const numOptions = Array.isArray(qDataRes.data?.options) ? qDataRes.data.options.length : 5;
+      const qAttempts = qAttemptsRes.data || [];
+      const totalResponders = qAttempts.length;
+      let correctCount = 0;
+      const rawOptionCounts: Record<number, number> = {};
 
-        qAttempts.forEach((a) => {
-          if (a.is_correct) correctCount++;
-          if (a.selected_index != null) {
-            rawOptionCounts[a.selected_index] = (rawOptionCounts[a.selected_index] || 0) + 1;
-          }
-        });
+      qAttempts.forEach((a) => {
+        if (a.is_correct) correctCount++;
+        if (a.selected_index != null) {
+          rawOptionCounts[a.selected_index] = (rawOptionCounts[a.selected_index] || 0) + 1;
+        }
+      });
 
-        const optionCounts: Record<number, QotdOptionDistribution> = {};
-        Object.entries(rawOptionCounts).forEach(([idxStr, count]) => {
-          const idx = Number(idxStr);
-          optionCounts[idx] = {
-            count,
-            pct: Math.round((count / totalResponders) * 100),
-          };
-        });
-
-        questionStats = {
-          questionId,
-          totalResponders,
-          correctCount,
-          incorrectCount: totalResponders - correctCount,
-          accuracyPct: Math.round((correctCount / totalResponders) * 100),
-          optionCounts,
+      const optionCounts: Record<number, QotdOptionDistribution> = {};
+      for (let i = 0; i < numOptions; i++) {
+        const count = rawOptionCounts[i] || 0;
+        optionCounts[i] = {
+          count,
+          pct: totalResponders > 0 ? Math.round((count / totalResponders) * 100) : 0,
         };
       }
+
+      questionStats = {
+        questionId,
+        totalResponders,
+        correctCount,
+        incorrectCount: totalResponders - correctCount,
+        accuracyPct: totalResponders > 0 ? Math.round((correctCount / totalResponders) * 100) : 0,
+        optionCounts,
+      };
     }
 
     // 2. Program-wide cumulative QOTD aggregates (anonymous benchmark)
     const [attemptsRes, streaksRes] = await Promise.all([
       supabaseAdmin
         .from('question_attempts')
-        .select('user_id, is_correct')
+        .select('user_id, is_correct, created_at')
         .eq('is_qotd', true),
       supabaseAdmin
         .from('user_streaks')
@@ -87,10 +97,24 @@ export async function GET(request: Request) {
       ? Math.round((totalProgramCorrect / totalProgramAttempts) * 100)
       : 0;
 
-    // Median streak across participants who have at least 1 streak day
-    const activeStreaks = allStreaks
-      .map((s) => s.current_qotd_streak || 0)
-      .sort((a, b) => a - b);
+    // Self-healing streaks derived from real attempt dates
+    const userDatesMap = new Map<string, string[]>();
+    allAttempts.forEach((a) => {
+      if (!userDatesMap.has(a.user_id)) {
+        userDatesMap.set(a.user_id, []);
+      }
+      if (a.created_at) {
+        userDatesMap.get(a.user_id)!.push(getTodayDateString(new Date(a.created_at)));
+      }
+    });
+
+    const activeStreaks: number[] = [];
+    userDatesMap.forEach((dates) => {
+      const s = computeQotdStreak(dates, todayStr);
+      if (s > 0) activeStreaks.push(s);
+    });
+    activeStreaks.sort((a, b) => a - b);
+
     let medianStreak = 0;
     if (activeStreaks.length > 0) {
       const mid = Math.floor(activeStreaks.length / 2);
@@ -101,6 +125,7 @@ export async function GET(request: Request) {
 
     // 3. Personal Stats for the authenticated user
     const userAttempts = allAttempts.filter((a) => a.user_id === user.id);
+    const userDates = userDatesMap.get(user.id) || [];
     const userStreak = allStreaks.find((s) => s.user_id === user.id);
 
     const personalCorrect = userAttempts.filter((a) => a.is_correct).length;
@@ -108,6 +133,13 @@ export async function GET(request: Request) {
     const personalAccuracy = personalTotal > 0
       ? Math.round((personalCorrect / personalTotal) * 100)
       : 0;
+
+    const currentStreak = computeQotdStreak(userDates, todayStr);
+    const maxStreak = Math.max(
+      computeMaxQotdStreak(userDates),
+      userStreak?.max_qotd_streak || 0,
+      currentStreak
+    );
 
     const response: QotdPeerComparisonResponse = {
       questionStats,
@@ -121,8 +153,8 @@ export async function GET(request: Request) {
         totalAttempts: personalTotal,
         correctCount: personalCorrect,
         accuracyPct: personalAccuracy,
-        currentStreak: userStreak?.current_qotd_streak || 0,
-        maxStreak: userStreak?.max_qotd_streak || 0,
+        currentStreak,
+        maxStreak,
       },
     };
 

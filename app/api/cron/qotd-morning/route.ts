@@ -109,6 +109,7 @@ export async function GET(request: Request) {
     let failed = 0;
     let expired = 0;
     let skipped = 0;
+    const pushErrors: Array<{ endpoint: string; status?: number; error: string }> = [];
 
     const BATCH_SIZE = 10;
     const BATCH_DELAY_MS = 200;
@@ -132,16 +133,18 @@ export async function GET(request: Request) {
         };
 
         try {
-          await webpush.sendNotification(pushSubscription, payload, { urgency: 'high', TTL: 14400, topic: 'qotd-morning' });
+          await webpush.sendNotification(pushSubscription, payload, { urgency: 'high', TTL: 14400 });
           sent++;
         } catch (err: unknown) {
           const status = (err as { statusCode?: number }).statusCode;
+          const errMsg = (err as { body?: string }).body || (err instanceof Error ? err.message : String(err));
           if (status === 401 || status === 403 || status === 404 || status === 410) {
             console.log(`[qotd-morning] Subscription invalid/expired (${status}), deleting: ${sub.endpoint.slice(0, 60)}...`);
             await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
             expired++;
           } else {
-            console.error(`[qotd-morning] Push failed for ${sub.endpoint.slice(0, 60)}...:`, status, (err as { body?: string }).body || (err instanceof Error ? err.message : String(err)));
+            console.error(`[qotd-morning] Push failed for ${sub.endpoint.slice(0, 60)}...:`, status, errMsg);
+            pushErrors.push({ endpoint: sub.endpoint.slice(0, 60), status, error: errMsg.slice(0, 100) });
             failed++;
           }
         }
@@ -162,7 +165,7 @@ export async function GET(request: Request) {
     await supabase.from('cron_logs').insert({
       cron_name: 'qotd-morning',
       status: 'success',
-      details: { ...summary, run_id }
+      details: { ...summary, run_id, ...(pushErrors.length > 0 ? { errors: pushErrors.slice(0, 10) } : {}) }
     });
 
     // Cleanup receipts older than 30 days

@@ -184,12 +184,21 @@ export default function QuizEngine({
   const attemptsSavedRef = useRef(false);
 
   // QOTD States
+  const [pastNoon, setPastNoon] = useState(() => isPastNoon());
   const [qotdReaction, setQotdReaction] = useState<string | null>(null);
   const [qotdAggregates, setQotdAggregates] = useState<Record<string, number> | null>(null);
   const [qotdStats, setQotdStats] = useState<{correct: number, incorrect: number, total: number} | null>(null);
   const [qotdTab, setQotdTab] = useState<'today' | 'history'>('today');
   const [qotdComparison, setQotdComparison] = useState<QotdPeerComparisonResponse | null>(null);
   const [loadingQotdComparison, setLoadingQotdComparison] = useState(false);
+
+  useEffect(() => {
+    if (!isQotd) return;
+    const interval = setInterval(() => {
+      setPastNoon(isPastNoon());
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [isQotd]);
 
   const fetchPeerComparison = useCallback(async (questionId: string) => {
     try {
@@ -218,6 +227,13 @@ export default function QuizEngine({
       setLoadingQotdComparison(false);
     }
   }, []);
+
+  // When past 12:30 PM Eastern, auto-fetch peer comparison if not already loaded
+  useEffect(() => {
+    if (isQotd && pastNoon && questions[0]?.id && !qotdComparison) {
+      fetchPeerComparison(questions[0].id);
+    }
+  }, [isQotd, pastNoon, questions, qotdComparison, fetchPeerComparison]);
 
   useEffect(() => {
     setViewedQuestions(prev => {
@@ -324,7 +340,7 @@ export default function QuizEngine({
                setAnswers({ 0: qotdAttempt.selected_index });
              }
              attemptsSavedRef.current = true;
-             if (isPastNoon()) {
+             if (pastNoon) {
                setShowResults(true);
              } else {
                setShowResults(false);
@@ -650,6 +666,7 @@ export default function QuizEngine({
     forceNew,
     isQotd,
     isQotdCompleted,
+    pastNoon,
     qotdAttempt?.is_correct,
     qotdAttempt?.selected_index,
     qotdQuestion,
@@ -1449,7 +1466,7 @@ export default function QuizEngine({
       }
     };
 
-    if (isQotd && !isPastNoon()) {
+    if (isQotd && !pastNoon) {
       return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 transition-colors">
           <div className="bg-white dark:bg-slate-900 p-6 md:p-10 rounded-[40px] shadow-2xl border border-slate-100 dark:border-slate-800 max-w-lg w-full text-center space-y-8 animate-in fade-in zoom-in duration-300 transition-colors">

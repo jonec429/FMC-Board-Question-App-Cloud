@@ -280,11 +280,20 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     try { localStorage.setItem('fmc_resident_block_sort', m); } catch {}
   };
 
-  // QOTD Stats (fetched if past noon)
+  // QOTD Stats & Automatic 12:30 PM Eastern Unlock Listener
+  const [pastNoon, setPastNoon] = useState(() => isPastNoon());
   const [qotdStats, setQotdStats] = useState<{correct: number, incorrect: number, total: number} | null>(null);
 
   useEffect(() => {
-    if (qotdQuestion && isPastNoon()) {
+    // Check every 20 seconds so the card flips to "Results" and fetches stats right at 12:30 PM Eastern
+    const timer = setInterval(() => {
+      setPastNoon(isPastNoon());
+    }, 20000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (qotdQuestion && pastNoon) {
       supabase.rpc('get_qotd_cohort_stats', { p_question_ids: [qotdQuestion.id] })
         .then(({ data, error }) => {
           if (!error && data && data.length > 0) {
@@ -294,7 +303,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
           }
         });
     }
-  }, [qotdQuestion]);
+  }, [qotdQuestion, pastNoon]);
 
   // Smart background refetching
   useEffect(() => {
@@ -648,9 +657,9 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
                 <p className="text-indigo-100 text-xs line-clamp-2 mb-3 leading-snug">
                   {qotdQuestion ? (
-                    qotdAttempt || isPastNoon() ? (
+                    qotdAttempt || pastNoon ? (
                       qotdAttempt ? (
-                        isPastNoon()
+                        pastNoon
                           ? qotdStats && qotdStats.total > 0
                             ? `${qotdStats.total} answered · ${Math.round((qotdStats.correct / qotdStats.total) * 100)}% correct`
                             : 'Results and stats are now available!'
@@ -671,7 +680,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
               <div className="relative z-10 flex items-center gap-1.5 mt-auto">
                 {qotdQuestion ? (
-                  qotdAttempt || isPastNoon() ? (
+                  qotdAttempt || pastNoon ? (
                     <>
                       <button
                         onClick={() => onStartQuiz({ 
@@ -683,7 +692,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                         })}
                         className="flex-1 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl font-bold transition-all text-xs backdrop-blur-sm border border-white/20 text-center truncate"
                       >
-                        {qotdAttempt ? (isPastNoon() ? 'Results' : 'Review') : 'Answer'}
+                        {qotdAttempt ? (pastNoon ? 'Results' : 'Review') : 'Answer'}
                       </button>
                       <button
                         onClick={() => setShowQotdHistoryModal(true)}
@@ -806,9 +815,21 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                   </button>
                 </div>
               </div>
-            ) : currentBlock ? (
+            ) : currentBlock ? (() => {
+              const currentHasFixedSet = currentBlock.question_ids && currentBlock.question_ids.length > 0;
+              const currentDisplayCount = currentHasFixedSet
+                ? currentBlock.question_ids!.length
+                : (currentBlock.question_count || 40);
+              return (
               <button
-                onClick={() => onStartQuiz({ topic: currentBlock.title, quizId: currentBlock.id, count: 40 })}
+                onClick={() => onStartQuiz({
+                  topic: currentBlock.title,
+                  quizId: currentBlock.id,
+                  questionIds: currentHasFixedSet ? currentBlock.question_ids : undefined,
+                  categories: !currentHasFixedSet && currentBlock.category_filters && currentBlock.category_filters.length > 0 ? currentBlock.category_filters : undefined,
+                  keywords: !currentHasFixedSet && currentBlock.keyword_filters && currentBlock.keyword_filters.length > 0 ? currentBlock.keyword_filters : undefined,
+                  count: currentDisplayCount,
+                })}
                 className="order-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px]"
               >
                 <div className="flex items-center justify-between gap-2 mb-2 w-full">
@@ -831,7 +852,8 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                   Start Block <ChevronRight className="w-3.5 h-3.5" />
                 </div>
               </button>
-            ) : (
+              );
+            })() : (
               <div className="order-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between text-left min-h-[170px]">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-slate-800 dark:text-slate-200">

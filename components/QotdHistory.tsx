@@ -73,7 +73,7 @@ export default function QotdHistory({ onBack, userId }: QotdHistoryProps) {
     <div className="space-y-3">
       {items.map((item) => {
         const isExpanded = expandedId === item.question.id;
-        const correctPct = item.stats
+        const correctPct = item.stats && item.stats.total > 0
           ? Math.round((item.stats.correct / item.stats.total) * 100)
           : null;
 
@@ -137,9 +137,11 @@ export default function QotdHistory({ onBack, userId }: QotdHistoryProps) {
                       ✓ {String.fromCharCode(65 + item.question.correct_index)}. {(item.question.options as string[])[item.question.correct_index]?.substring(0, 60)}{((item.question.options as string[])[item.question.correct_index]?.length || 0) > 60 ? '...' : ''}
                     </span>
                     {/* Stats */}
-                    {correctPct !== null && (
+                    {item.stats && (
                       <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
-                        {correctPct}% correct · {item.stats!.total} responses
+                        {item.stats.total > 0
+                          ? `${correctPct}% correct · ${item.stats.total} responses`
+                          : '0 responses'}
                       </span>
                     )}
                   </div>

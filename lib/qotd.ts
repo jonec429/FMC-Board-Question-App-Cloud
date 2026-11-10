@@ -75,14 +75,25 @@ export async function getQotdHistory(
   userId?: string
 ): Promise<{ items: QotdHistoryItem[]; hasMore: boolean }> {
   const todayStr = getTodayDateString();
+  const pastNoon = isPastNoon();
 
-  // Fetch the schedule history backwards from yesterday
-  const { data: scheduleData, error } = await withTimeout(supabase
+  // If past 12:30 PM Eastern, today's QOTD has officially unlocked and is part of history.
+  // Before 12:30 PM, strictly query < todayStr so today's explanation is never exposed in past QOTDs.
+  let scheduleQuery = supabase
     .from('qotd_schedule')
     .select('schedule_date, question:questions(*)')
-    .lt('schedule_date', todayStr)
-    .order('schedule_date', { ascending: false })
-    .range(offset, offset + pageSize), 10000).catch((e: unknown) => ({ data: null, error: e }));
+    .order('schedule_date', { ascending: false });
+
+  if (pastNoon) {
+    scheduleQuery = scheduleQuery.lte('schedule_date', todayStr);
+  } else {
+    scheduleQuery = scheduleQuery.lt('schedule_date', todayStr);
+  }
+
+  const { data: scheduleData, error } = await withTimeout(
+    scheduleQuery.range(offset, offset + pageSize),
+    10000
+  ).catch((e: unknown) => ({ data: null, error: e }));
 
   if (error || !scheduleData || scheduleData.length === 0) {
     return { items: [], hasMore: false };

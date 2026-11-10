@@ -184,12 +184,18 @@ export async function GET(request: Request) {
       const totalCorrect = history.filter((h) => h.isCorrect).length;
       const accuracy = totalAnswered > 0 ? Math.round((totalCorrect / totalAnswered) * 100) : 0;
 
+      const qotdDateStrings = residentAttempts
+        .map((a) => (a.created_at ? getTodayDateString(new Date(a.created_at)) : null))
+        .filter(Boolean) as string[];
+      const derivedStreak = computeQotdStreak(qotdDateStrings, todayStr);
+      const derivedMax = Math.max(computeMaxQotdStreak(qotdDateStrings), streakData?.max_qotd_streak || 0, derivedStreak);
+
       return NextResponse.json({
         history,
         streak: {
-          current: streakData?.current_qotd_streak || 0,
-          max: streakData?.max_qotd_streak || 0,
-          lastDate: streakData?.last_qotd_date || null,
+          current: derivedStreak,
+          max: derivedMax,
+          lastDate: streakData?.last_qotd_date || (residentAttempts[0]?.created_at?.split('T')[0] ?? null),
         },
         stats: {
           totalAnswered,
