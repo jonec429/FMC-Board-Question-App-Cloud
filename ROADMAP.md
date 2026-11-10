@@ -62,7 +62,28 @@ This file serves as the shared source of truth for development progress between 
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
-### ▶️ Session Handoff — 2026-11-10 (Antigravity: Phase 7 — Question-Weighted Statistics Engine, Responsive PWA Padding Overhaul & Code Health)
+### ▶️ Session Handoff — 2026-11-10 (Antigravity: Top-to-Bottom Code Audit, Stability & Hardening Engine)
+**Shipped this session**:
+1. **Zero-Loss Mobile Answer Persistence (`components/QuizEngine.tsx`)**:
+   - Eliminated the 3-second debounce window on answer persistence. Answer selection now writes synchronously to `localStorage` immediately upon click (<1ms), guaranteeing answers are never lost when mobile users lock their screen or switch apps.
+2. **Active Quiz Protection & Reload Guard (`hooks/useDayChangeReload.ts`, `app/page.tsx`)**:
+   - Protected residents taking 40-question curriculum blocks or 200–300 question mock exams by adding an active session guard (`useDayChangeReload(Boolean(activeQuiz))`). Automatic background reloads (triggered after midnight or 4 hours of inactivity) are strictly paused while a quiz or exam is underway.
+3. **Offline Sync Concurrency Mutex & Idempotency (`lib/offlineSync.ts`, `components/QuizEngine.tsx`)**:
+   - Added an in-memory concurrency mutex to `flushPendingSubmissions()` to prevent simultaneous network reconnection events from creating duplicate rows in Supabase.
+   - Enforced explicit, immutable UUIDs (`crypto.randomUUID()`) on all `result` objects at generation time and upgraded offline database sync to idempotent upserts (`upsert(..., { onConflict: 'id' })`), eliminating phantom duplicate scores and double points.
+4. **Unified Server-Side Supabase & Security Architecture (`lib/supabaseServer.ts`, `app/api/*`)**:
+   - Created `lib/supabaseServer.ts` providing safe lazy initialization, standardized Bearer token extraction, and uniform role checking (`requireAdminOrFaculty`).
+   - Eliminated dangerous top-level `createClient(...)` invocations that risked crashing during cold-starts across `app/api/admin/bulk-attendance`, `app/api/admin/manual-points`, `app/api/admin/points`, `app/api/cron/block-reminders`, `app/api/web-push/receipt`, and `app/api/web-push/unsubscribe`.
+   - Enforced unconditional `CRON_SECRET` authentication across all cron endpoints.
+5. **Vestigial Migration Cleanup & Schema Synchronization (`lib/googleSheets.ts`, `lib/database.types.ts`, `hooks/useDashboardData.ts`, `lib/assignedQuizzes.ts`)**:
+   - Removed dead stub `lib/googleSheets.ts` leftover from early Google Apps Script migration.
+   - Corrected academic year drift in `hooks/useDashboardData.ts` to use canonical `getAvailableAcademicYears()`.
+   - Added full TypeScript definitions for missing database tables (`assigned_quizzes`, `qotd_schedule`, `cron_logs`, `push_receipts`) in `lib/database.types.ts` and removed untyped `as any` casts.
+6. **Granular Error Boundary Isolation & In-Place Reset (`components/ErrorBoundary.tsx`, `components/AdminConsole.tsx`, `components/Dashboard.tsx`)**:
+   - Enhanced `ErrorBoundary.tsx` with in-place state resetting (`handleReset`) and retry buttons.
+   - Isolated individual tabs in `AdminConsole.tsx` (`<ErrorBoundary key={activeTab}>`) and all modals in `Dashboard.tsx` so an error in one tab or modal never crashes the whole application.
+
+### ▶️ Session Handoff — 2026-11-10 (Antigravity: Phase 7 — Question-Weighted Statistics Engine, Responsive PWA Padding Overhaul, Code Health & 600-Question Organ System Audit)
 **Shipped this session**:
 1. **Question-Weighted Statistics Engine (`lib/quizMetrics.ts`)**:
    - Created a single authoritative source of truth (`lib/quizMetrics.ts`) for quiz accuracy and curriculum metrics: `isGradedQuizResult`, `extractQuizCorrectAndTotal`, `computeWeightedAccuracy`, and `computeTopicBreakdown`.
@@ -83,6 +104,12 @@ This file serves as the shared source of truth for development progress between 
 3. **Code Health & Memoization (`components/MyStatsModal.tsx`, `lib/residentRisk.ts`)**:
    - Memoized `weightedQuizStats`, `quizOnlyResults`, and `topicBreakdown` in `MyStatsModal.tsx` with `useMemo` so tab switches and sort changes do not recompute aggregations on every render.
    - Normalized mixed CRLF/LF line endings in `lib/residentRisk.ts`.
+4. **Full 600-Question Organ System (`category` / `system`) Audit & Remediation (`questions` table, `questions.csv`)**:
+   - Clinically reviewed all 600 ABFM ITE questions across 2023 (200 Qs), 2024 (200 Qs), and 2025 (200 Qs) and cross-referenced them against the official ABFM Score Results Handbooks (2023 Table 4, 2024 Figure 2b & Table 4, 2025 Figure 2b & Table 4).
+   - Corrected **80 misclassified questions** (26 in 2023, 30 in 2024, 24 in 2025) in both the live Supabase `questions` table (`category` and `system` columns) and [`questions.csv`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/questions.csv):
+     - **2023 Nonspecific & Male GU Cleanup (26 Qs)**: Reassigned 17 of the 18 ABFM `Nonspecific` items that had previously been bulk-mapped to `Infectious Disease` into their true clinical systems (e.g., postpartum depression Q7 & serotonin syndrome Q34 $\to$ `Psychiatric/Behavioral`; hypothermia Q18, heatstroke Q80 & scleroderma Q194 $\to$ `Musculoskeletal`; SSRI hyponatremia Q55 & SIADH Q89 $\to$ `Nephrologic`; puberty blockers Q47 $\to$ `Endocrine`; menopausal hot flashes Q74 $\to$ `Reproductive/Female`; Down syndrome anemia Q103 & peanut anaphylaxis Q138 $\to$ `Hematologic/Immune`; lung cancer risk Q121 & post-op respiratory depression Q176 $\to$ `Pulmonary`; black widow bite Q128 $\to$ `Skin/Subcutaneous`; bariatric surgery in GERD Q161 $\to$ `Gastrointestinal`), plus moved male GU items (Q8 testicular cancer screening, Q158 hematospermia) from `Reproductive/Female` to `Nephrologic`.
+     - **2024 & 2025 Preventive Screening De-Dumping**: Reassigned organ-specific USPSTF preventive screening questions that the early Gemini Gem had dumped into `Population Health/Epidemiology` back to their target Organ Systems (`Cardiovascular` for statin/ASCVD prevention; `Pulmonary` for lung cancer LDCT & OSA screening; `Gastrointestinal` for colorectal cancer screening; `Reproductive/Female` for BRCA, cervical cancer & folic acid; `Musculoskeletal` for osteoporosis DXA & fall prevention; `Psychiatric/Behavioral` for depression, anxiety, alcohol & drug screening; `Infectious Disease` for HIV, HCV, STI & HSV screening; `Special Sensory` for pediatric amblyopia vision screening).
+     - **2024 & 2025 Handbook Figure 2b Alignment**: Aligned respiratory tract infections (PJP pneumonia, strep pharyngitis, Influenza A/B, acute bacterial rhinosinusitis) to `Pulmonary`, anticoagulation/VTE/shock/orthostasis items to `Cardiovascular`, environmental injuries/falls/CRPS/SLE to `Musculoskeletal`, and pediatric dental/oral trauma items to `Special Sensory`.
 
 ### ▶️ Session Handoff — 2026-11-10 (Antigravity: Dual Tagging, Pulmonology Audit, Leitner Flashcards, Per-User Quiz Sorting & Timer Pause)
 **Shipped this session**:

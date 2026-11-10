@@ -270,16 +270,35 @@ export default function QuizEngine({
         setAnswers(prev => {
           const next = { ...prev };
           delete next[currentIndex];
+          saveOfflineSession(sessionId || topic || 'active_quiz', {
+            sessionId: sessionId || undefined,
+            topic,
+            currentIndex,
+            answers: next,
+            timeLeft,
+            lastUpdated: new Date().toISOString(),
+          });
           return next;
         });
       }
     } else {
       setStagedAnswers(prev => ({ ...prev, [currentIndex]: idx }));
       if (mode === 'quiz') {
-        setAnswers(prev => ({ ...prev, [currentIndex]: idx }));
+        setAnswers(prev => {
+          const next = { ...prev, [currentIndex]: idx };
+          saveOfflineSession(sessionId || topic || 'active_quiz', {
+            sessionId: sessionId || undefined,
+            topic,
+            currentIndex,
+            answers: next,
+            timeLeft,
+            lastUpdated: new Date().toISOString(),
+          });
+          return next;
+        });
       }
     }
-  }, [currentIndex, mode]);
+  }, [currentIndex, mode, sessionId, topic, timeLeft]);
 
   const handleToolsChange = useCallback((tools: { highlights: string[]; strikethroughs: number[] }) => {
     if (!currentQuestion?.id) return;
@@ -831,6 +850,7 @@ export default function QuizEngine({
       .map((q, idx) => ({ q, idx, isCorrect: finalAnswers[idx] === q.correct_index }))
       .filter(({ isCorrect }) => !isCorrect);
     const result = {
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${user.id}_${Date.now()}`,
       user_id: user.id,
       legacy_email: user.email,
       topic: topicLabel,
@@ -860,7 +880,7 @@ export default function QuizEngine({
 
     if (isOffline) {
       queuePendingSubmission({
-        id: `${user.id}_${Date.now()}`,
+        id: result.id,
         userId: user.id,
         sessionId: sessionId || undefined,
         isQotd: !!isQotd,
@@ -1069,14 +1089,15 @@ export default function QuizEngine({
       console.warn('Submit Quiz cloud write failed; falling back to offline queue:', err);
       try {
         queuePendingSubmission({
-          id: `${user.id}_${Date.now()}`,
+          id: result.id,
           userId: user.id,
           sessionId: sessionId || undefined,
           isQotd: !!isQotd,
           topic: topicLabel,
-          result: !isQotd ? result : undefined,
-          attempts: !isQotd && !isDemo ? attempts : undefined,
-          qotdAttempt: isQotd ? {
+          result: !isQotd && !resultSavedRef.current ? result : undefined,
+          resultSynced: resultSavedRef.current,
+          attempts: !isQotd && !isDemo && !attemptsSavedRef.current ? attempts : undefined,
+          qotdAttempt: isQotd && !attemptsSavedRef.current ? {
             user_id: user.id,
             question_id: questions[0].id,
             is_correct: finalAnswers[0] === questions[0].correct_index,

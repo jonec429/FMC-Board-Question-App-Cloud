@@ -21,6 +21,7 @@ import AdviseeQuickAccessCard from './AdviseeQuickAccessCard';
 import ChallengeModal from './ChallengeModal';
 import IteCountdownBanner from './IteCountdownBanner';
 import ForcePasswordChangeModal from './ForcePasswordChangeModal';
+import ErrorBoundary from './ErrorBoundary';
 import { Gift, Shield } from 'lucide-react';
 import StreakSaverModal from './StreakSaverModal';
 import { getStreakSaverStatus, getStreakSaverQuestions, StreakSaverStatus } from '@/lib/streakSaver';
@@ -1238,48 +1239,56 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       )}
 
       {showQotdHistoryModal && (
-        <QotdHistoryModal onClose={() => setShowQotdHistoryModal(false)} userId={user.id} />
+        <ErrorBoundary onReset={() => setShowQotdHistoryModal(false)} fallbackMessage="QOTD History encountered an error.">
+          <QotdHistoryModal onClose={() => setShowQotdHistoryModal(false)} userId={user.id} />
+        </ErrorBoundary>
       )}
 
       {showStreakSaverModal && streakSaverStatus && (
-        <StreakSaverModal
-          status={streakSaverStatus}
-          onClose={() => setShowStreakSaverModal(false)}
-          onStartChallenge={async () => {
-            setShowStreakSaverModal(false);
-            const qs = await getStreakSaverQuestions(
-              streakSaverStatus.nextSaveQuestionCount,
-              streakSaverStatus.mostRecentYear
-            );
-            onStartQuiz({
-              topic: 'Streak Saver',
-              questionIds: qs.map(q => q.id),
-              count: streakSaverStatus.nextSaveQuestionCount,
-              isStreakSaver: true,
-              streakSaverMeta: streakSaverStatus,
-              forceNew: true,
-            });
-          }}
-        />
+        <ErrorBoundary onReset={() => setShowStreakSaverModal(false)} fallbackMessage="Streak Saver encountered an error.">
+          <StreakSaverModal
+            status={streakSaverStatus}
+            onClose={() => setShowStreakSaverModal(false)}
+            onStartChallenge={async () => {
+              setShowStreakSaverModal(false);
+              const qs = await getStreakSaverQuestions(
+                streakSaverStatus.nextSaveQuestionCount,
+                streakSaverStatus.mostRecentYear
+              );
+              onStartQuiz({
+                topic: 'Streak Saver',
+                questionIds: qs.map(q => q.id),
+                count: streakSaverStatus.nextSaveQuestionCount,
+                isStreakSaver: true,
+                streakSaverMeta: streakSaverStatus,
+                forceNew: true,
+              });
+            }}
+          />
+        </ErrorBoundary>
       )}
 
       {selectedYoyClass && (
-        <ClassYoyModal 
-          selectedClass={selectedYoyClass}
-          leaderboardData={leaderboard}
-          onClose={() => setSelectedYoyClass(null)}
-        />
+        <ErrorBoundary onReset={() => setSelectedYoyClass(null)} fallbackMessage="Class YoY report encountered an error.">
+          <ClassYoyModal 
+            selectedClass={selectedYoyClass}
+            leaderboardData={leaderboard}
+            onClose={() => setSelectedYoyClass(null)}
+          />
+        </ErrorBoundary>
       )}
 
       {showChallengeModal && (
-        <ChallengeModal
-          isOpen={showChallengeModal}
-          onClose={() => setShowChallengeModal(false)}
-          user={user}
-          profile={profile}
-          academicYear={selectedYear}
-          onStartQuiz={onStartQuiz}
-        />
+        <ErrorBoundary onReset={() => setShowChallengeModal(false)} fallbackMessage="DoorDash Challenge encountered an error.">
+          <ChallengeModal
+            isOpen={showChallengeModal}
+            onClose={() => setShowChallengeModal(false)}
+            user={user}
+            profile={profile}
+            academicYear={selectedYear}
+            onStartQuiz={onStartQuiz}
+          />
+        </ErrorBoundary>
       )}
 
       <ForcePasswordChangeModal
@@ -1516,21 +1525,25 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       {showInstallApp && <InstallAppModal onClose={() => setShowInstallApp(false)} />}
 
       {showSearchModal && (
-        <QuestionSearchModal
-          isOpen={showSearchModal}
-          onClose={() => setShowSearchModal(false)}
-          userId={user.id}
-          userEmail={user.email}
-        />
+        <ErrorBoundary onReset={() => setShowSearchModal(false)} fallbackMessage="Question Search encountered an error.">
+          <QuestionSearchModal
+            isOpen={showSearchModal}
+            onClose={() => setShowSearchModal(false)}
+            userId={user.id}
+            userEmail={user.email}
+          />
+        </ErrorBoundary>
       )}
 
       {showFlashcardsModal && (
-        <FlashcardsModal
-          isOpen={showFlashcardsModal}
-          onClose={() => setShowFlashcardsModal(false)}
-          userId={user.id}
-          userEmail={user.email}
-        />
+        <ErrorBoundary onReset={() => setShowFlashcardsModal(false)} fallbackMessage="Flashcards encountered an error.">
+          <FlashcardsModal
+            isOpen={showFlashcardsModal}
+            onClose={() => setShowFlashcardsModal(false)}
+            userId={user.id}
+            userEmail={user.email}
+          />
+        </ErrorBoundary>
       )}
 
       {/* New Badge Overlay Modal */}

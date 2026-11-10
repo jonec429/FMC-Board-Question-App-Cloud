@@ -17,6 +17,7 @@ import AssignQuizManager from './AssignQuizManager';
 import QotdAnalytics from './QotdAnalytics';
 import ChallengeTracker from './ChallengeTracker';
 import QuestionSearchModal from './QuestionSearchModal';
+import ErrorBoundary from './ErrorBoundary';
 import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
@@ -197,17 +198,19 @@ export default function AdminConsole({ user, profile, onExit, initialTab }: Admi
 
           {/* Main Content */}
           <main className="flex-1 min-w-0">
-            {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} onNavigateTab={(t) => setActiveTab(t as TabId)} />}
-            {activeTab === 'challenge' && <ChallengeTracker adminData={adminDataResult.data} user={user} profile={profile} />}
-            {activeTab === 'qotd' && <QotdAnalytics adminData={adminDataResult.data} user={user} profile={profile} />}
-            {activeTab === 'reporting' && adminDataResult.data && <AdminReporting adminData={adminDataResult.data} user={user} profile={profile} />}
-            {activeTab === 'roster' && <RosterManager />}
-            {activeTab === 'attendance' && <AttendanceManager />}
-            {activeTab === 'questions' && <QuestionBankManager />}
-            {activeTab === 'builder' && <CurriculumManager />}
-            {activeTab === 'notifications' && <NotificationManager user={user} profile={profile} />}
-            {activeTab === 'rollover' && <AnnualRollover user={user} onNavigate={(t) => setActiveTab(t as TabId)} />}
-            {activeTab === 'assign' && <AssignQuizManager user={user} profile={profile} />}
+            <ErrorBoundary key={activeTab} fallbackMessage={`The ${activeTab} tab encountered an error.`}>
+              {activeTab === 'performance' && <AdminPerformance user={user} profile={profile} onNavigateTab={(t) => setActiveTab(t as TabId)} />}
+              {activeTab === 'challenge' && <ChallengeTracker adminData={adminDataResult.data} user={user} profile={profile} />}
+              {activeTab === 'qotd' && <QotdAnalytics adminData={adminDataResult.data} user={user} profile={profile} />}
+              {activeTab === 'reporting' && adminDataResult.data && <AdminReporting adminData={adminDataResult.data} user={user} profile={profile} />}
+              {activeTab === 'roster' && <RosterManager />}
+              {activeTab === 'attendance' && <AttendanceManager />}
+              {activeTab === 'questions' && <QuestionBankManager />}
+              {activeTab === 'builder' && <CurriculumManager />}
+              {activeTab === 'notifications' && <NotificationManager user={user} profile={profile} />}
+              {activeTab === 'rollover' && <AnnualRollover user={user} onNavigate={(t) => setActiveTab(t as TabId)} />}
+              {activeTab === 'assign' && <AssignQuizManager user={user} profile={profile} />}
+            </ErrorBoundary>
           </main>
         </div>
       </div>

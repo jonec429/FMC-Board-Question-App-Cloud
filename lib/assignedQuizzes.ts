@@ -46,7 +46,7 @@ export async function createAssignedQuizzes({
       is_completed: false,
     }));
 
-    const { error: directError } = await supabase.from('assigned_quizzes' as any).insert(standardInserts);
+    const { error: directError } = await supabase.from('assigned_quizzes').insert(standardInserts);
 
     if (!directError) {
       return { success: true };
@@ -84,7 +84,7 @@ export async function getFacultyAssignedQuizzes(): Promise<AssignedQuizRecord[]>
   try {
     // 1. Try assigned_quizzes
     const { data: directData, error: directErr } = await supabase
-      .from('assigned_quizzes' as any)
+      .from('assigned_quizzes')
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -146,7 +146,7 @@ export async function getFacultyAssignedQuizzes(): Promise<AssignedQuizRecord[]>
  */
 export async function deleteAssignedQuiz(id: string): Promise<boolean> {
   try {
-    const { error: err1 } = await supabase.from('assigned_quizzes' as any).delete().eq('id', id);
+    const { error: err1 } = await supabase.from('assigned_quizzes').delete().eq('id', id);
     if (!err1) return true;
 
     const { error: err2 } = await supabase.from('quizzes').delete().eq('id', id);

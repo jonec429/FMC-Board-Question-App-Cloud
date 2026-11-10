@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase, verifyCronSecret } from '@/lib/supabaseServer';
 import { Resend } from 'resend';
 import webpush from 'web-push';
 import { getEasternDateParts, getEasternUpcomingSunday, getEasternTimeString } from '@/lib/timezone';
@@ -11,17 +11,12 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}` && process.env.NODE_ENV === 'production') {
+    if (!verifyCronSecret(request)) {
       console.warn('Unauthorized block reminder cron attempt.');
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
+    const supabase = getAdminSupabase();
 
     // Early Trigger Guard (DST-safety): Target is Thursday 9:00 AM Eastern.
     const estParts = getEasternDateParts();

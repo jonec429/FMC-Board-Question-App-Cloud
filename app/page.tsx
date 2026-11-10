@@ -73,8 +73,9 @@ export default function Home() {
     }
   }, [user]);
 
-  // Reload the app when it returns to the foreground stale (new day or hidden > 4h)
-  useDayChangeReload();
+  // Reload the app when it returns to the foreground stale (new day or hidden > 4h),
+  // but strictly block reloads while a quiz/exam is actively in progress.
+  useDayChangeReload(Boolean(activeQuiz));
 
   // Sanity check: warn loudly if Supabase env vars never got wired up
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -458,7 +459,7 @@ export default function Home() {
               if (activeQuiz.quizId?.startsWith('assigned-')) {
                 const assignedId = activeQuiz.quizId.replace('assigned-', '');
                 try {
-                  const { error: updErr } = await supabase.from('assigned_quizzes' as any).update({ is_completed: true, completed_at: new Date().toISOString() }).eq('id', assignedId);
+                  const { error: updErr } = await supabase.from('assigned_quizzes').update({ is_completed: true, completed_at: new Date().toISOString() }).eq('id', assignedId);
                   if (updErr) {
                     const { data: qData } = await supabase.from('quizzes').select('*').eq('id', assignedId).maybeSingle();
                     if (qData && qData.description) {

@@ -1,48 +1,16 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdminOrFaculty } from '@/lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
 
 export async function PATCH(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
+    const authResult = await requireAdminOrFaculty(request);
+    if (!authResult.authorized || !authResult.adminSupabase) {
+      return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
-
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey
-    );
-
-    // Verify admin or faculty
-    const { data: profile } = await adminSupabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'faculty')) {
-      return NextResponse.json({ error: 'Forbidden: Admin or Faculty required' }, { status: 403 });
-    }
-
+    const adminSupabase = authResult.adminSupabase;
     const body = await request.json();
     const { resultId, attendanceId, points, topic, date } = body;
 
@@ -78,7 +46,6 @@ export async function PATCH(request: Request) {
       const resTopic = existingResult.topic || '';
       const email = existingResult.legacy_email;
       if (resTopic.includes('[Attendance]') && email) {
-        // Strip [Attendance] prefix to find matching attendance record
         const rawTopic = resTopic.replace(/^\[Attendance\]\s*/i, '').trim();
         await adminSupabase
           .from('attendance')
@@ -129,58 +96,26 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ error: 'Must provide resultId or attendanceId' }, { status: 400 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating points:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function DELETE(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
+    const authResult = await requireAdminOrFaculty(request);
+    if (!authResult.authorized || !authResult.adminSupabase) {
+      return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
-
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey
-    );
-
-    // Verify admin
-    const { data: profile } = await adminSupabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'faculty')) {
-      return NextResponse.json({ error: 'Forbidden: Admin or Faculty required' }, { status: 403 });
-    }
-
+    const adminSupabase = authResult.adminSupabase;
     const body = await request.json();
     const { resultId, attendanceId, resultIds, attendanceIds } = body;
 
     // Batch deletion support
     if (Array.isArray(resultIds) && resultIds.length > 0) {
-      // Find topics to sync with attendance
       const { data: resultsToDelete } = await adminSupabase
         .from('results')
         .select('id, legacy_email, topic')
@@ -195,7 +130,6 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: delErr.message }, { status: 500 });
       }
 
-      // Also clean up matching attendance
       if (resultsToDelete && resultsToDelete.length > 0) {
         for (const r of resultsToDelete) {
           if (r.topic?.includes('[Attendance]') && r.legacy_email) {
@@ -263,7 +197,6 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: delErr.message }, { status: 500 });
       }
 
-      // If it was attendance, also delete from attendance
       if (existingResult.topic?.includes('[Attendance]') && existingResult.legacy_email) {
         const rawTopic = existingResult.topic.replace(/^\[Attendance\]\s*/i, '').trim();
         await adminSupabase
@@ -297,7 +230,6 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: delErr.message }, { status: 500 });
       }
 
-      // Sync with results
       if (existingAtt.resident_email && existingAtt.topic) {
         await adminSupabase
           .from('results')
@@ -311,8 +243,9 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ error: 'Must provide resultId, attendanceId, resultIds, or attendanceIds' }, { status: 400 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting points:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

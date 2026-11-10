@@ -1,65 +1,30 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
-
-import { createClient } from '@supabase/supabase-js';
+import { requireAdminOrFaculty } from '@/lib/supabaseServer';
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.split('Bearer ')[1];
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await requireAdminOrFaculty(request);
+    if (!authResult.authorized || !authResult.adminSupabase) {
+      return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user } } = await supabase.auth.getUser(token);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // 2. Insert with service role key to bypass RLS
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-    
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey
-    );
-
-    // Verify admin/faculty status
-    const { data: profile } = await adminSupabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'faculty')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
+    const adminSupabase = authResult.adminSupabase;
     const body = await request.json();
     const { userId, email, points, reason } = body;
 
-    if (!userId || typeof points !== 'number' || !reason) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!userId || typeof points !== 'number' || isNaN(points) || !reason) {
+      return NextResponse.json({ error: 'Missing or invalid required fields (userId, points, reason)' }, { status: 400 });
     }
 
     const { error } = await adminSupabase.from('results').insert({
       user_id: userId,
       legacy_email: email,
-      topic: `[Manual] ${reason}`,
+      topic: `[Manual] ${reason.trim()}`,
       academic_points: points,
       timing_status: 'Manual',
       academic_year: getCurrentAcademicYear(),
+      created_at: new Date().toISOString(),
     });
 
     if (error) {
@@ -68,9 +33,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Manual points error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -21,21 +21,50 @@ export interface PendingSubmission {
   qotdAttempt?: any;
   topic?: string;
   submittedAt: string;
+  resultSynced?: boolean;
 }
 
 const SESSION_KEY_PREFIX = 'fmc_offline_session_';
 const PENDING_SUBMISSIONS_KEY = 'fmc_pending_submissions';
+
+// Concurrency mutex lock to prevent concurrent flushes from inserting duplicate rows
+let isFlushing = false;
+
+/**
+ * Safely writes to localStorage with automatic cleanup if quota is exceeded
+ */
+function safeSetLocalStorage(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (err: unknown) {
+    // If QuotaExceededError, attempt to prune old session keys
+    if (err instanceof DOMException && (err.name === 'QuotaExceededError' || err.code === 22)) {
+      try {
+        const keysToPrune: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(SESSION_KEY_PREFIX) && k !== key) {
+            keysToPrune.push(k);
+          }
+        }
+        keysToPrune.forEach((k) => localStorage.removeItem(k));
+        localStorage.setItem(key, value);
+      } catch (pruneErr) {
+        console.error('[OfflineSync] Storage quota exceeded and cleanup failed:', pruneErr);
+      }
+    } else {
+      console.warn('[OfflineSync] LocalStorage write error:', err);
+    }
+  }
+}
 
 /**
  * Save active quiz state to localStorage immediately (offline backup buffer)
  */
 export function saveOfflineSession(sessionIdOrTopic: string, data: OfflineSessionData): void {
   if (typeof window === 'undefined' || !sessionIdOrTopic) return;
-  try {
-    localStorage.setItem(`${SESSION_KEY_PREFIX}${sessionIdOrTopic}`, JSON.stringify(data));
-  } catch (err) {
-    console.warn('[OfflineSync] Failed to save offline session backup:', err);
-  }
+  safeSetLocalStorage(`${SESSION_KEY_PREFIX}${sessionIdOrTopic}`, JSON.stringify(data));
 }
 
 /**
@@ -66,16 +95,25 @@ export function clearOfflineSession(sessionIdOrTopic: string): void {
 }
 
 /**
- * Queue a completed quiz submission when offline or if cloud write fails
+ * Queue a completed quiz submission when offline or if cloud write fails.
+ * Guarantees a deterministic ID on the submission and the embedded result to prevent duplicate rows.
  */
 export function queuePendingSubmission(submission: PendingSubmission): void {
   if (typeof window === 'undefined') return;
   try {
+    // Ensure the submission and its inner result share an immutable ID
+    if (!submission.id) {
+      submission.id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${submission.userId}_${Date.now()}`;
+    }
+    if (submission.result && !submission.result.id) {
+      submission.result.id = submission.id;
+    }
+
     const existing = getPendingSubmissions();
     // Avoid duplicate queue entries for the same submission ID
     const filtered = existing.filter((item) => item.id !== submission.id);
     filtered.push(submission);
-    localStorage.setItem(PENDING_SUBMISSIONS_KEY, JSON.stringify(filtered));
+    safeSetLocalStorage(PENDING_SUBMISSIONS_KEY, JSON.stringify(filtered));
     console.log(`[OfflineSync] Queued submission (${submission.id}) for later sync.`);
   } catch (err) {
     console.error('[OfflineSync] Failed to queue pending submission:', err);
@@ -98,68 +136,81 @@ export function getPendingSubmissions(): PendingSubmission[] {
 }
 
 /**
- * Flush all queued pending submissions to Supabase when reconnected
+ * Flush all queued pending submissions to Supabase when reconnected.
+ * Protected by an in-memory mutex to prevent double-flushes and duplicate rows.
  */
 export async function flushPendingSubmissions(supabase: any): Promise<{ synced: number; failed: number }> {
   if (typeof window === 'undefined') return { synced: 0, failed: 0 };
   if (!navigator.onLine) return { synced: 0, failed: 0 };
 
-  const pending = getPendingSubmissions();
-  if (pending.length === 0) return { synced: 0, failed: 0 };
-
-  console.log(`[OfflineSync] Attempting to flush ${pending.length} pending submission(s)...`);
-  let synced = 0;
-  let failed = 0;
-  const remaining: PendingSubmission[] = [];
-
-  for (const sub of pending) {
-    try {
-      if (!sub.isQotd && sub.result) {
-        // Insert quiz result
-        const { error: resErr } = await supabase.from('results').insert(sub.result);
-        if (resErr) throw resErr;
-
-        // Insert question attempts if available
-        if (sub.attempts && sub.attempts.length > 0) {
-          const { error: attErr } = await supabase.from('question_attempts').insert(sub.attempts);
-          if (attErr) console.warn('[OfflineSync] Attempt insert warning:', attErr);
-        }
-      } else if (sub.isQotd && sub.qotdAttempt) {
-        // Insert QOTD attempt
-        const { error: qotdErr } = await supabase.from('question_attempts').insert(sub.qotdAttempt);
-        if (qotdErr) throw qotdErr;
-      }
-
-      // Mark cloud session as completed if sessionId exists
-      if (sub.sessionId) {
-        await supabase
-          .from('quiz_sessions')
-          .update({ is_completed: true })
-          .eq('id', sub.sessionId);
-      }
-
-      // Clean up the offline session backup
-      if (sub.sessionId) {
-        clearOfflineSession(sub.sessionId);
-      }
-      if (sub.topic) {
-        clearOfflineSession(sub.topic);
-      }
-
-      synced++;
-      console.log(`[OfflineSync] Successfully synced submission ${sub.id}`);
-    } catch (err) {
-      console.error(`[OfflineSync] Failed to sync submission ${sub.id}:`, err);
-      failed++;
-      remaining.push(sub); // Keep for retry next time
-    }
+  if (isFlushing) {
+    console.log('[OfflineSync] Flush already in progress, skipping concurrent trigger.');
+    return { synced: 0, failed: 0 };
   }
 
+  isFlushing = true;
   try {
-    localStorage.setItem(PENDING_SUBMISSIONS_KEY, JSON.stringify(remaining));
-  } catch (e) {
-    console.warn('[OfflineSync] Failed to update pending submissions storage:', e);
-  }
+    const pending = getPendingSubmissions();
+    if (pending.length === 0) return { synced: 0, failed: 0 };
 
-  return { synced, failed };
+    console.log(`[OfflineSync] Attempting to flush ${pending.length} pending submission(s)...`);
+    let synced = 0;
+    let failed = 0;
+    const remaining: PendingSubmission[] = [];
+
+    for (const sub of pending) {
+      try {
+        if (!sub.isQotd && sub.result) {
+          // Ensure deterministic UUID to make insert/upsert idempotent
+          if (!sub.result.id) {
+            sub.result.id = sub.id;
+          }
+
+          if (!sub.resultSynced) {
+            const { error: resErr } = await supabase.from('results').upsert(sub.result, { onConflict: 'id' });
+            if (resErr) throw resErr;
+            sub.resultSynced = true;
+          }
+
+          // Insert question attempts if available
+          if (sub.attempts && sub.attempts.length > 0) {
+            const { error: attErr } = await supabase.from('question_attempts').insert(sub.attempts);
+            if (attErr) console.warn('[OfflineSync] Attempt insert warning:', attErr);
+          }
+        } else if (sub.isQotd && sub.qotdAttempt) {
+          // Insert QOTD attempt
+          const { error: qotdErr } = await supabase.from('question_attempts').insert(sub.qotdAttempt);
+          if (qotdErr) throw qotdErr;
+        }
+
+        // Mark cloud session as completed if sessionId exists
+        if (sub.sessionId) {
+          await supabase
+            .from('quiz_sessions')
+            .update({ is_completed: true })
+            .eq('id', sub.sessionId);
+        }
+
+        // Clean up the offline session backup
+        if (sub.sessionId) {
+          clearOfflineSession(sub.sessionId);
+        }
+        if (sub.topic) {
+          clearOfflineSession(sub.topic);
+        }
+
+        synced++;
+        console.log(`[OfflineSync] Successfully synced submission ${sub.id}`);
+      } catch (err) {
+        console.error(`[OfflineSync] Failed to sync submission ${sub.id}:`, err);
+        failed++;
+        remaining.push(sub); // Keep for retry next time
+      }
+    }
+
+    safeSetLocalStorage(PENDING_SUBMISSIONS_KEY, JSON.stringify(remaining));
+    return { synced, failed };
+  } finally {
+    isFlushing = false;
+  }
 }

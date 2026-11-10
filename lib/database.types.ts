@@ -587,6 +587,108 @@ export type Database = {
         }
         Relationships: []
       }
+      assigned_quizzes: {
+        Row: {
+          assigned_by: string | null
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string | null
+          due_date: string | null
+          id: string
+          is_completed: boolean | null
+          question_ids: Json
+          title: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean | null
+          question_ids: Json
+          title: string
+        }
+        Update: {
+          assigned_by?: string | null
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean | null
+          question_ids?: Json
+          title?: string
+        }
+        Relationships: []
+      }
+      cron_logs: {
+        Row: {
+          cron_name: string
+          details: Json | null
+          executed_at: string | null
+          id: string
+          status: string
+        }
+        Insert: {
+          cron_name: string
+          details?: Json | null
+          executed_at?: string | null
+          id?: string
+          status: string
+        }
+        Update: {
+          cron_name?: string
+          details?: Json | null
+          executed_at?: string | null
+          id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      push_receipts: {
+        Row: {
+          delivered_at: string | null
+          email: string | null
+          endpoint: string
+          id: string
+          run_id: string
+        }
+        Insert: {
+          delivered_at?: string | null
+          email?: string | null
+          endpoint: string
+          id?: string
+          run_id: string
+        }
+        Update: {
+          delivered_at?: string | null
+          email?: string | null
+          endpoint?: string
+          id?: string
+          run_id?: string
+        }
+        Relationships: []
+      }
+      qotd_schedule: {
+        Row: {
+          created_at: string | null
+          question_id: string
+          schedule_date: string
+        }
+        Insert: {
+          created_at?: string | null
+          question_id: string
+          schedule_date: string
+        }
+        Update: {
+          created_at?: string | null
+          question_id?: string
+          schedule_date?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

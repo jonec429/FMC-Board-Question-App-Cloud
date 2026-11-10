@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getAdminSupabase } from '@/lib/supabaseServer';
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +8,8 @@ export async function POST(request: Request) {
     if (!run_id || !endpoint) {
       return NextResponse.json({ error: 'Missing run_id or endpoint' }, { status: 400 });
     }
+
+    const supabase = getAdminSupabase();
 
     // Attempt to lookup the user's email based on the endpoint
     const { data: sub } = await supabase
@@ -48,6 +45,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to save receipt' }, { status: 500 });
   }
 }
-
-
-

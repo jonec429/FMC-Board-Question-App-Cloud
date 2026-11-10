@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { getQotdQuestion, getTodayDateString } from '@/lib/qotd';
 import { computeQotdStreak } from '@/lib/streaks';
 import { Block, Result, Question, LeaderboardEntry, BlockSchedule } from '@/lib/types';
-import { isGraduated, getCurrentAcademicYear } from '@/lib/academicYear';
+import { isGraduated, getCurrentAcademicYear, getAvailableAcademicYears } from '@/lib/academicYear';
 
 interface DashboardData {
   blocks: Block[];
@@ -103,7 +103,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         } catch {}
       }
 
-      const availableYears = [new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2, new Date().getFullYear() - 3]; // getAvailableAcademicYears equivalent logic
+      const availableYears = getAvailableAcademicYears();
 
       // BATCH 2: Leaderboard & Heavy Data
       const [

@@ -11,10 +11,10 @@ const STALE_HIDDEN_MS = 4 * 60 * 60 * 1000;
  * tab was hidden for more than 4 hours. PWAs can be suspended in the background for
  * long stretches, so this guards against stale UI on resume.
  *
- * Centralizes what used to be two separate visibilitychange listeners: a day-change
- * reload here and a 4-hour stale-tab reload in app/page.tsx.
+ * @param isBlocked - Set to true when an active quiz or examination is underway,
+ *                    preventing an automatic reload from blowing away progress.
  */
-export function useDayChangeReload() {
+export function useDayChangeReload(isBlocked: boolean = false) {
   useEffect(() => {
     const mountDay = new Date().toLocaleDateString();
     let hiddenAt = 0;
@@ -24,6 +24,12 @@ export function useDayChangeReload() {
         hiddenAt = Date.now();
         return;
       }
+
+      // Never disrupt an active exam/quiz session with an automatic reload
+      if (isBlocked) {
+        return;
+      }
+
       const dayChanged = new Date().toLocaleDateString() !== mountDay;
       const longHidden = hiddenAt > 0 && Date.now() - hiddenAt > STALE_HIDDEN_MS;
       if (dayChanged || longHidden) {
@@ -35,5 +41,5 @@ export function useDayChangeReload() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [isBlocked]);
 }

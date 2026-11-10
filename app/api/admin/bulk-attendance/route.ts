@@ -1,69 +1,34 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdminOrFaculty } from '@/lib/supabaseServer';
+import { getCurrentAcademicYear } from '@/lib/academicYear';
+
+interface BulkAttendanceEntry {
+  resident_email: string;
+  topic: string;
+  points?: number;
+  date?: string;
+  resident_name?: string;
+  status?: string;
+}
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.split('Bearer ')[1];
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await requireAdminOrFaculty(request);
+    if (!authResult.authorized || !authResult.adminSupabase) {
+      return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 1. Authenticate with standard client using token
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user } } = await supabaseClient.auth.getUser(token);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // 2. Insert with service role key to bypass RLS and fetch admin role
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-    
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey
-    );
-
-    // Verify admin/faculty status using the admin client
-    const { data: profile } = await adminSupabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'faculty')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
+    const adminSupabase = authResult.adminSupabase;
     const body = await request.json();
     const { entries } = body;
 
     if (!entries || !Array.isArray(entries)) {
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
-    }
-
-    interface BulkAttendanceEntry {
-      resident_email: string;
-      topic: string;
-      points?: number;
-      date?: string;
-      resident_name?: string;
-      status?: string;
+      return NextResponse.json({ error: 'Invalid payload: entries must be an array' }, { status: 400 });
     }
 
     // Deduplicate: Fetch attendance for these topics and emails from the last 1 hour
-    const emailsToFetch = Array.from(new Set(entries.map((e: BulkAttendanceEntry) => e.resident_email)));
-    const topicsToFetch = Array.from(new Set(entries.map((e: BulkAttendanceEntry) => e.topic)));
+    const emailsToFetch = Array.from(new Set(entries.map((e: BulkAttendanceEntry) => e.resident_email).filter(Boolean)));
+    const topicsToFetch = Array.from(new Set(entries.map((e: BulkAttendanceEntry) => e.topic).filter(Boolean)));
     
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
@@ -79,7 +44,7 @@ export async function POST(request: Request) {
     );
 
     const newEntries = entries.filter(
-      (e: BulkAttendanceEntry) => !existingSet.has(`${e.resident_email}::${e.topic}`)
+      (e: BulkAttendanceEntry) => e.resident_email && e.topic && !existingSet.has(`${e.resident_email}::${e.topic}`)
     );
 
     if (newEntries.length === 0) {
@@ -94,12 +59,7 @@ export async function POST(request: Request) {
     }
 
     // Also award academic points for attendance by inserting into the results table
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const date = now.getDate();
-    const isRollover = month > 5 || (month === 5 && date >= 14);
-    const defaultAy = isRollover ? year + 1 : year;
+    const defaultAy = getCurrentAcademicYear();
 
     const resultEntries = newEntries.map((entry: BulkAttendanceEntry) => {
       // Extract AY from topic, e.g. "[AY 25] Block: Gastro" -> 25
@@ -133,10 +93,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: resultsError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
-
-  } catch (error) {
+    return NextResponse.json({ success: true, count: newEntries.length });
+  } catch (error: unknown) {
     console.error('Bulk attendance error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
