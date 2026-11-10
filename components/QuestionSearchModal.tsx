@@ -5,6 +5,7 @@ import { formatIteId, getQuestionExamNumber } from '@/lib/iteQuestionMap';
 import { KNOWN_REPEAT_IDS } from './QuestionCard';
 import { getFlaggedQuestionIds, toggleFlaggedQuestion } from '@/lib/flaggedQuestions';
 import { Search, X, Flag, CheckCircle, ExternalLink, Loader2, Copy, Check } from './AppIcons';
+import { getCareDimensionMeta } from '@/lib/careDimensions';
 import QuestionStemDisplay from './QuestionStemDisplay';
 
 interface QuestionSearchModalProps {
@@ -59,7 +60,7 @@ export default function QuestionSearchModal({
       setLoading(true);
       supabase
         .from('questions')
-        .select('id, year, category, question_text, correct_index, explanation, options, resource_link, is_repeat')
+        .select('id, year, category, abfm_category, question_text, correct_index, explanation, options, resource_link, is_repeat')
         .order('year', { ascending: false })
         .then(({ data, error }) => {
           setLoading(false);
@@ -538,6 +539,18 @@ export default function QuestionSearchModal({
                         <span className="px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-black rounded-full uppercase tracking-wider">
                           {q.category || 'General Medicine'}
                         </span>
+                        {(() => {
+                          const careMeta = getCareDimensionMeta((q as any).abfm_category);
+                          if (!careMeta) return null;
+                          return (
+                            <span
+                              className={`px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-wider border shadow-2xs select-none ${careMeta.badgeBg} ${careMeta.badgeText} ${careMeta.badgeBorder}`}
+                              title={`${careMeta.label} (${careMeta.blueprintWeight})`}
+                            >
+                              {careMeta.label}
+                            </span>
+                          );
+                        })()}
                         {q.year && (
                           <span className="text-[10px] font-bold text-slate-400">
                             ITE {q.year}

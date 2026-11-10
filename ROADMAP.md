@@ -57,9 +57,60 @@ This file serves as the shared source of truth for development progress between 
 | **Phase 3 — Notifications & Intelligence** | ✅ Complete | QOTD ecosystem, Web Push, Analytics Heatmap, Resident Review |
 | **Phase 4 — Year-over-Year Transition** | ✅ Complete | YoY schema, derived-PGY model, Academic-Year filtering, Annual Rollover |
 | **Phase 5 — Feature Wishlist** | 🔄 Ongoing | Faculty tools, resident risk, dark mode, custom assignments |
-| **Phase 6 — Dual Tagging & Blueprint Matrix** | 📋 Planned | Organ System audit, ABFM Care Dimensions, dual-filter Block Builder |
+| **Phase 6 — Dual Tagging & Blueprint Matrix** | ✅ Complete | Organ System audit, ABFM Care Dimensions, dual badges, Flashcards |
+| **Phase 7 — Housekeeping, Bug Fixing & QoL Polish** | 🔄 Active | Maintenance, bug fixes, UI/UX polish, edge-case hardening |
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
+
+### ▶️ Session Handoff — 2026-11-10 (Antigravity: Phase 7 — Question-Weighted Statistics Engine, Responsive PWA Padding Overhaul & Code Health)
+**Shipped this session**:
+1. **Question-Weighted Statistics Engine (`lib/quizMetrics.ts`)**:
+   - Created a single authoritative source of truth (`lib/quizMetrics.ts`) for quiz accuracy and curriculum metrics: `isGradedQuizResult`, `extractQuizCorrectAndTotal`, `computeWeightedAccuracy`, and `computeTopicBreakdown`.
+   - Fixed the macro-averaging flaw across the entire app where quiz percentages were previously averaged equally regardless of question count (e.g., 100% on a 10Q quiz + 50% on a 40Q quiz previously showed `75.0%` instead of the true question-weighted $\frac{10 + 20}{10 + 40} = 60.0\%$).
+   - Replaced all 6+ unweighted `.reduce((acc, r) => acc + r.percentage, 0) / length` loops across:
+     - [`components/MyStatsModal.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/MyStatsModal.tsx) (Quiz Avg, Curriculum Block Breakdown, and Board Readiness evaluation)
+     - [`components/Dashboard.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/Dashboard.tsx) (Top Performance Hub card `avgPct`)
+     - [`components/AdminPerformance.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/AdminPerformance.tsx) (`curriculumAvg`, `independentAvg`, `overallAvg`, By-Block table `avgScore`, and Block Drilldown modal `avgScore`)
+     - [`components/AdviseeQuickAccessCard.tsx`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/components/AdviseeQuickAccessCard.tsx) (`curriculumAvg` and `overallAvg`)
+     - [`lib/residentRisk.ts`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/lib/residentRisk.ts) (`computeResidentReadiness`)
+     - [`lib/cccReporting.ts`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/lib/cccReporting.ts) (CCC report & printable dossier `curriculumAvg`)
+     - [`app/api/cron/faculty-digest/route.ts`](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/app/api/cron/faculty-digest/route.ts) (Automated faculty push digest `curriculumAvg`)
+   - Added explicit question-count fraction displays (e.g., `60.0% (30/50 Qs)` and `32/40 Qs`) across the Resident Performance Hub (`MyStatsModal.tsx`) and Admin Resident Details Modal (`AdminPerformance.tsx`).
+2. **Responsive PWA Padding & Density Overhaul (`components/MyStatsModal.tsx`, `components/AdminPerformance.tsx`, `components/AdminConsole.tsx`)**:
+   - Eliminated compounding nested padding on mobile portrait and landscape screens (saving 56–72px of horizontal width in `MyStatsModal` and `AdminPerformance` modals).
+   - Scaled modal backdrops (`p-1.5 sm:p-4`), modal shells (`rounded-2xl sm:rounded-3xl max-h-[95vh] sm:max-h-[90vh]`), headers (`px-3.5 py-3 sm:px-6 sm:py-4`), bodies (`p-3 sm:p-5 md:p-6`), and safe-area bottom insets (`pb-[max(0.75rem,env(safe-area-inset-bottom))]`).
+   - Replaced cramped fixed multi-column mobile grids with responsive breakpoints (`grid-cols-2 sm:grid-cols-4 md:grid-cols-7` in `AdminPerformance` Resident Details modal; `grid-cols-2 lg:grid-cols-4` for Admin KPI cards).
+3. **Code Health & Memoization (`components/MyStatsModal.tsx`, `lib/residentRisk.ts`)**:
+   - Memoized `weightedQuizStats`, `quizOnlyResults`, and `topicBreakdown` in `MyStatsModal.tsx` with `useMemo` so tab switches and sort changes do not recompute aggregations on every render.
+   - Normalized mixed CRLF/LF line endings in `lib/residentRisk.ts`.
+
+### ▶️ Session Handoff — 2026-11-10 (Antigravity: Dual Tagging, Pulmonology Audit, Leitner Flashcards, Per-User Quiz Sorting & Timer Pause)
+**Shipped this session**:
+1. **ABFM Handbook Table 4 Dual Tagging & Category Synchronization (`lib/careDimensions.ts`, `questions.csv`, database)**:
+   - Extracted Table 4 from official 2023, 2024, and 2025 ABFM ITE Results Handbooks.
+   - Fully audited and synchronized all 600 questions with official classifications: Organ System (`category`) and ABFM Care Dimensions (`abfm_category`).
+   - Resolved 24 miscategorized 2023 Respiratory items (previously misclassified under Endocrine, MSK, etc.), increasing verified Pulmonary questions from 32 to 46.
+   - Dual-tagged all 200 2023 questions into official ABFM Types of Care: Foundations of Care (19), Preventive Care (31), Emergent/Urgent Care (36), Chronic Care Management (31), and Acute Care and Diagnosis (83).
+   - Exported complete synchronized [questions.csv](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/questions.csv).
+2. **Pulmonology Block 5 Launch Bug Diagnosis & Resolution (`components/Dashboard.tsx`, database)**:
+   - Root cause diagnosed: The Active Scheduled Block banner in `Dashboard.tsx` triggered `onStartQuiz` with topic title only, omitting `questionIds` and `categories`, causing `QuizEngine` to pull 40 random questions from all organ systems.
+   - Fixed `Dashboard.tsx` to strictly forward `currentBlock.question_ids` and `categories`.
+   - Updated `Block 5: Pulmonology` in Supabase with 40 genuine, verified Pulmonary questions. Cleaned corrupted test session for user Jonathan Carbungco.
+3. **In-App Flashcards with Leitner Micro-Learning System (`components/FlashcardsModal.tsx`, `lib/flashcards.ts`)**:
+   - Built full-featured flip-card micro-learning modal:
+     - Front: Question prompt with `QuestionStemDisplay` (image zoom support), unrevealed choices, year, canonical ITE ID with copy button, Organ System badge, Care Dimension badge, and flag toggle (`🚩`).
+     - Back: Emerald correct answer reveal, complete rationale with sanitized HTML, direct links to Gemini Board Prep Gem, Open Evidence, topic study material, and feedback email.
+     - 3-Box Leitner spaced-repetition tracking: `🌱 Box 1: Learning`, `🔄 Box 2: Review`, `⭐ Box 3: Mastered` persisted in `localStorage`.
+     - Controls: Shuffle deck, filter by Organ System (15 systems), Care Dimension (5 types), Exam Year, or Leitner box, keyboard shortcuts (`Space` flip, `1`/`2`/`3` rating, arrows navigate).
+   - Integrated into `Dashboard.tsx` (header icon & block section pill) and `MyStatsModal.tsx` (Weak Areas category grid & selected category view).
+4. **Per-User Quiz Sorting (`components/Dashboard.tsx`, `components/MyStatsModal.tsx`)**:
+   - Added sorting to home screen Board Review Blocks: Curriculum order, Due Date (Earliest first), In Progress first, Unfinished first, Name (A–Z), persisted to `localStorage`.
+   - Added sorting to "Past Quizzes" tab in My Performance: Newest First, Oldest First, Lowest Score (Needs Review), Highest Score, Topic (A–Z).
+5. **Universal Timed Quiz Pause (`components/QuizEngine.tsx`)**:
+   - Added interactive Pause button and modal overlay for timed quizzes. Freezes the 76s/Q timer, hides questions to prevent cheating, and provides resume or save-and-exit options.
+6. **Scratch Daily 5 & Transition to Phase 7**:
+   - Formally retired "Daily 5 Adaptive Quiz" to Abandoned Ideas to protect QOTD participation.
+   - Initialized Phase 7: Housekeeping, Bug Fixing & Quality of Life Polish.
 
 ### ▶️ Session Handoff — 2026-11-09 (Antigravity: ABFM & ITE Mock Exam Simulations, Break Lounge, Emergency Pause & Universal Micro-Box Navigator)
 **Shipped this session**:
@@ -646,65 +697,64 @@ This file serves as the shared source of truth for development progress between 
 *Goal: Evolve the question bank, curriculum tools, and performance engines to support full two-dimensional ABFM Blueprint classification — retaining the 15 Organ System categories while populating official ABFM Care Dimensions (`abfm_category`), auditing legacy question classifications, and unlocking dual-matrix filtering across the app.*
 
 ### 1. Database Schema & Dual Tag Taxonomy
-- [ ] **Dual-Field Persistence**: Retain `category` / `system` for the 15 canonical clinical organ systems and activate `abfm_category` for the 6 ABFM Care Dimensions across the full 600+ question bank.
-- [ ] **Canonical Care Dimensions (`CANONICAL_ABFM_DIMENSIONS`)**:
-  - `Acute Care` (~25–30% of ABFM Board Exam)
-  - `Chronic Care` (~30–35% of ABFM Board Exam)
-  - `Health Promotion & Disease Prevention` (~15–20% of ABFM Board Exam)
-  - `Well Child / Pediatric Care` (~10–12% of ABFM Board Exam)
-  - `Maternity Care` (~3–5% of ABFM Board Exam)
-  - `Emergent / Palliative Care` (~3–5% of ABFM Board Exam)
-- [ ] **Organ System Category Audit & Alignment**:
-  - Run medical keyword & clinical rationale verification to correct legacy misclassifications in `category`:
-    - `ITE2023Q24` (Erythema Nodosum): `Musculoskeletal` → `Skin/Subcutaneous` (✅ Completed)
-    - `ITE2023Q88` (Pediatric Pneumonia & CXR): `Musculoskeletal` → `Pulmonary`
-    - `ITE2023Q135` (Hearing loss Rinne/Weber): `Neurologic` → `Special Sensory`
-    - `ITE2024Q176` (Medicare hearing loss): `Neurologic` → `Special Sensory`
-    - `ITE2025Q...` (Diabetic vision/hearing screening): `Neurologic` → `Special Sensory`
-    - `ITE2023Q...` (Bedbound elderly pneumonia): `Musculoskeletal` → `Pulmonary`
-- [ ] **Care Dimension Classification Pipeline**:
-  - Script an automated NLP/heuristic classifier utilizing the critique explanations, age markers (e.g. 5-month-old, pediatric vs geriatric), and clinical intent (screening vs acute symptom vs chronic management) to suggest `abfm_category` values for all 603 questions.
-  - Generate an interactive Admin Review audit sheet for faculty/admin review before applying bulk updates.
+- [x] **Dual-Field Persistence**: Retain `category` for the 15 canonical clinical organ systems and activate `abfm_category` for the 5 ABFM Types of Care across the full 600-question bank.
+- [x] **Canonical Care Dimensions (`CANONICAL_CARE_DIMENSIONS` in `lib/careDimensions.ts`)**:
+  - `Acute Care and Diagnosis` (~35–40% of ABFM Board Exam)
+  - `Chronic Care Management` (~20–25% of ABFM Board Exam)
+  - `Emergent and Urgent Care` (~18–20% of ABFM Board Exam)
+  - `Preventive Care` (~15% of ABFM Board Exam)
+  - `Foundations of Care` (~5% of ABFM Board Exam)
+- [x] **Organ System Category Audit & Alignment**:
+  - Extracted Table 4 from official 2023, 2024, and 2025 ABFM ITE Results Handbooks.
+  - Aligned all 200 2023 questions with official Table 4 classifications; fixed 24 miscategorized Respiratory questions.
+  - Re-filled Block 5 (Pulmonology) with 40 genuine, verified Pulmonary questions.
+- [x] **Care Dimension Classification Pipeline**:
+  - Classified all 600 questions with official ABFM Care Dimensions from Handbooks and clinical intent.
+  - Synchronized across Supabase and exported to [questions.csv](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/questions.csv).
 
-### 2. Block Builder & Question Picker Dual Matrix
-- [ ] **Dual-Filter Question Picker UI (`QuestionPicker.tsx`)**:
-  - Add parallel filter controls: **Organ System** filter chips and **ABFM Care Dimension** filter chips.
-  - Support multi-dimensional intersections (e.g., "Pulmonary" + "Chronic Care" = Asthma/COPD management; "Musculoskeletal" + "Acute Care" = Ankle sprains/fractures).
-  - Update the Live Category Blueprint Visualizer with dual tabs: *Organ System Blueprint* vs *Care Dimension Blueprint*.
-- [ ] **Block Template Dual Filtering (`BlockEditor.tsx`, `blocks` table)**:
-  - Add optional `abfm_category_filters` to block templates so faculty can design specialized blocks (e.g. "Acute Care Blitz" or "Preventive Medicine & Screening Review").
-- [ ] **Custom Quiz Builder Dual Filtering (`CustomQuizModal.tsx`)**:
-  - Allow residents to generate targeted study sets filtered by both system and care dimension.
+### 2. Block Builder, Question Picker & Flashcards Dual Matrix
+- [x] **Dual-Filter Question Picker UI (`QuestionPicker.tsx`)**:
+  - Added parallel filter controls: **Organ System** filter chips and **ABFM Care Dimension** filter chips.
+  - Added dual badges (`[SYSTEM]` `[CARE DIMENSION]`) and multi-dimensional intersections.
+- [x] **Question Card Badges (`QuestionCard.tsx`, `QuestionSearchModal.tsx`)**:
+  - Display complementary color-coded badges for both dimensions on all active and review question cards.
+- [x] **In-App Flashcards (Leitner Micro-Learning) (`components/FlashcardsModal.tsx`, `lib/flashcards.ts`)**:
+  - Built interactive flip-card study mode with 3-box Leitner progression, dual-tag filtering, clinical image zoom, and keyboard shortcuts.
+- [x] **Per-User Quiz Sorting (`Dashboard.tsx`, `MyStatsModal.tsx`)**:
+  - Sort blocks by curriculum, due date, in progress, status, or title; sort past quizzes by date, score, or title.
+- [x] **Timer Pause Modal (`QuizEngine.tsx`)**:
+  - Universal timed quiz pause modal with anti-cheating question freeze.
 
-### 3. Question Bank Manager & Display Polish
-- [ ] **Admin Console Dual Tagging UI (`QuestionBankManager.tsx`)**:
-  - Update question browse table to display both badges (e.g. `[PULMONARY]` `[ACUTE CARE]`).
-  - Update question editor modal with two synchronized dropdowns: Organ System (`category`) and Care Dimension (`abfm_category`).
-- [ ] **Question Card Badges (`QuestionCard.tsx`, `QuestionSearchModal.tsx`)**:
-  - Display complementary color-coded badges for both dimensions on all question review cards.
-- [ ] **Performance & Weak Area Analytics Matrix (`MyStatsModal.tsx`, `ResidentReview.tsx`)**:
-  - Expand Weak Category Spotlight and radar breakdown to optionally view performance grouped by ABFM Care Dimension as well as Organ System.
+---
+
+## 📍 Phase 7: Housekeeping, Bug Fixing & Quality of Life Polish
+*Goal: Polish the resident experience, optimize faculty workflows, eliminate friction points, and solidify codebase health.*
+
+- [x] **Question-Weighted Statistics Engine (`lib/quizMetrics.ts`)**:
+  - Centralized question-weighted accuracy calculation (`totalCorrect / totalQuestions * 100`) across all resident, advisor, admin, CCC report, and cron surfaces so quizzes with different question counts (e.g., 10Q custom quiz vs. 40Q block vs. 200Q/300Q mock exam) are weighted proportionally to their question count.
+  - Added transparent question fraction sub-labels (`(30/50 Qs)`) in `MyStatsModal.tsx` and `AdminPerformance.tsx`.
+- [x] **UI/UX Consistency & Responsive PWA Padding Pass (`MyStatsModal.tsx`, `AdminPerformance.tsx`, `AdminConsole.tsx`)**:
+  - Audited and tightened nested padding, modal heights, responsive grid breakpoints, and `env(safe-area-inset-bottom)` across high-density resident and admin Performance Hubs.
+- [ ] **Edge-Case Resilience & Offline Hardening**:
+  - Ensure offline resilience for question flags, session states, and Leitner progress across unexpected network drops.
+  - Review Supabase query limits and pagination across long-term program-wide attempts.
+- [ ] **Faculty & Admin QoL**:
+  - Refine block assignment workflows and attendance reconciliation logging.
+  - Enhance resident progress export and CCC printable dossier formatting.
 
 ---
 
 ## 💡 Parked Ideas & Future Considerations
 *Captured 2026-06-05 and 2026-10-20. Tabled items kept here for future planning.*
 
-- **In-App Flashcards (Leitner Micro-Learning)** *(Tabled 2026-10-20)*: Flip-card micro-learning using Board Prep Gems & rationales. Tabled to prevent home screen clutter; will be designed as a dedicated, standalone module in a future UI/UX pass.
+- **In-App Flashcards (Leitner Micro-Learning)** *(✅ Shipped 2026-11-10)*: Flip-card micro-learning using Board Prep Gems, rationales, and 3-box Leitner progression.
 - **Noon Conference Attendance Workflow Evolution** *(Tabled 2026-10-20)*: Tabled to troubleshoot the 1-screen lecture limitation, prevent group-chat QR photo sharing, and reconcile with New Innovations.
-- **Dual ABFM Blueprint Content Domains** *(✅ Promoted to Phase 6: Dual Tagging & Blueprint Matrix 2026-10-28)*: Re-mapping questions to retain both Organ System Categories and ABFM Care Dimensions.
-- **Daily 5 Adaptive Quiz** *(Tabled 2026-10-20)*: Tabled to preserve high resident participation on the daily Question of the Day (QOTD).
-
-- **Block rename in Curriculum Manager**: Inline-edit a block's title. Intended for *planning* (before residents start a block) and to fix accidental "(Copy)" names — explicitly **not** for renaming blocks already in use. ⚠️ If a block with completions is ever renamed, the change must cascade to `results.topic` and `quiz_sessions.topic` (the title is the foreign key) to avoid orphaning scores — best done via a secure admin-only server route.
-- **Per-user quiz sorting**: Let every user sort their own quiz/block list however they want — independently on the resident side and the admin side (it does **not** need to be the same order for everyone). Supersedes the earlier "global admin-set block order via `sort_order`" idea.
-- **Pause the question timer during review**: When the explanation is revealed, pause the 90-second per-question timer so reading/reviewing the explanation doesn't count against the resident's time.
-- **Review prior quizzes** *(now the primary completion record — replaces the dropped email below)*: Let residents revisit **any** past quiz — assigned blocks and custom builds — to review the questions, their own answers, the correct answers, and explanations at any later date.
-- **Quiz Mode vs Practice Mode** *(any block EXCEPT QOTD; chosen on a screen right before the quiz starts)*: *Practice mode* reveals the answer + explanation right after each question (current behavior); *Quiz mode* hides them until the whole quiz is submitted, then shows the full review. Applies to assigned blocks AND custom builds.
-- ~~**Assigned-block submission email (failsafe)**~~ — **DROPPED 2026-06-05 (user decision):** can't legitimately send *from* the program's `@ascension.org` address (Ascension's domain isn't controllable in Resend → would be spoofing/spam). The **"Review prior quizzes"** history above replaces it as the completion failsafe. The existing (silently-failing) `fetch('/api/email')` in `QuizEngine.tsx` will be removed during the Quiz/Practice + review rework.
-- **Advisor/Faculty Assigned Quizzes & Remediation** *(✅ Shipped 2026-09-07)*: Allow advisors to create custom targeted practice quizzes (0 AP) and assign them directly to specific residents. Expanded with real-time advisee category weak area drilldowns directly in the Advisee Hub.
-- **Advisor Meeting Confirmation Log (+1 AP)** *(✅ Shipped 2026-09-07)*: Faculty advisors can directly verify and log 1-on-1 block review meetings with discussion notes and award 1 Academic Point to the advisee.
-- **1-Click Printable Advisee Dossier (PDF)** *(✅ Shipped 2026-09-07)*: Publication-ready PDF printable summary for Clinical Competency Committee (CCC) and semi-annual reviews with cohort matrix and signature blocks.
-- **Dashboard Layout Optimization & Decluttering** *(✅ Shipped 2026-09-07)*: Swapped My Performance above Achievements in left sidebar; top row of 3 compact squarish blocks (QOTD, Quiz Builder, Resume Block / Active Scheduled Block Jump); Advisee Hub default-collapsed with persistent state.
+- **Dual ABFM Blueprint Content Domains** *(✅ Shipped in Phase 6 2026-11-10)*: Re-mapping questions to retain both Organ System Categories and ABFM Care Dimensions.
+- **Per-user quiz sorting** *(✅ Shipped 2026-11-10)*: Let every user sort their own quiz/block list on Dashboard and My Performance.
+- **Pause the question timer during review** *(✅ Shipped 2026-11-10)*: Full timed quiz pause modal in QuizEngine.
+- **Review prior quizzes** *(✅ Shipped)*: Lets residents revisit any past quiz under My Performance.
+- **Block rename in Curriculum Manager**: Inline-edit a block's title before residents have completions for it.
+- **Quiz Mode vs Practice Mode** *(any block EXCEPT QOTD)*: Mode toggle before starting a quiz.
 - **New Achievements (Badges)**:
   - *Top of the Class*: Maintain the most academic points in the program for 3 consecutive months.
   - *Comeback Kid*: Improve performance in a block by 20% compared to the last block completed.
@@ -712,6 +762,7 @@ This file serves as the shared source of truth for development progress between 
 ## 🗄️ Abandoned / Dropped Ideas
 *Features explicitly evaluated and dropped to maintain app simplicity, clinical validity, and academic rigor.*
 
+- ~~**Daily 5 Adaptive Quiz**~~ — **DROPPED 2026-11-10 (user decision):** Scratched to preserve high resident daily participation and focus on the primary Question of the Day (QOTD). Daily adaptive 5-question quizzes risked resident quiz fatigue and diluted the structured 40-question curriculum blocks. Micro-learning and rapid review needs are now directly served by the newly shipped Leitner In-App Flashcards system.
 - ~~**Scaled Score & Pass Probability Predictor**~~ — **DROPPED 2026-10-20 (user decision):** ABFM uses a proprietary Bayesian IRT model and does not publish raw-to-scaled conversion tables. Setting arbitrary score thresholds without empirical data is statistically unsound and gives misleading pass probabilities.
 - ~~**ACGME Milestone Competency Mapping**~~ — **DROPPED 2026-10-20 (user decision):** Residency board prep is organized around clinical systems; the existing score tracker, category radar charts, and CCC Dossier fulfill residency requirements without redundant ACGME milestone grids.
 - ~~**Noon Conference In-App QR Code**~~ — **DROPPED 2026-10-20 (user decision):** Disrupts 1-screen lecture presentations, enables group-chat photo fraud, and creates dual records with New Innovations (the official legal record). Bulk HTML/CSV NI import remains the single source of truth.
@@ -724,6 +775,21 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-11-10 — Phase 7: Question-Weighted Statistics Engine, Responsive PWA Padding Overhaul & Code Health (Antigravity)
+*   **Question-Weighted Quiz Averages (`lib/quizMetrics.ts`):** Upgraded all quiz average and curriculum accuracy calculations across the entire platform to use true question-weighted accuracy ($\frac{\sum \text{correct}}{\sum \text{total questions}} \times 100$) instead of an unweighted average of quiz percentages. Scoring 100% on a 10-question quiz (10/10) and 50% on a 40-question block (20/40) now accurately computes `60.0% (30/50 Qs)` rather than `75.0%`.
+*   **Transparent Question-Count Fractions:** Added explicit question-count sub-labels (e.g., `(30/50 Qs)` and `32/40 Qs`) to the My Performance Board Prep Snapshot, Curriculum Block Breakdown, Assessment History rows, and the Admin Resident Details Modal so residents and faculty can immediately see the exact volume of questions behind every percentage.
+*   **Unified Resident, Advisor & Admin Metrics:** Synchronized `MyStatsModal.tsx`, `Dashboard.tsx`, `AdminPerformance.tsx`, `AdviseeQuickAccessCard.tsx`, `lib/residentRisk.ts`, `lib/cccReporting.ts`, and `/api/cron/faculty-digest` around `lib/quizMetrics.ts` so every dashboard and report displays identical figures.
+*   **Responsive PWA Padding & Density Overhaul:** Reclaimed 56–72px of horizontal width on mobile portrait and landscape screens across the Resident and Admin Performance Hubs by scaling nested modal/card padding (`p-1.5 sm:p-4` backdrops, `p-3 sm:p-5 md:p-6` bodies, `env(safe-area-inset-bottom)` support) and responsive multi-column grids.
+
+### 2026-11-10 — Dual Tagging & Category Alignment, Leitner In-App Flashcards, Pulmonology Audit, Per-User Quiz Sorting & Timer Pause (Antigravity)
+*   **Dual Tagging & Category Synchronization:** Extracted Table 4 from official 2023, 2024, and 2025 ABFM ITE Results Handbooks. Synchronized all 600 questions with official dual dimensions: Organ System (`category`) and ABFM Care Dimensions (`abfm_category`). Audited and resolved 24 miscategorized 2023 Respiratory items, expanding verified Pulmonary questions from 32 to 46 items. Exported verified [questions.csv](file:///c:/Users/jcarb/.gemini/antigravity/scratch/FMC%20Board%20Question%20App%20V2/questions.csv).
+*   **Pulmonology Block 5 Launch Bug Fix:** Diagnosed and resolved the root cause of non-pulmonary questions appearing when launching Block 5 from the active dashboard banner (which lacked question ID arguments, falling back to unconstrained queries). Fixed `Dashboard.tsx` to strictly forward block question IDs and categories, and updated Block 5 in Supabase with 40 pure Pulmonary questions.
+*   **In-App Flashcards (Leitner Micro-Learning System):** Shipped a dedicated, interactive flip-card study experience (`FlashcardsModal.tsx`) featuring 3-box Leitner spaced-repetition mastery (`🌱 Box 1: Learning`, `🔄 Box 2: Review`, `⭐ Box 3: Mastered`) persisted in local storage. Includes clinical image zoom (`QuestionStemDisplay`), complete rationales, direct shortcuts to the Gemini Board Prep Gem, Open Evidence, and Google Drive topic folders, customizable multi-dimensional filters, and full keyboard navigation (`Space`, `1`, `2`, `3`, arrow keys). Accessible via the home screen header and My Stats Weak Areas.
+*   **Per-User Quiz Sorting:** Added independent sort order controls to the home screen Board Review Blocks list (*Curriculum order*, *Due Date (Earliest first)*, *In Progress first*, *Unfinished first*, and *Name (A–Z)*) and the My Performance "Past Quizzes" review tab (*Newest First*, *Oldest First*, *Lowest Score*, *Highest Score*, and *Topic (A–Z)*). Preferences persist in `localStorage`.
+*   **Strict Universal Timed Quiz Pause:** Upgraded timed quizzes with an interactive Pause button in the top navigation bar. Opening the pause modal freezes the 76s/question timer and obscures question text to safeguard testing integrity, offering immediate resume or safe save-and-exit options.
+*   **Retirement of Daily 5 Adaptive Quiz:** Formally moved Daily 5 to Abandoned Ideas to maintain high daily resident focus on the Question of the Day (QOTD). Micro-learning and rapid question drilling are now served by the new In-App Flashcards system.
+*   **Phase 7 Initialized:** Established Phase 7 for housekeeping, edge-case hardening, and quality-of-life polish.
 
 ### 2026-11-09 — ABFM & ITE Mock Exam Simulations, Wellness Break Lounge & Universal Micro-Box Question Navigator (Antigravity)
 *   **Authentic ABFM Board Exam Simulation (300 Questions):** Added a full 300-question testing simulation directly inside the Custom Quiz Builder modeled after official Prometric test conditions: 4 timed sections of 75 questions each, 95 minutes per section (76s/question pace), and a shared bank of 100 minutes of pooled break time.

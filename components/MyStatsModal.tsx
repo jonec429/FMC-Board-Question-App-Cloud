@@ -3,11 +3,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
-import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save, Check } from './AppIcons';
+import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save, Check, Layers } from './AppIcons';
 import { LeaderboardEntry, Profile, Result, UserBadge, Question, QotdPeerComparisonResponse, Block, BlockSchedule } from '@/lib/types';
 import { computeResidentReadiness, ResidentReadiness, ReadinessStatus } from '@/lib/residentRisk';
+import { computeWeightedAccuracy, computeTopicBreakdown, isGradedQuizResult } from '@/lib/quizMetrics';
 import { ShieldCheck, AlertTriangle, AlertCircle, Clock, Info, ArrowRight, BookOpen, CheckCircle } from 'lucide-react';
 import QuizReview from './QuizReview';
+import FlashcardsModal from './FlashcardsModal';
 import { exportIncorrectToAnki, exportQuestionsToAnki, downloadCsv } from '@/lib/anki';
 import { getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import RiskLegend from './RiskLegend';
@@ -96,6 +98,9 @@ export default function MyStatsModal({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [exportingAnki, setExportingAnki] = useState(false);
+  const [showFlashcards, setShowFlashcards] = useState(false);
+  const [flashcardsDeckQuestions, setFlashcardsDeckQuestions] = useState<Question[]>([]);
+  const [flashcardsCategory, setFlashcardsCategory] = useState<string | undefined>(undefined);
 
 
   // Filter missed questions by the selected topic
@@ -176,6 +181,26 @@ export default function MyStatsModal({
     .filter(r => r.topic && !/question of the day|^demo|\[attendance\]|\[manual\]/i.test(r.topic))
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
+  const [pastQuizSort, setPastQuizSort] = useState<'newest' | 'oldest' | 'scoreHigh' | 'scoreLow' | 'title'>('newest');
+
+  const sortedPastQuizzes = useMemo(() => {
+    return [...pastQuizzes].sort((a, b) => {
+      if (pastQuizSort === 'oldest') {
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      }
+      if (pastQuizSort === 'scoreLow') {
+        return (Number(a.percentage) || 0) - (Number(b.percentage) || 0);
+      }
+      if (pastQuizSort === 'scoreHigh') {
+        return (Number(b.percentage) || 0) - (Number(a.percentage) || 0);
+      }
+      if (pastQuizSort === 'title') {
+        return (a.topic || '').localeCompare(b.topic || '');
+      }
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
+  }, [pastQuizzes, pastQuizSort]);
+
   const openReview = async (r: Result) => {
     setSelectedQuiz(r);
     setReviewItems(null);
@@ -195,10 +220,19 @@ export default function MyStatsModal({
   };
 
   // Filter out demo quizzes from all stats
-  const profileResults = (myResults || []).filter(r => !r.topic?.toLowerCase().includes('demo'));
+  const profileResults = useMemo(
+    () => (myResults || []).filter(r => !r.topic?.toLowerCase().includes('demo')),
+    [myResults]
+  );
 
-  const totalQs = profileResults.reduce((a, r) => a + (r.total || 0), 0);
-  const activeLeaderboard = leaderboard.filter(l => !l.isGraduated);
+  const totalQs = useMemo(
+    () => profileResults.reduce((a, r) => a + (r.total || 0), 0),
+    [profileResults]
+  );
+  const activeLeaderboard = useMemo(
+    () => leaderboard.filter(l => !l.isGraduated),
+    [leaderboard]
+  );
   const myRankIdx = activeLeaderboard.findIndex(l => Boolean(l.email && userEmail && l.email.toLowerCase() === userEmail.toLowerCase()));
   const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
 
@@ -207,43 +241,39 @@ export default function MyStatsModal({
   const classLeader = classmates.length > 0 ? classmates[0] : null;
   const isClassLeader = Boolean(classLeader?.email && userEmail && classLeader.email.toLowerCase() === userEmail.toLowerCase());
 
-  // Topic / subject breakdown (group by topic, compute avg)
-  const topicStats = new Map<string, { sum: number; count: number; qs: number }>();
-  profileResults.forEach(r => {
-    if (!r.topic) return;
-    const t = r.topic.toLowerCase();
-    if (t.includes('question of the day') || t.includes('[attendance]') || t.includes('[manual]')) return;
-    
-    if (!topicStats.has(r.topic)) topicStats.set(r.topic, { sum: 0, count: 0, qs: 0 });
-    const entry = topicStats.get(r.topic)!;
-    entry.sum += r.percentage || 0;
-    entry.count += 1;
-    entry.qs += r.total || 0;
-  });
-  const topicAverages = Array.from(topicStats.entries())
-    .map(([topic, { sum, count, qs }]) => ({ topic, avg: sum / count, attempts: count, qs }))
-    .sort((a, b) => b.avg - a.avg);
-
-  // Graded quizzes for true quiz average (exclude attendance, manual, zero questions)
-  const gradedQuizzes = (profileResults || []).filter(
-    r => r.percentage != null && (r.total || 0) > 0 && r.topic && !/\[attendance\]|\[manual\]/i.test(r.topic)
+  // Topic / subject breakdown (question-weighted accuracy per topic)
+  const topicAverages = useMemo(
+    () => computeTopicBreakdown(profileResults),
+    [profileResults]
   );
-  const accurateAvgScore = gradedQuizzes.length > 0
-    ? gradedQuizzes.reduce((a, r) => a + (r.percentage || 0), 0) / gradedQuizzes.length
+
+  // Graded quizzes for true question-weighted quiz average (exclude attendance, manual, zero questions)
+  const gradedQuizzes = useMemo(
+    () => profileResults.filter(r => isGradedQuizResult(r)),
+    [profileResults]
+  );
+  const weightedQuizStats = useMemo(
+    () => computeWeightedAccuracy(gradedQuizzes),
+    [gradedQuizzes]
+  );
+  const accurateAvgScore = weightedQuizStats.accuracy !== null
+    ? weightedQuizStats.accuracy
     : (avgPct ?? null);
 
   // Best result per quiz block for Q-Points
-  const topicBestPts = new Map<string, number>();
-  (profileResults || []).forEach(r => {
-    if (r.topic && !/\[attendance\]|\[manual\]/i.test(r.topic)) {
-      const pts = r.academic_points || 0;
-      const cur = topicBestPts.get(r.topic) || 0;
-      if (pts > cur) {
-        topicBestPts.set(r.topic, pts);
+  const computedQuestionPts = useMemo(() => {
+    const topicBestPts = new Map<string, number>();
+    profileResults.forEach(r => {
+      if (r.topic && !/\[attendance\]|\[manual\]/i.test(r.topic)) {
+        const pts = r.academic_points || 0;
+        const cur = topicBestPts.get(r.topic) || 0;
+        if (pts > cur) {
+          topicBestPts.set(r.topic, pts);
+        }
       }
-    }
-  });
-  const computedQuestionPts = Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
+    });
+    return Array.from(topicBestPts.values()).reduce((a, b) => a + b, 0);
+  }, [profileResults]);
 
   // Handler to open review from a topic name
   const handleBlockReview = (topic: string) => {
@@ -491,25 +521,25 @@ export default function MyStatsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl ${activeTab === 'readiness' ? 'max-w-4xl' : 'max-w-2xl'} w-full max-h-[90vh] overflow-hidden flex flex-col transition-all`}>
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start shrink-0">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="w-10 h-10 bg-yellow-50 dark:bg-yellow-950/40 rounded-xl flex items-center justify-center shrink-0">
-              <Trophy className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
+    <div className="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-1.5 sm:p-4 animate-fade-in">
+      <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl ${activeTab === 'readiness' ? 'max-w-4xl' : 'max-w-2xl'} w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col transition-all`}>
+        <div className="px-3.5 py-3 sm:px-6 sm:py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start shrink-0">
+          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-50 dark:bg-yellow-950/40 rounded-xl flex items-center justify-center shrink-0">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 dark:text-yellow-400" />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-xl font-black text-slate-800 dark:text-white truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h2 className="text-base sm:text-xl font-black text-slate-800 dark:text-white truncate">{formatDisplayName(profile?.full_name) !== 'Unknown' ? formatDisplayName(profile?.full_name) : 'My Performance'}</h2>
                 <div className="relative inline-block">
                   <button
                     onClick={() => setShowReadinessModal(true)}
                     onMouseEnter={() => setIsHoveringStatus(true)}
                     onMouseLeave={() => setIsHoveringStatus(false)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border transition-all cursor-pointer hover:scale-105 shadow-sm ${statusConfig.badge}`}
+                    className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider border transition-all cursor-pointer hover:scale-105 shadow-sm ${statusConfig.badge}`}
                     title="Click for Board Readiness & Risk breakdown"
                   >
-                    <statusConfig.icon className="w-3.5 h-3.5" />
+                    <statusConfig.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     <span>{readiness.status}</span>
                     <Info className="w-3 h-3 opacity-60 ml-0.5" />
                   </button>
@@ -529,20 +559,20 @@ export default function MyStatsModal({
                   )}
                 </div>
               </div>
-              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5 truncate">
+              <p className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                 {profile?.pgy || 'No Designation Set'}{profile?.advisor ? ` · Advisor: ${profile.advisor}` : ''}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl shrink-0 transition-colors">
+          <button onClick={onClose} className="p-1.5 sm:p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl shrink-0 transition-colors">
             <X className="w-5 h-5 text-slate-400 dark:text-slate-500" />
           </button>
         </div>
 
-        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 overflow-x-auto no-scrollbar shrink-0 min-h-[48px]">
+        <div className="flex border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 overflow-x-auto no-scrollbar shrink-0 min-h-[40px] sm:min-h-[46px]">
           <button
             onClick={() => setActiveTab('stats')}
-            className={`flex-1 min-w-[90px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[82px] sm:min-w-[90px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'stats' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -552,7 +582,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('readiness')}
-            className={`flex-1 min-w-[130px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[115px] sm:min-w-[130px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'readiness'
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -562,7 +592,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('apTracker')}
-            className={`flex-1 min-w-[85px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[78px] sm:min-w-[85px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'apTracker' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -572,7 +602,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('achievements')}
-            className={`flex-1 min-w-[100px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[92px] sm:min-w-[100px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'achievements' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -582,7 +612,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => setActiveTab('weakAreas')}
-            className={`flex-1 min-w-[95px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[85px] sm:min-w-[95px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'weakAreas' 
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20' 
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -592,7 +622,7 @@ export default function MyStatsModal({
           </button>
           <button
             onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
-            className={`flex-1 min-w-[95px] py-3.5 px-3 text-xs sm:text-sm font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
+            className={`flex-1 min-w-[88px] sm:min-w-[95px] py-2.5 sm:py-3 px-2.5 sm:px-3 text-[11px] sm:text-xs font-black uppercase tracking-wider transition-colors whitespace-nowrap text-center ${
               activeTab === 'pastQuizzes'
                 ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-500 dark:border-blue-400 bg-blue-50/50 dark:bg-blue-950/20'
                 : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
@@ -602,11 +632,11 @@ export default function MyStatsModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {activeTab === 'stats' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-3.5 sm:space-y-5 animate-fade-in">
               {/* Leaned-up Board Prep Snapshot Card */}
-              <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-4 sm:p-5 text-white shadow-lg space-y-4">
+              <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-3.5 sm:p-5 text-white shadow-lg space-y-3 sm:space-y-4">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
@@ -614,11 +644,11 @@ export default function MyStatsModal({
                     </div>
                     <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-100">Board Prep Snapshot</h3>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     <select
                       value={selectedYear}
                       onChange={(e) => onYearChange(parseInt(e.target.value, 10))}
-                      className="px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg font-bold text-white text-xs shadow-sm outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm cursor-pointer transition-colors"
+                      className="px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg font-bold text-white text-[11px] sm:text-xs shadow-sm outline-none focus:ring-2 focus:ring-white/50 backdrop-blur-sm cursor-pointer transition-colors"
                     >
                       <option value={0} className="text-slate-800">All Time (YoY Trend)</option>
                       {getAvailableAcademicYears().map(year => (
@@ -628,7 +658,7 @@ export default function MyStatsModal({
                     <button
                       type="button"
                       onClick={toggleSnapshotCollapsed}
-                      className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer shadow-sm"
+                      className="px-2 sm:px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1 border border-white/20 cursor-pointer shadow-sm"
                       title={isSnapshotCollapsed ? "Expand snapshot breakdown" : "Collapse snapshot breakdown"}
                     >
                       <span>{isSnapshotCollapsed ? 'Expand' : 'Collapse'}</span>
@@ -639,12 +669,19 @@ export default function MyStatsModal({
 
                 {isSnapshotCollapsed ? (
                   /* Collapsed View: Average score & AP tracker only per user instruction */
-                  <div className="space-y-3 pt-1 animate-fade-in">
-                    <div className="flex items-center justify-between gap-4 bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+                  <div className="space-y-2.5 sm:space-y-3 pt-1 animate-fade-in">
+                    <div className="flex items-center justify-between gap-3 bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10">
                       <div>
                         <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest block">Average Quiz Score</span>
-                        <div className="text-2xl font-black mt-0.5">
-                          {accurateAvgScore !== null ? `${accurateAvgScore.toFixed(1)}%` : '—'}
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          <span className="text-xl sm:text-2xl font-black">
+                            {accurateAvgScore !== null ? `${accurateAvgScore.toFixed(1)}%` : '—'}
+                          </span>
+                          {weightedQuizStats.totalQuestions > 0 && (
+                            <span className="text-[10px] font-bold text-indigo-200/90">
+                              ({weightedQuizStats.totalCorrect}/{weightedQuizStats.totalQuestions} Qs)
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="text-right text-[11px] text-indigo-100 font-medium">
@@ -660,7 +697,7 @@ export default function MyStatsModal({
                       const questionPct = Math.min((computedQuestionPts / goal) * 100, 100 - attendancePct);
 
                       return (
-                        <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 space-y-2">
+                        <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 space-y-2">
                           <div className="flex justify-between items-center text-xs">
                             <span className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">Academic Points Tracker</span>
                             <span className="font-black text-white">{displayTotalPoints} / {goal} <span className="font-medium text-indigo-200 text-[10px]">({selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal)</span></span>
@@ -695,7 +732,7 @@ export default function MyStatsModal({
                     <button
                       type="button"
                       onClick={toggleSnapshotCollapsed}
-                      className="w-full pt-2.5 mt-1 border-t border-white/10 text-xs font-bold text-indigo-200 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full pt-2 mt-0.5 border-t border-white/10 text-xs font-bold text-indigo-200 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <span>Show Full Breakdown &amp; KPIs</span>
                       <ChevronDown className="w-3.5 h-3.5" />
@@ -704,40 +741,44 @@ export default function MyStatsModal({
                 ) : (
                   <>
                 {/* Compact Grid KPIs */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
                     <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Avg Quiz Score</span>
-                    <div className="text-2xl font-black mt-1">{accurateAvgScore !== null ? `${accurateAvgScore.toFixed(1)}%` : '—'}</div>
-                    <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{gradedQuizzes.length} quiz{gradedQuizzes.length === 1 ? '' : 'zes'} taken</span>
+                    <div className="text-xl sm:text-2xl font-black mt-0.5 sm:mt-1">{accurateAvgScore !== null ? `${accurateAvgScore.toFixed(1)}%` : '—'}</div>
+                    <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">
+                      {weightedQuizStats.totalQuestions > 0
+                        ? `${weightedQuizStats.totalCorrect}/${weightedQuizStats.totalQuestions} Qs · ${gradedQuizzes.length} quiz${gradedQuizzes.length === 1 ? '' : 'zes'}`
+                        : `${gradedQuizzes.length} quiz${gradedQuizzes.length === 1 ? '' : 'zes'} taken`}
+                    </span>
                   </div>
 
-                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                  <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
                     <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Questions Done</span>
-                    <div className="text-2xl font-black mt-1">{totalQs}</div>
+                    <div className="text-xl sm:text-2xl font-black mt-0.5 sm:mt-1">{totalQs}</div>
                     <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{blocksCompleted} blocks complete</span>
                   </div>
 
-                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between col-span-2 sm:col-span-1">
+                  <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between col-span-2 sm:col-span-1">
                     <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Academic Points</span>
-                    <div className="text-2xl font-black mt-1">{displayTotalPoints}</div>
+                    <div className="text-xl sm:text-2xl font-black mt-0.5 sm:mt-1">{displayTotalPoints}</div>
                     <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{computedQuestionPts} Q · {computedAttendancePts} Att</span>
                   </div>
 
-                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                  <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
                     <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Top Topic</span>
-                    <div className="text-sm font-bold truncate mt-1">{topicAverages.length > 0 ? formatTopicDisplay(topicAverages[0].topic) : '—'}</div>
+                    <div className="text-xs sm:text-sm font-bold truncate mt-0.5 sm:mt-1">{topicAverages.length > 0 ? formatTopicDisplay(topicAverages[0].topic) : '—'}</div>
                     <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{topicAverages.length > 0 ? `${topicAverages[0].avg.toFixed(0)}% accuracy` : 'No quizzes'}</span>
                   </div>
 
-                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                  <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
                     <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Next Milestone</span>
-                    <div className="text-sm font-bold truncate mt-1">{nextBadge ? nextBadge.name : 'All Maxed!'}</div>
+                    <div className="text-xs sm:text-sm font-bold truncate mt-0.5 sm:mt-1">{nextBadge ? nextBadge.name : 'All Maxed!'}</div>
                     <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{nextBadge ? `${nextBadge.remaining} Qs away` : 'Top tier achieved'}</span>
                   </div>
 
-                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                  <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 flex flex-col justify-between">
                     <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Leaderboard</span>
-                    <div className="text-sm font-bold truncate mt-1">{myRank ? `#${myRank} in Program` : 'Unranked'}</div>
+                    <div className="text-xs sm:text-sm font-bold truncate mt-0.5 sm:mt-1">{myRank ? `#${myRank} in Program` : 'Unranked'}</div>
                     <span className="text-[9px] text-indigo-200/80 font-medium mt-0.5">{isClassLeader ? '⭐ PGY Class Leader' : `${classmates.length} in class`}</span>
                   </div>
                 </div>
@@ -749,7 +790,7 @@ export default function MyStatsModal({
                   const questionPct = Math.min((computedQuestionPts / goal) * 100, 100 - attendancePct);
 
                   return (
-                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 space-y-2">
+                    <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">Academic Points Tracker</span>
                         <span className="font-black text-white">{displayTotalPoints} / {goal} <span className="font-medium text-indigo-200 text-[10px]">({selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal)</span></span>
@@ -789,7 +830,7 @@ export default function MyStatsModal({
                   const delta = programPct !== null ? personalPct - programPct : null;
 
                   return (
-                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10 space-y-1.5">
+                    <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 backdrop-blur-sm border border-white/10 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-[10px] text-indigo-200 uppercase tracking-widest">
                           QOTD Accuracy &amp; Benchmark
@@ -829,7 +870,7 @@ export default function MyStatsModal({
                     <button
                       type="button"
                       onClick={toggleSnapshotCollapsed}
-                      className="w-full pt-3 mt-3 border-t border-white/10 text-xs font-bold text-indigo-200 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="w-full pt-2.5 mt-2 border-t border-white/10 text-xs font-bold text-indigo-200 hover:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <span>Collapse Snapshot</span>
                       <ChevronUp className="w-3.5 h-3.5" />
@@ -839,13 +880,13 @@ export default function MyStatsModal({
               </div>
 
               {/* Quick Navigation Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 pt-0.5">
                 <button
                   type="button"
                   onClick={() => setActiveTab('apTracker')}
-                  className="text-left p-4 bg-gradient-to-br from-indigo-50/60 to-purple-50/60 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl transition-all group shadow-xs cursor-pointer"
+                  className="text-left p-3 sm:p-4 bg-gradient-to-br from-indigo-50/60 to-purple-50/60 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/50 hover:border-indigo-300 dark:hover:border-indigo-700 rounded-2xl transition-all group shadow-xs cursor-pointer"
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                       Academic Points
                     </span>
@@ -853,11 +894,11 @@ export default function MyStatsModal({
                       {displayTotalPoints} AP Total
                     </span>
                   </div>
-                  <h4 className="font-black text-sm text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
+                  <h4 className="font-black text-xs sm:text-sm text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
                     <span>AP Tracker &amp; Attendance Log</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-indigo-500 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-3.5 h-3.5 text-indigo-500 group-hover:translate-x-1 transition-transform shrink-0" />
                   </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1 leading-snug">
                     {computedQuestionPts} Q-Points · {computedAttendancePts} Attendance Points · 100 AP/yr (300 AP Total)
                   </p>
                 </button>
@@ -865,9 +906,9 @@ export default function MyStatsModal({
                 <button
                   type="button"
                   onClick={() => { setActiveTab('pastQuizzes'); setSelectedQuiz(null); setReviewItems(null); }}
-                  className="text-left p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-2xl transition-all group shadow-xs cursor-pointer"
+                  className="text-left p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 rounded-2xl transition-all group shadow-xs cursor-pointer"
                 >
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Curriculum History
                     </span>
@@ -875,11 +916,11 @@ export default function MyStatsModal({
                       {pastQuizzes.length} Quizzes Taken
                     </span>
                   </div>
-                  <h4 className="font-black text-sm text-slate-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                  <h4 className="font-black text-xs sm:text-sm text-slate-800 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
                     <span>Past Quizzes &amp; Block Breakdown</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-blue-500 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-3.5 h-3.5 text-blue-500 group-hover:translate-x-1 transition-transform shrink-0" />
                   </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1 leading-snug">
                     Topic performance bar graphs, scores, and 1-click question reviews
                   </p>
                 </button>
@@ -887,9 +928,9 @@ export default function MyStatsModal({
                 <button
                   type="button"
                   onClick={() => setActiveTab('readiness')}
-                  className="sm:col-span-2 text-left p-4 bg-gradient-to-r from-amber-50/80 via-indigo-50/60 to-emerald-50/70 dark:from-amber-950/30 dark:via-indigo-950/30 dark:to-emerald-950/30 border border-amber-200/80 dark:border-amber-800/60 hover:border-indigo-400 dark:hover:border-indigo-600 rounded-2xl transition-all group shadow-xs cursor-pointer"
+                  className="sm:col-span-2 text-left p-3 sm:p-4 bg-gradient-to-r from-amber-50/80 via-indigo-50/60 to-emerald-50/70 dark:from-amber-950/30 dark:via-indigo-950/30 dark:to-emerald-950/30 border border-amber-200/80 dark:border-amber-800/60 hover:border-indigo-400 dark:hover:border-indigo-600 rounded-2xl transition-all group shadow-xs cursor-pointer"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                     <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
                       <span>ABFM ITE &amp; Certification Exam Readiness</span>
                       <span className="bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
@@ -900,11 +941,11 @@ export default function MyStatsModal({
                       {blocksCompleted >= 3 || totalQs >= 120 ? 'Readiness Range Unlocked' : `${blocksCompleted}/3 Blocks to Unlock`}
                     </span>
                   </div>
-                  <h4 className="font-black text-sm text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
+                  <h4 className="font-black text-xs sm:text-sm text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors flex items-center gap-1.5">
                     <span>Open Board Readiness Tool (Beta) &amp; Official ITE Reference</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-indigo-500 group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight className="w-3.5 h-3.5 text-indigo-500 group-hover:translate-x-1 transition-transform shrink-0" />
                   </h4>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                  <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 mt-1 leading-snug">
                     Compare your curriculum accuracy against the 60% conservative passing benchmark (±38 SEM band) and enter official ITE / Step 2 / COMLEX scores.
                   </p>
                 </button>
@@ -932,7 +973,7 @@ export default function MyStatsModal({
           )}
 
           {activeTab === 'apTracker' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-4 sm:space-y-5 animate-fade-in">
               {/* AP Progress & Breakdown Banner */}
               {(() => {
                 const goal = selectedYear === 0 ? 300 : 100;
@@ -941,21 +982,21 @@ export default function MyStatsModal({
                 const totalPct = Math.min(100, Math.round((displayTotalPoints / goal) * 100));
 
                 return (
-                  <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-5 text-white shadow-lg space-y-4">
+                  <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-3.5 sm:p-5 text-white shadow-lg space-y-3 sm:space-y-4">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
                           <Target className="w-4 h-4 text-white" />
                         </div>
                         <div>
-                          <h3 className="font-black text-sm uppercase tracking-wider text-white">Academic Points Tracker</h3>
+                          <h3 className="font-black text-xs sm:text-sm uppercase tracking-wider text-white">Academic Points Tracker</h3>
                           <p className="text-[11px] text-indigo-200">
                             {selectedYear === 0 ? 'All-Time Cumulative Progress' : `Academic Year ${formatAcademicYear(selectedYear)}`}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-black">{displayTotalPoints} <span className="text-sm font-semibold text-indigo-200">/ {goal} AP</span></div>
+                        <div className="text-xl sm:text-2xl font-black">{displayTotalPoints} <span className="text-xs sm:text-sm font-semibold text-indigo-200">/ {goal} AP</span></div>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white">
                           {totalPct}% of {selectedYear === 0 ? 'Graduation' : 'Yearly'} Goal
                         </span>
@@ -984,27 +1025,27 @@ export default function MyStatsModal({
                     </div>
 
                     {/* Point Category Badges */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      <div className="bg-white/10 rounded-xl p-3 border border-white/10 backdrop-blur-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 pt-1">
+                      <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 border border-white/10 backdrop-blur-sm">
                         <div className="flex items-center justify-between">
                           <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-200">
                             <span className="w-2 h-2 rounded-full bg-blue-400" />
                             Question Points (Q-Points)
                           </span>
-                          <span className="text-base font-black text-white">{computedQuestionPts} pts</span>
+                          <span className="text-sm sm:text-base font-black text-white">{computedQuestionPts} pts</span>
                         </div>
                         <p className="text-[10px] text-indigo-200/80 mt-1">
                           Earned by scoring on curriculum blocks and on-time submissions.
                         </p>
                       </div>
 
-                      <div className="bg-white/10 rounded-xl p-3 border border-white/10 backdrop-blur-sm">
+                      <div className="bg-white/10 rounded-xl p-2.5 sm:p-3 border border-white/10 backdrop-blur-sm">
                         <div className="flex items-center justify-between">
                           <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-200">
                             <span className="w-2 h-2 rounded-full bg-purple-400" />
                             Attendance Points
                           </span>
-                          <span className="text-base font-black text-white">{computedAttendancePts} pts</span>
+                          <span className="text-sm sm:text-base font-black text-white">{computedAttendancePts} pts</span>
                         </div>
                         <p className="text-[10px] text-indigo-200/80 mt-1">
                           Earned via verified noon conferences and advisor meetings.
@@ -1017,12 +1058,12 @@ export default function MyStatsModal({
 
               {/* PGY Milestones */}
               <div>
-                <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                   <div>
                     <h4 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                       Residency Graduation Milestones (100 AP / Year · 300 AP Total)
                     </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {selectedYear === 0
                         ? '100 AP required per year across 3 residency years (300 AP total for graduation)'
                         : `Viewing ${formatAcademicYear(selectedYear)} (${displayTotalPoints} / 100 AP annual goal). Switch to "All Time" to view 3-year cumulative progress.`}
@@ -1039,7 +1080,7 @@ export default function MyStatsModal({
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                   {[
                     { pgy: 'PGY-1', label: 'Year 1 Benchmark', target: 100, desc: '100 AP required per year (100 AP cumulative)' },
                     { pgy: 'PGY-2', label: 'Year 2 Benchmark', target: 200, desc: '100 AP required per year (200 AP cumulative)' },
@@ -1050,13 +1091,13 @@ export default function MyStatsModal({
                     return (
                       <div 
                         key={m.pgy} 
-                        className={`p-4 rounded-2xl border transition-all ${
+                        className={`p-3 sm:p-4 rounded-2xl border transition-all ${
                           isMet 
                             ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60' 
                             : 'bg-white dark:bg-slate-850 border-slate-100 dark:border-slate-800'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center justify-between mb-1">
                           <span className="font-black text-xs text-slate-800 dark:text-slate-200">{m.pgy} · {m.label}</span>
                           <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                             isMet 
@@ -1066,7 +1107,7 @@ export default function MyStatsModal({
                             {isMet ? 'Achieved' : `${m.target - displayTotalPoints} AP away`}
                           </span>
                         </div>
-                        <div className="text-xl font-black text-slate-800 dark:text-white">
+                        <div className="text-lg sm:text-xl font-black text-slate-800 dark:text-white">
                           {m.target} <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">AP Goal</span>
                         </div>
                         <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden mt-2">
@@ -1075,7 +1116,7 @@ export default function MyStatsModal({
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">{m.desc}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">{m.desc}</p>
                       </div>
                     );
                   })}
@@ -1084,12 +1125,12 @@ export default function MyStatsModal({
 
               {/* Attendance Log */}
               <div>
-                <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center justify-between mb-2">
                   <div>
                     <h4 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                       Conference Attendance &amp; Meeting History
                     </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Verified noon conference sessions and faculty advisor check-ins
                     </p>
                   </div>
@@ -1103,13 +1144,13 @@ export default function MyStatsModal({
                     {displayAttendance.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-3.5 bg-white dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-xl transition-all shadow-xs hover:border-slate-200 dark:hover:border-slate-700"
+                        className="flex items-center justify-between p-2.5 sm:p-3.5 bg-white dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-xl transition-all shadow-xs hover:border-slate-200 dark:hover:border-slate-700"
                       >
                         <div className="flex-1 min-w-0 pr-3">
-                          <p className="font-bold text-sm text-slate-800 dark:text-slate-200 truncate">
+                          <p className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200 truncate">
                             {item.title}
                           </p>
-                          <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <p className="text-[11px] sm:text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
                             <span className="text-emerald-700 dark:text-emerald-400 font-bold">{item.dateStr}</span>
                             <span className="opacity-40">·</span>
                             <span>Block: {item.block}</span>
@@ -1117,11 +1158,11 @@ export default function MyStatsModal({
                             <span>{item.isManual ? '✨ Manual Credit' : 'Noon Conference'}</span>
                           </p>
                         </div>
-                        <div className="flex items-center gap-2.5 shrink-0">
-                          <span className="w-7 h-7 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center shrink-0" title="Attendance Verified">
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="w-6 h-6 sm:w-7 sm:h-7 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center shrink-0" title="Attendance Verified">
                             <Check className="w-3.5 h-3.5" />
                           </span>
-                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-1 rounded-lg border border-emerald-200/50 dark:border-emerald-800/40">
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 sm:py-1 rounded-lg border border-emerald-200/50 dark:border-emerald-800/40">
                             +{item.points} pt
                           </span>
                         </div>
@@ -1129,7 +1170,7 @@ export default function MyStatsModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-8 text-center">
+                  <div className="bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl p-6 sm:p-8 text-center">
                     <Clock className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                     <p className="text-sm font-bold text-slate-600 dark:text-slate-400">No attendance recorded yet</p>
                     <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm mx-auto">
@@ -1142,31 +1183,31 @@ export default function MyStatsModal({
           )}
 
           {activeTab === 'achievements' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-4 sm:space-y-5 animate-fade-in">
               {/* Streaks Header */}
               {userStreak && (userStreak.current_qotd_streak > 0 || userStreak.current_block_streak > 0) ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                   {userStreak.current_qotd_streak > 0 && (
-                    <div className="p-4 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-2xl border border-orange-200 dark:border-orange-900/40 flex items-center gap-3 shadow-xs">
-                      <span className="text-3xl animate-pulse">🔥</span>
+                    <div className="p-3 sm:p-4 bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 rounded-2xl border border-orange-200 dark:border-orange-900/40 flex items-center gap-3 shadow-xs">
+                      <span className="text-2xl sm:text-3xl animate-pulse">🔥</span>
                       <div>
-                        <div className="font-black text-xl">{userStreak.current_qotd_streak} Day Streak</div>
-                        <div className="text-xs font-bold opacity-80">Question of the Day (Consecutive Weekdays)</div>
+                        <div className="font-black text-lg sm:text-xl">{userStreak.current_qotd_streak} Day Streak</div>
+                        <div className="text-[11px] sm:text-xs font-bold opacity-80">Question of the Day (Consecutive Weekdays)</div>
                       </div>
                     </div>
                   )}
                   {userStreak.current_block_streak > 0 && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-2xl border border-blue-200 dark:border-blue-900/40 flex items-center gap-3 shadow-xs">
-                      <span className="text-3xl animate-pulse">⚡</span>
+                    <div className="p-3 sm:p-4 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-2xl border border-blue-200 dark:border-blue-900/40 flex items-center gap-3 shadow-xs">
+                      <span className="text-2xl sm:text-3xl animate-pulse">⚡</span>
                       <div>
-                        <div className="font-black text-xl">{userStreak.current_block_streak} Block Streak</div>
-                        <div className="text-xs font-bold opacity-80">On-Time Block Submissions</div>
+                        <div className="font-black text-lg sm:text-xl">{userStreak.current_block_streak} Block Streak</div>
+                        <div className="text-[11px] sm:text-xs font-bold opacity-80">On-Time Block Submissions</div>
                       </div>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                <div className="p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-3">
                   <span className="text-2xl">🔥</span>
                   <div>
                     <div className="font-bold text-sm text-slate-800 dark:text-slate-200">Start Your Daily Streak</div>
@@ -1175,9 +1216,9 @@ export default function MyStatsModal({
                 </div>
               )}
 
-                            {/* Next Milestone */}
+              {/* Next Milestone */}
               {nextBadge && (
-                <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl flex items-center justify-between gap-4">
+                <div className="p-3 sm:p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 border border-indigo-200 dark:border-indigo-900/40 rounded-2xl flex items-center justify-between gap-4">
                   <div>
                     <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Next Badge Milestone</span>
                     <h4 className="font-black text-slate-800 dark:text-white text-sm mt-0.5">{nextBadge.name}</h4>
@@ -1188,19 +1229,19 @@ export default function MyStatsModal({
               )}
 
               {/* Earned Badges Showcase */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-3.5 sm:p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <div>
-                    <h3 className="font-black text-base text-slate-800 dark:text-white">Earned Badges ({userBadges.length})</h3>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">Badges unlocked through curriculum questions and milestones</p>
+                    <h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white">Earned Badges ({userBadges.length})</h3>
+                    <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">Badges unlocked through curriculum questions and milestones</p>
                   </div>
                 </div>
 
                 {userBadges.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
                     {userBadges.map((badge, idx) => (
-                      <div key={idx} className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 shadow-xs border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xl shrink-0">
+                      <div key={idx} className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-2.5 sm:gap-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white dark:bg-slate-800 shadow-xs border border-slate-200 dark:border-slate-700 flex items-center justify-center text-lg sm:text-xl shrink-0">
                           {badge.icon}
                         </div>
                         <div className="min-w-0">
@@ -1211,7 +1252,7 @@ export default function MyStatsModal({
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-xs italic">
+                  <div className="text-center py-6 sm:py-8 text-slate-400 dark:text-slate-500 text-xs italic">
                     No badges earned yet. Answer daily questions and complete practice blocks to unlock badges!
                   </div>
                 )}
@@ -1222,17 +1263,17 @@ export default function MyStatsModal({
           {activeTab === 'pastQuizzes' && (
             <div className="animate-fade-in">
               {selectedQuiz ? (
-                <div className="space-y-4">
+                <div className="space-y-3.5 sm:space-y-4">
                   <button
                     onClick={() => { setSelectedQuiz(null); setReviewItems(null); }}
                     className="flex items-center gap-1 text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                   >
                     <ChevronLeft className="w-4 h-4" /> All quizzes
                   </button>
-                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 flex items-center justify-between transition-colors">
+                  <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3 sm:p-4 border border-slate-100 dark:border-slate-800 flex items-center justify-between transition-colors">
                     <div>
-                      <h3 className="font-black text-slate-800 dark:text-white">{formatTopicDisplay(selectedQuiz.topic)}</h3>
-                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-1">
+                      <h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white">{formatTopicDisplay(selectedQuiz.topic)}</h3>
+                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5 sm:mt-1">
                         {selectedQuiz.created_at ? new Date(selectedQuiz.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : ''}
                         {selectedQuiz.percentage != null ? ` · ${Number(selectedQuiz.percentage).toFixed(1)}%` : ''}
                       </p>
@@ -1252,36 +1293,38 @@ export default function MyStatsModal({
                   )}
                 </div>
               ) : (
-<div className="space-y-6">
+                <div className="space-y-4 sm:space-y-5">
                   {/* Block Performance Breakdown */}
                   {topicAverages.length > 0 && (
-                    <div className="bg-slate-50/50 dark:bg-slate-850/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center justify-between mb-3">
+                    <div className="bg-slate-50/50 dark:bg-slate-850/50 p-3 sm:p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center justify-between mb-2.5 sm:mb-3">
                         <div>
                           <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                             Curriculum Block Breakdown
                           </h3>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                            Cumulative topic performance across all attempts
+                          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            Question-weighted topic performance across all attempts
                           </p>
                         </div>
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Tap block to review</span>
                       </div>
-                      <div className="space-y-2">
-                        {topicAverages.map(({ topic, avg, attempts, qs }) => (
+                      <div className="space-y-1.5 sm:space-y-2">
+                        {topicAverages.map(({ topic, avg, attempts, correct, qs }) => (
                           <button
                             key={topic}
                             type="button"
                             onClick={() => handleBlockReview(topic)}
-                            className="w-full text-left flex items-center gap-3 p-3 bg-white dark:bg-slate-800/80 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-700/60 rounded-xl transition-all cursor-pointer group shadow-2xs"
+                            className="w-full text-left flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 bg-white dark:bg-slate-800/80 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-700/60 rounded-xl transition-all cursor-pointer group shadow-2xs"
                           >
                             <div className="flex-1 min-w-0">
                               <p className="font-bold text-xs text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors truncate">
                                 {formatTopicDisplay(topic)}
                               </p>
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{attempts} attempt{attempts !== 1 ? 's' : ''} · {qs} Qs</p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                {attempts} attempt{attempts !== 1 ? 's' : ''} · {qs > 0 ? `${correct}/${qs} Qs` : `${qs} Qs`}
+                              </p>
                             </div>
-                            <div className="w-24 sm:w-32 shrink-0">
+                            <div className="w-20 sm:w-32 shrink-0">
                               <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full transition-all ${avg >= 70 ? 'bg-emerald-500' : avg >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
@@ -1289,7 +1332,7 @@ export default function MyStatsModal({
                                 />
                               </div>
                             </div>
-                            <span className={`text-xs font-black shrink-0 w-12 text-right ${avg >= 70 ? 'text-emerald-700 dark:text-emerald-400' : avg >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <span className={`text-xs font-black shrink-0 w-11 sm:w-12 text-right ${avg >= 70 ? 'text-emerald-700 dark:text-emerald-400' : avg >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                               {avg.toFixed(1)}%
                             </span>
                             <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all shrink-0" />
@@ -1301,18 +1344,30 @@ export default function MyStatsModal({
 
                   {/* Past Quizzes List */}
                   <div>
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-2.5 sm:mb-3 flex-wrap gap-2">
                       <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                        Assessment History ({pastQuizzes.length})
+                        Assessment History ({sortedPastQuizzes.length})
                       </h3>
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">Tap to review questions</span>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={pastQuizSort}
+                          onChange={(e) => setPastQuizSort(e.target.value as any)}
+                          className="text-[11px] font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                        >
+                          <option value="newest">Newest First</option>
+                          <option value="oldest">Oldest First</option>
+                          <option value="scoreLow">Lowest Score (Needs Review)</option>
+                          <option value="scoreHigh">Highest Score</option>
+                          <option value="title">Topic (A–Z)</option>
+                        </select>
+                      </div>
                     </div>
 
-                    {pastQuizzes.length === 0 ? (
+                    {sortedPastQuizzes.length === 0 ? (
                       <p className="text-center text-slate-400 dark:text-slate-500 text-sm italic py-10">No completed quizzes yet.</p>
                     ) : (
                       <div className="space-y-2">
-                        {pastQuizzes.map((r: any) => {
+                        {sortedPastQuizzes.map((r: any) => {
                           const pts = r.academic_points || 0;
                           const timingEmoji = r.timing_status === 'Early' ? '🚀'
                             : r.timing_status === 'On Time' ? '✅'
@@ -1328,14 +1383,17 @@ export default function MyStatsModal({
                             <button
                               key={r.id}
                               onClick={() => openReview(r)}
-                              className="w-full text-left p-3.5 bg-white dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between gap-3 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-xs transition-all group"
+                              className="w-full text-left p-2.5 sm:p-3.5 bg-white dark:bg-slate-850 border border-slate-100 dark:border-slate-800 rounded-2xl flex items-center justify-between gap-2.5 sm:gap-3 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-xs transition-all group"
                             >
                               <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                <p className="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
                                   {formatTopicDisplay(r.topic)}
                                 </p>
-                                <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <p className="text-[11px] sm:text-xs font-semibold text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
                                   <span>{r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</span>
+                                  {r.total > 0 && (
+                                    <span>· {r.score != null ? `${r.score}/${r.total}` : `${r.total}`} Qs</span>
+                                  )}
                                   {timingEmoji && <span>{timingEmoji}</span>}
                                   {pts > 0 && <span className="text-indigo-600 dark:text-indigo-400 font-bold">+{pts} AP</span>}
                                   {(!Array.isArray(r.review_data) || r.review_data.length === 0) && <span className="opacity-60">(review unavailable)</span>}
@@ -1343,20 +1401,20 @@ export default function MyStatsModal({
                               </div>
 
                               {pct !== null && (
-                                <div className="flex items-center gap-2.5 shrink-0">
-                                  <div className="w-20 sm:w-28 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden hidden xs:block">
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <div className="w-16 sm:w-28 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden hidden xs:block">
                                     <div
                                       className={`h-full transition-all ${pct >= 70 ? 'bg-emerald-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
                                       style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
                                     />
                                   </div>
-                                  <span className={`text-xs font-black w-12 text-right ${pct >= 70 ? 'text-emerald-700 dark:text-emerald-400' : pct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                                  <span className={`text-xs font-black w-11 sm:w-12 text-right ${pct >= 70 ? 'text-emerald-700 dark:text-emerald-400' : pct >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                                     {pct.toFixed(1)}%
                                   </span>
                                 </div>
                               )}
 
-                              <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+                              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 dark:text-slate-600 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all shrink-0" />
                             </button>
                           );
                         })}
@@ -1369,7 +1427,7 @@ export default function MyStatsModal({
           )}
 
           {activeTab === 'weakAreas' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-4 sm:space-y-5 animate-fade-in">
               {!selectedTopic && (
                 <WeakCategorySpotlight
                   myResults={myResults}
@@ -1390,7 +1448,7 @@ export default function MyStatsModal({
                   <p className="font-bold text-sm tracking-widest uppercase">Loading Weak Areas...</p>
                 </div>
               ) : activeWeakQuestions.length === 0 ? (
-                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-3xl p-12 text-center border border-slate-100 dark:border-slate-800 transition-colors">
+                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-3xl p-8 sm:p-12 text-center border border-slate-100 dark:border-slate-800 transition-colors">
                   <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Target className="w-8 h-8" />
                   </div>
@@ -1400,20 +1458,33 @@ export default function MyStatsModal({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-5">
                   {/* Category Grid or Question Viewer */}
                   {!selectedTopic ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between mb-3">
+                    <div className="space-y-3 sm:space-y-4">
+                      <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                         <h3 className="font-bold text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">Select a Category to Review</h3>
-                        <button 
-                          onClick={() => handleExportAnki()}
-                          disabled={exportingAnki}
-                          className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-indigo-200 dark:border-indigo-800 shadow-sm disabled:opacity-50"
-                        >
-                          {exportingAnki ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                          Export Anki Deck (CSV)
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button 
+                            onClick={() => {
+                              setFlashcardsDeckQuestions(activeWeakQuestions);
+                              setFlashcardsCategory(undefined);
+                              setShowFlashcards(true);
+                            }}
+                            className="px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                            Study In-App Flashcards
+                          </button>
+                          <button 
+                            onClick={() => handleExportAnki()}
+                            disabled={exportingAnki}
+                            className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 border border-indigo-200 dark:border-indigo-800 shadow-sm disabled:opacity-50"
+                          >
+                            {exportingAnki ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            Export Anki Deck (CSV)
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         {Array.from(new Set(activeWeakQuestions.map(q => q.category).filter(Boolean))).map((cat) => {
@@ -1422,14 +1493,14 @@ export default function MyStatsModal({
                             <button 
                               key={cat} 
                               onClick={() => setSelectedTopic(cat)}
-                              className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800 transition-all group text-left"
+                              className="w-full flex items-center justify-between p-3 sm:p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-transparent hover:border-indigo-100 dark:hover:border-indigo-800 transition-all group text-left"
                             >
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black text-sm group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
+                              <div className="flex items-center gap-3 sm:gap-4">
+                                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black text-xs sm:text-sm group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/50 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
                                   {count}
                                 </div>
                                 <div>
-                                  <div className="font-bold text-slate-800 dark:text-slate-200 text-sm">{cat}</div>
+                                  <div className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">{cat}</div>
                                   <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase tracking-widest">{count} Missed Question{count !== 1 ? 's' : ''}</div>
                                 </div>
                               </div>
@@ -1440,41 +1511,53 @@ export default function MyStatsModal({
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <button onClick={() => setSelectedTopic(null)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:border-slate-300 hover:shadow-sm flex items-center gap-2 transition-all">
+                    <div className="space-y-4 sm:space-y-5">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <button onClick={() => setSelectedTopic(null)} className="px-3 sm:px-4 py-1.5 sm:py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:border-slate-300 hover:shadow-sm flex items-center gap-1.5 transition-all">
                           <ChevronLeft className="w-4 h-4" /> Back to Categories
                         </button>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <button
+                            onClick={() => {
+                              setFlashcardsDeckQuestions(displayedMissedQuestions);
+                              setFlashcardsCategory(selectedTopic || undefined);
+                              setShowFlashcards(true);
+                            }}
+                            className="px-2.5 sm:px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                            title={`Study ${selectedTopic} flashcards in-app`}
+                          >
+                            <Layers className="w-3.5 h-3.5" />
+                            Study Flashcards
+                          </button>
                           <button
                             onClick={() => handleExportAnki(selectedTopic)}
                             disabled={exportingAnki}
-                            className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-indigo-200 dark:border-indigo-800 shadow-sm disabled:opacity-50"
+                            className="px-2.5 sm:px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 border border-indigo-200 dark:border-indigo-800 shadow-sm disabled:opacity-50"
                             title={`Export ${selectedTopic} flashcards to Anki CSV`}
                           >
                             {exportingAnki ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                             Export Anki CSV
                           </button>
-                          <h3 className="font-bold text-[10px] text-blue-500 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-950/40 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/40">{selectedTopic} ({displayedMissedQuestions.length} Missed)</h3>
+                          <h3 className="font-bold text-[10px] text-blue-500 dark:text-blue-400 uppercase tracking-widest bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/40">{selectedTopic} ({displayedMissedQuestions.length} Missed)</h3>
                         </div>
                       </div>
-                  <div className="bg-white dark:bg-slate-850 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-6 relative overflow-hidden transition-colors">
+                  <div className="bg-white dark:bg-slate-850 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-800 space-y-4 sm:space-y-6 relative overflow-hidden transition-colors">
                     {(() => {
                       const q = displayedMissedQuestions[currentIndex];
                       if (!q) return null;
                       return (
                         <>
                           {latestStatus.get(q.id) ? (
-                            <div className="absolute top-0 right-0 left-0 p-3 bg-emerald-500 text-white font-black text-[10px] text-center uppercase tracking-widest shadow-md">
+                            <div className="absolute top-0 right-0 left-0 p-2.5 sm:p-3 bg-emerald-500 text-white font-black text-[10px] text-center uppercase tracking-widest shadow-md">
                               ✓ Review Completed: You recently answered this correctly!
                             </div>
                           ) : (
-                            <div className="absolute top-0 right-0 p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-black text-[10px] rounded-bl-3xl border-l border-b border-rose-100 dark:border-rose-900/40 uppercase tracking-widest">
+                            <div className="absolute top-0 right-0 p-2.5 sm:p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-black text-[10px] rounded-bl-2xl sm:rounded-bl-3xl border-l border-b border-rose-100 dark:border-rose-900/40 uppercase tracking-widest">
                               Review Mode
                             </div>
                           )}
 
-                          <div className={`flex items-center gap-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ${latestStatus.get(q.id) ? 'mt-8' : ''}`}>
+                          <div className={`flex items-center gap-2 sm:gap-3 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex-wrap ${latestStatus.get(q.id) ? 'mt-7 sm:mt-8' : ''}`}>
                             <span>Question {currentIndex + 1} of {displayedMissedQuestions.length}</span>
                             <span className="opacity-30">·</span>
                             <span>{q.category}</span>
@@ -1490,13 +1573,13 @@ export default function MyStatsModal({
                             className="text-slate-800 dark:text-slate-200 font-bold text-sm leading-relaxed"
                           />
                           
-                          <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+                          <div className="space-y-2 pt-3 sm:pt-4 border-t border-slate-100 dark:border-slate-800">
                             {(q.options as string[]).map((opt, idx) => (
                               <div
                                 key={idx}
-                                className={`px-4 py-2.5 rounded-xl text-xs font-medium border-2 flex items-center gap-3 ${idx === q.correct_index ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-bold' : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 opacity-50'}`}
+                                className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-medium border-2 flex items-center gap-2.5 sm:gap-3 ${idx === q.correct_index ? 'border-emerald-500 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-bold' : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 opacity-50'}`}
                               >
-                                <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black ${idx === q.correct_index ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
+                                <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0 ${idx === q.correct_index ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400'}`}>
                                   {String.fromCharCode(65 + idx)}
                                 </div>
                                 {opt}
@@ -1505,8 +1588,8 @@ export default function MyStatsModal({
                           </div>
 
                           {q.explanation && (
-                            <div className="mt-6 bg-slate-900 dark:bg-slate-950 text-slate-100 rounded-2xl p-6 shadow-xl border border-transparent dark:border-slate-800">
-                              <div className="flex items-center gap-3 mb-4">
+                            <div className="mt-4 sm:mt-6 bg-slate-900 dark:bg-slate-950 text-slate-100 rounded-2xl p-4 sm:p-6 shadow-xl border border-transparent dark:border-slate-800">
+                              <div className="flex items-center gap-3 mb-3 sm:mb-4">
                                 <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/20">
                                   <ExternalLink className="w-4 h-4 text-white" />
                                 </div>
@@ -1518,16 +1601,16 @@ export default function MyStatsModal({
                               <div className="space-y-3 text-slate-300 text-xs leading-relaxed font-medium">
                                 <div dangerouslySetInnerHTML={{ __html: q.explanation }} />
                               </div>
-                              <div className="mt-6 flex flex-wrap gap-3">
-                                <a href="https://www.openevidence.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl text-blue-400 text-xs font-bold transition-all border border-blue-500/20">
+                              <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">
+                                <a href="https://www.openevidence.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl text-blue-400 text-xs font-bold transition-all border border-blue-500/20">
                                   <ExternalLink className="w-3 h-3" />
                                   Open Evidence
                                 </a>
-                                <a href={`https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X${userEmail ? `?authuser=${encodeURIComponent(userEmail)}` : ''}`} target="_blank" rel="noopener noreferrer" title="Ensure you are logged into your Ascension SSO / work Google account" className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl text-purple-300 text-xs font-bold transition-all border border-purple-500/20">
+                                <a href={`https://gemini.google.com/gem/1Ep-wVXG0cSLhxna_SIbpMSANVs5xCm7X${userEmail ? `?authuser=${encodeURIComponent(userEmail)}` : ''}`} target="_blank" rel="noopener noreferrer" title="Ensure you are logged into your Ascension SSO / work Google account" className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 rounded-xl text-purple-300 text-xs font-bold transition-all border border-purple-500/20">
                                   <ExternalLink className="w-3 h-3" />
                                   Board Prep Gem
                                 </a>
-                                <a href={`https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?usp=drive_link${userEmail ? `&authuser=${encodeURIComponent(userEmail)}` : ''}`} target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
+                                <a href={`https://drive.google.com/drive/folders/1VSS2ZBtY486BUpZZKxrITrCOimd6b7Dp?usp=drive_link${userEmail ? `&authuser=${encodeURIComponent(userEmail)}` : ''}`} target="_blank" rel="noopener noreferrer" onClick={() => window.alert('To access this material, please ensure you are logged into your Ascension SSO / work Google account.')} className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 text-xs font-bold transition-all border border-white/10">
                                   <ExternalLink className="w-3 h-3" />
                                   Review Topic Material
                                 </a>
@@ -1539,18 +1622,18 @@ export default function MyStatsModal({
                     })()}
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center justify-between gap-3 sm:gap-4">
                     <button
                       onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
                       disabled={currentIndex === 0}
-                      className="flex-1 py-3 rounded-xl text-sm font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                      className="flex-1 py-2.5 sm:py-3 rounded-xl text-sm font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
                     >
                       <ChevronLeft className="w-4 h-4" /> Prev
                     </button>
                     <button
                       onClick={handleNext}
                       disabled={currentIndex === displayedMissedQuestions.length - 1}
-                      className="flex-1 py-3 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-slate-800 dark:hover:bg-indigo-700 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-lg shadow-slate-200 dark:shadow-none"
+                      className="flex-1 py-2.5 sm:py-3 bg-slate-900 dark:bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-slate-800 dark:hover:bg-indigo-700 transition-all disabled:opacity-30 flex items-center justify-center gap-2 shadow-lg shadow-slate-200 dark:shadow-none"
                     >
                       Next <ChevronRight className="w-4 h-4" />
                     </button>
@@ -1565,16 +1648,16 @@ export default function MyStatsModal({
       </div>
 
       {showReadinessModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-in">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[93vh] sm:max-h-[90vh] animate-fade-in">
             {/* Header */}
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className={`p-2 rounded-xl border ${statusConfig.badge}`}>
                   <statusConfig.icon className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-lg text-slate-800 dark:text-white">Board Readiness & Status Guide</h3>
+                  <h3 className="font-black text-base sm:text-lg text-slate-800 dark:text-white">Board Readiness & Status Guide</h3>
                   <p className="text-xs text-slate-400 font-bold">Understanding your performance classification</p>
                 </div>
               </div>
@@ -1587,9 +1670,9 @@ export default function MyStatsModal({
             </div>
 
             {/* Body */}
-            <div className="p-6 overflow-y-auto space-y-5">
+            <div className="p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5">
               {/* Current Standing Card */}
-              <div className={`p-4 rounded-2xl border ${statusConfig.bg} ${statusConfig.border}`}>
+              <div className={`p-3.5 sm:p-4 rounded-2xl border ${statusConfig.bg} ${statusConfig.border}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Your Current Status</span>
                   <span className={`text-xs font-black px-2.5 py-0.5 rounded-full border uppercase ${statusConfig.badge}`}>
@@ -1697,6 +1780,17 @@ export default function MyStatsModal({
             </div>
           </div>
         </div>
+      )}
+
+      {showFlashcards && (
+        <FlashcardsModal
+          isOpen={showFlashcards}
+          onClose={() => setShowFlashcards(false)}
+          userId={userId}
+          userEmail={userEmail}
+          initialQuestions={flashcardsDeckQuestions.length > 0 ? flashcardsDeckQuestions : undefined}
+          initialCategory={flashcardsCategory}
+        />
       )}
 
     </div>

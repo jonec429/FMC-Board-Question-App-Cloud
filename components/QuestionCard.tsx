@@ -5,6 +5,7 @@ import DOMPurify from 'dompurify';
 import { Highlighter, Strikethrough, Gem, ExternalLink, CheckCircle, XCircle, MessageSquare, Flag } from './AppIcons';
 import { formatIteId, getQuestionExamNumber } from '@/lib/iteQuestionMap';
 import { isQuestionRemovedByAbfm } from '@/lib/iteRemovedQuestions';
+import { getCareDimensionMeta } from '@/lib/careDimensions';
 import { AlertTriangle } from './AppIcons';
 
 interface Question {
@@ -15,6 +16,7 @@ interface Question {
   explanation?: string;
   resource_link?: string;
   category?: string;
+  abfm_category?: string | null;
   year?: string;
   is_repeat?: boolean | null;
   item_number?: number | null;
@@ -347,6 +349,18 @@ function QuestionCard({
             <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs font-black rounded-full uppercase tracking-widest shrink-0">
               {question.category || 'General Medicine'}
             </span>
+            {(() => {
+              const careMeta = getCareDimensionMeta(question.abfm_category);
+              if (!careMeta) return null;
+              return (
+                <span
+                  className={`px-2.5 py-1 text-[11px] font-black rounded-full uppercase tracking-wider border shadow-xs select-none shrink-0 ${careMeta.badgeBg} ${careMeta.badgeText} ${careMeta.badgeBorder}`}
+                  title={`${careMeta.label} (${careMeta.blueprintWeight} of ABFM Blueprint)`}
+                >
+                  {careMeta.label}
+                </span>
+              );
+            })()}
             {(Boolean(question.is_repeat) || (question.id && KNOWN_REPEAT_IDS.has(question.id))) && (
               <span
                 className="px-2.5 py-1 bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[11px] font-black rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-help hover:bg-amber-500/20 transition-all select-none"

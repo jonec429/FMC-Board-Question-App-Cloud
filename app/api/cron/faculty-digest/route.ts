@@ -14,6 +14,7 @@ import {
 import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 import { Block, BlockSchedule, Result, RosterEntry, Profile } from '@/lib/types';
 import { getEasternDateParts, getEasternTimeString } from '@/lib/timezone';
+import { computeWeightedAccuracy } from '@/lib/quizMetrics';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -201,9 +202,7 @@ export async function GET(request: Request) {
       const totalExpected = nonBonusBlocks.length + overdueCount;
       const onTimePct = totalExpected > 0 ? (onTimeBlocks.length / totalExpected) * 100 : 100;
 
-      const curriculumAvg = assignedResults.length > 0
-        ? assignedResults.reduce((a, r) => a + (r.percentage || 0), 0) / assignedResults.length
-        : 0;
+      const curriculumAvg = computeWeightedAccuracy(assignedResults).accuracy ?? 0;
 
       const academicRisk = getRiskLevel(curriculumAvg, assignedResults.length);
       const complianceRisk = getComplianceRisk(onTimePct, topicBestPts.size, overdueCount);

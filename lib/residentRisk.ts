@@ -1,12 +1,14 @@
 import { Block, BlockSchedule, Result } from '@/lib/types';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { getEasternDateString } from '@/lib/timezone';
+import { computeWeightedAccuracy } from '@/lib/quizMetrics';
+
 /**
  * Shared Resident Risk logic — used by AdminPerformance (dashboard) and
  * AdminReporting (CSV/PDF) so the two never disagree.
  *
  * Two axes:
- *   - academic   : average score on assigned curriculum blocks
+ *   - academic   : question-weighted average score on assigned curriculum blocks
  *   - compliance : on-time rate of completed blocks AND whether assigned blocks
  *                  whose due date has passed are still undone ("overdue")
  *
@@ -209,9 +211,7 @@ export function computeResidentReadiness({
   const curriculumQuizzes = assignedResults.filter(
     (r) => typeof r.percentage === 'number'
   );
-  const curriculumAvg = curriculumQuizzes.length > 0
-    ? curriculumQuizzes.reduce((a, r) => a + (r.percentage || 0), 0) / curriculumQuizzes.length
-    : 0;
+  const curriculumAvg = computeWeightedAccuracy(curriculumQuizzes).accuracy ?? 0;
 
   const scoresChrono = [...curriculumQuizzes]
     .sort((a, b) => new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime())

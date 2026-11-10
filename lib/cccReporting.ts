@@ -9,6 +9,7 @@
 import { AdminData, Profile, Result, RosterEntry, Block, BlockSchedule, AttendanceRecord } from './types';
 import { getCurrentAcademicYear, formatAcademicYear, isActiveResident, deriveLabel, derivePGY, getResidentClassYear } from './academicYear';
 import { getDueBlocks, getOverdueBlocks, getRiskLevel, getComplianceRisk, computeTrend } from './residentRisk';
+import { computeWeightedAccuracy } from './quizMetrics';
 import { formatDisplayName } from './utils';
 
 export type DateRangePreset = 'ay' | '6m' | '3m' | '30d' | 'all' | 'custom';
@@ -376,9 +377,10 @@ export function computeCccReportData({
       ? Math.round((onTimeCount / totalExpected) * 100)
       : 100;
 
-    // Curriculum Average
-    const curriculumAvg = curriculumResults.length > 0
-      ? Math.round(curriculumResults.reduce((s, r) => s + (r.percentage || 0), 0) / curriculumResults.length)
+    // Curriculum Average (Question-Weighted)
+    const weightedCurriculum = computeWeightedAccuracy(curriculumResults);
+    const curriculumAvg = weightedCurriculum.accuracy !== null
+      ? Math.round(weightedCurriculum.accuracy)
       : 0;
 
     // Total Academic Engagement Points earned during this period

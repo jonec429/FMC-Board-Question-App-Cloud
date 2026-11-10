@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useAdminData } from '@/hooks/useAdminData';
 import { User, Profile, RosterEntry, Result, Block } from '@/lib/types';
 import { getDueBlocks, getOverdueBlocks, getRiskLevel, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
+import { computeWeightedAccuracy } from '@/lib/quizMetrics';
 import { formatDisplayName } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { supabase } from '@/lib/supabase';
@@ -159,15 +160,9 @@ export default function AdviseeQuickAccessCard({
       const onTimePct =
         totalExpected > 0 ? (onTimeBlocks.length / totalExpected) * 100 : 100;
 
-      const curriculumAvg =
-        assignedResults.length > 0
-          ? assignedResults.reduce((a, r) => a + (r.percentage || 0), 0) / assignedResults.length
-          : 0;
+      const curriculumAvg = computeWeightedAccuracy(assignedResults).accuracy ?? 0;
 
-      const overallAvg =
-        blockResults.length > 0
-          ? blockResults.reduce((a, r) => a + (r.percentage || 0), 0) / blockResults.length
-          : 0;
+      const overallAvg = computeWeightedAccuracy(blockResults).accuracy ?? 0;
 
       // Calculate total academic points
       const totalPoints = resResults.reduce((acc, r) => acc + (r.academic_points || 0), 0);

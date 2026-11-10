@@ -7,11 +7,12 @@ import { canAccessAdmin, getUserRole } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear } from '@/lib/academicYear';
 import {
   Search, LogOut, Lock, Trophy, BookOpen, Gem, CheckCircle, ChevronRight,
-  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info, Calendar, Users, Sun, Moon
+  PlayCircle, Sparkles, X, Settings, Smartphone, Target, Save, Target as TargetIcon, MessageSquare, Loader2, AbfmShield, Info, Calendar, Users, Sun, Moon, Layers
 } from './AppIcons';
 import ProfileSettings from './ProfileSettings';
 import MyStatsModal from './MyStatsModal';
 import QuestionSearchModal from './QuestionSearchModal';
+import FlashcardsModal from './FlashcardsModal';
 import AchievementsModal from './AchievementsModal';
 import InstallAppModal from './InstallAppModal';
 import QotdHistoryModal from './QotdHistoryModal';
@@ -26,6 +27,7 @@ import { getStreakSaverStatus, getStreakSaverQuestions, StreakSaverStatus } from
 import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { computeResidentReadiness } from '@/lib/residentRisk';
+import { computeWeightedAccuracy } from '@/lib/quizMetrics';
 import { User, Profile, Block, Result, Question, QuizSession, AssignedQuiz, ChallengeStandingsResponse, ChallengeResidentStanding } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
@@ -147,6 +149,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
   const [showChallengeModal, setShowChallengeModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showQotdHistoryModal, setShowQotdHistoryModal] = useState(false);
@@ -268,14 +271,14 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   }, [user.id]);
 
   // Per-user block sort preference (each resident sorts their own list; saved locally)
-  const [blockSort, setBlockSort] = useState<'curriculum' | 'name' | 'status'>('curriculum');
+  const [blockSort, setBlockSort] = useState<'curriculum' | 'name' | 'status' | 'inProgress' | 'dueDate'>('curriculum');
   useEffect(() => {
     try {
       const s = localStorage.getItem('fmc_resident_block_sort');
-      if (s === 'name' || s === 'status') setBlockSort(s);
+      if (s === 'name' || s === 'status' || s === 'inProgress' || s === 'dueDate') setBlockSort(s);
     } catch {}
   }, []);
-  const changeBlockSort = (m: 'curriculum' | 'name' | 'status') => {
+  const changeBlockSort = (m: 'curriculum' | 'name' | 'status' | 'inProgress' | 'dueDate') => {
     setBlockSort(m);
     try { localStorage.setItem('fmc_resident_block_sort', m); } catch {}
   };
@@ -379,11 +382,9 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const isResidentEligibleForChallenge = myTotalRequiredBlocks > 0 && myCompletedBlocksCount >= myTotalRequiredBlocks;
   const blocksNeededForChallenge = Math.max(0, myTotalRequiredBlocks - myCompletedBlocksCount);
 
-  // Average score strictly across completed quizzes with valid percentage and questions (excluding attendance)
-  const gradedQuizzes = quizResults.filter(r => r.percentage != null && (r.total || 0) > 0);
-  const avgPct = gradedQuizzes.length > 0
-    ? gradedQuizzes.reduce((a, r) => a + (r.percentage || 0), 0) / gradedQuizzes.length
-    : null;
+  // Question-weighted average score strictly across completed quizzes (excluding attendance/manual)
+  const weightedQuizStats = computeWeightedAccuracy(quizResults);
+  const avgPct = weightedQuizStats.accuracy;
 
   const myRankIdx = activeLeaderboard.findIndex(d => Boolean(d.email && user.email && d.email.toLowerCase() === user.email.toLowerCase()));
   const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
@@ -477,6 +478,13 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             title="Search Question Bank"
           >
             <Search className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setShowFlashcardsModal(true)}
+            className="p-2 text-slate-400 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+            title="In-App Flashcards (Leitner Micro-Learning)"
+          >
+            <Layers className="w-5 h-5" />
           </button>
           {isSuperAdmin && (
             <button
@@ -999,7 +1007,17 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
 
 
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-xs">Board Review Blocks</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-xs">Board Review Blocks</h3>
+              <button
+                onClick={() => setShowFlashcardsModal(true)}
+                className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 border border-indigo-200 dark:border-indigo-800/80 shadow-2xs cursor-pointer"
+                title="Launch In-App Flashcards (Leitner Micro-Learning)"
+              >
+                <Layers className="w-3 h-3" />
+                <span>Flashcards</span>
+              </button>
+            </div>
             {blocks.length > 1 && (
               <select
                 value={blockSort}
@@ -1008,8 +1026,10 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                 title="Sort blocks"
               >
                 <option value="curriculum">Curriculum order</option>
-                <option value="name">Name (A–Z)</option>
+                <option value="dueDate">Due Date (Earliest first)</option>
+                <option value="inProgress">In Progress first</option>
                 <option value="status">Unfinished first</option>
+                <option value="name">Name (A–Z)</option>
               </select>
             )}
           </div>
@@ -1031,6 +1051,19 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
             <div className="flex flex-col gap-2.5">
               {[...blocks].sort((a, b) => {
                 if (blockSort === 'name') return (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' });
+                if (blockSort === 'inProgress') {
+                  const sA = !!getSessionForBlock(a.title);
+                  const sB = !!getSessionForBlock(b.title);
+                  if (sA !== sB) return Number(sB) - Number(sA);
+                }
+                if (blockSort === 'dueDate') {
+                  const schA = (data?.blockSchedule || []).find(s => s.block_id === a.id);
+                  const schB = (data?.blockSchedule || []).find(s => s.block_id === b.id);
+                  const dateA = schA?.end_date || '9999-12-31';
+                  const dateB = schB?.end_date || '9999-12-31';
+                  const cmp = dateA.localeCompare(dateB);
+                  if (cmp !== 0) return cmp;
+                }
                 if (blockSort === 'status') {
                   const rA = bestResultByTopic.get(a.title); const rB = bestResultByTopic.get(b.title);
                   const isDemoA = a.block_type === 'demo' || (a.title || '').toLowerCase().includes('demo');
@@ -1486,6 +1519,15 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         <QuestionSearchModal
           isOpen={showSearchModal}
           onClose={() => setShowSearchModal(false)}
+          userId={user.id}
+          userEmail={user.email}
+        />
+      )}
+
+      {showFlashcardsModal && (
+        <FlashcardsModal
+          isOpen={showFlashcardsModal}
+          onClose={() => setShowFlashcardsModal(false)}
           userId={user.id}
           userEmail={user.email}
         />

@@ -13,6 +13,7 @@ import { partitionYears, RECENT_ITE_YEAR_WINDOW, LEGACY_WARNING_TITLE, LEGACY_WA
 import { formatIteId } from '@/lib/iteQuestionMap';
 import { Question } from '@/lib/types';
 import { QuestionStat, getQuestionPerformanceStats } from '@/lib/questionStats';
+import { CANONICAL_CARE_DIMENSIONS, getCareDimensionMeta } from '@/lib/careDimensions';
 import QuestionStemDisplay from './QuestionStemDisplay';
 
 export interface QuestionPickerProps {
@@ -51,6 +52,7 @@ export default function QuestionPicker({
   // Multi-Filter state
   const [search, setSearch] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(initialCategoryFilters);
+  const [selectedCareDimensions, setSelectedCareDimensions] = useState<string[]>([]);
   const [selectedYears, setSelectedYears] = useState<string[]>([]);
   const [difficultyFilter, setDifficultyFilter] = useState<'all' | 'hard' | 'moderate' | 'high_yield' | 'untested'>('all');
   const [hideOverlapping, setHideOverlapping] = useState(false);
@@ -80,7 +82,7 @@ export default function QuestionPicker({
   // Reset range tracking on filter/tab changes
   useEffect(() => {
     setLastClickedIndex(null);
-  }, [search, selectedCategories, selectedYears, difficultyFilter, hideOverlapping, showLegacyYears, activeTab]);
+  }, [search, selectedCategories, selectedCareDimensions, selectedYears, difficultyFilter, hideOverlapping, showLegacyYears, activeTab]);
 
   // Derive categories and years from question bank
   const { categories, years, categoryCounts } = useMemo(() => {
@@ -142,6 +144,10 @@ export default function QuestionPicker({
         return false;
       }
 
+      if (selectedCareDimensions.length > 0 && !selectedCareDimensions.includes(q.abfm_category || '')) {
+        return false;
+      }
+
       // Year filter (multi-select)
       if (selectedYears.length > 0) {
         if (!selectedYears.includes(q.year)) return false;
@@ -164,7 +170,7 @@ export default function QuestionPicker({
 
       return true;
     });
-  }, [allQuestions, selectedCategories, selectedYears, difficultyFilter, hideOverlapping, showLegacyYears, legacyYears, search, statsMap, overlappingQuestionMap]);
+  }, [allQuestions, selectedCategories, selectedCareDimensions, selectedYears, difficultyFilter, hideOverlapping, showLegacyYears, legacyYears, search, statsMap, overlappingQuestionMap]);
 
   // Questions displayed based on Active Tab
   const displayedQuestions = useMemo(() => {
@@ -368,7 +374,7 @@ export default function QuestionPicker({
     setShowLegacyWarning(false);
   };
 
-  const hasActiveFilters = search || selectedCategories.length > 0 || selectedYears.length > 0 || difficultyFilter !== 'all' || hideOverlapping;
+  const hasActiveFilters = search || selectedCategories.length > 0 || selectedCareDimensions.length > 0 || selectedYears.length > 0 || difficultyFilter !== 'all' || hideOverlapping;
 
   return (
     <div className="space-y-4">
@@ -601,6 +607,62 @@ export default function QuestionPicker({
                   }`}>
                     {count}
                   </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Care Dimensions (ABFM Blueprint) Filter Chips */}
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+            <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
+              <Filter className="w-3 h-3" />
+              ABFM Care Dimension ({selectedCareDimensions.length > 0 ? `${selectedCareDimensions.length} selected` : 'All Care Dimensions'})
+            </label>
+            {selectedCareDimensions.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedCareDimensions([])}
+                className="text-indigo-600 dark:text-indigo-400 hover:underline text-[10px] font-bold"
+              >
+                Clear Care Dimensions
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5 p-0.5">
+            <button
+              type="button"
+              onClick={() => setSelectedCareDimensions([])}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border ${
+                selectedCareDimensions.length === 0
+                  ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              All Types of Care
+            </button>
+            {CANONICAL_CARE_DIMENSIONS.map(dim => {
+              const active = selectedCareDimensions.includes(dim);
+              const meta = getCareDimensionMeta(dim);
+              return (
+                <button
+                  key={dim}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCareDimensions(prev =>
+                      prev.includes(dim) ? prev.filter(d => d !== dim) : [...prev, dim]
+                    );
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 border ${
+                    active
+                      ? `${meta?.badgeBg} ${meta?.badgeText} ${meta?.badgeBorder} ring-1 ring-sky-500/20 shadow-xs`
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {active && <Check className="w-3 h-3 text-sky-600 dark:text-sky-400" />}
+                  <span>{dim}</span>
+                  <span className="text-[9px] opacity-70 font-normal">({meta?.blueprintWeight})</span>
                 </button>
               );
             })}
@@ -965,6 +1027,18 @@ export default function QuestionPicker({
                         <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded text-[10px] font-bold uppercase tracking-wider">
                           {q.category}
                         </span>
+                        {(() => {
+                          const careMeta = getCareDimensionMeta(q.abfm_category);
+                          if (!careMeta) return null;
+                          return (
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${careMeta.badgeBg} ${careMeta.badgeText} ${careMeta.badgeBorder}`}
+                              title={`${careMeta.label} (${careMeta.blueprintWeight})`}
+                            >
+                              {careMeta.label}
+                            </span>
+                          );
+                        })()}
 
                         {formatIteId(q) ? (
                           <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 rounded text-[10px] font-mono font-bold">
