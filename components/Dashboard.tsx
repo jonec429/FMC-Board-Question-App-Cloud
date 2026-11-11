@@ -784,15 +784,15 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                 }}
                 className="order-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col justify-between text-left relative overflow-hidden min-h-[170px] cursor-pointer"
               >
-                <div className="flex items-center justify-between gap-2 mb-2 w-full">
-                  <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-amber-900 dark:text-amber-100">
+                <div className="flex items-center justify-between gap-1.5 mb-2 w-full">
+                  <span className="font-black text-sm sm:text-base flex items-center gap-1.5 text-amber-900 dark:text-amber-100 shrink-0">
                     <div className="p-1.5 bg-amber-500 text-white rounded-lg group-hover:scale-110 transition-transform">
                       <PlayCircle className="w-3.5 h-3.5" />
                     </div>
-                    Resume Block
+                    <span>Resume Block</span>
                   </span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-bold">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-900/70 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-bold whitespace-nowrap">
                       In Progress
                     </span>
                     <button
@@ -801,7 +801,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                         e.stopPropagation();
                         handleAbandonSession(mostRecentSession.id, mostRecentSession.topic);
                       }}
-                      className="px-1.5 py-0.5 bg-amber-200/80 hover:bg-red-500 hover:text-white dark:bg-amber-900/70 dark:hover:bg-red-600 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-black transition-colors"
+                      className="w-5 h-5 flex items-center justify-center bg-amber-200/80 hover:bg-red-500 hover:text-white dark:bg-amber-900/70 dark:hover:bg-red-600 text-amber-800 dark:text-amber-200 rounded-full text-[10px] font-black transition-colors shrink-0"
                       title="Abandon quiz and start fresh"
                       aria-label="Abandon quiz and start fresh"
                     >
