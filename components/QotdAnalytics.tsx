@@ -86,8 +86,9 @@ export default function QotdAnalytics({ adminData, user, profile }: QotdAnalytic
         data: { session },
       } = await supabase.auth.getSession();
 
-      const res = await fetch('/api/admin/qotd-analytics', {
+      const res = await fetch(`/api/admin/qotd-analytics?_t=${Date.now()}`, {
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+        cache: 'no-store',
       });
 
       if (!res.ok) {

@@ -4,6 +4,9 @@ import { QotdPeerComparisonResponse, QotdOptionDistribution } from '@/lib/types'
 import { getTodayDateString } from '@/lib/qotd';
 import { computeQotdStreak, computeMaxQotdStreak } from '@/lib/streaks';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -77,18 +80,28 @@ export async function GET(request: Request) {
     }
 
     // 2. Program-wide cumulative QOTD aggregates (anonymous benchmark)
-    const [attemptsRes, streaksRes] = await Promise.all([
-      supabaseAdmin
+    // Fetch all QOTD attempts with pagination to ensure we never get truncated by PostgREST 1000 row cap
+    const allAttempts: any[] = [];
+    let attPage = 0;
+    const attPageSize = 1000;
+    while (true) {
+      const { data: pageData, error: pageErr } = await supabaseAdmin
         .from('question_attempts')
         .select('user_id, is_correct, created_at')
-        .eq('is_qotd', true),
-      supabaseAdmin
-        .from('user_streaks')
-        .select('user_id, current_qotd_streak, max_qotd_streak'),
-    ]);
+        .eq('is_qotd', true)
+        .range(attPage * attPageSize, (attPage + 1) * attPageSize - 1);
+      if (pageErr) throw pageErr;
+      if (!pageData || pageData.length === 0) break;
+      allAttempts.push(...pageData);
+      if (pageData.length < attPageSize) break;
+      attPage++;
+    }
 
-    const allAttempts = attemptsRes.data || [];
-    const allStreaks = streaksRes.data || [];
+    const { data: streaksData } = await supabaseAdmin
+      .from('user_streaks')
+      .select('user_id, current_qotd_streak, max_qotd_streak');
+
+    const allStreaks = streaksData || [];
 
     const distinctParticipants = new Set(allAttempts.map((a) => a.user_id)).size;
     const totalProgramAttempts = allAttempts.length;
@@ -158,12 +171,23 @@ export async function GET(request: Request) {
       },
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      },
+    });
   } catch (err: any) {
     console.error('Error fetching QOTD peer comparison:', err);
     return NextResponse.json(
       { error: err?.message || 'Internal server error' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
     );
   }
 }

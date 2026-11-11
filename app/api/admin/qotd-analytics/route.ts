@@ -14,6 +14,9 @@ import {
 import { getTodayDateString } from '@/lib/qotd';
 import { computeQotdStreak, computeMaxQotdStreak } from '@/lib/streaks';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -525,12 +528,23 @@ export async function GET(request: Request) {
       residentStats,
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        Pragma: 'no-cache',
+        Expires: '0',
+      },
+    });
   } catch (err: any) {
     console.error('Error computing QOTD analytics:', err);
     return NextResponse.json(
       { error: err?.message || 'Internal server error' },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
     );
   }
 }

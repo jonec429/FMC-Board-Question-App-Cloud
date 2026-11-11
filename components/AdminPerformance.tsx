@@ -148,8 +148,9 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!isMounted) return;
-      fetch(`/api/admin/qotd-analytics?${queryParam}`, {
+      fetch(`/api/admin/qotd-analytics?${queryParam}&_t=${Date.now()}`, {
         headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+        cache: 'no-store',
       })
         .then((res) => {
           if (!res.ok) throw new Error('Failed to fetch resident QOTD stats');

@@ -1,11 +1,13 @@
 {
-  "name": "FMC Board Review App",
-  "short_name": "FMC Board Review App",
-  "description": "Advanced Resident Performance & Quiz System",
+  "id": "/?source=pwa",
+  "name": "FMC Board Review App (BRQ)",
+  "short_name": "FMC BRQ",
+  "description": "FMC Board Review App (BRQ) — Advanced Resident Performance & Quiz System",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#1e3a8a",
+  "categories": ["education", "medical"],
   "icons": [
     {
       "src": "/icons/pwa-icon.svg",
@@ -21,6 +23,20 @@
       "src": "/icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Question of the Day",
+      "short_name": "QOTD",
+      "description": "Daily board review question",
+      "url": "/"
+    },
+    {
+      "name": "My Performance",
+      "short_name": "Performance",
+      "description": "View board readiness and quiz stats",
+      "url": "/"
     }
   ]
 }

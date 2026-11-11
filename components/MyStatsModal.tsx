@@ -412,8 +412,9 @@ export default function MyStatsModal({
         const token = session?.access_token;
         if (!token) return;
 
-        const res = await fetch('/api/resident/qotd-comparison', {
-          headers: { Authorization: `Bearer ${token}` }
+        const res = await fetch(`/api/resident/qotd-comparison?_t=${Date.now()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store'
         });
         if (res.ok) {
           const compData: QotdPeerComparisonResponse = await res.json();

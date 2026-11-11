@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatDisplayName, withTimeout } from '@/lib/utils';
 import { canAccessAdmin, getUserRole } from '@/lib/roles';
@@ -296,7 +296,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
+  const fetchQotdCohortStats = useCallback(() => {
     if (qotdQuestion && pastNoon) {
       supabase.rpc('get_qotd_cohort_stats', { p_question_ids: [qotdQuestion.id] })
         .then(({ data, error }) => {
@@ -309,19 +309,25 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     }
   }, [qotdQuestion, pastNoon]);
 
+  useEffect(() => {
+    fetchQotdCohortStats();
+  }, [fetchQotdCohortStats]);
+
   // Smart background refetching
   useEffect(() => {
     if (isActive) {
       refetch();
+      fetchQotdCohortStats();
     }
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isActive) {
         refetch();
+        fetchQotdCohortStats();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isActive, refetch]);
+  }, [isActive, refetch, fetchQotdCohortStats]);
 
   // Filter for actual quiz results (excluding attendance and manual credit entries)
   const quizResults = myResults.filter(

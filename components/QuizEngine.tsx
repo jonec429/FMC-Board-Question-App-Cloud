@@ -208,17 +208,23 @@ export default function QuizEngine({
       const token = session?.access_token;
       if (!token) return;
 
-      const res = await fetch(`/api/resident/qotd-comparison?questionId=${encodeURIComponent(questionId)}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`/api/resident/qotd-comparison?questionId=${encodeURIComponent(questionId)}&_t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store'
       });
       if (res.ok) {
         const data: QotdPeerComparisonResponse = await res.json();
         setQotdComparison(data);
         if (data.questionStats) {
-          setQotdStats({
-            correct: data.questionStats.correctCount,
-            incorrect: data.questionStats.incorrectCount,
-            total: data.questionStats.totalResponders
+          setQotdStats(prev => {
+            const newTotal = data.questionStats?.totalResponders ?? 0;
+            const maxTotal = Math.max(prev?.total || 0, newTotal);
+            const maxCorrect = maxTotal === newTotal ? data.questionStats!.correctCount : (prev?.correct || 0);
+            return {
+              correct: maxCorrect,
+              incorrect: Math.max(0, maxTotal - maxCorrect),
+              total: maxTotal
+            };
           });
         }
       }
@@ -1647,27 +1653,35 @@ export default function QuizEngine({
           )}
 
           {/* Score Hero */}
-          {isQotd ? (
-            <div className={`rounded-[32px] p-6 md:p-8 text-center text-white ${qotdAttempt?.is_skipped ? 'bg-slate-400' : score === 1 ? 'bg-emerald-600' : 'bg-red-500'}`}>
-              <div className="text-4xl md:text-5xl font-black mb-2">
-                {qotdAttempt?.is_skipped ? 'Skipped' : score === 1 ? 'Correct' : 'Incorrect'}
-              </div>
-              {qotdStats && qotdStats.total > 0 && (
-                <div className="mt-6 flex flex-col items-center gap-2">
-                  <div className="text-xs font-bold opacity-80 uppercase tracking-widest">Cohort Performance</div>
-                  <div className="flex items-center justify-center gap-3 w-full max-w-sm">
-                    <div className="text-lg font-black w-10 text-right">{Math.round((qotdStats.correct / qotdStats.total) * 100)}%</div>
-                    <div className="flex-1 h-2.5 bg-black/20 rounded-full overflow-hidden">
-                      <div className="h-full bg-white transition-all" style={{ width: `${Math.round((qotdStats.correct / qotdStats.total) * 100)}%` }} />
+          {isQotd ? (() => {
+            const displayTotal = Math.max(qotdStats?.total || 0, qotdComparison?.questionStats?.totalResponders || 0);
+            const displayCorrect = qotdComparison?.questionStats?.optionCounts && questions[0]?.correct_index !== undefined
+              ? (qotdComparison.questionStats.optionCounts[questions[0].correct_index]?.count ?? (qotdStats?.correct || 0))
+              : (qotdStats?.correct || 0);
+            const displayPct = displayTotal > 0 ? Math.round((displayCorrect / displayTotal) * 100) : 0;
+
+            return (
+              <div className={`rounded-[32px] p-6 md:p-8 text-center text-white ${qotdAttempt?.is_skipped ? 'bg-slate-400' : score === 1 ? 'bg-emerald-600' : 'bg-red-500'}`}>
+                <div className="text-4xl md:text-5xl font-black mb-2">
+                  {qotdAttempt?.is_skipped ? 'Skipped' : score === 1 ? 'Correct' : 'Incorrect'}
+                </div>
+                {displayTotal > 0 && (
+                  <div className="mt-6 flex flex-col items-center gap-2">
+                    <div className="text-xs font-bold opacity-80 uppercase tracking-widest">Cohort Performance</div>
+                    <div className="flex items-center justify-center gap-3 w-full max-w-sm">
+                      <div className="text-lg font-black w-10 text-right">{displayPct}%</div>
+                      <div className="flex-1 h-2.5 bg-black/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-white transition-all" style={{ width: `${displayPct}%` }} />
+                      </div>
+                    </div>
+                    <div className="text-[11px] font-bold opacity-90">
+                      Cohort Accuracy: {displayPct}% ({displayCorrect} of {displayTotal} correct · n = {displayTotal} responders)
                     </div>
                   </div>
-                  <div className="text-[11px] font-bold opacity-90">
-                    Cohort Accuracy: {Math.round((qotdStats.correct / qotdStats.total) * 100)}% ({qotdStats.correct} of {qotdStats.total} correct · n = {qotdStats.total} responders)
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
+                )}
+              </div>
+            );
+          })() : (
             <div className={`rounded-[40px] p-10 text-center text-white ${passed ? 'bg-emerald-600' : 'bg-slate-700'}`}>
               <div className="text-6xl font-black mb-2">{percentage.toFixed(1)}%</div>
               <div className="text-lg font-bold opacity-80">{score} / {total} correct</div>
@@ -1696,89 +1710,92 @@ export default function QuizEngine({
           {isQotd && qotdComparison && (
             <div className="bg-white dark:bg-slate-900 rounded-[32px] p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
               {/* Question Distractor Distribution */}
-              {qotdComparison.questionStats && (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
-                        <span>📊</span> Anonymous Peer Answer Distribution
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                        How your co-residents voted on this question (n = {qotdComparison.questionStats.totalResponders} responders)
-                      </p>
+              {qotdComparison.questionStats && (() => {
+                const totalRespondersCount = Math.max(qotdComparison.questionStats.totalResponders, qotdStats?.total || 0);
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest flex items-center gap-2">
+                          <span>📊</span> Anonymous Peer Answer Distribution
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                          How your co-residents voted on this question (n = {totalRespondersCount} responders)
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {questions[0]?.options?.map((opt: string, optIdx: number) => {
+                        const dist = qotdComparison.questionStats?.optionCounts[optIdx] || { count: 0, pct: 0 };
+                        const isSelected = answers[0] === optIdx;
+                        const isCorrectOpt = optIdx === questions[0].correct_index;
+
+                        return (
+                          <div
+                            key={optIdx}
+                            className={`p-3.5 rounded-2xl border transition-all ${
+                              isCorrectOpt
+                                ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20'
+                                : isSelected
+                                ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
+                                : 'border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/30'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
+                                    isCorrectOpt
+                                      ? 'bg-emerald-600 text-white'
+                                      : isSelected
+                                      ? 'bg-blue-600 text-white'
+                                      : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                                  }`}
+                                >
+                                  {String.fromCharCode(65 + optIdx)}
+                                </span>
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                                  {opt}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {isCorrectOpt && (
+                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
+                                    ✓ Correct
+                                  </span>
+                                )}
+                                {isSelected && (
+                                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
+                                    Your Choice
+                                  </span>
+                                )}
+                                <span className="text-xs font-black text-slate-700 dark:text-slate-300">
+                                  {dist.pct}% <span className="text-[10px] text-slate-400 font-bold">(n = {dist.count})</span>
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all ${
+                                  isCorrectOpt
+                                    ? 'bg-emerald-500'
+                                    : isSelected
+                                    ? 'bg-blue-500'
+                                    : 'bg-slate-400 dark:bg-slate-500'
+                                }`}
+                                style={{ width: `${dist.pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    {questions[0]?.options?.map((opt: string, optIdx: number) => {
-                      const dist = qotdComparison.questionStats?.optionCounts[optIdx] || { count: 0, pct: 0 };
-                      const isSelected = answers[0] === optIdx;
-                      const isCorrectOpt = optIdx === questions[0].correct_index;
-
-                      return (
-                        <div
-                          key={optIdx}
-                          className={`p-3.5 rounded-2xl border transition-all ${
-                            isCorrectOpt
-                              ? 'border-emerald-300 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/20'
-                              : isSelected
-                              ? 'border-blue-300 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20'
-                              : 'border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/30'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <span
-                                className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
-                                  isCorrectOpt
-                                    ? 'bg-emerald-600 text-white'
-                                    : isSelected
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                                }`}
-                              >
-                                {String.fromCharCode(65 + optIdx)}
-                              </span>
-                              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {opt}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              {isCorrectOpt && (
-                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300">
-                                  ✓ Correct
-                                </span>
-                              )}
-                              {isSelected && (
-                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
-                                  Your Choice
-                                </span>
-                              )}
-                              <span className="text-xs font-black text-slate-700 dark:text-slate-300">
-                                {dist.pct}% <span className="text-[10px] text-slate-400 font-bold">(n = {dist.count})</span>
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all ${
-                                isCorrectOpt
-                                  ? 'bg-emerald-500'
-                                  : isSelected
-                                  ? 'bg-blue-500'
-                                  : 'bg-slate-400 dark:bg-slate-500'
-                              }`}
-                              style={{ width: `${dist.pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Cumulative Standing vs Anonymous Peers */}
               {qotdComparison.programStats && qotdComparison.personalStats && (
