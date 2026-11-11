@@ -1110,6 +1110,14 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                     : isDemoBlock
                     ? 'bg-violet-50 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400'
                     : 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400';
+                const sched = (data?.blockSchedule || []).find((s: any) => s.block_id === block.id);
+                const endDate = sched?.end_date ? String(sched.end_date).slice(0, 10) : '';
+                const todayStr = getTodayDateString();
+                const isOverdue = !isCompleted && !isDemoBlock && !isBonusBlock && endDate !== '' && endDate < todayStr;
+                const isLateCompleted = isCompleted && (result?.timing_status === 'Late' || (result?.academic_points === 1 && result?.timing_status !== 'Manual'));
+                const isEarlyCompleted = isCompleted && result?.timing_status === 'Early';
+                const isOnTimeCompleted = isCompleted && (result?.timing_status === 'On Time' || (isDemoBlock && hasTakenDemo) || (!isEarlyCompleted && !isLateCompleted));
+
                 return (
                   <div
                     key={block.id}
@@ -1147,11 +1155,23 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                       <div className="min-w-0">
                         <p className="font-bold text-base text-slate-800 dark:text-slate-100 truncate flex items-center gap-2">
                           {block.title}
-                          {isCompleted && (
-                            <span className="text-[10px] bg-green-100 dark:bg-emerald-950/60 text-green-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full border border-green-200 dark:border-emerald-900/50 uppercase tracking-wider shrink-0">
-                              Done
+                          {isEarlyCompleted ? (
+                            <span className="text-[10px] bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-900/50 uppercase tracking-wider shrink-0 font-bold">
+                              🚀 Early
                             </span>
-                          )}
+                          ) : isOnTimeCompleted ? (
+                            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900/50 uppercase tracking-wider shrink-0 font-bold">
+                              ✓ On Time
+                            </span>
+                          ) : isLateCompleted ? (
+                            <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 uppercase tracking-wider shrink-0 font-bold">
+                              Done (Late)
+                            </span>
+                          ) : isOverdue ? (
+                            <span className="text-[10px] bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded-full border border-red-200 dark:border-red-900/50 uppercase tracking-wider shrink-0 font-bold">
+                              ⏰ Late
+                            </span>
+                          ) : null}
                         </p>
                         <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
                           {result ? `${displayCount} Questions` : `${displayCount} Questions`}
