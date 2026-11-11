@@ -1718,6 +1718,50 @@ export default function MyStatsModal({
                     </ul>
                   </div>
                 )}
+
+                {/* Pathway to Board Ready (Recovery Roadmap) */}
+                {(readiness.status === 'Needs Attention' || readiness.status === 'At Risk') && (
+                  <div className="mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-800/80 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-slate-800 dark:text-slate-100">
+                      <span>🎯</span> Pathway to "Board Ready" (Good Standing)
+                    </div>
+                    <div className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                      {readiness.overdueBlocks.length > 0 && (
+                        <div className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/70 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+                          <span className="font-bold text-red-600 shrink-0">1.</span>
+                          <div>
+                            <span className="font-bold text-slate-800 dark:text-slate-100">Clear Overdue Blocks: </span>
+                            Complete your {readiness.overdueBlocks.length} overdue block{readiness.overdueBlocks.length > 1 ? 's' : ''}. Zero overdue blocks is required for Board Ready status.
+                          </div>
+                        </div>
+                      )}
+
+                      {readiness.curriculumAvg < 65 && (
+                        <div className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/70 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+                          <span className="font-bold text-amber-600 shrink-0">
+                            {readiness.overdueBlocks.length > 0 ? '2.' : '1.'}
+                          </span>
+                          <div>
+                            <span className="font-bold text-slate-800 dark:text-slate-100">Elevate Curriculum Average to &gt; 65%: </span>
+                            Your current average is <strong className="font-black">{readiness.curriculumAvg.toFixed(1)}%</strong>. Aim for &ge; 70% on your upcoming block quizzes and review incorrect answers in Weak Areas to lift your average above the 65% safe buffer.
+                          </div>
+                        </div>
+                      )}
+
+                      {readiness.onTimePct <= 75 && (
+                        <div className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/70 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+                          <span className="font-bold text-blue-600 shrink-0">
+                            {readiness.overdueBlocks.length > 0 && readiness.curriculumAvg < 65 ? '3.' : readiness.overdueBlocks.length > 0 || readiness.curriculumAvg < 65 ? '2.' : '1.'}
+                          </span>
+                          <div>
+                            <span className="font-bold text-slate-800 dark:text-slate-100">Submit Future Blocks On-Time or Early: </span>
+                            Your on-time rate is currently <strong className="font-black">{readiness.onTimePct.toFixed(0)}%</strong>. Submitting future blocks before their deadline will restore your compliance rate above the 75% threshold.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Status Tiers Breakdown */}

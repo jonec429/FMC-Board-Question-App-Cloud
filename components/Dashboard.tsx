@@ -890,7 +890,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       <div className="flex flex-col md:flex-row gap-6">
 
         {/* LEFT SIDEBAR */}
-        <div className="hidden md:flex md:w-80 flex-col gap-4 shrink-0">
+        <div className="hidden md:flex md:w-[340px] lg:w-[360px] flex-col gap-4 shrink-0">
           {activeLeaderboard.length > 0 && (
             <LeaderboardWidget
               data={activeLeaderboard}
@@ -1657,7 +1657,7 @@ function LeaderboardWidget({
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 shadow-sm transition-colors">
       {/* Tab Switcher Header */}
-      <div className="flex items-center justify-between mb-3 gap-1">
+      <div className="flex flex-wrap items-center justify-between mb-3 gap-2">
         <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-xl">
           <button
             onClick={() => setActiveTab('ap')}
@@ -1692,22 +1692,22 @@ function LeaderboardWidget({
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {activeTab === 'ap' && myRank && (
             <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400">You: #{myRank}</span>
           )}
+          {activeTab === 'challenge' && (
+            myChallengeStanding ? (
+              <span className={`text-[10px] font-black shrink-0 ${myChallengeStanding.isEligible ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                {myChallengeStanding.isEligible ? 'Eligible ✅' : `${myChallengeStanding.completedBlocksCount}/${myChallengeStanding.totalRequiredBlocks} Blks`}
+              </span>
+            ) : challengeData ? (
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 shrink-0">
+                {challengeData.eligibleCount > 0 ? `${challengeData.eligibleCount} Eligible ✅` : 'In Progress'}
+              </span>
+            ) : null
+          )}
         </div>
-        {activeTab === 'challenge' && (
-          myChallengeStanding ? (
-            <span className={`text-[10px] font-black shrink-0 ${myChallengeStanding.isEligible ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-              {myChallengeStanding.isEligible ? 'Eligible ✅' : `${myChallengeStanding.completedBlocksCount}/${myChallengeStanding.totalRequiredBlocks} Blks`}
-            </span>
-          ) : challengeData ? (
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 shrink-0">
-              {challengeData.eligibleCount > 0 ? `${challengeData.eligibleCount} Eligible ✅` : 'In Progress'}
-            </span>
-          ) : null
-        )}
       </div>
 
       {activeTab === 'class' ? (
