@@ -1,5 +1,6 @@
 import { Question } from '@/lib/types';
 import { supabase } from './supabase';
+import { fetchAllPages, fetchInBatches } from './supabasePagination';
 
 /**
  * Escapes a field for standard CSV formatting and HTML Anki cards:
@@ -92,14 +93,19 @@ export function exportQuestionsToAnki(questions: Question[]): string {
  * and generates an Anki CSV export.
  */
 export async function exportIncorrectToAnki(userId: string, category?: string): Promise<string> {
-  // Step 1: Fetch incorrect attempts for the user
-  const { data: attempts, error: attemptsError } = await supabase
-    .from('question_attempts')
-    .select('question_id, is_correct, created_at')
-    .eq('user_id', userId)
-    .eq('is_correct', false);
-
-  if (attemptsError) {
+  // Step 1: Fetch incorrect attempts for the user (paginated past 1,000 rows)
+  let attempts: { question_id: string; is_correct: boolean; created_at: string }[];
+  try {
+    attempts = await fetchAllPages((from, to) =>
+      supabase
+        .from('question_attempts')
+        .select('question_id, is_correct, created_at')
+        .eq('user_id', userId)
+        .eq('is_correct', false)
+        .order('id', { ascending: true })
+        .range(from, to)
+    );
+  } catch (attemptsError) {
     console.error('Error fetching incorrect attempts:', attemptsError);
     throw new Error('Failed to fetch incorrect questions');
   }
@@ -114,24 +120,19 @@ export async function exportIncorrectToAnki(userId: string, category?: string): 
     return '';
   }
 
-  // Step 2: Fetch question details in batches of 50 to avoid GET URL query parameter limits
-  const BATCH_SIZE = 50;
-  const questions: Question[] = [];
-
-  for (let i = 0; i < questionIds.length; i += BATCH_SIZE) {
-    const batch = questionIds.slice(i, i + BATCH_SIZE);
-    let query = supabase.from('questions').select('*').in('id', batch);
-    if (category) {
-      query = query.eq('category', category);
-    }
-    const { data: qBatch, error: qError } = await query;
-    if (qError) {
-      console.error('Error fetching questions batch:', qError);
-      throw new Error('Failed to fetch questions');
-    }
-    if (qBatch) {
-      questions.push(...(qBatch as any));
-    }
+  // Step 2: Fetch question details in batches to avoid GET URL query parameter limits
+  let questions: Question[];
+  try {
+    questions = await fetchInBatches<Question>(questionIds, (batch) => {
+      let query = supabase.from('questions').select('*').in('id', batch);
+      if (category) {
+        query = query.eq('category', category);
+      }
+      return query;
+    }, 50);
+  } catch (qError) {
+    console.error('Error fetching questions batch:', qError);
+    throw new Error('Failed to fetch questions');
   }
 
   if (questions.length === 0) {

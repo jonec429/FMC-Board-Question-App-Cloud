@@ -1,29 +1,10 @@
+import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import { AdminData } from '@/lib/types';
 
 type CoreData = Omit<AdminData, 'questions'>;
-
-/**
- * Core admin tables — all small (blocks, schedule, results, profiles, roster).
- * Bundled in one query via Promise.all. If the database connection drops or 
- * throttles, this will throw an error and React Query will automatically retry 
- * up to 3 times before displaying the error UI.
- */
-async function fetchAll(table: string, select: string = '*'): Promise<any[]> {
-  let allData: any[] = [];
-  let from = 0;
-  const step = 1000;
-  while (true) {
-    const { data, error } = await supabase.from(table).select(select).range(from, from + step - 1);
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    allData = allData.concat(data);
-    if (data.length < step) break;
-    from += step;
-  }
-  return allData;
-}
 
 async function fetchCore(): Promise<CoreData> {
   const [blocksRes, scheduleRes, profilesRes, rosterRes] = await Promise.all([
@@ -39,9 +20,23 @@ async function fetchCore(): Promise<CoreData> {
     throw new Error(`Failed to load admin data: ${errorMessages}`);
   }
 
-  // Fetch potentially large tables with pagination
-  const resultsData = await fetchAll('results', 'user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, category_stats, review_data');
-  const attendanceData = await fetchAll('attendance');
+  // Fetch potentially large tables with deterministic 1,000-row pagination
+  const [resultsData, attendanceData] = await Promise.all([
+    fetchAllPages<any>((from, to) =>
+      supabase
+        .from('results')
+        .select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, category_stats, review_data')
+        .order('id', { ascending: true })
+        .range(from, to)
+    ),
+    fetchAllPages<any>((from, to) =>
+      supabase
+        .from('attendance')
+        .select('*')
+        .order('id', { ascending: true })
+        .range(from, to)
+    ),
+  ]);
 
   return {
     blocks: blocksRes.data || [],
@@ -60,13 +55,14 @@ async function fetchCore(): Promise<CoreData> {
  * they exist in the DB — a missing column fails the whole query.
  */
 async function fetchQuestions(): Promise<any[]> {
-  const res: any = await supabase
-    .from('questions')
-    .select('id, question_text, category, year, options, correct_index')
-    .order('year', { ascending: false });
-
-  if (res?.error) throw res.error;
-  return res?.data || [];
+  return fetchAllPages((from, to) =>
+    supabase
+      .from('questions')
+      .select('id, question_text, category, year, options, correct_index')
+      .order('year', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to)
+  );
 }
 
 /**
@@ -100,9 +96,9 @@ export function useAdminData({ includeQuestions = false }: { includeQuestions?: 
   
   const error = coreQuery.error || questionsQuery.error;
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['admin'] });
-  };
+  }, [queryClient]);
 
   return { data, loading, error, refetch };
 }

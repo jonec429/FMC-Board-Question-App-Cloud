@@ -13,6 +13,7 @@ import {
   partitionYears,
 } from '@/lib/questionFilters';
 import { User, Question, QuestionAttempt } from '@/lib/types';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 interface CustomBuilderScreenProps {
   user: User;
@@ -73,12 +74,16 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
         });
 
         const fetchTask = async () => {
-          const { data: qData } = await supabase
-            .from('questions')
-            .select('id, category, secondary_system, year')
-            .neq('category', 'Demo')
-            .neq('year', 'Demo');
-            
+          const qData = await fetchAllPages<Pick<Question, 'id' | 'category' | 'secondary_system' | 'year'>>((from, to) =>
+            supabase
+              .from('questions')
+              .select('id, category, secondary_system, year')
+              .neq('category', 'Demo')
+              .neq('year', 'Demo')
+              .order('id', { ascending: true })
+              .range(from, to)
+          );
+
           if (qData) {
             const yearSet = Array.from(new Set(qData.map(q => q.year))).filter((y): y is string => Boolean(y)).sort().reverse();
             const catSet = Array.from(new Set(qData.map(q => q.category))).filter((c): c is string => Boolean(c)).sort();
@@ -87,19 +92,30 @@ export default function CustomBuilderScreen({ user, onStart, onCancel }: CustomB
             setAllQuestions(qData);
           }
 
-          // Fetch user attempts to compute unused/incorrect
+          // Fetch user attempts to compute unused/incorrect (paginated)
           if (user?.id) {
-            const { data: aData } = await supabase
-              .from('question_attempts')
-              .select('question_id, is_correct')
-              .eq('user_id', user.id);
+            const aData = await fetchAllPages<{ question_id: string; is_correct: boolean }>((from, to) =>
+              supabase
+                .from('question_attempts')
+                .select('question_id, is_correct')
+                .eq('user_id', user.id)
+                .order('id', { ascending: true })
+                .range(from, to)
+            );
             if (aData) {
               setUserAttempts(aData);
             }
           }
 
-          // Fetch user results for weakest topics
-          const { data: rData } = await supabase.from('results').select('category_stats').eq('user_id', user?.id);
+          // Fetch user results for weakest topics (paginated)
+          const rData = await fetchAllPages<{ category_stats: any }>((from, to) =>
+            supabase
+              .from('results')
+              .select('category_stats')
+              .eq('user_id', user?.id)
+              .order('id', { ascending: true })
+              .range(from, to)
+          );
           if (rData && rData.length > 0) {
             const statsMap = new Map<string, { correct: number, total: number }>();
             rData.forEach(r => {

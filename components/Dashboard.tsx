@@ -160,15 +160,19 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const [showStreakSaverModal, setShowStreakSaverModal] = useState(false);
   const [streakSaverStatus, setStreakSaverStatus] = useState<StreakSaverStatus | null>(null);
 
+  const hasDashboardData = Boolean(data);
+  const answeredDatesKey = useMemo(() => (data?.qotdAnsweredDates || []).join(','), [data?.qotdAnsweredDates]);
   useEffect(() => {
-    if (user?.id) {
-      getStreakSaverStatus(
-        user.id,
-        data?.qotdAnsweredDates || [],
-        userStreak
-      ).then(setStreakSaverStatus);
-    }
-  }, [user?.id, data?.qotdAnsweredDates, userStreak]);
+    if (!user?.id || !hasDashboardData) return;
+    let isMounted = true;
+    const dates = answeredDatesKey ? answeredDatesKey.split(',') : [];
+    getStreakSaverStatus(user.id, dates).then((status) => {
+      if (isMounted) setStreakSaverStatus(status);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, hasDashboardData, answeredDatesKey]);
   const residentReadiness = useMemo(() => {
     if (!data?.blocks || !data?.blockSchedule || !myResults) return null;
     return computeResidentReadiness({
@@ -216,9 +220,12 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
     }
     loadChallenge();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') return;
       if (session?.access_token && isMounted) {
-        loadChallenge();
+        Promise.resolve().then(() => {
+          if (isMounted) loadChallenge();
+        });
       }
     });
 
@@ -291,34 +298,47 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   useEffect(() => {
     // Check every 20 seconds so the card flips to "Results" and fetches stats right at 12:30 PM Eastern
     const timer = setInterval(() => {
-      setPastNoon(isPastNoon());
+      setPastNoon((prev) => {
+        const next = isPastNoon();
+        return prev === next ? prev : next;
+      });
     }, 20000);
     return () => clearInterval(timer);
   }, []);
 
+  const qotdQuestionId = qotdQuestion?.id;
   const fetchQotdCohortStats = useCallback(() => {
-    if (qotdQuestion && pastNoon) {
-      supabase.rpc('get_qotd_cohort_stats', { p_question_ids: [qotdQuestion.id] })
+    if (qotdQuestionId && pastNoon) {
+      supabase.rpc('get_qotd_cohort_stats', { p_question_ids: [qotdQuestionId] })
         .then(({ data, error }) => {
           if (!error && data && data.length > 0) {
             const correct = Number(data[0].correct) || 0;
             const incorrect = Number(data[0].incorrect) || 0;
-            setQotdStats({ correct, incorrect, total: correct + incorrect });
+            const total = correct + incorrect;
+            setQotdStats((prev) => {
+              if (prev && prev.correct === correct && prev.incorrect === incorrect && prev.total === total) {
+                return prev;
+              }
+              return { correct, incorrect, total };
+            });
           }
         });
     }
-  }, [qotdQuestion, pastNoon]);
+  }, [qotdQuestionId, pastNoon]);
 
   useEffect(() => {
     fetchQotdCohortStats();
   }, [fetchQotdCohortStats]);
 
   // Smart background refetching
+  const prevIsActiveRef = useRef(isActive);
   useEffect(() => {
-    if (isActive) {
+    if (isActive && !prevIsActiveRef.current) {
       refetch();
       fetchQotdCohortStats();
     }
+    prevIsActiveRef.current = isActive;
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isActive) {
         refetch();

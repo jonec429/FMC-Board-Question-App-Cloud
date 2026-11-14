@@ -337,6 +337,7 @@ html.midnight .glass-panel {
 
   html,
   body {
+    color-scheme: light !important;
     background-color: white !important;
     color: black !important;
     overflow: visible !important;
@@ -344,6 +345,23 @@ html.midnight .glass-panel {
     min-height: auto !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Guarantee dark-mode containers/text print crisply black-on-white */
+  #dossier-print-portal *,
+  body.is-printing-report * {
+    color-scheme: light !important;
+    box-shadow: none !important;
+  }
+
+  #dossier-print-portal [class*="dark:bg-"],
+  body.is-printing-report [class*="dark:bg-"] {
+    background-color: white !important;
+  }
+
+  #dossier-print-portal [class*="dark:text-"],
+  body.is-printing-report [class*="dark:text-"] {
+    color: #0f172a !important;
   }
 
   /* --------------------------------------------------------------------------

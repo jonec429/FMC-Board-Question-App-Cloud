@@ -258,8 +258,15 @@ export default function CurriculumManager() {
     
     if (usageCount > 0) {
       // Update associated completion data and in-progress sessions so they aren't orphaned
-      await supabase.from('results').update({ topic: newTitle }).eq('topic', oldTitle);
-      await supabase.from('quiz_sessions').update({ topic: newTitle }).eq('topic', oldTitle);
+      const [{ error: resUpdErr }, { error: sessUpdErr }] = await Promise.all([
+        supabase.from('results').update({ topic: newTitle }).eq('topic', oldTitle),
+        supabase.from('quiz_sessions').update({ topic: newTitle }).eq('topic', oldTitle),
+      ]);
+      if (resUpdErr || sessUpdErr) {
+        setSaving(false);
+        alert('Error propagating block rename to existing completions: ' + (resUpdErr?.message || sessUpdErr?.message));
+        return;
+      }
     }
 
     const { error } = await supabase.from('blocks').update({ title: newTitle }).eq('id', blockId);

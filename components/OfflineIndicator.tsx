@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { WifiOff, Wifi } from 'lucide-react';
 
 interface OfflineIndicatorProps {
@@ -15,6 +15,9 @@ interface OfflineIndicatorProps {
 export default function OfflineIndicator({ onReconnected }: OfflineIndicatorProps) {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [showReconnected, setShowReconnected] = useState<boolean>(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onReconnectedRef = useRef(onReconnected);
+  onReconnectedRef.current = onReconnected;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -24,26 +27,35 @@ export default function OfflineIndicator({ onReconnected }: OfflineIndicatorProp
     const handleOnline = () => {
       setIsOnline(true);
       setShowReconnected(true);
-      if (onReconnected) {
-        onReconnected();
-      }
-      const t = setTimeout(() => setShowReconnected(false), 4000);
-      return () => clearTimeout(t);
+      onReconnectedRef.current?.();
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = setTimeout(() => setShowReconnected(false), 4000);
     };
 
     const handleOffline = () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       setIsOnline(false);
       setShowReconnected(false);
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        setIsOnline(true);
+        onReconnectedRef.current?.();
+      }
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [onReconnected]);
+  }, []);
 
   if (isOnline && !showReconnected) {
     return null;

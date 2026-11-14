@@ -1,4 +1,5 @@
 // FMC Board Review App — Offline Persistence and Submission Synchronization Engine
+import { flushPendingFlags } from './flaggedQuestions';
 
 export interface OfflineSessionData {
   sessionId?: string;
@@ -22,6 +23,8 @@ export interface PendingSubmission {
   topic?: string;
   submittedAt: string;
   resultSynced?: boolean;
+  attemptsSynced?: boolean;
+  qotdSynced?: boolean;
 }
 
 const SESSION_KEY_PREFIX = 'fmc_offline_session_';
@@ -150,6 +153,11 @@ export async function flushPendingSubmissions(supabase: any): Promise<{ synced: 
 
   isFlushing = true;
   try {
+    // Flush any queued offline question flag/unflag operations first
+    await flushPendingFlags(supabase).catch((err) => {
+      console.warn('[OfflineSync] Flag sync warning:', err);
+    });
+
     const pending = getPendingSubmissions();
     if (pending.length === 0) return { synced: 0, failed: 0 };
 
@@ -157,6 +165,17 @@ export async function flushPendingSubmissions(supabase: any): Promise<{ synced: 
     let synced = 0;
     let failed = 0;
     const remaining: PendingSubmission[] = [];
+
+    const isRetryableNetworkError = (err: any): boolean => {
+      const msg = String(err?.message || err || '').toLowerCase();
+      return (
+        (typeof navigator !== 'undefined' && !navigator.onLine) ||
+        msg.includes('fetch') ||
+        msg.includes('network') ||
+        msg.includes('timeout') ||
+        msg.includes('econnreset')
+      );
+    };
 
     for (const sub of pending) {
       try {
@@ -172,23 +191,45 @@ export async function flushPendingSubmissions(supabase: any): Promise<{ synced: 
             sub.resultSynced = true;
           }
 
-          // Insert question attempts if available
-          if (sub.attempts && sub.attempts.length > 0) {
+          // Insert question attempts idempotently (skip if already synced on prior attempt)
+          if (sub.attempts && sub.attempts.length > 0 && !sub.attemptsSynced) {
             const { error: attErr } = await supabase.from('question_attempts').insert(sub.attempts);
-            if (attErr) console.warn('[OfflineSync] Attempt insert warning:', attErr);
+            if (attErr) {
+              if (attErr.code === '23505') {
+                sub.attemptsSynced = true;
+              } else if (isRetryableNetworkError(attErr)) {
+                throw attErr;
+              } else {
+                console.warn('[OfflineSync] Attempt insert warning:', attErr);
+                sub.attemptsSynced = true;
+              }
+            } else {
+              sub.attemptsSynced = true;
+            }
           }
-        } else if (sub.isQotd && sub.qotdAttempt) {
+        } else if (sub.isQotd && sub.qotdAttempt && !sub.qotdSynced) {
           // Insert QOTD attempt
           const { error: qotdErr } = await supabase.from('question_attempts').insert(sub.qotdAttempt);
-          if (qotdErr) throw qotdErr;
+          if (qotdErr) {
+            if (qotdErr.code === '23505') {
+              sub.qotdSynced = true;
+            } else {
+              throw qotdErr;
+            }
+          } else {
+            sub.qotdSynced = true;
+          }
         }
 
         // Mark cloud session as completed if sessionId exists
         if (sub.sessionId) {
-          await supabase
+          const { error: sessErr } = await supabase
             .from('quiz_sessions')
-            .update({ is_completed: true })
+            .update({ is_completed: true, questions: [] })
             .eq('id', sub.sessionId);
+          if (sessErr && isRetryableNetworkError(sessErr)) {
+            throw sessErr;
+          }
         }
 
         // Clean up the offline session backup
@@ -204,7 +245,7 @@ export async function flushPendingSubmissions(supabase: any): Promise<{ synced: 
       } catch (err) {
         console.error(`[OfflineSync] Failed to sync submission ${sub.id}:`, err);
         failed++;
-        remaining.push(sub); // Keep for retry next time
+        remaining.push(sub); // Preserves resultSynced / attemptsSynced flags for next retry
       }
     }
 

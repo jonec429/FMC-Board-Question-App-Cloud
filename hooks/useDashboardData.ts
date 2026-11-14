@@ -1,9 +1,13 @@
+import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { getQotdQuestion, getTodayDateString } from '@/lib/qotd';
 import { computeQotdStreak } from '@/lib/streaks';
 import { Block, Result, Question, LeaderboardEntry, BlockSchedule } from '@/lib/types';
 import { isGraduated, getCurrentAcademicYear, getAvailableAcademicYears } from '@/lib/academicYear';
+import { fetchAllPages } from '@/lib/supabasePagination';
+
+let assignedQuizzesTableMissing = false;
 
 interface DashboardData {
   blocks: Block[];
@@ -59,7 +63,9 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           .abortSignal(signal),
         supabase.from('user_streaks').select('*').eq('user_id', userId).abortSignal(signal).maybeSingle(),
         supabase.from('user_badges').select('earned_at, badges(*)').eq('user_id', userId).abortSignal(signal),
-        supabase.from('assigned_quizzes').select('*').eq('assigned_to', userId).eq('is_completed', false).abortSignal(signal),
+        assignedQuizzesTableMissing
+          ? Promise.resolve({ data: null, error: { code: 'PGRST205', message: 'table missing cached' } })
+          : supabase.from('assigned_quizzes').select('*').eq('assigned_to', userId).eq('is_completed', false).abortSignal(signal),
         getQotdQuestion(signal).catch(e => {
           console.warn('QOTD fetch failed:', e);
           return null;
@@ -69,6 +75,14 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
 
       const err1 = blockErr || sessionErr || streakErr || badgesErr;
       if (err1) throw new Error(err1.message || 'Failed to fetch critical dashboard data');
+
+      if (assignedQuizzesErr) {
+        const errCode = assignedQuizzesErr.code;
+        const errMsg = String(assignedQuizzesErr.message || '').toLowerCase();
+        if (errCode === 'PGRST205' || errCode === '42P01' || errMsg.includes('could not find the table') || errMsg.includes('does not exist')) {
+          assignedQuizzesTableMissing = true;
+        }
+      }
       
       let assignedQuizzes = assignedQuizzesData || [];
       if (assignedQuizzesErr || assignedQuizzes.length === 0) {
@@ -116,20 +130,16 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         { data: attendanceData },
         ...yoyResults
       ] = (await Promise.all([
-        selectedYear === 0
-          ? supabase
-              .from('results')
-              .select('*')
-              .or(`user_id.eq.${userId},legacy_email.ilike.${userEmail}`)
-              .order('created_at', { ascending: false })
-              .abortSignal(signal)
-          : supabase
-              .from('results')
-              .select('*')
-              .eq('academic_year', selectedYear)
-              .or(`user_id.eq.${userId},legacy_email.ilike.${userEmail}`)
-              .order('created_at', { ascending: false })
-              .abortSignal(signal),
+        fetchAllPages((from, to) => {
+          let q = supabase.from('results').select('*');
+          if (selectedYear !== 0) q = q.eq('academic_year', selectedYear);
+          return q
+            .or(`user_id.eq.${userId},legacy_email.ilike.${userEmail}`)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to)
+            .abortSignal(signal);
+        }).then((data) => ({ data, error: null })),
         // All-time demo completion check (independent of selected academic year)
         supabase
           .from('results')
@@ -155,26 +165,28 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
               .abortSignal(signal)
               .maybeSingle()
           : Promise.resolve({ data: null, error: null }),
-        // QOTD answer history (timestamps) — feeds the self-healing streak below.
-        supabase
-          .from('question_attempts')
-          .select('created_at')
-          .eq('user_id', userId)
-          .eq('is_qotd', true)
-          .abortSignal(signal),
-        selectedYear === 0
-          ? supabase
-              .from('attendance')
-              .select('id, date, topic, status, points, created_at')
-              .ilike('resident_email', userEmail)
-              .abortSignal(signal)
-          : supabase
-              .from('attendance')
-              .select('id, date, topic, status, points, created_at')
-              .ilike('resident_email', userEmail)
-              .gte('date', `${selectedYear - 1}-07-01`)
-              .lte('date', `${selectedYear}-06-30`)
-              .abortSignal(signal),
+        // QOTD answer history (timestamps, paginated across multi-year residency) — feeds the self-healing streak below.
+        fetchAllPages((from, to) =>
+          supabase
+            .from('question_attempts')
+            .select('created_at')
+            .eq('user_id', userId)
+            .eq('is_qotd', true)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to)
+            .abortSignal(signal)
+        ).then((data) => ({ data, error: null })),
+        fetchAllPages((from, to) => {
+          let q = supabase
+            .from('attendance')
+            .select('id, date, topic, status, points, created_at')
+            .ilike('resident_email', userEmail);
+          if (selectedYear !== 0) {
+            q = q.gte('date', `${selectedYear - 1}-07-01`).lte('date', `${selectedYear}-06-30`);
+          }
+          return q.order('id', { ascending: true }).range(from, to).abortSignal(signal);
+        }).then((data) => ({ data, error: null })),
         // Fetch YOY breakdown
         ...availableYears.map(yr => supabase.rpc('get_leaderboard_stats', { p_academic_year: yr }).abortSignal(signal))
       ])) as any[];
@@ -299,9 +311,9 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
     staleTime: 60000, // Data is fresh for 60 seconds
   });
 
-  const refetch = async () => {
+  const refetch = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-  };
+  }, [queryClient]);
 
   return { 
     data: query.data, 

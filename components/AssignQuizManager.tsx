@@ -15,6 +15,7 @@ import {
   deleteAssignedQuiz,
   AssignedQuizRecord
 } from '@/lib/assignedQuizzes';
+import { deriveLabel, getCurrentAcademicYear } from '@/lib/academicYear';
 
 interface AssignQuizManagerProps {
   user?: User | null;
@@ -42,6 +43,13 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
   const [loadingTracking, setLoadingTracking] = useState(false);
   const [trackingSearch, setTrackingSearch] = useState('');
   const [trackingFilterStatus, setTrackingFilterStatus] = useState<'all' | 'pending' | 'completed'>('all');
+  const [residentSearch, setResidentSearch] = useState('');
+
+  const currentAy = getCurrentAcademicYear();
+  const activeEmailSet = useMemo(
+    () => new Set((data?.profiles || []).map(p => (p.email || '').toLowerCase()).filter(Boolean)),
+    [data?.profiles]
+  );
 
   // 1. Determine eligible residents to assign to (ALL residents, advisees sorted to top)
   const eligibleResidents = useMemo(() => {
@@ -61,6 +69,32 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
         return (a.name || '').localeCompare(b.name || '');
       });
   }, [data?.roster, profile]);
+
+  const selectableResidents = useMemo(
+    () => eligibleResidents.filter(r => activeEmailSet.has((r.email || '').toLowerCase())),
+    [eligibleResidents, activeEmailSet]
+  );
+
+  const filteredEligibleResidents = useMemo(() => {
+    const q = residentSearch.trim().toLowerCase();
+    if (!q) return eligibleResidents;
+    return eligibleResidents.filter(r =>
+      (r.name || '').toLowerCase().includes(q) ||
+      (r.email || '').toLowerCase().includes(q) ||
+      deriveLabel(r, currentAy).toLowerCase().includes(q)
+    );
+  }, [eligibleResidents, residentSearch, currentAy]);
+
+  const toggleGroupSelection = (matcher: (r: RosterEntry) => boolean) => {
+    const groupKeys = selectableResidents.filter(matcher).map(r => r.name || r.email);
+    if (groupKeys.length === 0) return;
+    const allAlreadySelected = groupKeys.every(k => selectedAdvisees.includes(k));
+    if (allAlreadySelected) {
+      setSelectedAdvisees(prev => prev.filter(k => !groupKeys.includes(k)));
+    } else {
+      setSelectedAdvisees(prev => Array.from(new Set([...prev, ...groupKeys])));
+    }
+  };
 
   // Helper to check if a resident is an advisee
   const isAdvisee = (r: RosterEntry) => {
@@ -89,14 +123,14 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
         ...rec,
         resident_name: r?.name || p?.full_name || email || 'Unknown Resident',
         resident_email: email,
-        resident_pgy: r?.pgy_override ? `PGY-${r.pgy_override}` : r?.pgy || 'Resident',
+        resident_pgy: r ? deriveLabel(r, currentAy) : 'Resident',
         assigned_by_name: byName,
       };
     });
 
     setAssignedQuizzes(hydrated);
     setLoadingTracking(false);
-  }, [data?.roster, data?.profiles]);
+  }, [data?.roster, data?.profiles, currentAy]);
 
   useEffect(() => {
     if (activeMainTab === 'tracking') {
@@ -308,51 +342,89 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                 )}
               </div>
 
+              <div className="space-y-2 mb-3 shrink-0">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Filter residents by name or PGY..."
+                    value={residentSearch}
+                    onChange={e => setResidentSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroupSelection(isAdvisee)}
+                    className="px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 text-[11px] font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                  >
+                    My Advisees
+                  </button>
+                  {['PGY-1', 'PGY-2', 'PGY-3'].map(pgyTag => (
+                    <button
+                      key={pgyTag}
+                      type="button"
+                      onClick={() => toggleGroupSelection(r => deriveLabel(r, currentAy).includes(pgyTag))}
+                      className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[11px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    >
+                      {pgyTag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex items-center justify-between text-xs text-slate-400 px-1 pb-2 border-b border-slate-100 dark:border-slate-800 mb-2 shrink-0">
-                <span>{eligibleResidents.length} Eligible Residents</span>
+                <span>{selectableResidents.length} Active ({eligibleResidents.length} Total)</span>
                 <button
                   type="button"
                   onClick={() => {
-                    if (selectedAdvisees.length === eligibleResidents.length) {
+                    if (selectedAdvisees.length === selectableResidents.length && selectableResidents.length > 0) {
                       setSelectedAdvisees([]);
                     } else {
-                      setSelectedAdvisees(eligibleResidents.map(r => r.name || r.email));
+                      setSelectedAdvisees(selectableResidents.map(r => r.name || r.email));
                     }
                   }}
                   className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                 >
-                  {selectedAdvisees.length === eligibleResidents.length ? 'Deselect All' : 'Select All'}
+                  {selectedAdvisees.length === selectableResidents.length && selectableResidents.length > 0 ? 'Deselect All' : 'Select All Active'}
                 </button>
               </div>
 
-              {eligibleResidents.length === 0 ? (
-                <p className="text-sm text-slate-500 dark:text-slate-400 italic">No residents found.</p>
+              {filteredEligibleResidents.length === 0 ? (
+                <p className="text-sm text-slate-500 dark:text-slate-400 italic">No residents found matching filter.</p>
               ) : (
                 <div className="space-y-1.5 overflow-y-auto pr-1 custom-scrollbar flex-1">
-                  {eligibleResidents.map(r => {
+                  {filteredEligibleResidents.map(r => {
                     const advisee = isAdvisee(r);
-                    const isChecked = selectedAdvisees.includes(r.name || r.email);
+                    const hasAccount = activeEmailSet.has((r.email || '').toLowerCase());
+                    const val = r.name || r.email;
+                    const isChecked = selectedAdvisees.includes(val);
+                    const label = deriveLabel(r, currentAy);
                     return (
                       <label
                         key={r.email}
-                        className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border transition-colors ${
-                          isChecked
-                            ? 'bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/80 shadow-xs'
-                            : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-colors ${
+                          !hasAccount
+                            ? 'opacity-55 cursor-not-allowed border-transparent bg-slate-50/50 dark:bg-slate-800/20'
+                            : isChecked
+                            ? 'bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/80 shadow-xs cursor-pointer'
+                            : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer'
                         }`}
                       >
                         <input
                           type="checkbox"
-                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer"
+                          disabled={!hasAccount}
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500 cursor-pointer disabled:cursor-not-allowed"
                           checked={isChecked}
                           onChange={(e) => {
-                            const val = r.name || r.email;
+                            if (!hasAccount) return;
                             if (e.target.checked) setSelectedAdvisees(prev => [...prev, val]);
                             else setSelectedAdvisees(prev => prev.filter(n => n !== val));
                           }}
                         />
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 flex flex-col min-w-0">
-                          <span className="flex items-center gap-2 truncate">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 flex flex-col min-w-0 flex-1">
+                          <span className="flex items-center gap-1.5 truncate">
                             <span className={`truncate ${isChecked ? 'font-bold text-slate-900 dark:text-white' : ''}`}>
                               {r.name || r.email}
                             </span>
@@ -361,8 +433,13 @@ export default function AssignQuizManager({ user, profile }: AssignQuizManagerPr
                                 Advisee
                               </span>
                             )}
+                            {!hasAccount && (
+                              <span className="px-1.5 py-0.2 bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-bold rounded-md shrink-0">
+                                No login yet
+                              </span>
+                            )}
                           </span>
-                          <span className="text-slate-400 dark:text-slate-500 text-xs">{r.pgy_override ? `PGY-${r.pgy_override}` : r.pgy || 'Resident'}</span>
+                          <span className="text-slate-400 dark:text-slate-500 text-xs">{label}</span>
                         </span>
                       </label>
                     );

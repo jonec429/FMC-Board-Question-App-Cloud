@@ -13,6 +13,7 @@ import {
 } from '@/lib/types';
 import { getTodayDateString } from '@/lib/qotd';
 import { computeQotdStreak, computeMaxQotdStreak } from '@/lib/streaks';
+import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -81,14 +82,18 @@ export async function GET(request: Request) {
     // CASE 1: Fetch individual resident's detailed QOTD history
     // --------------------------------------------------------------------------
     if (residentUserId) {
-      // 1. Fetch this resident's QOTD attempts & streak in parallel
-      const [residentAttemptsRes, streakRes] = await Promise.all([
-        supabaseAdmin
-          .from('question_attempts')
-          .select('id, question_id, is_correct, selected_index, created_at')
-          .eq('user_id', residentUserId)
-          .eq('is_qotd', true)
-          .order('created_at', { ascending: false }),
+      // 1. Fetch this resident's QOTD attempts (paginated) & streak in parallel
+      const [residentAttempts, streakRes] = await Promise.all([
+        fetchAllPages((from, to) =>
+          supabaseAdmin
+            .from('question_attempts')
+            .select('id, question_id, is_correct, selected_index, created_at')
+            .eq('user_id', residentUserId)
+            .eq('is_qotd', true)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, to)
+        ),
         supabaseAdmin
           .from('user_streaks')
           .select('current_qotd_streak, max_qotd_streak, last_qotd_date')
@@ -96,8 +101,6 @@ export async function GET(request: Request) {
           .maybeSingle(),
       ]);
 
-      if (residentAttemptsRes.error) throw residentAttemptsRes.error;
-      const residentAttempts = residentAttemptsRes.data || [];
       const streakData = streakRes.data;
 
       if (residentAttempts.length === 0) {
@@ -118,25 +121,35 @@ export async function GET(request: Request) {
 
       const questionIds = Array.from(new Set(residentAttempts.map((a) => a.question_id)));
 
-      // 2. Fetch question details & schedule dates
-      const [questionsRes, scheduleRes, allAttemptsForQuestionsRes] = await Promise.all([
-        supabaseAdmin
-          .from('questions')
-          .select('id, question_text, category, year, options, correct_index, explanation')
-          .in('id', questionIds),
-        supabaseAdmin
-          .from('qotd_schedule')
-          .select('schedule_date, question_id')
-          .in('question_id', questionIds),
-        supabaseAdmin
-          .from('question_attempts')
-          .select('question_id, is_correct, selected_index')
-          .in('question_id', questionIds)
-          .eq('is_qotd', true),
+      // 2. Fetch question details, schedule dates, & peer attempts (batched & paginated)
+      const [questionsList, scheduleList, allAttemptsForQuestions] = await Promise.all([
+        fetchInBatches(questionIds, (batch) =>
+          supabaseAdmin
+            .from('questions')
+            .select('id, question_text, category, year, options, correct_index, explanation')
+            .in('id', batch)
+        ),
+        fetchInBatches(questionIds, (batch) =>
+          supabaseAdmin
+            .from('qotd_schedule')
+            .select('schedule_date, question_id')
+            .in('question_id', batch)
+        ),
+        fetchInBatches(questionIds, (batch) =>
+          fetchAllPages((from, to) =>
+            supabaseAdmin
+              .from('question_attempts')
+              .select('question_id, is_correct, selected_index')
+              .in('question_id', batch)
+              .eq('is_qotd', true)
+              .order('id', { ascending: true })
+              .range(from, to)
+          ).then((data) => ({ data, error: null }))
+        ),
       ]);
 
-      const questionMap = new Map((questionsRes.data || []).map((q) => [q.id, q]));
-      const scheduleMap = new Map((scheduleRes.data || []).map((s) => [s.question_id, s.schedule_date]));
+      const questionMap = new Map(questionsList.map((q) => [q.id, q]));
+      const scheduleMap = new Map(scheduleList.map((s) => [s.question_id, s.schedule_date]));
 
       // Aggregate peer statistics for each question
       const peerStatsMap = new Map<
@@ -144,7 +157,7 @@ export async function GET(request: Request) {
         { total: number; correct: number; optionCounts: Record<number, number> }
       >();
 
-      (allAttemptsForQuestionsRes.data || []).forEach((a) => {
+      allAttemptsForQuestions.forEach((a) => {
         const current = peerStatsMap.get(a.question_id) || { total: 0, correct: 0, optionCounts: {} };
         current.total += 1;
         if (a.is_correct) current.correct += 1;
@@ -231,27 +244,24 @@ export async function GET(request: Request) {
       supabaseAdmin
         .from('user_streaks')
         .select('user_id, current_qotd_streak, max_qotd_streak, last_qotd_date'),
-      supabaseAdmin
-        .from('qotd_reactions')
-        .select('question_id, reaction'),
+      fetchAllPages((from, to) =>
+        supabaseAdmin
+          .from('qotd_reactions')
+          .select('question_id, reaction')
+          .order('id', { ascending: true })
+          .range(from, to)
+      ).then((data) => ({ data, error: null })),
     ]);
 
-    // Fetch all QOTD attempts with pagination to avoid PostgREST 1000 row cap
-    const attempts: any[] = [];
-    let attPage = 0;
-    const attPageSize = 1000;
-    while (true) {
-      const { data: pageData, error: pageErr } = await supabaseAdmin
+    // Fetch all QOTD attempts with deterministic pagination to avoid PostgREST 1,000-row cap
+    const attempts = await fetchAllPages((from, to) =>
+      supabaseAdmin
         .from('question_attempts')
         .select('id, user_id, question_id, is_correct, selected_index, created_at')
         .eq('is_qotd', true)
-        .range(attPage * attPageSize, (attPage + 1) * attPageSize - 1);
-      if (pageErr) throw pageErr;
-      if (!pageData || pageData.length === 0) break;
-      attempts.push(...pageData);
-      if (pageData.length < attPageSize) break;
-      attPage++;
-    }
+        .order('id', { ascending: true })
+        .range(from, to)
+    );
     const scheduleData = (scheduleRes.data || []).filter((s: any) => s.question != null);
     const profiles = profilesRes.data || [];
     const roster = rosterRes.data || [];

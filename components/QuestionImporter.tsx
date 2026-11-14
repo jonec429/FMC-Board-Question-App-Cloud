@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import {
   Database, Loader2, CheckCircle, XCircle, AlertTriangle, Save, Clipboard, Sparkles,
 } from './AppIcons';
@@ -39,8 +40,10 @@ export default function QuestionImporter() {
 
     // Pre-fetch existing question_texts for duplicate detection
     if (result.validCount > 0 && !result.headerError) {
-      const { data } = await supabase.from('questions').select('question_text');
-      setExistingTexts(new Set((data || []).map((d: any) => d.question_text)));
+      const data = await fetchAllPages<{ question_text: string }>((from, to) =>
+        supabase.from('questions').select('question_text').order('id', { ascending: true }).range(from, to)
+      );
+      setExistingTexts(new Set(data.map((d) => d.question_text)));
     } else {
       setExistingTexts(new Set());
     }

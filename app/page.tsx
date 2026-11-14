@@ -497,7 +497,7 @@ export default function Home() {
                 categories: config.categories.length > 0 ? config.categories : undefined,
                 years: config.years.length > 0 ? config.years : undefined,
                 count: config.count,
-                pool: config.pool as 'all' | 'incorrect' | 'unused',
+                pool: config.pool,
                 timerEnabled: config.timerEnabled,
                 forceNew: true,
                 isMockExam: config.isMockExam,

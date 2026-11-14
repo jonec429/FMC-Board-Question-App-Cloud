@@ -27,6 +27,7 @@ import {
 import { QotdPeerComparisonResponse } from '@/lib/types';
 import { getFlaggedQuestionIds, toggleFlaggedQuestion } from '@/lib/flaggedQuestions';
 import { REMOVED_BY_ABFM_IDS } from '@/lib/iteRemovedQuestions';
+import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 
 interface QuizEngineProps {
   user: any;
@@ -511,39 +512,43 @@ export default function QuizEngine({
         let includeIds: string[] = [];
         let requireInclude = false;
 
-        // Pool filtering (unused/incorrect) only applies to category-based custom quizzes, not fixed blocks
-        if (!isDemo && !isFixedBlock && pool !== 'all') {
-          const { data: attemptData } = (await withTimeout(
-            supabase.from('question_attempts').select('question_id, is_correct, created_at').eq('user_id', user.id).order('created_at', { ascending: true })
-          )) as any;
-          
-          if (attemptData) {
-            if (pool === 'unused') {
-              // Now handled completely by the server-side RPC `get_unused_questions`.
-              // We do not need to fetch local excludeIds.
-            } else if (pool === 'incorrect') {
-              // Only include questions where the most recent attempt was incorrect
-              const latestAttempts = new Map<string, boolean>();
-              for (const attempt of attemptData) {
-                 latestAttempts.set(attempt.question_id, attempt.is_correct);
-              }
-              
-              const incorrectIds = new Set<string>();
-              latestAttempts.forEach((isCorrect, qId) => {
-                 if (!isCorrect) incorrectIds.add(qId);
-              });
+        // Pool filtering (unused/incorrect/flagged) only applies to category-based custom quizzes, not fixed blocks
+        if (!isDemo && !isFixedBlock && pool === 'flagged') {
+          includeIds = await getFlaggedQuestionIds(user.id);
+          requireInclude = true;
+        } else if (!isDemo && !isFixedBlock && pool === 'incorrect') {
+          const attemptData = await withTimeout(
+            fetchAllPages((from, to) =>
+              supabase
+                .from('question_attempts')
+                .select('question_id, is_correct, created_at')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, to)
+            )
+          );
 
-              includeIds = Array.from(incorrectIds);
-              requireInclude = true;
+          if (attemptData) {
+            // Only include questions where the most recent attempt was incorrect
+            const latestAttempts = new Map<string, boolean>();
+            for (const attempt of attemptData) {
+              latestAttempts.set(attempt.question_id, attempt.is_correct);
             }
+
+            const incorrectIds = new Set<string>();
+            latestAttempts.forEach((isCorrect, qId) => {
+              if (!isCorrect) incorrectIds.add(qId);
+            });
+
+            includeIds = Array.from(incorrectIds);
+            requireInclude = true;
           }
         }
 
         // Apply pool filters
         if (requireInclude) {
            if (includeIds.length === 0) throw new Error(pool === 'flagged' ? 'No flagged questions found to review. Flag questions during quizzes to practice them here!' : 'No incorrect questions found to review.');
-           // chunking might be needed if >1000, but for now this is fine
-           query = query.in('id', includeIds);
         } else if (excludeIds.length > 0) {
            // PostgREST doesn't support 'not.in' easily via JS client in older versions, 
            // but Supabase JS client supports `.not('id', 'in', `(${excludeIds.join(',')})`)` or just filtering after fetch.
@@ -600,8 +605,49 @@ export default function QuizEngine({
               }
             }
           }
+        } else if (isFixedBlock && questionIds!.length > 100) {
+          // Large fixed block: batch `.in('id', ...)` to stay below PostgREST URI/1,000-row limits
+          finalPool = await withTimeout(
+            fetchInBatches(questionIds!, (batch) =>
+              supabase.from('questions').select('*').in('id', batch)
+            )
+          );
+          finalPool = finalPool.filter((q: any) => !REMOVED_BY_ABFM_IDS.has(q.id));
+        } else if (requireInclude) {
+          // Incorrect / flagged pool: batch `.in('id', includeIds)` safely and apply category/year/keyword filters
+          const DEMO_IDS = new Set([
+            '00000000-0000-0000-0000-000000000001',
+            '00000000-0000-0000-0000-000000000002',
+            '00000000-0000-0000-0000-000000000003',
+          ]);
+          const batched = await withTimeout(
+            fetchInBatches(includeIds, (batch) => {
+              let batchQ = supabase
+                .from('questions')
+                .select('*')
+                .in('id', batch)
+                .neq('year', 'Demo')
+                .neq('category', 'Demo');
+              if (categories && categories.length > 0) {
+                const catFilters = categories.map(c => `category.eq.${c},secondary_system.eq.${c}`).join(',');
+                batchQ = batchQ.or(catFilters);
+              }
+              if (keywords && keywords.length > 0) {
+                const orFilter = keywords.map(kw => `question_text.ilike.%${kw}%`).join(',');
+                batchQ = batchQ.or(orFilter);
+              }
+              if (years && years.length > 0) {
+                batchQ = batchQ.in('year', years);
+              }
+              return batchQ;
+            })
+          );
+          finalPool = batched
+            .filter((q: any) => !DEMO_IDS.has(q.id) && !REMOVED_BY_ABFM_IDS.has(q.id))
+            .sort((a: any, b: any) => String(b.year || '').localeCompare(String(a.year || '')))
+            .slice(0, fetchLimit);
         } else {
-          // Legacy pathway for incorrect, all, demo, fixed blocks
+          // Legacy pathway for all, demo, or <=100-question fixed blocks
           let dbQuery = query.order('year', { ascending: false }).limit(fetchLimit);
           
           if (!isDemo && !isFixedBlock) {
@@ -1059,7 +1105,7 @@ export default function QuizEngine({
       .catch((e) => console.warn('Gamification processing skipped:', e));
 
       if (sessionId) {
-        const { error: sessErr } = await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true }).eq('id', sessionId), 30000);
+        const { error: sessErr } = await withTimeout(supabase.from('quiz_sessions').update({ is_completed: true, questions: [] }).eq('id', sessionId), 30000);
         if (sessErr) console.warn('Failed to mark quiz_session completed:', sessErr);
       }
 

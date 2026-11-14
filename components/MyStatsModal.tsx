@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
+import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save, Check, Layers } from './AppIcons';
 import { LeaderboardEntry, Profile, Result, UserBadge, Question, QotdPeerComparisonResponse, Block, BlockSchedule } from '@/lib/types';
 import { computeResidentReadiness, ResidentReadiness, ReadinessStatus } from '@/lib/residentRisk';
@@ -439,17 +440,19 @@ export default function MyStatsModal({
       
       setLoadingWeakAreas(true);
       try {
-        // Fetch all attempts for the user
-        const { data: attempts, error: attError } = await withTimeout(
-          supabase
-            .from('question_attempts')
-            .select('question_id, is_correct, created_at')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false }),
-          10000
-        ) as any;
-
-        if (attError) throw attError;
+        // Fetch all attempts for the user with deterministic pagination
+        const attempts = await withTimeout(
+          fetchAllPages((from, to) =>
+            supabase
+              .from('question_attempts')
+              .select('question_id, is_correct, created_at')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false })
+              .order('id', { ascending: true })
+              .range(from, to)
+          ),
+          15000
+        );
 
         if (!attempts || attempts.length === 0) {
           setMissedQuestions([]);
@@ -476,13 +479,13 @@ export default function MyStatsModal({
 
         setLatestStatus(latestAttempts);
 
-        // Fetch question details
-        const { data: qData, error: qError } = await supabase
-          .from('questions')
-          .select('*')
-          .in('id', incorrectIds);
-
-        if (qError) throw qError;
+        // Fetch question details in safe batches to avoid URI length / 1,000-row limits
+        const qData = await fetchInBatches<Question>(incorrectIds, (batch) =>
+          supabase
+            .from('questions')
+            .select('*')
+            .in('id', batch)
+        );
         setMissedQuestions(qData || []);
       } catch (err) {
         console.error('Failed to load missed questions:', err);

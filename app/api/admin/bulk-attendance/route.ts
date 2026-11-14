@@ -11,6 +11,14 @@ interface BulkAttendanceEntry {
   status?: string;
 }
 
+interface SkippedEntrySummary {
+  email: string;
+  name?: string;
+  date?: string;
+  topic: string;
+  reason: string;
+}
+
 export async function POST(request: Request) {
   try {
     const authResult = await requireAdminOrFaculty(request);
@@ -26,29 +34,78 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid payload: entries must be an array' }, { status: 400 });
     }
 
-    // Deduplicate: Fetch attendance for these topics and emails from the last 1 hour
-    const emailsToFetch = Array.from(new Set(entries.map((e: BulkAttendanceEntry) => e.resident_email).filter(Boolean)));
     const topicsToFetch = Array.from(new Set(entries.map((e: BulkAttendanceEntry) => e.topic).filter(Boolean)));
-    
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const oneHourMs = 60 * 60 * 1000;
+    const cutoffMs = Date.now() - oneHourMs;
 
-    const { data: existingAttendance } = await adminSupabase
-      .from('attendance')
-      .select('resident_email, topic')
-      .gte('created_at', oneHourAgo)
-      .in('resident_email', emailsToFetch)
-      .in('topic', topicsToFetch);
+    // Fetch existing attendance for these session topics so we can reconcile:
+    // 1) Case-insensitive email + exact topic + same calendar date (prevents double NI uploads across days)
+    // 2) Case-insensitive email + exact topic created within the past hour (double-click protection)
+    const { data: existingAttendance } = topicsToFetch.length > 0
+      ? await adminSupabase
+          .from('attendance')
+          .select('resident_email, topic, date, created_at')
+          .in('topic', topicsToFetch)
+      : { data: [] };
 
-    const existingSet = new Set(
-      (existingAttendance || []).map((a: { resident_email: string; topic: string }) => `${a.resident_email}::${a.topic}`)
-    );
+    const recentKeys = new Set<string>();
+    const datedKeys = new Set<string>();
 
-    const newEntries = entries.filter(
-      (e: BulkAttendanceEntry) => e.resident_email && e.topic && !existingSet.has(`${e.resident_email}::${e.topic}`)
-    );
+    (existingAttendance || []).forEach((a: { resident_email: string; topic: string; date?: string | null; created_at?: string | null }) => {
+      const emailKey = (a.resident_email || '').trim().toLowerCase();
+      const topicKey = (a.topic || '').trim();
+      if (!emailKey || !topicKey) return;
+
+      if (a.date) {
+        datedKeys.add(`${emailKey}::${topicKey}::${a.date}`);
+      }
+      if (a.created_at) {
+        const ts = new Date(a.created_at).getTime();
+        if (!Number.isNaN(ts) && ts >= cutoffMs) {
+          recentKeys.add(`${emailKey}::${topicKey}`);
+        }
+      }
+    });
+
+    const newEntries: BulkAttendanceEntry[] = [];
+    const skippedEntries: SkippedEntrySummary[] = [];
+
+    for (const entry of entries as BulkAttendanceEntry[]) {
+      const emailKey = (entry.resident_email || '').trim().toLowerCase();
+      const topicKey = (entry.topic || '').trim();
+      if (!emailKey || !topicKey) continue;
+
+      const dateKey = entry.date ? `${emailKey}::${topicKey}::${entry.date}` : '';
+      const recentKey = `${emailKey}::${topicKey}`;
+
+      if ((dateKey && datedKeys.has(dateKey)) || recentKeys.has(recentKey)) {
+        skippedEntries.push({
+          email: entry.resident_email,
+          name: entry.resident_name,
+          date: entry.date,
+          topic: entry.topic,
+          reason: dateKey && datedKeys.has(dateKey)
+            ? 'Already credited for this date & topic'
+            : 'Uploaded within the past hour',
+        });
+        continue;
+      }
+
+      // Guard against duplicates inside the same batch
+      if (dateKey) datedKeys.add(dateKey);
+      recentKeys.add(recentKey);
+      newEntries.push(entry);
+    }
 
     if (newEntries.length === 0) {
-      return NextResponse.json({ success: true, message: 'No new attendance to insert (recently uploaded)' });
+      return NextResponse.json({
+        success: true,
+        count: 0,
+        insertedCount: 0,
+        skippedCount: skippedEntries.length,
+        skippedEntries,
+        message: 'No new attendance credits inserted (all entries already recorded).',
+      });
     }
 
     const { error } = await adminSupabase.from('attendance').insert(newEntries);
@@ -93,7 +150,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: resultsError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, count: newEntries.length });
+    return NextResponse.json({
+      success: true,
+      count: newEntries.length,
+      insertedCount: newEntries.length,
+      skippedCount: skippedEntries.length,
+      skippedEntries,
+    });
   } catch (error: unknown) {
     console.error('Bulk attendance error:', error);
     const message = error instanceof Error ? error.message : 'Internal Server Error';

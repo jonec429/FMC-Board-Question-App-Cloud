@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 export interface QuestionStat {
   totalAttempts: number;
@@ -21,21 +22,14 @@ export async function getQuestionPerformanceStats(): Promise<Record<string, Ques
   }
 
   try {
-    let allAttempts: { question_id: string; is_correct: boolean | null }[] = [];
-    let from = 0;
-    const step = 2000;
-
-    while (true) {
-      const { data, error } = await supabase
-        .from('question_attempts')
-        .select('question_id, is_correct')
-        .range(from, from + step - 1);
-
-      if (error || !data || data.length === 0) break;
-      allAttempts = allAttempts.concat(data);
-      if (data.length < step) break;
-      from += step;
-    }
+    const allAttempts = await fetchAllPages<{ question_id: string; is_correct: boolean | null }>(
+      (from, to) =>
+        supabase
+          .from('question_attempts')
+          .select('question_id, is_correct')
+          .order('id', { ascending: true })
+          .range(from, to)
+    );
 
     const map: Record<string, { total: number; correct: number }> = {};
 

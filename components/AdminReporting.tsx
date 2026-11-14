@@ -814,7 +814,9 @@ export default function AdminReporting({
             {reportData.map((r, idx) => (
               <div
                 key={r.email}
-                className="border-2 border-slate-300 rounded-3xl p-6 sm:p-8 bg-white space-y-6 print:border-black print:rounded-none print:p-0 print:space-y-5 print-page-break break-after-page"
+                className={`border-2 border-slate-300 rounded-3xl p-6 sm:p-8 bg-white space-y-6 print:border-black print:rounded-none print:p-0 print:space-y-5 ${
+                  idx < reportData.length - 1 ? 'print-page-break break-after-page' : ''
+                }`}
               >
                 {/* Individual Header Banner */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b-2 border-slate-900 print:border-black">
@@ -1013,7 +1015,7 @@ export default function AdminReporting({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-200 print:divide-gray-300">
-                            {r.blockSubmissions.slice(0, 8).map((b, bIdx) => (
+                            {r.blockSubmissions.slice(0, 14).map((b, bIdx) => (
                               <tr key={bIdx}>
                                 <td className="py-1.5 px-2.5 truncate max-w-[170px]" title={b.topic}>
                                   {b.topic}
@@ -1037,6 +1039,13 @@ export default function AdminReporting({
                                 </td>
                               </tr>
                             ))}
+                            {r.blockSubmissions.length > 14 && (
+                              <tr>
+                                <td colSpan={4} className="py-1.5 px-2.5 text-[10px] text-slate-500 print:text-black italic text-center">
+                                  + {r.blockSubmissions.length - 14} earlier module submission(s) included in KPI averages
+                                </td>
+                              </tr>
+                            )}
                           </tbody>
                         </table>
                       ) : (

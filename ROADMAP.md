@@ -771,12 +771,13 @@ This file serves as the shared source of truth for development progress between 
   - Added transparent question fraction sub-labels (`(30/50 Qs)`) in `MyStatsModal.tsx` and `AdminPerformance.tsx`.
 - [x] **UI/UX Consistency & Responsive PWA Padding Pass (`MyStatsModal.tsx`, `AdminPerformance.tsx`, `AdminConsole.tsx`)**:
   - Audited and tightened nested padding, modal heights, responsive grid breakpoints, and `env(safe-area-inset-bottom)` across high-density resident and admin Performance Hubs.
-- [ ] **Edge-Case Resilience & Offline Hardening**:
-  - Ensure offline resilience for question flags, session states, and Leitner progress across unexpected network drops.
-  - Review Supabase query limits and pagination across long-term program-wide attempts.
-- [ ] **Faculty & Admin QoL**:
-  - Refine block assignment workflows and attendance reconciliation logging.
-  - Enhance resident progress export and CCC printable dossier formatting.
+- [x] **Edge-Case Resilience & Offline Hardening**:
+  - Added deterministic 1,000-row PostgREST pagination & `.in(...)` batching helper (`lib/supabasePagination.ts`) across admin, cron, quiz, stats, search, flashcards, gamification, CSV import, and Anki export queries (`useAdminData.ts`, `useDashboardData.ts`, `faculty-digest/route.ts`, `qotd-analytics/route.ts`, `questionStats.ts`, `gamification.ts`, `anki.ts`, `QuizEngine.tsx`, `CustomBuilderScreen.tsx`, `MyStatsModal.tsx`, `FlashcardsModal.tsx`, `QuestionSearchModal.tsx`, `QuestionImporter.tsx`).
+  - Hardened offline sync & local persistence (`lib/offlineSync.ts`, `lib/flaggedQuestions.ts`, `lib/flashcards.ts`, `components/OfflineIndicator.tsx`): idempotent `attemptsSynced`/`qotdSynced` tracking prevents duplicate attempt rows on partial retry, offline question flag/unflag queue reconciles safely on reconnect, Leitner quota pruning safeguards progress, and `visibilitychange` triggers background sync on PWA resume.
+- [x] **Faculty & Admin QoL**:
+  - Refined block/quiz assignment & rename workflows (`AssignQuizManager.tsx`, `CurriculumManager.tsx`): added 1-click quick-select cohort pills (`My Advisees`, `PGY-1`, `PGY-2`, `PGY-3`), live resident search, dynamic AY PGY labels, unactivated-account guard (`No login yet`), and error propagation checks on block rename.
+  - Enhanced attendance reconciliation logging (`app/api/admin/bulk-attendance/route.ts`, `components/AttendanceManager.tsx`): case-insensitive + same-date duplicate detection, itemized reconciliation report banner (`Credited`, `Duplicates Skipped`, `Unmatched`), full paginated history fetch, and one-click CSV reconciliation export.
+  - Upgraded CCC printable dossier formatting & export (`lib/cccReporting.ts`, `app/globals.css`, `components/AdminReporting.tsx`, `components/AdviseeDossierModal.tsx`): UTF-8 BOM + expanded metrics in CCC CSV export, dark-mode-proof `@media print` light surfaces, expanded module history (up to 14 rows), and elimination of trailing blank PDF pages.
 
 ---
 
@@ -789,7 +790,7 @@ This file serves as the shared source of truth for development progress between 
 - **Per-user quiz sorting** *(✅ Shipped 2026-11-10)*: Let every user sort their own quiz/block list on Dashboard and My Performance.
 - **Pause the question timer during review** *(✅ Shipped 2026-11-10)*: Full timed quiz pause modal in QuizEngine.
 - **Review prior quizzes** *(✅ Shipped)*: Lets residents revisit any past quiz under My Performance.
-- **Block rename in Curriculum Manager**: Inline-edit a block's title before residents have completions for it.
+- **Block rename in Curriculum Manager** *(✅ Shipped & Hardened)*: Inline-edit a block's title in `CurriculumManager.tsx`, propagating changes safely to existing `results` and `quiz_sessions`.
 - **Quiz Mode vs Practice Mode** *(any block EXCEPT QOTD)*: Mode toggle before starting a quiz.
 - **New Achievements (Badges)**:
   - *Top of the Class*: Maintain the most academic points in the program for 3 consecutive months.
@@ -811,6 +812,11 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-11-11 — Phase 7 Completion: 1,000-Row Pagination Hardening, Offline Resilience & Faculty/Admin QoL (Antigravity)
+*   **PostgREST 1,000-Row Pagination & Batching (`lib/supabasePagination.ts`):** Extracted shared `fetchAllPages` and `fetchInBatches` utilities with deterministic ordering to eliminate silent 1,000-row PostgREST truncation and URI-length query errors across cron jobs (`/api/cron/faculty-digest`), QOTD analytics (`/api/admin/qotd-analytics`), admin question loading (`useAdminData.ts`), dashboard history (`useDashboardData.ts`), question stats (`lib/questionStats.ts` previously broke after page 1 due to `step = 2000`), `QuizEngine.tsx`, `CustomBuilderScreen.tsx`, `MyStatsModal.tsx`, `FlashcardsModal.tsx`, `QuestionSearchModal.tsx`, `QuestionImporter.tsx`, `lib/gamification.ts`, and `lib/anki.ts`.
+*   **Offline Resilience Hardening (`lib/offlineSync.ts`, `lib/flaggedQuestions.ts`, `lib/flashcards.ts`, `OfflineIndicator.tsx`):** Added `attemptsSynced` & `qotdSynced` idempotency guards (including `23505` deduplication) so partial retry failures never duplicate `question_attempts` rows; implemented offline pending flag/unflag queue reconciliation (`flushPendingFlags`) so offline unflags aren't overwritten by stale server data on reconnect; added localStorage quota cleanup to preserve Leitner progress; added `visibilitychange` foreground sync recovery.
+*   **Faculty & Admin QoL (`AttendanceManager.tsx`, `bulk-attendance/route.ts`, `AssignQuizManager.tsx`, `CurriculumManager.tsx`, `cccReporting.ts`, `AdminReporting.tsx`, `AdviseeDossierModal.tsx`, `globals.css`):** Added itemized attendance reconciliation logging and duplicate-skip reporting, full paginated attendance history with UTF-8 BOM CSV export, quick-select cohort/advisee pills and unactivated-account indicators in `AssignQuizManager.tsx`, error propagation checks on block rename, dark-mode-safe print styles, expanded CCC CSV export columns with UTF-8 BOM + CSV formula escaping, and elimination of trailing blank PDF pages on final resident dossiers.
 
 ### 2026-11-10 — Phase 7: Question-Weighted Statistics Engine, Responsive PWA Padding Overhaul & Code Health (Antigravity)
 *   **Question-Weighted Quiz Averages (`lib/quizMetrics.ts`):** Upgraded all quiz average and curriculum accuracy calculations across the entire platform to use true question-weighted accuracy ($\frac{\sum \text{correct}}{\sum \text{total questions}} \times 100$) instead of an unweighted average of quiz percentages. Scoring 100% on a 10-question quiz (10/10) and 50% on a 40-question block (20/40) now accurately computes `60.0% (30/50 Qs)` rather than `75.0%`.

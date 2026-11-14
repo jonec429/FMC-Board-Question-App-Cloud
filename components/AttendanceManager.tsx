@@ -6,7 +6,8 @@ import { Users, Clipboard, Check, AlertTriangle, Save, Loader2, Database, PlusCi
 import { withTimeout } from '@/lib/utils';
 import Papa from 'papaparse';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isGraduated } from '@/lib/academicYear';
-import { Pencil, Trash2, History } from 'lucide-react';
+import { Pencil, Trash2, History, Download, CheckCircle2, X } from 'lucide-react';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 export default function AttendanceManager() {
   const [activeTab, setActiveTab] = useState<'bulk' | 'manual' | 'history'>('bulk');
@@ -43,6 +44,16 @@ export default function AttendanceManager() {
   const [historyEditingId, setHistoryEditingId] = useState<string | null>(null);
   const [historyEditingPoints, setHistoryEditingPoints] = useState<number>(1);
   const [historySaving, setHistorySaving] = useState(false);
+  const [reconciliationLog, setReconciliationLog] = useState<{
+    mode: 'bulk' | 'manual';
+    blockTitle: string;
+    timestamp: string;
+    insertedCount: number;
+    skippedCount: number;
+    unmatchedNames: string[];
+    skippedEntries: Array<{ email: string; name?: string; date?: string; topic: string; reason: string }>;
+  } | null>(null);
+  const [showSkippedDetails, setShowSkippedDetails] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -423,12 +434,25 @@ export default function AttendanceManager() {
         body: JSON.stringify({ entries: validEntries })
       });
 
+      const resData = await res.json();
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to save attendance');
+        throw new Error(resData.error || 'Failed to save attendance');
       }
 
-      alert(`Successfully saved ${validEntries.length} attendance credits to ${targetBlock.title}!`);
+      const insertedCount = typeof resData.insertedCount === 'number' ? resData.insertedCount : (resData.count ?? validEntries.length);
+      const skippedCount = typeof resData.skippedCount === 'number' ? resData.skippedCount : 0;
+      const unmatchedNames = parsedData.filter(p => !p.matched).map(p => p.name);
+
+      setReconciliationLog({
+        mode: 'bulk',
+        blockTitle: targetBlock.title,
+        timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        insertedCount,
+        skippedCount,
+        unmatchedNames,
+        skippedEntries: Array.isArray(resData.skippedEntries) ? resData.skippedEntries : [],
+      });
+      setShowSkippedDetails(false);
       setParsedData([]);
       setPasteContent('');
     } catch (e: unknown) {
@@ -441,19 +465,44 @@ export default function AttendanceManager() {
   const fetchAttendanceHistory = async () => {
     setLoadingHistory(true);
     try {
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
+      const data = await fetchAllPages((from, to) =>
+        supabase
+          .from('attendance')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
       setHistoryRecords(data || []);
     } catch (e) {
       console.error('Error fetching attendance history:', e);
     } finally {
       setLoadingHistory(false);
     }
+  };
+
+  const handleExportAttendanceCsv = (recordsToExport: any[]) => {
+    if (recordsToExport.length === 0) return;
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const headers = ['Date', 'Resident Name', 'Resident Email', 'Topic / Block', 'Points', 'Status'];
+    const rows = recordsToExport.map((a) => [
+      esc(a.date || ''),
+      esc(a.resident_name || ''),
+      esc(a.resident_email || ''),
+      esc(a.topic || ''),
+      a.points ?? 1,
+      esc(a.status || 'Attended'),
+    ].join(','));
+    const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `FMC_Attendance_Reconciliation_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -560,12 +609,29 @@ export default function AttendanceManager() {
         body: JSON.stringify({ entries: validEntries })
       });
 
+      const resData = await res.json();
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to award attendance points');
+        throw new Error(resData.error || 'Failed to award attendance points');
       }
 
-      setManualSuccessMsg(`Successfully awarded ${manualPoints} point(s) to ${validEntries.length} resident(s)!`);
+      const insertedCount = typeof resData.insertedCount === 'number' ? resData.insertedCount : (resData.count ?? validEntries.length);
+      const skippedCount = typeof resData.skippedCount === 'number' ? resData.skippedCount : 0;
+
+      setReconciliationLog({
+        mode: 'manual',
+        blockTitle: targetBlock.title,
+        timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        insertedCount,
+        skippedCount,
+        unmatchedNames: [],
+        skippedEntries: Array.isArray(resData.skippedEntries) ? resData.skippedEntries : [],
+      });
+      setShowSkippedDetails(false);
+      setManualSuccessMsg(
+        skippedCount > 0
+          ? `Credited ${insertedCount} resident(s) (${manualPoints} pt each); skipped ${skippedCount} duplicate(s).`
+          : `Successfully awarded ${manualPoints} point(s) to ${insertedCount} resident(s)!`
+      );
       setSelectedEmails([]);
       setManualDescription('');
       setManualPoints(1);
@@ -615,6 +681,63 @@ export default function AttendanceManager() {
           </button>
         </div>
       </div>
+
+      {reconciliationLog && (
+        <div className="bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl p-4 sm:p-5 space-y-2 animate-fade-in">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="text-xs sm:text-sm">
+                <p className="font-black text-emerald-900 dark:text-emerald-100">
+                  Attendance Reconciliation ({reconciliationLog.mode === 'bulk' ? 'Bulk NI Import' : 'Manual Award'} · {reconciliationLog.blockTitle} · {reconciliationLog.timestamp})
+                </p>
+                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs font-bold">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
+                    ✓ {reconciliationLog.insertedCount} Credited
+                  </span>
+                  {reconciliationLog.skippedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSkippedDetails(v => !v)}
+                      className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 hover:underline cursor-pointer"
+                    >
+                      ↺ {reconciliationLog.skippedCount} Duplicate(s) Skipped {showSkippedDetails ? '▲' : '▼'}
+                    </button>
+                  )}
+                  {reconciliationLog.unmatchedNames.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-200">
+                      ! {reconciliationLog.unmatchedNames.length} Unmatched in Roster
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReconciliationLog(null)}
+              className="p-1 text-emerald-600/70 hover:text-emerald-900 dark:hover:text-emerald-100 rounded-lg"
+              aria-label="Dismiss reconciliation log"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {showSkippedDetails && reconciliationLog.skippedEntries.length > 0 && (
+            <div className="ml-8 mt-2 p-3 bg-white/80 dark:bg-slate-900/70 rounded-xl border border-amber-200 dark:border-amber-800/50 text-xs space-y-1 max-h-40 overflow-y-auto">
+              {reconciliationLog.skippedEntries.map((s, idx) => (
+                <div key={idx} className="flex justify-between gap-2 text-slate-600 dark:text-slate-300">
+                  <span className="font-bold truncate">{s.name || s.email}</span>
+                  <span className="text-amber-700 dark:text-amber-400 shrink-0">{s.date || 'Today'} · {s.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {reconciliationLog.unmatchedNames.length > 0 && (
+            <p className="ml-8 text-xs text-red-700 dark:text-red-300 font-medium">
+              Unmatched names skipped: {reconciliationLog.unmatchedNames.join(', ')}
+            </p>
+          )}
+        </div>
+      )}
 
       {activeTab === 'bulk' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1007,6 +1130,15 @@ export default function AttendanceManager() {
                 🎓 {showGraduates ? 'Hide Graduates' : 'Show Graduates'}
               </button>
 
+              <button
+                type="button"
+                onClick={() => handleExportAttendanceCsv(historyRecords)}
+                disabled={loadingHistory || historyRecords.length === 0}
+                className="px-3 py-2 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-300 transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                title="Download attendance log CSV for New Innovations reconciliation"
+              >
+                <Download className="w-3.5 h-3.5" /> Export CSV
+              </button>
               <button
                 type="button"
                 onClick={fetchAttendanceHistory}

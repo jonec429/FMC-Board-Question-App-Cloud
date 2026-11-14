@@ -9,6 +9,7 @@ import {
   isWeekendEastern
 } from './timezone';
 import { getRecentITEYears } from './questionFilters';
+import { fetchAllPages, fetchInBatches } from './supabasePagination';
 
 export async function processGamification(
   userId: string,
@@ -266,15 +267,19 @@ export async function processGamification(
 
       // Perfectionist — 100% on 5 different blocks. This block's result row is
       // already saved by the time gamification runs, so it's included.
-      const { data: perfectResults } = await supabase
-        .from('results')
-        .select('topic')
-        .eq('user_id', userId)
-        .gte('percentage', 100);
-      if (perfectResults) {
+      const perfectResults = await fetchAllPages<{ topic: string | null }>((from, to) =>
+        supabase
+          .from('results')
+          .select('topic')
+          .eq('user_id', userId)
+          .gte('percentage', 100)
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
+      if (perfectResults.length > 0) {
         const distinctPerfect = new Set(
           perfectResults
-            .map((r: Result) => r.topic)
+            .map((r) => r.topic)
             .filter((t: string | null) => t && !String(t).toLowerCase().includes('demo'))
         );
         await evaluateBadge('Perfectionist', distinctPerfect.size >= 5);
@@ -300,30 +305,44 @@ export async function processGamification(
       // 3 most recent ITE years (matches the app-wide freshness window).
       if (topicCategory && topicCategory !== 'Mixed Review Block' && topicCategory !== 'Demo Quiz') {
         // The 3 newest ITE years across the whole bank (dedup + sort handled by getRecentITEYears).
-        const { data: yearRows } = await supabase
-          .from('questions')
-          .select('year')
-          .not('year', 'is', null)
-          .neq('year', 'Demo')
-          .neq('year', 'Unspecified');
-        const recentYears = getRecentITEYears((yearRows || []).map((r: { year: string }) => r.year));
+        const yearRows = await fetchAllPages<{ year: string }>((from, to) =>
+          supabase
+            .from('questions')
+            .select('year')
+            .not('year', 'is', null)
+            .neq('year', 'Demo')
+            .neq('year', 'Unspecified')
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
+        const recentYears = getRecentITEYears(yearRows.map((r) => r.year));
 
         if (recentYears.length > 0) {
           // Target = every question in this category within those years.
-          const { data: targetQData } = await supabase
-            .from('questions')
-            .select('id')
-            .eq('category', topicCategory)
-            .in('year', recentYears);
-          const targetIds = (targetQData || []).map((q: Question) => q.id);
+          const targetQData = await fetchAllPages<{ id: string }>((from, to) =>
+            supabase
+              .from('questions')
+              .select('id')
+              .eq('category', topicCategory)
+              .in('year', recentYears)
+              .order('id', { ascending: true })
+              .range(from, to)
+          );
+          const targetIds = targetQData.map((q) => q.id);
 
           if (targetIds.length > 0) {
-            const { data: attemptsData } = await supabase
-              .from('question_attempts')
-              .select('question_id')
-              .eq('user_id', userId)
-              .in('question_id', targetIds);
-            const uniqueAttemptedIds = new Set((attemptsData || []).map((a: { question_id: string }) => a.question_id));
+            const attemptsData = await fetchInBatches<{ question_id: string }>(targetIds, (batch) =>
+              fetchAllPages<{ question_id: string }>((from, to) =>
+                supabase
+                  .from('question_attempts')
+                  .select('question_id')
+                  .eq('user_id', userId)
+                  .in('question_id', batch)
+                  .order('id', { ascending: true })
+                  .range(from, to)
+              ).then((data) => ({ data, error: null }))
+            );
+            const uniqueAttemptedIds = new Set(attemptsData.map((a) => a.question_id));
 
             if (uniqueAttemptedIds.size >= targetIds.length) {
               const badgeName = `Topic Master: ${topicCategory}`;
@@ -345,12 +364,16 @@ export async function processGamification(
       'Population Health/Epidemiology', 'Psychiatric/Behavioral', 'Pulmonary',
       'Reproductive/Female', 'Skin/Subcutaneous', 'Special Sensory'
     ];
-    const { data: userCategoryResults } = await supabase
-      .from('results')
-      .select('category_stats')
-      .eq('user_id', userId);
+    const userCategoryResults = await fetchAllPages<{ category_stats: any }>((from, to) =>
+      supabase
+        .from('results')
+        .select('category_stats')
+        .eq('user_id', userId)
+        .order('id', { ascending: true })
+        .range(from, to)
+    );
 
-    if (userCategoryResults && userCategoryResults.length > 0) {
+    if (userCategoryResults.length > 0) {
       const coveredSystems = new Set<string>();
       userCategoryResults.forEach((r: { category_stats: any }) => {
         if (r.category_stats) {

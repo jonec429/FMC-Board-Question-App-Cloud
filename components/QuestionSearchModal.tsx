@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import { Question } from '@/lib/types';
 import { formatIteId, getQuestionExamNumber } from '@/lib/iteQuestionMap';
 import { KNOWN_REPEAT_IDS } from './QuestionCard';
@@ -58,15 +59,22 @@ export default function QuestionSearchModal({
 
     if (questions.length === 0) {
       setLoading(true);
-      supabase
-        .from('questions')
-        .select('id, year, category, abfm_category, question_text, correct_index, explanation, options, resource_link, is_repeat')
-        .order('year', { ascending: false })
-        .then(({ data, error }) => {
+      fetchAllPages((from, to) =>
+        supabase
+          .from('questions')
+          .select('id, year, category, abfm_category, question_text, correct_index, explanation, options, resource_link, is_repeat')
+          .order('year', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      )
+        .then((data) => {
           setLoading(false);
-          if (!error && data) {
+          if (data) {
             setQuestions(data as unknown as Question[]);
           }
+        })
+        .catch(() => {
+          setLoading(false);
         });
     }
   }, [isOpen, userId, questions.length]);

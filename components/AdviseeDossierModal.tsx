@@ -536,10 +536,12 @@ export default function AdviseeDossierModal({
           {/* Section 2: Individual Advisee Dossier Sheets */}
           {(reportLayout === 'dossiers' || reportLayout === 'combined') && (
             <div className="space-y-10">
-              {reportItems.map((a) => (
+              {reportItems.map((a, idx) => (
                 <div
                   key={a.email}
-                  className="border-2 border-slate-300 rounded-3xl p-6 bg-white space-y-6 print:border-black print:rounded-none print:p-0 print:space-y-5 print-page-break break-after-page"
+                  className={`border-2 border-slate-300 rounded-3xl p-6 bg-white space-y-6 print:border-black print:rounded-none print:p-0 print:space-y-5 ${
+                    idx < reportItems.length - 1 ? 'print-page-break break-after-page' : ''
+                  }`}
                 >
                   {/* Individual Header */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b-2 border-slate-900 print:border-black">
@@ -698,7 +700,7 @@ export default function AdviseeDossierModal({
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200 print:divide-gray-200">
-                              {a.blockSubmissions.slice(0, 8).map((b, bIdx) => (
+                              {a.blockSubmissions.slice(0, 14).map((b, bIdx) => (
                                 <tr key={bIdx}>
                                   <td className="py-1.5 px-2 truncate max-w-[150px]" title={b.topic}>{b.topic}</td>
                                   <td className="py-1.5 px-2 text-right font-black">{b.percentage}%</td>
@@ -706,6 +708,13 @@ export default function AdviseeDossierModal({
                                   <td className="py-1.5 px-2 text-right text-slate-500 print:text-black">{b.date}</td>
                                 </tr>
                               ))}
+                              {a.blockSubmissions.length > 14 && (
+                                <tr>
+                                  <td colSpan={4} className="py-1.5 px-2 text-[10px] text-slate-500 print:text-black italic text-center">
+                                    + {a.blockSubmissions.length - 14} earlier module submission(s) included in KPI averages
+                                  </td>
+                                </tr>
+                              )}
                             </tbody>
                           </table>
                         ) : (

@@ -15,6 +15,7 @@ import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 import { Block, BlockSchedule, Result, RosterEntry, Profile } from '@/lib/types';
 import { getEasternDateParts, getEasternTimeString } from '@/lib/timezone';
 import { computeWeightedAccuracy } from '@/lib/quizMetrics';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -122,13 +123,20 @@ export async function GET(request: Request) {
 
     const academicYear = getCurrentAcademicYear();
 
-    // Fetch required datasets concurrently
-    const [rosterRes, profilesRes, blocksRes, scheduleRes, resultsRes, subsRes] = await Promise.all([
+    // Fetch required datasets concurrently (paginate results past 1,000-row PostgREST cap)
+    const [rosterRes, profilesRes, blocksRes, scheduleRes, results, subsRes] = await Promise.all([
       supabase.from('authorized_roster').select('*'),
       supabase.from('profiles').select('*'),
       supabase.from('blocks').select('*'),
       supabase.from('block_schedule').select('*'),
-      supabase.from('results').select('*'),
+      fetchAllPages<Result>((from, to) =>
+        supabase
+          .from('results')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      ),
       supabase.from('web_push_subscriptions').select('*')
     ]);
 
@@ -136,14 +144,12 @@ export async function GET(request: Request) {
     if (profilesRes.error) throw profilesRes.error;
     if (blocksRes.error) throw blocksRes.error;
     if (scheduleRes.error) throw scheduleRes.error;
-    if (resultsRes.error) throw resultsRes.error;
     if (subsRes.error) throw subsRes.error;
 
     const roster = (rosterRes.data || []) as RosterEntry[];
     const profiles = (profilesRes.data || []) as Profile[];
     const blocks = (blocksRes.data || []) as Block[];
     const blockSchedule = (scheduleRes.data || []) as BlockSchedule[];
-    const results = (resultsRes.data || []) as Result[];
     const allSubs = subsRes.data || [];
 
     // Filter due curriculum blocks for the current academic year

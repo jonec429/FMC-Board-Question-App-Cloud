@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import DOMPurify from 'dompurify';
 import { supabase } from '@/lib/supabase';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import { Question } from '@/lib/types';
 import { formatIteId } from '@/lib/iteQuestionMap';
 import { getCareDimensionMeta } from '@/lib/careDimensions';
@@ -94,15 +95,22 @@ export default function FlashcardsModal({
 
     if (allQuestions.length === 0) {
       setLoading(true);
-      supabase
-        .from('questions')
-        .select('id, year, category, secondary_system, abfm_category, question_text, correct_index, explanation, options, resource_link, is_repeat')
-        .order('year', { ascending: false })
-        .then(({ data, error }) => {
+      fetchAllPages((from, to) =>
+        supabase
+          .from('questions')
+          .select('id, year, category, secondary_system, abfm_category, question_text, correct_index, explanation, options, resource_link, is_repeat')
+          .order('year', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, to)
+      )
+        .then((data) => {
           setLoading(false);
-          if (!error && data) {
+          if (data) {
             setAllQuestions(data as unknown as Question[]);
           }
+        })
+        .catch(() => {
+          setLoading(false);
         });
     }
   }, [isOpen, userId, initialQuestions, allQuestions.length]);

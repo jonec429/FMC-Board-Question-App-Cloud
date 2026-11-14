@@ -546,8 +546,14 @@ export function computeCccReportData({
   }).sort((a, b) => a.lastNameFirst.localeCompare(b.lastNameFirst));
 }
 
+function escCccCsv(value: unknown): string {
+  const str = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+  const safe = /^[=+\-@]/.test(str) ? `'${str}` : str;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
 /**
- * Exports data to CSV with clear, human-readable column headers.
+ * Exports data to CSV with clear, human-readable column headers and UTF-8 BOM for Excel.
  */
 export function exportCccCsv(reportItems: CccResidentReportItem[], dateRangeLabel: string): void {
   if (reportItems.length === 0) return;
@@ -562,31 +568,41 @@ export function exportCccCsv(reportItems: CccResidentReportItem[], dateRangeLabe
     'Required Blocks Total',
     'On-Time Submission Rate (%)',
     'Past-Due Curriculum Blocks',
+    'Past-Due Block Titles',
+    'Score Trend',
     'Academic Engagement Points',
     'Conference Attendance Sessions',
+    'Advisor Meetings Logged',
     'Committee Standing',
     'Identified Academic Warnings',
+    'Top Weak Subject Categories',
+    'Top Strong Subject Categories',
     'Executive Evaluation Narrative',
   ];
 
   const rows = reportItems.map((r) => [
-    `"${r.name}"`,
-    `"${r.email}"`,
-    `"${r.pgyLabel}"`,
-    `"${r.advisor}"`,
+    escCccCsv(r.name),
+    escCccCsv(r.email),
+    escCccCsv(r.pgyLabel),
+    escCccCsv(r.advisor),
     r.curriculumAttempts > 0 ? r.curriculumAvg : 'N/A',
     r.blocksCompleted,
     r.requiredBlocksTotal,
-    r.curriculumAttempts > 0 ? `${r.onTimeRate}%` : 'N/A',
+    (r.blocksCompleted > 0 || r.overdueCount > 0) ? `${r.onTimeRate}%` : 'N/A',
     r.overdueCount,
+    escCccCsv(r.overdueBlockTitles.join('; ')),
+    escCccCsv(`${r.trendDirection} (${r.trendDelta > 0 ? '+' : ''}${r.trendDelta}%)`),
     r.totalPoints,
     r.attendanceCount,
-    `"${r.standing}"`,
-    `"${r.flags.join('; ')}"`,
-    `"${r.narrativeSummary.replace(/"/g, '""')}"`,
+    r.meetings.length,
+    escCccCsv(r.standing),
+    escCccCsv(r.flags.join('; ')),
+    escCccCsv(r.weakCategories.slice(0, 3).map((w) => `${w.category} (${w.percentage}%)`).join('; ')),
+    escCccCsv(r.strongCategories.slice(0, 3).map((s) => `${s.category} (${s.percentage}%)`).join('; ')),
+    escCccCsv(r.narrativeSummary),
   ]);
 
-  const csvContent = [
+  const csvContent = '\uFEFF' + [
     `# Evaluation Period: ${dateRangeLabel}`,
     headers.join(','),
     ...rows.map((row) => row.join(',')),
@@ -600,4 +616,5 @@ export function exportCccCsv(reportItems: CccResidentReportItem[], dateRangeLabe
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
