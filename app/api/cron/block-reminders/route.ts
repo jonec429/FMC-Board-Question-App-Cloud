@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminSupabase, verifyCronSecret } from '@/lib/supabaseServer';
+import { getAdminSupabase, verifyCronSecret, recordPushDispatchFailure } from '@/lib/supabaseServer';
 import { Resend } from 'resend';
 import webpush from 'web-push';
 import { getEasternDateParts, getEasternUpcomingSunday, getEasternTimeString } from '@/lib/timezone';
@@ -144,7 +144,7 @@ export async function GET(request: Request) {
         // Find their push subscriptions. We need their user_id from the profiles table.
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id, notification_preferences')
+          .select('*')
           .eq('email', user.email.toLowerCase())
           .maybeSingle();
 
@@ -158,21 +158,21 @@ export async function GET(request: Request) {
 
           if (subs && subs.length > 0) {
             for (const sub of subs) {
+              if (!sub.endpoint || !sub.auth || !sub.p256dh) {
+                console.warn(`[block-reminders] Skipping subscription ${sub.id}: missing endpoint, auth, or p256dh.`);
+                continue;
+              }
               const pushSubscription = {
                 endpoint: sub.endpoint,
                 keys: {
-                  auth: sub.keys_auth,
-                  p256dh: sub.keys_p256dh,
+                  auth: sub.auth,
+                  p256dh: sub.p256dh,
                 },
               };
               try {
-                await webpush.sendNotification(pushSubscription, pushPayload);
+                await webpush.sendNotification(pushSubscription, pushPayload, { urgency: 'high', TTL: 14400 });
               } catch (pushErr: unknown) {
-                const status = (pushErr as { statusCode?: number }).statusCode;
-                if (status === 401 || status === 403 || status === 404 || status === 410) {
-                  // Subscription expired or invalid, remove it
-                  await supabase.from('web_push_subscriptions').delete().eq('id', sub.id);
-                }
+                await recordPushDispatchFailure(supabase, 'block-reminders', sub, pushErr);
               }
             }
           }

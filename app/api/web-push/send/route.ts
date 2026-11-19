@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError } from '@/lib/supabaseServer';
 import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function POST(request: Request) {
+  const supabase = getAdminSupabase();
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
   const privateKey = process.env.VAPID_PRIVATE_KEY || '';
 
@@ -105,6 +101,7 @@ export async function POST(request: Request) {
     let failed = 0;
     let expired = 0;
     let skipped = 0;
+    const pushErrors: PushDispatchError[] = [];
 
     const notifications = subs.map(async (sub) => {
       if (!sub.p256dh || !sub.auth || !sub.endpoint) {
@@ -122,15 +119,13 @@ export async function POST(request: Request) {
       };
 
       try {
-        await webpush.sendNotification(pushSubscription, payload);
+        await webpush.sendNotification(pushSubscription, payload, { urgency: 'high', TTL: 14400 });
         sent++;
       } catch (err: unknown) {
-        if ((err as { statusCode?: number }).statusCode === 404 || (err as { statusCode?: number }).statusCode === 410) {
-          console.log(`[web-push/send] Subscription expired (${(err as { statusCode?: number }).statusCode}), deleting: ${sub.endpoint.slice(0, 60)}...`);
-          await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        const outcome = await recordPushDispatchFailure(supabase, 'web-push/send', sub, err, pushErrors);
+        if (outcome === 'expired') {
           expired++;
         } else {
-          console.error(`[web-push/send] Push failed for ${sub.endpoint.slice(0, 60)}...:`, (err as { statusCode?: number }).statusCode, (err as { body?: string }).body || (err instanceof Error ? err.message : String(err)));
           failed++;
         }
       }
@@ -145,7 +140,7 @@ export async function POST(request: Request) {
     await supabase.from('cron_logs').insert({
       cron_name: 'manual_broadcast',
       status: 'success',
-      details: { ...summary, run_id, title, body, sent_by: callerEmail }
+      details: { ...summary, run_id, title, body, sent_by: callerEmail, ...(pushErrors.length > 0 ? { errors: pushErrors.slice(0, 15) } : {}) }
     });
 
     // Cleanup receipts older than 30 days
@@ -156,7 +151,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: `Notification dispatch complete.`,
-      counts: summary
+      counts: summary,
+      errors: pushErrors.slice(0, 15)
     });
 
   } catch (err: unknown) {
@@ -166,6 +162,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const supabase = getAdminSupabase();
   const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
   if (!authHeader) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

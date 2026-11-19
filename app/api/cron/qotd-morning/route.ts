@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError } from '@/lib/supabaseServer';
 import { getEasternDateParts, getEasternDateString, getEasternTimeString } from '@/lib/timezone';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  const supabase = getAdminSupabase();
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
   const privateKey = process.env.VAPID_PRIVATE_KEY || '';
 
@@ -75,7 +71,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, message: 'No subscriptions found.', counts: { total: 0 } });
     }
 
-    const { data: profs } = await supabase.from('profiles').select('id, notification_preferences');
+    const { data: profs, error: profError } = await supabase.from('profiles').select('id, notification_preferences');
+    if (profError) {
+      console.warn('[qotd-morning] profiles notification_preferences lookup failed (column may be missing), defaulting all users to opted-in:', profError.message);
+    }
     const prefsMap = new Map((profs || []).map(p => [p.id, p.notification_preferences || {}]));
 
     let targetSubs = subs.filter(sub => {
@@ -109,7 +108,7 @@ export async function GET(request: Request) {
     let failed = 0;
     let expired = 0;
     let skipped = 0;
-    const pushErrors: Array<{ endpoint: string; status?: number; error: string }> = [];
+    const pushErrors: PushDispatchError[] = [];
 
     const BATCH_SIZE = 10;
     const BATCH_DELAY_MS = 200;
@@ -136,15 +135,10 @@ export async function GET(request: Request) {
           await webpush.sendNotification(pushSubscription, payload, { urgency: 'high', TTL: 14400 });
           sent++;
         } catch (err: unknown) {
-          const status = (err as { statusCode?: number }).statusCode;
-          const errMsg = (err as { body?: string }).body || (err instanceof Error ? err.message : String(err));
-          if (status === 401 || status === 403 || status === 404 || status === 410) {
-            console.log(`[qotd-morning] Subscription invalid/expired (${status}), deleting: ${sub.endpoint.slice(0, 60)}...`);
-            await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          const outcome = await recordPushDispatchFailure(supabase, 'qotd-morning', sub, err, pushErrors);
+          if (outcome === 'expired') {
             expired++;
           } else {
-            console.error(`[qotd-morning] Push failed for ${sub.endpoint.slice(0, 60)}...:`, status, errMsg);
-            pushErrors.push({ endpoint: sub.endpoint.slice(0, 60), status, error: errMsg.slice(0, 100) });
             failed++;
           }
         }
@@ -165,7 +159,7 @@ export async function GET(request: Request) {
     await supabase.from('cron_logs').insert({
       cron_name: 'qotd-morning',
       status: 'success',
-      details: { ...summary, run_id, ...(pushErrors.length > 0 ? { errors: pushErrors.slice(0, 10) } : {}) }
+      details: { ...summary, run_id, ...(pushErrors.length > 0 ? { errors: pushErrors.slice(0, 15) } : {}) }
     });
 
     // Cleanup receipts older than 30 days

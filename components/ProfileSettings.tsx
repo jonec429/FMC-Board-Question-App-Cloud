@@ -42,6 +42,7 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
   // Push notification states
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [pushPermission, setPushPermission] = useState<string>('default');
 
   const [notificationPreferences, setNotificationPreferences] = useState({
     qotd: profile?.notification_preferences?.qotd ?? true,
@@ -62,30 +63,56 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
   }, [onClose]);
 
   const handleTogglePreference = async (key: keyof typeof notificationPreferences) => {
+    const prevPrefs = notificationPreferences;
     const newPrefs = { ...notificationPreferences, [key]: !notificationPreferences[key] };
     setNotificationPreferences(newPrefs);
     
     try {
-      await supabase
+      const { error: prefErr } = await supabase
         .from('profiles')
         .update({ notification_preferences: newPrefs })
         .eq('id', user.id);
+
+      if (prefErr) throw prefErr;
         
       onProfileUpdate({ ...profile, notification_preferences: newPrefs });
     } catch (err) {
       console.error('Failed to save preference:', err);
       // Revert on failure
-      setNotificationPreferences(notificationPreferences);
+      setNotificationPreferences(prevPrefs);
     }
   };
 
   React.useEffect(() => {
-    // Check if push is enabled
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-        reg.pushManager.getSubscription().then(sub => {
-          setPushEnabled(!!sub);
-        });
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushPermission(Notification.permission);
+    } else if (typeof window !== 'undefined') {
+      setPushPermission('unsupported');
+    }
+
+    // Check if push is enabled locally AND still registered in Supabase
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.register('/sw.js').then(async (reg) => {
+        try {
+          const sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            setPushEnabled(false);
+            return;
+          }
+          const { data, error: checkErr } = await supabase
+            .from('web_push_subscriptions')
+            .select('id')
+            .eq('endpoint', sub.endpoint)
+            .maybeSingle();
+          if (checkErr) {
+            console.warn('Failed to verify push subscription in DB:', checkErr);
+            setPushEnabled(false);
+            return;
+          }
+          setPushEnabled(Boolean(sub && data));
+        } catch (err) {
+          console.warn('Failed to inspect push subscription:', err);
+        }
       });
     }
   }, []);
@@ -110,42 +137,67 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
         }
         setPushEnabled(false);
       } else {
+        if ('Notification' in window) {
+          const permission = await Notification.requestPermission();
+          setPushPermission(permission);
+          if (permission !== 'granted') {
+            alert('Notification permission was not granted. Please enable notifications in your browser or phone settings.');
+            return;
+          }
+        }
+        if (!publicVapidKey) {
+          alert('VAPID public key is missing.');
+          return;
+        }
+
+        // Unsubscribe any stale/orphaned browser subscription so a fresh token is minted
+        const existingSub = await registration.pushManager.getSubscription();
+        if (existingSub) {
+          await supabase.from('web_push_subscriptions').delete().eq('endpoint', existingSub.endpoint);
+          await existingSub.unsubscribe();
+        }
+
         // Subscribe
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
         });
 
-        // Convert subscription keys
-        const p256dh = subscription.getKey('p256dh');
-        const auth = subscription.getKey('auth');
-        
-        let p256dhBase64: string | null = null;
-        if (p256dh) {
-          const arr = new Uint8Array(p256dh);
-          let binary = '';
-          for (let i = 0; i < arr.byteLength; i++) {
-            binary += String.fromCharCode(arr[i]);
+        // Prefer standard base64url keys from toJSON(), with ArrayBuffer fallback
+        const subJson = subscription.toJSON();
+        let p256dhValue = subJson.keys?.p256dh || null;
+        let authValue = subJson.keys?.auth || null;
+
+        if (!p256dhValue) {
+          const p256dh = subscription.getKey('p256dh');
+          if (p256dh) {
+            const arr = new Uint8Array(p256dh);
+            let binary = '';
+            for (let i = 0; i < arr.byteLength; i++) {
+              binary += String.fromCharCode(arr[i]);
+            }
+            p256dhValue = btoa(binary);
           }
-          p256dhBase64 = btoa(binary);
         }
 
-        let authBase64: string | null = null;
-        if (auth) {
-          const arr = new Uint8Array(auth);
-          let binary = '';
-          for (let i = 0; i < arr.byteLength; i++) {
-            binary += String.fromCharCode(arr[i]);
+        if (!authValue) {
+          const auth = subscription.getKey('auth');
+          if (auth) {
+            const arr = new Uint8Array(auth);
+            let binary = '';
+            for (let i = 0; i < arr.byteLength; i++) {
+              binary += String.fromCharCode(arr[i]);
+            }
+            authValue = btoa(binary);
           }
-          authBase64 = btoa(binary);
         }
 
         // Save to backend
         const { error: subError } = await supabase.from('web_push_subscriptions').upsert({
           user_id: user.id,
           endpoint: subscription.endpoint,
-          p256dh: p256dhBase64,
-          auth: authBase64
+          p256dh: p256dhValue,
+          auth: authValue
         }, { onConflict: 'endpoint' });
 
         if (subError) throw subError;
@@ -487,6 +539,12 @@ export default function ProfileSettings({ user, profile, onClose, onProfileUpdat
                   <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${pushEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
+
+              {pushPermission === 'denied' && (
+                <div className="rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 px-3 py-2 text-xs font-semibold text-red-700 dark:text-red-300">
+                  Notifications are blocked in your browser or phone settings. Allow notifications for this app in OS/browser Settings, then toggle Push Notifications back on.
+                </div>
+              )}
 
               {pushEnabled && (
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-4">

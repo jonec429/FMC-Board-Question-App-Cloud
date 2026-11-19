@@ -26,6 +26,9 @@ export function getAdminSupabase(): SupabaseClient {
         persistSession: false,
         autoRefreshToken: false,
       },
+      global: {
+        fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+      },
     });
   }
 
@@ -167,4 +170,77 @@ export function verifyCronSecret(request: Request): boolean {
 
   const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
   return authHeader === `Bearer ${secret}`;
+}
+
+export interface PushDispatchError {
+  sub_id: string;
+  user_id: string | null;
+  host: string;
+  status?: number;
+  error: string;
+  action: 'deleted' | 'delete_0_rows' | 'delete_failed' | 'kept';
+  deleteError?: string;
+}
+
+/**
+ * Classifies a Web Push dispatch failure, deletes only permanently unregistered
+ * endpoints (HTTP 404/410) by primary key, and records structured diagnostics.
+ */
+export async function recordPushDispatchFailure(
+  supabase: SupabaseClient,
+  routeTag: string,
+  sub: { id: string; user_id?: string | null; endpoint: string },
+  err: unknown,
+  pushErrors?: PushDispatchError[]
+): Promise<'expired' | 'failed'> {
+  const status = (err as { statusCode?: number }).statusCode;
+  const errMsg =
+    (err as { body?: string }).body ||
+    (err instanceof Error ? err.message : String(err));
+
+  let host = 'unknown';
+  try {
+    host = new URL(sub.endpoint).host;
+  } catch {}
+
+  if (status === 404 || status === 410) {
+    const { error: delError, count: delCount } = await supabase
+      .from('web_push_subscriptions')
+      .delete({ count: 'exact' })
+      .eq('id', sub.id);
+
+    const action = delError ? 'delete_failed' : delCount ? 'deleted' : 'delete_0_rows';
+    if (delError || !delCount) {
+      console.error(
+        `[${routeTag}] Failed to delete expired subscription ${sub.id} (${host}, HTTP ${status}):`,
+        delError ? delError.message : '0 rows deleted'
+      );
+    } else {
+      console.log(
+        `[${routeTag}] Deleted expired subscription ${sub.id} (${host}, HTTP ${status}).`
+      );
+    }
+
+    pushErrors?.push({
+      sub_id: sub.id,
+      user_id: sub.user_id ?? null,
+      host,
+      status,
+      error: errMsg.slice(0, 140),
+      action,
+      ...(delError ? { deleteError: delError.message } : {}),
+    });
+    return 'expired';
+  }
+
+  console.error(`[${routeTag}] Push failed for ${sub.id} (${host}):`, status, errMsg);
+  pushErrors?.push({
+    sub_id: sub.id,
+    user_id: sub.user_id ?? null,
+    host,
+    status,
+    error: errMsg.slice(0, 140),
+    action: 'kept',
+  });
+  return 'failed';
 }

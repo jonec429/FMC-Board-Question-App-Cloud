@@ -13,6 +13,17 @@ interface NotificationManagerProps {
 
 type TabState = 'manager' | 'registrations' | 'audit';
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export default function NotificationManager({ user, profile }: NotificationManagerProps) {
   const [activeTab, setActiveTab] = useState<TabState>('manager');
 
@@ -88,7 +99,21 @@ export default function NotificationManager({ user, profile }: NotificationManag
     try {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
-      setPushEnabled(!!subscription);
+      if (!subscription) {
+        setPushEnabled(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('web_push_subscriptions')
+        .select('id')
+        .eq('endpoint', subscription.endpoint)
+        .maybeSingle();
+      if (error) {
+        console.warn('Error verifying push subscription in DB:', error);
+        setPushEnabled(false);
+        return;
+      }
+      setPushEnabled(Boolean(data));
     } catch (err) {
       console.error('Error checking push subscription:', err);
     }
@@ -130,18 +155,25 @@ export default function NotificationManager({ user, profile }: NotificationManag
         setPermissionStatus(permission);
         if (permission !== 'granted') throw new Error('Permission not granted for notifications');
 
+        const existingSub = await registration.pushManager.getSubscription();
+        if (existingSub) {
+          await supabase.from('web_push_subscriptions').delete().eq('endpoint', existingSub.endpoint);
+          await existingSub.unsubscribe();
+        }
+
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: publicVapidKey,
+          applicationServerKey: urlBase64ToUint8Array(publicVapidKey),
         });
 
         const subJson = subscription.toJSON();
-        await supabase.from('web_push_subscriptions').insert({
+        const { error: upsertErr } = await supabase.from('web_push_subscriptions').upsert({
           user_id: user?.id,
-          endpoint: subJson.endpoint,
+          endpoint: subJson.endpoint || subscription.endpoint,
           p256dh: subJson.keys?.p256dh,
           auth: subJson.keys?.auth,
-        });
+        }, { onConflict: 'endpoint' });
+        if (upsertErr) throw upsertErr;
         setPushEnabled(true);
       }
       fetchSubscriptionCount();
@@ -178,10 +210,22 @@ export default function NotificationManager({ user, profile }: NotificationManag
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to send test notification');
 
+      const sentCount = data.counts?.sent || 0;
+      const failedCount = data.counts?.failed || 0;
+      const expiredCount = data.counts?.expired || 0;
+      const firstErr = Array.isArray(data.errors) && data.errors.length > 0
+        ? ` (${data.errors[0].status ?? 'err'} ${data.errors[0].host}: ${data.errors[0].error})`
+        : '';
+      const isOk = sentCount > 0 && failedCount === 0 && expiredCount === 0;
+
       setTestResult({
-        success: true,
-        message: `Test push sent! Results: ${data.counts?.sent || 0} sent, ${data.counts?.failed || 0} failed.`
+        success: isOk,
+        message: `Test push ${isOk ? 'sent' : 'had issues'}! Results: ${sentCount} sent, ${failedCount} failed, ${expiredCount} expired.${firstErr}`
       });
+      if (expiredCount > 0) {
+        checkActiveSubscription();
+        fetchSubscriptionCount();
+      }
     } catch (err: any) {
       setTestResult({ success: false, message: err.message || 'Failed to trigger test push.' });
     } finally {
@@ -315,10 +359,26 @@ export default function NotificationManager({ user, profile }: NotificationManag
       header: 'Dispatch Stats',
       cell: info => {
         const row = info.row.original;
+        const expiredCount = row.details?.expired || 0;
+        const errors = Array.isArray(row.details?.errors) ? row.details.errors : [];
+        const firstErr = errors[0];
         return (
-          <div className="flex gap-3 text-xs">
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold">Sent: {row.details?.sent || 0}</span>
-            <span className="text-red-500 dark:text-red-400 font-bold">Failed: {row.details?.failed || 0}</span>
+          <div className="space-y-1">
+            <div className="flex flex-wrap gap-3 text-xs">
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Sent: {row.details?.sent || 0}</span>
+              <span className="text-red-500 dark:text-red-400 font-bold">Failed: {row.details?.failed || 0}</span>
+              {expiredCount > 0 && (
+                <span className="text-amber-600 dark:text-amber-400 font-bold">Expired: {expiredCount}</span>
+              )}
+            </div>
+            {firstErr && (
+              <div
+                className="text-[10px] font-medium text-red-500 dark:text-red-400 truncate max-w-[260px]"
+                title={JSON.stringify(errors)}
+              >
+                HTTP {firstErr.status ?? '?'} ({firstErr.host || 'push'}): {firstErr.error}
+              </div>
+            )}
           </div>
         );
       },

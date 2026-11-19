@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError } from '@/lib/supabaseServer';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import {
   getDueBlocks,
@@ -19,11 +19,6 @@ import { fetchAllPages } from '@/lib/supabasePagination';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface ResidentRiskSummary {
   resident: RosterEntry;
@@ -44,6 +39,7 @@ interface ResidentRiskSummary {
 }
 
 export async function GET(request: Request) {
+  const supabase = getAdminSupabase();
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
   const privateKey = process.env.VAPID_PRIVATE_KEY || '';
 
@@ -277,6 +273,7 @@ export async function GET(request: Request) {
     let failed = 0;
     let expired = 0;
     let skipped = 0;
+    const pushErrors: PushDispatchError[] = [];
 
     const notificationsToSend: Array<{
       userId: string;
@@ -436,13 +433,10 @@ export async function GET(request: Request) {
           await webpush.sendNotification(pushSubscription, pushPayload);
           sent++;
         } catch (err: unknown) {
-          const status = (err as { statusCode?: number }).statusCode;
-          if (status === 401 || status === 403 || status === 404 || status === 410) {
-            console.log(`[faculty-digest] Subscription expired (${status}), deleting: ${sub.endpoint.slice(0, 50)}...`);
-            await supabase.from('web_push_subscriptions').delete().eq('endpoint', sub.endpoint);
+          const outcome = await recordPushDispatchFailure(supabase, 'faculty-digest', sub, err, pushErrors);
+          if (outcome === 'expired') {
             expired++;
           } else {
-            console.error(`[faculty-digest] Push failed for ${sub.endpoint.slice(0, 50)}...:`, status, err);
             failed++;
           }
         }
@@ -471,7 +465,7 @@ export async function GET(request: Request) {
     await supabase.from('cron_logs').insert({
       cron_name: 'faculty-digest',
       status: 'success',
-      details: { ...summary, run_id, caller: callerEmail }
+      details: { ...summary, run_id, caller: callerEmail, ...(pushErrors.length > 0 ? { errors: pushErrors.slice(0, 15) } : {}) }
     });
 
     return NextResponse.json({
