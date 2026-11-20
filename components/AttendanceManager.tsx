@@ -206,18 +206,29 @@ export default function AttendanceManager() {
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlToParse, 'text/html');
-        // Use the first table that has rows so duplicate appended tables do not double-count entries
-        const tables = Array.from(doc.querySelectorAll('table')).filter(
-          t => t.querySelectorAll('tr').length > 0
-        );
-        const rows = tables.length > 0
-          ? Array.from(tables[0].querySelectorAll('tr'))
-          : Array.from(doc.querySelectorAll('tr'));
-        if (rows.length > 0) {
-          data = rows.map(tr => {
-            const cells = Array.from(tr.querySelectorAll('td, th'));
-            return cells.map(td => td.textContent?.trim() || '');
-          }).filter(row => row.some(cell => cell.length > 0));
+        const extractTableRows = (root: Element | Document) =>
+          Array.from(root.querySelectorAll('tr'))
+            .map(tr => Array.from(tr.querySelectorAll('td, th')).map(td => td.textContent?.trim() || ''))
+            .filter(row => row.some(cell => cell.length > 0));
+
+        const isGranularHeader = (row: string[]) => {
+          const lower = row.map(c => c.toLowerCase());
+          return (
+            (lower.includes('person') && lower.includes('conference') && lower.some(c => /^date(?:\s*\/\s*time|\s+time)?$/i.test(c))) ||
+            (lower.includes('timestamp') && lower.includes('resident'))
+          );
+        };
+
+        const tables = Array.from(doc.querySelectorAll('table'))
+          .map(t => extractTableRows(t))
+          .filter(rows => rows.length > 0);
+
+        if (tables.length > 0) {
+          // Prefer the first Details table (ignoring Summary-of-totals or duplicate appended tables)
+          const detailsTable = tables.find(rows => rows.slice(0, 10).some(isGranularHeader));
+          data = detailsTable || tables[0];
+        } else {
+          data = extractTableRows(doc);
         }
       } catch (e) {
         console.warn('DOMParser failed, falling back to PapaParse', e);
@@ -258,7 +269,7 @@ export default function AttendanceManager() {
 
     for (let i = 0; i < Math.min(100, data.length); i++) {
        const row = data[i].map(c => c ? c.trim().toLowerCase() : '');
-       if (row.includes('person') && row.includes('conference') && row.includes('date')) {
+       if (row.includes('person') && row.includes('conference') && row.some(c => /^date(?:\s*\/\s*time|\s+time)?$/i.test(c))) {
            headerRowIndex = i;
            format = 'ni_granular';
            break;
@@ -315,8 +326,10 @@ export default function AttendanceManager() {
        const headers = data[headerRowIndex].map(h => h ? h.trim() : '');
        const personIdx = headers.findIndex(h => /^(person|resident|name|full\s*name)$/i.test(h.trim()));
        const confIdx = headers.findIndex(h => /^(conference|topic|lecture|title|session)$/i.test(h.trim()));
-       const dateIdx = headers.findIndex(h => /^(date|conf(erence)?\s*date|session\s*date)$/i.test(h.trim()));
-       const presentIdx = headers.findIndex(h => /^(present|attended|status)$/i.test(h.trim()));
+       const dateIdx = headers.findIndex(h => /^(date(?:\s*\/\s*time|\s+time)?|conf(erence)?\s*date|session\s*date)$/i.test(h.trim()));
+       const presentCol = headers.findIndex(h => /^(present|attended)$/i.test(h.trim()));
+       const presentIdx = presentCol >= 0 ? presentCol : headers.findIndex(h => /^status$/i.test(h.trim()));
+       const roleStatusIdx = presentCol >= 0 ? headers.findIndex(h => /^status$/i.test(h.trim())) : -1;
 
        for (let i = headerRowIndex + 1; i < data.length; i++) {
            const row = data[i];
@@ -326,6 +339,12 @@ export default function AttendanceManager() {
            const present = presentIdx >= 0 ? row[presentIdx]?.trim().toLowerCase() : '';
 
            if (!person || person === 'Totals:' || person.toLowerCase() === 'grand totals') continue;
+           if (roleStatusIdx >= 0) {
+             const roleStatus = (row[roleStatusIdx] || '').trim();
+             if (roleStatus && !/resident/i.test(roleStatus) && /faculty|director|coordinator|staff|attending/i.test(roleStatus)) {
+               continue;
+             }
+           }
 
            if (present === 'true' || present === '1' || present === 'yes' || present === 't') {
                const resident = roster.find(r => {
