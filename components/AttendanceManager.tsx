@@ -150,6 +150,24 @@ export default function AttendanceManager() {
     processCSVContent(pasteContent);
   };
 
+  const parseSessionDate = (rawDate: string, fallback: string): string => {
+    const trimmedDate = (rawDate || '').trim();
+    if (!trimmedDate) return fallback;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return trimmedDate;
+    // JS Date.parse rejects generic abbreviations like "ET", "CT", "MT", "PT"
+    const cleaned = trimmedDate.replace(/\s+(?:ET|CT|MT|PT|AT|HT)\b/gi, '').trim();
+    try {
+      const parsed = new Date(cleaned);
+      if (!isNaN(parsed.getTime())) {
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const d = String(parsed.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+    } catch {}
+    return fallback;
+  };
+
   const processCSVContent = async (csvString: string) => {
     if (!csvString || !csvString.trim()) {
       alert("No data found.");
@@ -163,9 +181,36 @@ export default function AttendanceManager() {
     const trimmed = csvString.trim();
     if (/<table|<tr|<td/i.test(trimmed)) {
       try {
+        let htmlToParse = trimmed;
+        // If HTML was saved/exported inside CSV cells (doubled quotes "" or leading CSV commas/quotes),
+        // unwrap the CSV cells first so DOMParser receives clean HTML.
+        if (/<\w+[^>]*""/i.test(trimmed) || /^,*"</m.test(trimmed)) {
+          const unwrapped = await new Promise<string[][]>((resolve) => {
+            Papa.parse(trimmed, {
+              header: false,
+              skipEmptyLines: true,
+              complete: (results) => resolve((results.data as string[][]) || []),
+              error: () => resolve([])
+            });
+          });
+          if (unwrapped.length > 0) {
+            htmlToParse = unwrapped
+              .flat()
+              .map(cell => (cell || '').trim())
+              .filter(Boolean)
+              .join('\n');
+          }
+        }
+
         const parser = new DOMParser();
-        const doc = parser.parseFromString(trimmed, 'text/html');
-        const rows = Array.from(doc.querySelectorAll('tr'));
+        const doc = parser.parseFromString(htmlToParse, 'text/html');
+        // Use the first table that has rows so duplicate appended tables do not double-count entries
+        const tables = Array.from(doc.querySelectorAll('table')).filter(
+          t => t.querySelectorAll('tr').length > 0
+        );
+        const rows = tables.length > 0
+          ? Array.from(tables[0].querySelectorAll('tr'))
+          : Array.from(doc.querySelectorAll('tr'));
         if (rows.length > 0) {
           data = rows.map(tr => {
             const cells = Array.from(tr.querySelectorAll('td, th'));
@@ -245,15 +290,7 @@ export default function AttendanceManager() {
                const rawConfDate = dateIdx >= 0 ? row[dateIdx]?.trim() : '';
                const topic = topicIdx >= 0 ? row[topicIdx]?.trim() : '';
                
-               let confDate = today;
-               if (rawConfDate) {
-                   try {
-                       const parsedDate = new Date(rawConfDate);
-                       if (!isNaN(parsedDate.getTime())) {
-                           confDate = parsedDate.toISOString().split('T')[0];
-                       }
-                   } catch(e) {}
-               }
+               const confDate = parseSessionDate(rawConfDate, today);
 
                const resident = roster.find(r => 
                    (email && r.email && email.toLowerCase() === r.email.toLowerCase()) || 
@@ -301,15 +338,7 @@ export default function AttendanceManager() {
                   return r.full_name.toLowerCase().includes(person.toLowerCase());
                });
 
-               let confDate = today;
-               if (rawDate) {
-                   try {
-                       const parsedDate = new Date(rawDate);
-                       if (!isNaN(parsedDate.getTime())) {
-                           confDate = parsedDate.toISOString().split('T')[0];
-                       }
-                   } catch(e) {}
-               }
+               const confDate = parseSessionDate(rawDate, today);
 
                let topicName = conf;
                const separator = ':: ';
