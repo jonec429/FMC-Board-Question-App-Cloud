@@ -54,6 +54,7 @@ export default function AttendanceManager() {
     skippedEntries: Array<{ email: string; name?: string; date?: string; topic: string; reason: string }>;
   } | null>(null);
   const [showSkippedDetails, setShowSkippedDetails] = useState(false);
+  const [parseNotice, setParseNotice] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -169,6 +170,7 @@ export default function AttendanceManager() {
   };
 
   const processCSVContent = async (csvString: string) => {
+    setParseNotice(null);
     if (!csvString || !csvString.trim()) {
       alert("No data found.");
       setLoading(false);
@@ -184,7 +186,7 @@ export default function AttendanceManager() {
         let htmlToParse = trimmed;
         // If HTML was saved/exported inside CSV cells (doubled quotes "" or leading CSV commas/quotes),
         // unwrap the CSV cells first so DOMParser receives clean HTML.
-        if (/<\w+[^>]*""/i.test(trimmed) || /^,*"</m.test(trimmed)) {
+        if (/^,*"<(?:table|tr|td|th|thead|tbody)/im.test(trimmed)) {
           const unwrapped = await new Promise<string[][]>((resolve) => {
             Papa.parse(trimmed, {
               header: false,
@@ -417,6 +419,10 @@ export default function AttendanceManager() {
        });
     }
     
+    if (newParsedData.length === 0) {
+      const headerPreview = headerRowIndex >= 0 ? data[headerRowIndex].filter(Boolean).join(', ') : (data[0]?.filter(Boolean).slice(0, 6).join(', ') || 'none');
+      setParseNotice(`0 attended entries found (rows extracted: ${data.length}, format: ${format}, headers: ${headerPreview}).`);
+    }
     setParsedData(newParsedData);
     setLoading(false);
   };
@@ -874,9 +880,12 @@ export default function AttendanceManager() {
 
               <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-hide">
                 {parsedData.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600">
+                  <div className="h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 text-center px-4">
                     <Clipboard className="w-12 h-12 mb-2 opacity-10" />
                     <p className="font-bold text-slate-400 dark:text-slate-500">Waiting for data...</p>
+                    {parseNotice && (
+                      <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400 max-w-md">{parseNotice}</p>
+                    )}
                   </div>
                 ) : (
                   parsedData.map((person, idx) => (
