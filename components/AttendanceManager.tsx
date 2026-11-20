@@ -89,7 +89,13 @@ export default function AttendanceManager() {
     return nameA.localeCompare(nameB);
   });
 
-  const filteredManualRoster = sortedRoster.filter(r => {
+  const activeManualRoster = sortedRoster.filter(r => {
+    const label = (r.class_label || '').toLowerCase();
+    const status = (r.status || '').toLowerCase();
+    return !label.includes('graduated') && status !== 'graduated' && status !== 'inactive';
+  });
+
+  const filteredManualRoster = activeManualRoster.filter(r => {
     if (!manualSearch.trim()) return true;
     const q = manualSearch.toLowerCase();
     return (
@@ -98,6 +104,20 @@ export default function AttendanceManager() {
       (r.class_label && r.class_label.toLowerCase().includes(q))
     );
   });
+
+  const normalizeClass = (val: string) => val.toLowerCase().replace(/[-\s]/g, '');
+
+  const getClassEmails = (classKeyword: string) => {
+    const target = normalizeClass(classKeyword);
+    return activeManualRoster
+      .filter(r => normalizeClass(r.class_label || '').includes(target))
+      .map(r => r.email);
+  };
+
+  const isClassSelected = (classKeyword: string) => {
+    const emails = getClassEmails(classKeyword);
+    return emails.length > 0 && emails.every(e => selectedEmails.includes(e));
+  };
 
   const toggleSelectEmail = (email: string) => {
     setSelectedEmails(prev =>
@@ -118,12 +138,14 @@ export default function AttendanceManager() {
   };
 
   const handleSelectByClass = (classKeyword: string) => {
-    const matchingEmails = roster
-      .filter(r => (r.class_label || '').toLowerCase().includes(classKeyword.toLowerCase()))
-      .map(r => r.email);
-
-    const newSet = new Set([...selectedEmails, ...matchingEmails]);
-    setSelectedEmails(Array.from(newSet));
+    const matchingEmails = getClassEmails(classKeyword);
+    if (matchingEmails.length === 0) return;
+    const allSelected = matchingEmails.every(e => selectedEmails.includes(e));
+    if (allSelected) {
+      setSelectedEmails(prev => prev.filter(e => !matchingEmails.includes(e)));
+    } else {
+      setSelectedEmails(Array.from(new Set([...selectedEmails, ...matchingEmails])));
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -970,23 +992,23 @@ export default function AttendanceManager() {
                   <button
                     type="button"
                     onClick={() => handleSelectByClass('pgy1')}
-                    className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg text-xs font-bold transition-all"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isClassSelected('pgy1') ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60'}`}
                   >
-                    + PGY 1
+                    {isClassSelected('pgy1') ? '✓' : '+'} PGY-1
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSelectByClass('pgy2')}
-                    className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg text-xs font-bold transition-all"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isClassSelected('pgy2') ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60'}`}
                   >
-                    + PGY 2
+                    {isClassSelected('pgy2') ? '✓' : '+'} PGY-2
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSelectByClass('pgy3')}
-                    className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg text-xs font-bold transition-all"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isClassSelected('pgy3') ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60'}`}
                   >
-                    + PGY 3
+                    {isClassSelected('pgy3') ? '✓' : '+'} PGY-3
                   </button>
                   {selectedEmails.length > 0 && (
                     <button

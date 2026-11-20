@@ -29,6 +29,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { computeResidentReadiness } from '@/lib/residentRisk';
 import { computeWeightedAccuracy } from '@/lib/quizMetrics';
+import { evaluateLeaderboardBadges } from '@/lib/gamification';
 import { User, Profile, Block, Result, Question, QuizSession, AssignedQuiz, ChallengeStandingsResponse, ChallengeResidentStanding } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
@@ -145,7 +146,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const qotdQuestion = data?.qotdQuestion || null;
   const qotdAttempt = data?.qotdAttempt || null;
   const userStreak = data?.userStreak || null;
-  const userBadges = data?.userBadges || [];
+  const userBadges = useMemo(() => data?.userBadges || [], [data?.userBadges]);
 
   // UI state
   const [showMyStats, setShowMyStats] = useState(false);
@@ -416,6 +417,27 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
   const myRankIdx = activeLeaderboard.findIndex(d => Boolean(d.email && user.email && d.email.toLowerCase() === user.email.toLowerCase()));
   const myRank = myRankIdx >= 0 ? myRankIdx + 1 : null;
 
+  const leaderboardBadgeCheckRef = useRef<string>('');
+  useEffect(() => {
+    if (!isActive || !data || !user?.id || effectiveRole !== 'resident' || activeLeaderboard.length === 0) return;
+    const checkKey = `${user.id}:${myRank ?? 'none'}:${totalPoints}:${activeLeaderboard.length}`;
+    if (leaderboardBadgeCheckRef.current === checkKey) return;
+    leaderboardBadgeCheckRef.current = checkKey;
+
+    const earnedNames = userBadges
+      .map((ub: { badge?: { name?: string }; name?: string }) => ub.badge?.name || ub.name || '')
+      .filter(Boolean);
+
+    evaluateLeaderboardBadges(user.id, myRank, totalPoints, activeLeaderboard.length, earnedNames)
+      .then((awarded) => {
+        if (awarded && awarded.length > 0) {
+          setRecentBadges((prev) => [...prev, ...awarded]);
+          refetch();
+        }
+      })
+      .catch(() => {});
+  }, [isActive, data, user?.id, effectiveRole, myRank, totalPoints, activeLeaderboard.length, userBadges, refetch]);
+
   // Advisor Meeting logic
   const [claimingAdvisorMeeting, setClaimingAdvisorMeeting] = useState(false);
   const [advisorMeetingError, setAdvisorMeetingError] = useState<string | null>(null);
@@ -626,8 +648,17 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
                 </div>
 
                 <p className="text-xs font-bold text-amber-900/90 dark:text-amber-200/90 mb-1">
-                  {totalPoints} Academic Points{myRank ? ` · Rank #${myRank}` : ''}
+                  {totalPoints} Academic Points{myRank && myRank > 5 ? ` · Rank #${myRank}` : ''}
                 </p>
+
+                {myRank !== null && myRank <= 5 && (
+                  <div className="mb-1.5">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200/80 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100 border border-amber-300 dark:border-amber-700/70">
+                      <span>{myRank === 1 ? '🥇' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '🏆'}</span>
+                      <span>#{myRank} on Leaderboard</span>
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-amber-800/80 dark:text-amber-300/80 font-medium">
                   {userStreak?.current_qotd_streak > 0 && <span>🔥 {userStreak.current_qotd_streak}d streak</span>}

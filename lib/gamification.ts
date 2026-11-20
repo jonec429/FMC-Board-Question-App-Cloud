@@ -571,19 +571,147 @@ export async function awardStreakSaverBadge(
 /**
  * Awards Mock Exam achievement badges (Board Ready, The Marathoner, Honors Distinction, etc.)
  */
+interface BadgeCandidate {
+  qualifies: boolean;
+  name: string;
+  description: string;
+  icon: string;
+  type: string;
+}
+
+async function awardBadgeDefinitions(
+  userId: string,
+  candidates: BadgeCandidate[]
+): Promise<{ id: string; name: string; description: string; icon: string }[]> {
+  const eligible = candidates.filter((c) => c.qualifies);
+  if (eligible.length === 0) return [];
+
+  const { data: allBadges } = await supabase.from('badges').select('id, name');
+  const badgeMap = new Map((allBadges || []).map((b: { id: string; name: string }) => [b.name, b.id]));
+
+  const { data: userBadges } = await supabase
+    .from('user_badges')
+    .select('badge_id')
+    .eq('user_id', userId);
+  const userBadgeSet = new Set((userBadges || []).map((ub: { badge_id: string }) => ub.badge_id));
+
+  const newlyAwarded: { id: string; name: string; description: string; icon: string }[] = [];
+
+  for (const badgeDef of eligible) {
+    let badgeId = badgeMap.get(badgeDef.name);
+
+    if (!badgeId) {
+      const { data: insertedBadge } = await supabase
+        .from('badges')
+        .insert({
+          name: badgeDef.name,
+          description: badgeDef.description,
+          icon: badgeDef.icon,
+          type: badgeDef.type,
+        })
+        .select('id')
+        .single();
+
+      if (insertedBadge) {
+        badgeId = insertedBadge.id;
+        badgeMap.set(badgeDef.name, badgeId);
+      }
+    }
+
+    if (badgeId && !userBadgeSet.has(badgeId)) {
+      const { error } = await supabase.from('user_badges').insert({
+        user_id: userId,
+        badge_id: badgeId,
+      });
+
+      if (!error) {
+        userBadgeSet.add(badgeId);
+        newlyAwarded.push({
+          id: badgeId,
+          name: badgeDef.name,
+          description: badgeDef.description,
+          icon: badgeDef.icon,
+        });
+      }
+    }
+  }
+
+  return newlyAwarded;
+}
+
+/**
+ * Awards leaderboard achievement badges when a resident reaches Top 5, Top 3, or #1
+ * on the active Academic Points leaderboard.
+ */
+export async function evaluateLeaderboardBadges(
+  userId: string,
+  rank: number | null,
+  totalPoints: number,
+  activeLeaderboardCount: number,
+  earnedBadgeNames: string[] = []
+): Promise<{ id: string; name: string; description: string; icon: string }[]> {
+  if (!userId) return [];
+  try {
+    const wasOnLeaderboard = earnedBadgeNames.some((n) =>
+      n === 'Leaderboard Contender' || n === 'Podium Finisher' || n === 'Top of the Class'
+    );
+    const fellOffLeaderboard =
+      wasOnLeaderboard &&
+      activeLeaderboardCount >= 5 &&
+      (rank === null || rank > 5);
+
+    return await awardBadgeDefinitions(userId, [
+      {
+        qualifies: rank !== null && rank >= 1 && rank <= 5 && totalPoints >= 10,
+        name: 'Leaderboard Contender',
+        description: 'Reached the Top 5 on the program Academic Points leaderboard.',
+        icon: '📈',
+        type: 'general',
+      },
+      {
+        qualifies: rank !== null && rank >= 1 && rank <= 3 && totalPoints >= 10,
+        name: 'Podium Finisher',
+        description: 'Reached the Top 3 podium on the program Academic Points leaderboard.',
+        icon: '🏅',
+        type: 'general',
+      },
+      {
+        qualifies: rank === 1 && totalPoints >= 20,
+        name: 'Top of the Class',
+        description: 'Claimed the #1 spot on the program Academic Points leaderboard.',
+        icon: '👑',
+        type: 'general',
+      },
+      {
+        qualifies: fellOffLeaderboard,
+        name: 'Has-Been',
+        description: 'Previously made the Top 5 Leaderboard, then slipped out of contention.',
+        icon: '🍂',
+        type: 'general',
+      },
+    ]);
+  } catch (err) {
+    console.error('Error in evaluateLeaderboardBadges:', err);
+    return [];
+  }
+}
+
+/**
+ * Evaluates and awards Mock Exam Simulation badges (ABFM & ITE).
+ */
 export async function awardMockExamBadges(
   userId: string,
   params: {
     isAbfm: boolean;
     isIte: boolean;
-    score: number;
+    score?: number;
     total: number;
     percentage: number;
     breakTimePositive: boolean;
   }
 ): Promise<{ id: string; name: string; description: string; icon: string }[]> {
   try {
-    const candidates = [
+    return await awardBadgeDefinitions(userId, [
       {
         qualifies: params.isAbfm,
         name: 'Board Ready',
@@ -619,62 +747,7 @@ export async function awardMockExamBadges(
         icon: '☕',
         type: 'mock_exam',
       },
-    ];
-
-    const eligible = candidates.filter((c) => c.qualifies);
-    if (eligible.length === 0) return [];
-
-    const { data: allBadges } = await supabase.from('badges').select('id, name');
-    const badgeMap = new Map((allBadges || []).map((b: any) => [b.name, b.id]));
-
-    const { data: userBadges } = await supabase
-      .from('user_badges')
-      .select('badge_id')
-      .eq('user_id', userId);
-    const userBadgeSet = new Set((userBadges || []).map((ub: any) => ub.badge_id));
-
-    const newlyAwarded: { id: string; name: string; description: string; icon: string }[] = [];
-
-    for (const badgeDef of eligible) {
-      let badgeId = badgeMap.get(badgeDef.name);
-
-      if (!badgeId) {
-        const { data: insertedBadge } = await supabase
-          .from('badges')
-          .insert({
-            name: badgeDef.name,
-            description: badgeDef.description,
-            icon: badgeDef.icon,
-            type: badgeDef.type,
-          })
-          .select('id')
-          .single();
-
-        if (insertedBadge) {
-          badgeId = insertedBadge.id;
-          badgeMap.set(badgeDef.name, badgeId);
-        }
-      }
-
-      if (badgeId && !userBadgeSet.has(badgeId)) {
-        const { error } = await supabase.from('user_badges').insert({
-          user_id: userId,
-          badge_id: badgeId,
-        });
-
-        if (!error) {
-          userBadgeSet.add(badgeId);
-          newlyAwarded.push({
-            id: badgeId,
-            name: badgeDef.name,
-            description: badgeDef.description,
-            icon: badgeDef.icon,
-          });
-        }
-      }
-    }
-
-    return newlyAwarded;
+    ]);
   } catch (err) {
     console.error('Error in awardMockExamBadges:', err);
     return [];
