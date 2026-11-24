@@ -19,6 +19,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
             staleTime: 60_000,
             gcTime: 5 * 60_000,
+            refetchOnWindowFocus: false,
           },
         },
       })

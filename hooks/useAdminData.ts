@@ -83,7 +83,8 @@ export function useAdminData({ includeQuestions = false }: { includeQuestions?: 
   const questionsQuery = useQuery({
     queryKey: ['admin', 'questions'],
     queryFn: fetchQuestions,
-    enabled: includeQuestions
+    enabled: includeQuestions,
+    staleTime: 30 * 60_000,
   });
 
   const data: AdminData | null = coreQuery.data

@@ -56,9 +56,9 @@ This file serves as the shared source of truth for development progress between 
 | **Phase 2 — Admin Overhaul & Logic Engine** | ✅ Complete | Fixed blocks, Curriculum Manager, RLS write-lockdown, TanStack Query data layer |
 | **Phase 3 — Notifications & Intelligence** | ✅ Complete | QOTD ecosystem, Web Push, Analytics Heatmap, Resident Review |
 | **Phase 4 — Year-over-Year Transition** | ✅ Complete | YoY schema, derived-PGY model, Academic-Year filtering, Annual Rollover |
-| **Phase 5 — Feature Wishlist** | 🔄 Ongoing | Faculty tools, resident risk, dark mode, custom assignments |
 | **Phase 6 — Dual Tagging & Blueprint Matrix** | ✅ Complete | Organ System audit, ABFM Care Dimensions, dual badges, Flashcards |
-| **Phase 7 — Housekeeping, Bug Fixing & QoL Polish** | 🔄 Active | Maintenance, bug fixes, UI/UX polish, edge-case hardening |
+| **Phase 7 — Housekeeping, Bug Fixing & QoL Polish** | ✅ Complete | Maintenance, bug fixes, UI/UX polish, edge-case hardening, egress caching |
+| **Feature Wishlist (Standalone)** | 📋 Living Backlog | All initial wishlist items shipped; future ideas tracked separately |
 
 **Deployment:** Live in production at `brq.stvfamilymed.org`. Changes must be carefully tested and verified before deployment.
 
@@ -532,7 +532,7 @@ This file serves as the shared source of truth for development progress between 
 *Opened 2026-06-08 (Claude) from a full deep-dive review. User reviewed and approved all items; we're working **top-to-bottom**. Most are small. None change the resident-facing 1:1 look — they're security, correctness, and maintainability fixes. Each item notes the file(s) involved so any agent can pick it up.*
 
 **🔴 Security & data exposure**
-- [x] **1. Delete the open `/api/email` route.** ✅ *Done 2026-06-08 (Claude).* Removed `app/api/email/route.ts` (an open, unauthenticated Resend relay); confirmed no code referenced it. The `resend` npm package is now unused — optional follow-up to drop it from `package.json`. *(If email is ever needed again, gate it behind the `CRON_SECRET` / admin-token check that `app/api/web-push/send` already uses.)*
+- [x] **1. Delete the open `/api/email` route.** ✅ *Done 2026-06-08 (Claude).* Removed `app/api/email/route.ts` (an open, unauthenticated Resend relay). *(Note: `resend` remains in `package.json` because it is still used by `app/api/cron/block-reminders/route.ts`.)*
 - [x] **2. Put all RLS policies under version control.** Some tables' policies live only in the Supabase dashboard — notably **`results`** (the leaderboard depends on a read policy that exists in no migration file) and the **`question_attempts`** read policy (see #3). Export the live policies into a `supabase/migrations/` file so the repo is the source of truth and the DB is reproducible.
 - [x] **3. Stop shipping every resident's raw scores to the browser; verify cohort-stats RLS.** The dashboard leaderboard pulls **all** `results` rows (emails + per-topic scores) client-side (`hooks/useDashboardData.ts`). Related: QOTD "cohort performance" reads `question_attempts` across users — so either (a) those stats are silently self-only (if the policy is still `auth.uid() = user_id`), or (b) the policy was loosened in the dashboard and every resident can read everyone's per-question history. **Verify the live policies**, then move leaderboard + cohort aggregation server-side (a Postgres function/view) so only summaries leave the server.
 - [x] **4. (minor) Tighten the unauthenticated routes.** `app/api/auth/verify-roster` lets anyone enumerate the roster (returns name/pgy/role per email); `app/api/web-push/subscribe` trusts a client-supplied email. Add basic rate-limiting / identity checks.
@@ -695,8 +695,8 @@ This file serves as the shared source of truth for development progress between 
 
 ---
 
-## 📍 Phase 5: Feature Wishlist
-*Goal: Track potential long-term architectural upgrades and features.*
+## 🌟 Feature Wishlist (Standalone)
+*Goal: Track potential long-term architectural upgrades and standalone feature ideas (decoupled from numbered delivery phases).*
 
 ### App Hardening / Reliability
 - [x] **Platform Stability**: App hardening to minimize reloads, logouts/sign-ins, and silent failures. Focus on robust error boundaries, graceful fallbacks, and connection resiliency.
@@ -791,7 +791,7 @@ This file serves as the shared source of truth for development progress between 
 - **Pause the question timer during review** *(✅ Shipped 2026-11-10)*: Full timed quiz pause modal in QuizEngine.
 - **Review prior quizzes** *(✅ Shipped)*: Lets residents revisit any past quiz under My Performance.
 - **Block rename in Curriculum Manager** *(✅ Shipped & Hardened)*: Inline-edit a block's title in `CurriculumManager.tsx`, propagating changes safely to existing `results` and `quiz_sessions`.
-- **Quiz Mode vs Practice Mode** *(any block EXCEPT QOTD)*: Mode toggle before starting a quiz.
+- **Quiz Mode vs Practice Mode** *(✅ Shipped — `QuizEngine.tsx`)*: Mode toggle (`Practice` vs `Quiz`) before starting any non-QOTD, non-demo quiz.
 - **New Achievements (Badges)**:
   - *Top of the Class*: Maintain the most academic points in the program for 3 consecutive months.
   - *Comeback Kid*: Improve performance in a block by 20% compared to the last block completed.
@@ -813,6 +813,12 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-11-24 — Admin Board Readiness Console, Pathway to Good Standing & Housekeeping (Antigravity)
+*   **Admin Board Readiness View (`components/AdminBoardReadiness.tsx`, `AdminPerformance.tsx`, `BoardReadinessTool.tsx`, `AdminMetricModal.tsx`):** Added dedicated program-wide Board Readiness dashboard for faculty and admins with cohort filtering, Bayesian scaled score projections, and readiness tier breakdowns.
+*   **Pathway to Good Standing (`components/MyStatsModal.tsx`):** Added a dynamic "Pathway to Board Ready" recovery guide inside the resident Status Guide showing exact next steps (clearing overdue blocks, raising curriculum average above 65%, and submitting future blocks on time to restore >75% compliance).
+*   **Database Migrations & Egress Optimization (`app/providers.tsx`, `hooks/useAdminData.ts`):** Verified `user_flagged_questions` (cross-device flag persistence with RLS) and `systems_challenge_badges` live in Supabase; disabled global `refetchOnWindowFocus` and extended `questionsQuery` `staleTime` to 30 minutes to minimize redundant Supabase egress.
+*   **Phase 7 Closed & Wishlist Decoupled (`ROADMAP.md`):** Completed all remaining Phase 7 housekeeping items and extracted the Feature Wishlist into a standalone backlog.
 
 ### 2026-11-11 — Phase 7 Completion: 1,000-Row Pagination Hardening, Offline Resilience & Faculty/Admin QoL (Antigravity)
 *   **PostgREST 1,000-Row Pagination & Batching (`lib/supabasePagination.ts`):** Extracted shared `fetchAllPages` and `fetchInBatches` utilities with deterministic ordering to eliminate silent 1,000-row PostgREST truncation and URI-length query errors across cron jobs (`/api/cron/faculty-digest`), QOTD analytics (`/api/admin/qotd-analytics`), admin question loading (`useAdminData.ts`), dashboard history (`useDashboardData.ts`), question stats (`lib/questionStats.ts` previously broke after page 1 due to `step = 2000`), `QuizEngine.tsx`, `CustomBuilderScreen.tsx`, `MyStatsModal.tsx`, `FlashcardsModal.tsx`, `QuestionSearchModal.tsx`, `QuestionImporter.tsx`, `lib/gamification.ts`, and `lib/anki.ts`.
