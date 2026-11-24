@@ -516,8 +516,8 @@ This file serves as the shared source of truth for development progress between 
 - [x] **2026-06-08 — Badge Catalog Expansion**: `20260608_badges_expansion.sql` — seeds the 9 new achievement badges (Ironman, block-streak ladder, Sharpshooter, Early Bird, Weekend Warrior, Perfectionist, Procrastinator) and removes the duplicate "Marathoner". ✅ **Run by admin 2026-06-08 — new badges now live.**
 - [x] **2026-06-11 — Over Achiever Badge**: `20260611_over_achiever_badge.sql` — seeds the new "Over Achiever" milestone badge to the catalog so it shows as locked in the UI. **Admin must run it in Supabase.** ✅ *(Run by admin 2026-08-17)*
 - [x] **2026-09-18 — Repeat Questions Migration**: `20260918_add_is_repeat_to_questions.sql` — adds `is_repeat` to `questions` and flags known duplicate questions. ✅ *(Run & verified in Supabase 2026-10-12)*
-- [ ] **2026-10-20 — User Flagged Questions Migration**: `20261020_user_flagged_questions.sql` — creates `user_flagged_questions` table with RLS for persistent cross-device flags. (The app already operates seamlessly via local storage fallback).
-- [ ] **2026-10-20 — Systems Challenge Badges Migration**: `20261020_systems_challenge_badges.sql` — seeds the 4 new challenge badges (Systems Explorer, Repeat Master, Pearl Diver, ITE Sprint) into the catalog so they display as locked until earned.
+- [x] **2026-10-20 — User Flagged Questions Migration**: `20261020_user_flagged_questions.sql` — creates `user_flagged_questions` table with RLS for persistent cross-device flags. (The app already operates seamlessly via local storage fallback). ✅ *(Run & verified in Supabase 2026-11-24)*
+- [x] **2026-10-20 — Systems Challenge Badges Migration**: `20261020_systems_challenge_badges.sql` — seeds the 4 new challenge badges (Systems Explorer, Repeat Master, Pearl Diver, ITE Sprint) into the catalog so they display as locked until earned. ✅ *(Verified live in Supabase `badges` table 2026-11-24)*
 - [x] **Environment Setup**: Node.js installed, `npm install` run. ✅ *(Note: `@tanstack/react-query` added 2026-05-20)*
 
 ### 🎯 Phase 2 — Final Items ✅
@@ -809,6 +809,7 @@ This file serves as the shared source of truth for development progress between 
 
 ### 🔒 Security / Maintenance Notes
 - **2026-06-05 — dotenv ad / agent-bait silenced & pinned (Claude)**: `dotenv@17.4.2` (genuine npm package; used only in `scripts/*.ts` dev tooling, **never** in the production bundle) prints rotating console "tips," one of which — `⌁ auth for agents [www.vestauth.com]` — is third-party bait aimed at AI agents. Confirmed it's only a console string: no network calls, no install/postinstall hooks, no exfiltration. Mitigation: added `quiet: true` to all 15 `dotenv.config()` calls in `scripts/`, and pinned `dotenv` to exact `17.4.2` (dropped the `^`) so `npm update` can't silently pull a more aggressive ad build. The domain was not visited. (Note: affects any project using this dotenv version.)
+- **2026-11-24 — Supabase Free Plan Egress / Log Quota Awareness (Antigravity)**: Project runs on Supabase Free Plan (5 GB egress / 1 GB log ingestion monthly limits). Normal daily traffic is near 0 MB/day, but bulk scripts or repeated full-table (`questions` ~1.15 MB, `question_attempts` ~1.9 MB) queries can trigger multi-GB spikes. **AI assistants must alert the user before running heavy bulk DB scripts/loops** or adding frequent polling/refetching.
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
