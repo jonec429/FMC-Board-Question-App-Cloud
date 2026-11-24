@@ -10,6 +10,13 @@ import { ArrowUpRight, Award, ShieldAlert } from 'lucide-react';
 import { formatDisplayName, formatLastNameFirst } from '@/lib/utils';
 import { formatAcademicYear } from '@/lib/academicYear';
 import { openEmailCompose, generateCheckInEmail } from '@/lib/emailHelper';
+import {
+  MIN_BLOCKS_FOR_READINESS,
+  MIN_QUESTIONS_FOR_READINESS,
+  ITE_SCALED_SEM,
+  ABFM_PASSING_SCALED_SCORE,
+  convertPracticePctToConservativeScaled,
+} from '@/lib/iteScoring';
 
 export type MetricType = 'program_avg' | 'board_readiness' | 'at_risk' | 'total_users';
 
@@ -27,6 +34,7 @@ export interface ResidentStat {
   curriculumAvg: number;
   independentAvg: number | null;
   overallAvg: number;
+  curriculumTotalQuestions?: number;
   blocksCompleted: number;
   onTimePct: number;
   totalPoints: number;
@@ -58,7 +66,11 @@ export default function AdminMetricModal({
   onJumpToTab,
 }: AdminMetricModalProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState<'all' | 'above70' | 'borderline' | 'below65' | 'red' | 'yellow'>('all');
+  const [filterCategory, setFilterCategory] = useState<'all' | 'on_track' | 'borderline' | 'at_risk' | 'evaluating' | 'red' | 'yellow'>('all');
+
+  useEffect(() => {
+    setFilterCategory('all');
+  }, [type]);
 
   useEffect(() => {
     if (!type) return;
@@ -95,9 +107,17 @@ export default function AdminMetricModal({
     ? onTimeEligible.reduce((a, r) => a + r.onTimePct, 0) / onTimeEligible.length
     : 0;
 
-  const above70Residents = residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 70);
-  const borderlineResidents = residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 65 && r.curriculumAvg < 70);
-  const below65Residents = residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg < 65);
+  const isReadinessUnlocked = (r: ResidentStat) =>
+    r.blocksCompleted >= MIN_BLOCKS_FOR_READINESS ||
+    (r.curriculumTotalQuestions != null
+      ? r.curriculumTotalQuestions >= MIN_QUESTIONS_FOR_READINESS
+      : r.curriculumAttempts >= MIN_BLOCKS_FOR_READINESS);
+
+  const unlockedResidents = residentStats.filter(isReadinessUnlocked);
+  const onTrackResidents = unlockedResidents.filter(r => r.curriculumAvg > 65);
+  const borderlineResidents = unlockedResidents.filter(r => r.curriculumAvg >= 60 && r.curriculumAvg <= 65);
+  const belowFloorResidents = unlockedResidents.filter(r => r.curriculumAvg < 60);
+  const buildingBaselineResidents = residentStats.filter(r => !isReadinessUnlocked(r));
 
   const redFlagged = residentStats.filter(r => r.academicRisk === 'red' || r.complianceRisk === 'red');
   const yellowFlagged = residentStats.filter(r =>
@@ -116,14 +136,16 @@ export default function AdminMetricModal({
     return Object.entries(groups).map(([label, list]) => {
       const active = list.filter(r => r.totalAttempts > 0);
       const avg = active.length > 0 ? active.reduce((a, r) => a + r.overallAvg, 0) / active.length : 0;
-      const onTarget = list.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 70).length;
+      const unlockedList = list.filter(isReadinessUnlocked);
+      const onTarget = unlockedList.filter(r => r.curriculumAvg > 65).length;
       return {
         label,
         count: list.length,
         activeCount: active.length,
+        unlockedCount: unlockedList.length,
         avg,
         onTarget,
-        onTargetPct: list.length > 0 ? Math.round((onTarget / list.length) * 100) : 0,
+        onTargetPct: unlockedList.length > 0 ? Math.round((onTarget / unlockedList.length) * 100) : 0,
       };
     }).sort((a, b) => a.label.localeCompare(b.label));
   }, [residentStats]);
@@ -147,9 +169,10 @@ export default function AdminMetricModal({
     let base = residentStats;
 
     if (type === 'board_readiness') {
-      if (filterCategory === 'above70') base = above70Residents;
+      if (filterCategory === 'on_track') base = onTrackResidents;
       else if (filterCategory === 'borderline') base = borderlineResidents;
-      else if (filterCategory === 'below65') base = below65Residents;
+      else if (filterCategory === 'at_risk') base = belowFloorResidents;
+      else if (filterCategory === 'evaluating') base = buildingBaselineResidents;
     } else if (type === 'at_risk') {
       if (filterCategory === 'red') base = redFlagged;
       else if (filterCategory === 'yellow') base = yellowFlagged;
@@ -164,7 +187,7 @@ export default function AdminMetricModal({
       (r.advisor || '').toLowerCase().includes(q) ||
       r.label.toLowerCase().includes(q)
     );
-  }, [type, residentStats, filterCategory, searchTerm, above70Residents, borderlineResidents, below65Residents, redFlagged, yellowFlagged]);
+  }, [type, residentStats, filterCategory, searchTerm, onTrackResidents, borderlineResidents, belowFloorResidents, buildingBaselineResidents, redFlagged, yellowFlagged]);
 
   if (!type) return null;
 
@@ -205,7 +228,7 @@ export default function AdminMetricModal({
               <div className="flex items-center gap-2">
                 <h2 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white tracking-tight truncate">
                   {type === 'program_avg' && 'Program Performance & Distribution'}
-                  {type === 'board_readiness' && 'Board Readiness & 70% Benchmark'}
+                  {type === 'board_readiness' && 'Board Readiness & ABFM 380 Benchmark'}
                   {type === 'at_risk' && 'Flagged & At-Risk Resident Cohort'}
                   {type === 'total_users' && 'Cohort Demographics & Engagement'}
                 </h2>
@@ -289,7 +312,7 @@ export default function AdminMetricModal({
                         {p.avg > 0 ? `${p.avg.toFixed(1)}%` : '—'}
                       </div>
                       <div className="text-[10px] font-bold text-slate-400 mt-0.5">
-                        {p.onTarget} on target (≥70%) · {p.onTargetPct}%
+                        {p.onTarget} on track (&gt;65%) · {p.onTargetPct}% of unlocked
                       </div>
                     </div>
                   ))}
@@ -298,43 +321,67 @@ export default function AdminMetricModal({
             </div>
           )}
 
-          {/* VIEW 2: BOARD READINESS (ABOVE 70%) */}
+          {/* VIEW 2: BOARD READINESS (ABFM 380 / ±38 SEM BENCHMARK) */}
           {type === 'board_readiness' && (
             <div className="space-y-6">
               {/* Benchmark Summary Pills */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 rounded-2xl">
                   <div className="text-3xl font-black text-emerald-700 dark:text-emerald-300">
-                    {Math.round((above70Residents.length / (curriculumResidents.length || 1)) * 100)}%
+                    {unlockedResidents.length > 0 ? `${Math.round((onTrackResidents.length / unlockedResidents.length) * 100)}%` : '—'}
                   </div>
-                  <div className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-1">Above 70% Target</div>
-                  <p className="text-xs font-bold text-emerald-800/80 dark:text-emerald-300/80 mt-1">{above70Residents.length} of {curriculumResidents.length} residents</p>
-                </div>
-                <div className="p-4 bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 rounded-2xl">
-                  <div className="text-3xl font-black text-blue-700 dark:text-blue-300">
-                    {Math.round(((above70Residents.length + borderlineResidents.length) / (curriculumResidents.length || 1)) * 100)}%
-                  </div>
-                  <div className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mt-1">Passing Threshold (≥65%)</div>
-                  <p className="text-xs font-bold text-blue-800/80 dark:text-blue-300/80 mt-1">{above70Residents.length + borderlineResidents.length} meeting standard</p>
+                  <div className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mt-1">On Track (&gt;65%)</div>
+                  <p className="text-xs font-bold text-emerald-800/80 dark:text-emerald-300/80 mt-1">
+                    {onTrackResidents.length} of {unlockedResidents.length} unlocked (+1 SEM safe buffer)
+                  </p>
                 </div>
                 <div className="p-4 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 rounded-2xl">
                   <div className="text-3xl font-black text-amber-700 dark:text-amber-400">
-                    {below65Residents.length}
+                    {borderlineResidents.length}
                   </div>
-                  <div className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mt-1">Below Standard (&lt;65%)</div>
-                  <p className="text-xs font-bold text-amber-800/80 dark:text-amber-300/80 mt-1">Requires academic reinforcement</p>
+                  <div className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mt-1">Borderline (60–65%)</div>
+                  <p className="text-xs font-bold text-amber-800/80 dark:text-amber-300/80 mt-1">
+                    Within ±{ITE_SCALED_SEM} SEM of {ABFM_PASSING_SCALED_SCORE} passing floor
+                  </p>
+                </div>
+                <div className="p-4 bg-red-50/80 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 rounded-2xl flex flex-col justify-between">
+                  <div>
+                    <div className="text-3xl font-black text-red-700 dark:text-red-400">
+                      {belowFloorResidents.length}
+                    </div>
+                    <div className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest mt-1">At Risk (&lt;60%)</div>
+                    <p className="text-xs font-bold text-red-800/80 dark:text-red-300/80 mt-1">
+                      Below {ABFM_PASSING_SCALED_SCORE} conservative floor ({buildingBaselineResidents.length} building baseline)
+                    </p>
+                  </div>
                 </div>
               </div>
 
               {/* Class-by-Class Readiness Progress */}
               <div className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-3xl border border-slate-100 dark:border-slate-800 space-y-3">
-                <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">Class Year Readiness Rate</h3>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">Class Year Readiness Rate (Unlocked Cohorts)</h3>
+                  {onJumpToTab && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onJumpToTab('board_readiness');
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+                    >
+                      Open Board Readiness Tab <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-3">
                   {pgyBreakdown.map(p => (
                     <div key={p.label} className="space-y-1">
                       <div className="flex justify-between items-center text-xs font-bold">
                         <span className="text-slate-800 dark:text-slate-200">{p.label}</span>
-                        <span className="text-slate-600 dark:text-slate-400">{p.onTarget} of {p.count} residents on track ({p.onTargetPct}%)</span>
+                        <span className="text-slate-600 dark:text-slate-400">
+                          {p.onTarget} of {p.unlockedCount} unlocked on track ({p.onTargetPct}%) · {p.count} total
+                        </span>
                       </div>
                       <div className="h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                         <div className={`h-full ${p.onTargetPct >= 70 ? 'bg-emerald-500' : p.onTargetPct >= 50 ? 'bg-amber-500' : 'bg-red-500'} transition-all duration-500`} style={{ width: `${p.onTargetPct}%` }} />
@@ -348,27 +395,33 @@ export default function AdminMetricModal({
               <div className="flex gap-2 border-b border-slate-100 dark:border-slate-800 pb-2 overflow-x-auto">
                 <button
                   onClick={() => setFilterCategory('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${filterCategory === 'all' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'all' ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                 >
-                  All Evaluated ({curriculumResidents.length})
+                  All ({residentStats.length})
                 </button>
                 <button
-                  onClick={() => setFilterCategory('above70')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${filterCategory === 'above70' ? 'bg-emerald-600 text-white' : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'}`}
+                  onClick={() => setFilterCategory('on_track')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'on_track' ? 'bg-emerald-600 text-white' : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'}`}
                 >
-                  Target ≥70% ({above70Residents.length})
+                  On Track &gt;65% ({onTrackResidents.length})
                 </button>
                 <button
                   onClick={() => setFilterCategory('borderline')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${filterCategory === 'borderline' ? 'bg-amber-600 text-white' : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'}`}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'borderline' ? 'bg-amber-600 text-white' : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'}`}
                 >
-                  Borderline 65–69% ({borderlineResidents.length})
+                  Borderline 60–65% ({borderlineResidents.length})
                 </button>
                 <button
-                  onClick={() => setFilterCategory('below65')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${filterCategory === 'below65' ? 'bg-red-600 text-white' : 'text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40'}`}
+                  onClick={() => setFilterCategory('at_risk')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'at_risk' ? 'bg-red-600 text-white' : 'text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40'}`}
                 >
-                  Below 65% ({below65Residents.length})
+                  At Risk &lt;60% ({belowFloorResidents.length})
+                </button>
+                <button
+                  onClick={() => setFilterCategory('evaluating')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${filterCategory === 'evaluating' ? 'bg-slate-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                >
+                  Building Baseline ({buildingBaselineResidents.length})
                 </button>
               </div>
             </div>
@@ -507,6 +560,22 @@ export default function AdminMetricModal({
               {filteredResidents.slice(0, 50).map(r => {
                 const isRed = r.academicRisk === 'red' || r.complianceRisk === 'red';
                 const isYellow = !isRed && (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining);
+                const dotColor =
+                  type === 'board_readiness'
+                    ? !isReadinessUnlocked(r)
+                      ? 'bg-slate-300 dark:bg-slate-600'
+                      : r.curriculumAvg < 60
+                      ? 'bg-red-500'
+                      : r.curriculumAvg <= 65
+                      ? 'bg-amber-400'
+                      : 'bg-emerald-400'
+                    : isRed
+                    ? 'bg-red-500'
+                    : isYellow
+                    ? 'bg-amber-400'
+                    : r.academicRisk === 'gray' && r.complianceRisk === 'gray'
+                    ? 'bg-slate-300 dark:bg-slate-600'
+                    : 'bg-emerald-400';
                 return (
                   <div
                     key={r.email}
@@ -514,7 +583,7 @@ export default function AdminMetricModal({
                     className="p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors flex items-center justify-between gap-3 cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isRed ? 'bg-red-500' : isYellow ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-xs sm:text-sm text-slate-800 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -544,12 +613,29 @@ export default function AdminMetricModal({
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                      <div className="text-right hidden sm:block">
-                        <div className="text-xs font-black text-slate-800 dark:text-slate-200">
-                          {r.totalAttempts > 0 ? `${r.overallAvg.toFixed(1)}%` : '—'}
+                      {type === 'board_readiness' ? (() => {
+                        const unlocked = isReadinessUnlocked(r);
+                        const mid = unlocked ? convertPracticePctToConservativeScaled(r.curriculumAvg) : null;
+                        const low = mid != null ? Math.max(200, mid - ITE_SCALED_SEM) : null;
+                        const high = mid != null ? Math.min(800, mid + ITE_SCALED_SEM) : null;
+                        return (
+                          <div className="text-right hidden sm:block">
+                            <div className="text-xs font-black text-slate-800 dark:text-slate-200">
+                              {r.curriculumAttempts > 0 ? `${r.curriculumAvg.toFixed(1)}%` : '—'}
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400">
+                              {unlocked && low != null && high != null ? `${low}–${high} scale` : 'Baseline (<3 blk)'}
+                            </div>
+                          </div>
+                        );
+                      })() : (
+                        <div className="text-right hidden sm:block">
+                          <div className="text-xs font-black text-slate-800 dark:text-slate-200">
+                            {r.totalAttempts > 0 ? `${r.overallAvg.toFixed(1)}%` : '—'}
+                          </div>
+                          <div className="text-[9px] font-bold text-slate-400">Total Avg</div>
                         </div>
-                        <div className="text-[9px] font-bold text-slate-400">Total Avg</div>
-                      </div>
+                      )}
 
                       <button
                         type="button"

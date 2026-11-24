@@ -37,6 +37,7 @@ interface BoardReadinessToolProps {
   curriculumAvgPct: number;
   isFacultyView?: boolean;
   compact?: boolean;
+  onScoresChange?: (scores: SavedResidentExamScores) => void;
 }
 
 export default function BoardReadinessTool({
@@ -48,6 +49,7 @@ export default function BoardReadinessTool({
   curriculumAvgPct,
   isFacultyView = false,
   compact = false,
+  onScoresChange,
 }: BoardReadinessToolProps) {
   const [scores, setScores] = useState<SavedResidentExamScores>({
     examType: 'USMLE',
@@ -104,6 +106,7 @@ export default function BoardReadinessTool({
     };
     setScores(updated);
     saveResidentExamScores(residentKey, updated);
+    onScoresChange?.(updated);
     setSavedToast(true);
     setTimeout(() => setSavedToast(false), 2000);
   };
@@ -123,6 +126,7 @@ export default function BoardReadinessTool({
     setLicensingInput('');
     setScores(cleared);
     saveResidentExamScores(residentKey, cleared);
+    onScoresChange?.(cleared);
   };
 
   // Run the exact ABFM Bayesian Markov Model on entered official ITE scores

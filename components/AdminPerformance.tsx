@@ -8,14 +8,17 @@ import { isAdmin, isFaculty, getFacultyAdviseeFilter } from '@/lib/roles';
 import { getCurrentAcademicYear, getAvailableAcademicYears, formatAcademicYear, deriveLabel, isActiveResident, isGraduated, isFacultyRow, getResidentClassYear, residentMatchesCohort, getBlockAcademicYear } from '@/lib/academicYear';
 import { useSortState, sortItems, SortHeader, lastName } from '@/lib/sorting';
 import { BarChartIcon, Users, Loader2, TrendingUp, Target, X, ChevronRight, ChevronLeft, Mail, Search, Check, Download, FileText, Printer } from './AppIcons';
-import { Flame, Sparkles, HelpCircle, Eye, ArrowUpDown, ArrowUp, ArrowDown, Gift , Pencil, Trash2 } from 'lucide-react';
+import { Flame, Sparkles, HelpCircle, Eye, ArrowUpDown, ArrowUp, ArrowDown, Gift, Pencil, Trash2, ShieldCheck } from 'lucide-react';
 import QuestionHeatmap from './QuestionHeatmap';
 import AdviseeDossierModal from './AdviseeDossierModal';
 import RiskLegend from './RiskLegend';
 import QuizReview from './QuizReview';
 import AdminMetricModal, { MetricType } from './AdminMetricModal';
+import BoardReadinessTool from './BoardReadinessTool';
+import AdminBoardReadiness from './AdminBoardReadiness';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
 import { computeWeightedAccuracy, extractQuizCorrectAndTotal } from '@/lib/quizMetrics';
+import { MIN_BLOCKS_FOR_READINESS, MIN_QUESTIONS_FOR_READINESS } from '@/lib/iteScoring';
 import { DataTable } from './DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import { openEmailCompose, generateBlockReminderEmail } from '@/lib/emailHelper';
@@ -41,6 +44,8 @@ interface ResidentStat {
   curriculumQuestions?: string;
   independentQuestions?: string;
   overallQuestions?: string;
+  curriculumTotalQuestions: number;
+  overallTotalQuestions: number;
 
   blocksCompleted: number;
   onTimePct: number;
@@ -78,7 +83,7 @@ interface AdminPerformanceProps {
   onNavigateTab?: (tab: string) => void;
 }
 
-type SubTab = 'overview' | 'at_risk' | 'by_pgy' | 'by_block' | 'my_advisees' | 'heatmap';
+type SubTab = 'overview' | 'at_risk' | 'board_readiness' | 'by_pgy' | 'by_block' | 'my_advisees' | 'heatmap';
 
 export default function AdminPerformance({ user, profile, onNavigateTab }: AdminPerformanceProps) {
   const userIsAdmin = isAdmin(user, profile);
@@ -123,13 +128,23 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
   const [overviewSearch, setOverviewSearch] = useState('');
   const [overviewPgyFilter, setOverviewPgyFilter] = useState<'ALL' | 'PGY-1' | 'PGY-2' | 'PGY-3' | 'FACULTY'>('ALL');
 
-  const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance' | 'qotd'>('questions');
+  const [activeListTab, setActiveListTab] = useState<'questions' | 'attendance' | 'qotd' | 'readiness'>('questions');
+  const [scoresVersion, setScoresVersion] = useState(0);
   const [residentQotdHistory, setResidentQotdHistory] = useState<ResidentQotdHistoryItem[] | null>(null);
   const [loadingResidentQotd, setLoadingResidentQotd] = useState(false);
   const [residentQotdMeta, setResidentQotdMeta] = useState<{
     streak?: { current: number; max: number; lastDate: string | null };
     stats?: { totalAnswered: number; totalCorrect: number; accuracy: number };
   } | null>(null);
+
+  const openResidentModal = (
+    resident: ResidentStat,
+    initialTab: 'questions' | 'attendance' | 'qotd' | 'readiness' = 'questions'
+  ) => {
+    setSelectedQuiz(null);
+    setActiveListTab(initialTab);
+    setSelectedResident(resident);
+  };
 
   useEffect(() => {
     if (!selectedResident) {
@@ -413,7 +428,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
         return (
           <div className="text-center">
             {r.curriculumAttempts > 0 ? (
-              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.curriculumAvg > 65 ? 'text-emerald-700 dark:text-emerald-400' : r.curriculumAvg > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.curriculumAvg > 65 ? 'text-emerald-700 dark:text-emerald-400' : r.curriculumAvg >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                 {r.curriculumAvg.toFixed(1)}%
               </span>
             ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
@@ -429,7 +444,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
         return (
           <div className="text-center">
             {r.independentAttempts > 0 && r.independentAvg !== null ? (
-              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.independentAvg > 65 ? 'text-emerald-700 dark:text-emerald-400' : r.independentAvg > 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+              <span className={`text-sm font-black px-2 py-1 rounded-lg ${r.independentAvg > 65 ? 'text-emerald-700 dark:text-emerald-400' : r.independentAvg >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
                 {r.independentAvg.toFixed(1)}%
               </span>
             ) : <span className="text-slate-300 dark:text-slate-600 font-bold">—</span>}
@@ -708,6 +723,8 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
           curriculumQuestions: currWeighted.totalQuestions > 0 ? `${currWeighted.totalCorrect}/${currWeighted.totalQuestions}` : undefined,
           independentQuestions: indepWeighted.totalQuestions > 0 ? `${indepWeighted.totalCorrect}/${indepWeighted.totalQuestions}` : undefined,
           overallQuestions: overallWeighted.totalQuestions > 0 ? `${overallWeighted.totalCorrect}/${overallWeighted.totalQuestions}` : undefined,
+          curriculumTotalQuestions: currWeighted.totalQuestions,
+          overallTotalQuestions: overallWeighted.totalQuestions,
 
           blocksCompleted,
           onTimePct,
@@ -832,7 +849,14 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
   const programAvg = residentStats.length > 0
     ? residentStats.filter(r => r.totalAttempts > 0).reduce((a, r) => a + r.overallAvg, 0) / (residentStats.filter(r => r.totalAttempts > 0).length || 1)
     : 0;
-  const boardReadiness = Math.round(residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 65).length / (residentStats.filter(r => r.curriculumAttempts > 0).length || 1) * 100);
+  const readinessUnlocked = residentStats.filter(
+    (r) => r.blocksCompleted >= MIN_BLOCKS_FOR_READINESS || r.curriculumTotalQuestions >= MIN_QUESTIONS_FOR_READINESS
+  );
+  const onTrackReadyCount = readinessUnlocked.filter((r) => r.curriculumAvg > 65).length;
+  const borderlineReadyCount = readinessUnlocked.filter((r) => r.curriculumAvg >= 60 && r.curriculumAvg <= 65).length;
+  const boardReadiness = readinessUnlocked.length > 0
+    ? Math.round((onTrackReadyCount / readinessUnlocked.length) * 100)
+    : 0;
   const onTimeEligible = residentStats.filter(r => (r.blocksCompleted > 0 || r.overdueCount > 0));
   const onTimeProgramAvg = onTimeEligible.length > 0
     ? onTimeEligible.reduce((a, r) => a + r.onTimePct, 0) / onTimeEligible.length
@@ -846,8 +870,6 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
   const indepProgramAvg = indepResidents.length > 0
     ? indepResidents.reduce((a, r) => a + (r.independentAvg || 0), 0) / indepResidents.length
     : null;
-  const above70Count = residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 70).length;
-  const above65Count = residentStats.filter(r => r.curriculumAttempts > 0 && r.curriculumAvg >= 65).length;
   const activeQuizTakers = residentStats.filter(r => r.totalAttempts > 0).length;
   const totalAttemptsSum = residentStats.reduce((sum, r) => sum + r.totalAttempts, 0);
 
@@ -863,7 +885,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
       data={residents}
       hidePagination={hidePagination}
       globalSearchPlaceholder="Search residents..."
-      onRowClick={(row) => setSelectedResident(row)}
+      onRowClick={(row) => openResidentModal(row, 'questions')}
       rowClassName={(r) => {
         if (r.academicRisk === 'red' || r.complianceRisk === 'red') return riskColors.red.row;
         if (r.academicRisk === 'yellow' || r.complianceRisk === 'yellow' || r.declining) return riskColors.yellow.row;
@@ -949,15 +971,17 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
           <div className="w-9 h-9 sm:w-10 sm:h-10 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-2.5 group-hover:scale-110 transition-transform">
             <Target className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-          <span className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight">{boardReadiness}%</span>
-          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Board Ready (≥65%)</span>
+          <span className="text-2xl sm:text-3xl font-black text-slate-800 dark:text-white tracking-tight">
+            {readinessUnlocked.length > 0 ? `${boardReadiness}%` : '—'}
+          </span>
+          <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">Board Ready (&gt;65%)</span>
           <div className="mt-1.5 sm:mt-2 text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5 flex-wrap">
-            <span className="text-emerald-600 dark:text-emerald-400 font-black">{above70Count} ≥ 70%</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-black">{onTrackReadyCount} On Track</span>
             <span className="opacity-40">·</span>
-            <span>{above65Count} ≥ 65%</span>
+            <span className="text-amber-600 dark:text-amber-400 font-bold">{borderlineReadyCount} Borderline</span>
           </div>
           <span className="mt-2 sm:mt-3 text-[10px] font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-            Score Tiers &amp; Targets →
+            Readiness &amp; Benchmarks →
           </span>
         </button>
 
@@ -1009,6 +1033,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
           const baseTabs: [SubTab, string][] = [
             ['overview', 'Program Overview'],
             ['at_risk', `Flagged (${redFlagged.length + yellowFlagged.length})`],
+            ['board_readiness', 'Board Readiness'],
             ['by_pgy', 'By Class Year'],
             ['by_block', 'By Block'],
             ['heatmap', 'Trend Analysis'],
@@ -1058,7 +1083,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
       </div>
 
       {/* Risk Legend */}
-      <RiskLegend />
+      {activeSubTab !== 'board_readiness' && <RiskLegend />}
 
       {/* My Advisees Tab (faculty-focused view) */}
       {activeSubTab === 'my_advisees' && (
@@ -1254,7 +1279,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
           {redFlagged.length > 0 && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[32px] border border-red-100 dark:border-red-950/50 shadow-sm overflow-hidden transition-colors">
               <div className="p-4 sm:p-6 border-b border-red-50 dark:border-red-950/50 bg-red-50/40 dark:bg-red-950/30">
-                <h3 className="font-black text-sm sm:text-base text-red-700 dark:text-red-400">🔴 At Risk — Avg ≤50%, low on-time, or 2+ blocks overdue</h3>
+                <h3 className="font-black text-sm sm:text-base text-red-700 dark:text-red-400">🔴 At Risk — Avg &lt;60%, low on-time, or 2+ blocks overdue</h3>
               </div>
               <div className="p-2.5 sm:p-4"><ResidentTable residents={redFlagged} /></div>
             </div>
@@ -1530,6 +1555,20 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
         </div>
       )}
 
+      {/* Board Readiness Tab */}
+      {activeSubTab === 'board_readiness' && (
+        <AdminBoardReadiness
+          residents={residentStats}
+          selectedYear={selectedYear}
+          scoresVersion={scoresVersion}
+          myAdviseeEmails={myAdvisees.map((r) => r.email)}
+          onSelectResidentReadiness={(email) => {
+            const match = residentStats.find((r) => r.email.toLowerCase() === email.toLowerCase());
+            if (match) openResidentModal(match, 'readiness');
+          }}
+        />
+      )}
+
       {/* Heatmap Tab */}
       {activeSubTab === 'heatmap' && adminData && (
         <QuestionHeatmap adminData={adminData} />
@@ -1543,7 +1582,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800"
+            className={`bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl shadow-2xl ${activeListTab === 'readiness' ? 'max-w-4xl' : 'max-w-3xl'} w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800`}
           >
             <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start">
               <div className="w-full min-w-0">
@@ -1694,25 +1733,32 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
 
                 return (
                   <>
-                    <div className="flex bg-slate-100/50 dark:bg-slate-800/60 p-1 rounded-2xl mb-4 sm:mb-6 border border-slate-100 dark:border-slate-800">
+                    <div className="flex bg-slate-100/50 dark:bg-slate-800/60 p-1 rounded-2xl mb-4 sm:mb-6 border border-slate-100 dark:border-slate-800 overflow-x-auto gap-1">
                       <button 
                         onClick={() => setActiveListTab('questions')}
-                        className={`flex-1 text-xs sm:text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                        className={`flex-1 whitespace-nowrap px-2.5 text-xs sm:text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'questions' ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                       >
                         Questions
                       </button>
                       <button 
                         onClick={() => setActiveListTab('attendance')}
-                        className={`flex-1 text-xs sm:text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                        className={`flex-1 whitespace-nowrap px-2.5 text-xs sm:text-sm font-bold py-2 rounded-xl transition-all ${activeListTab === 'attendance' ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                       >
                         Attendance
                       </button>
                       <button 
                         onClick={() => setActiveListTab('qotd')}
-                        className={`flex-1 text-xs sm:text-sm font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeListTab === 'qotd' ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                        className={`flex-1 whitespace-nowrap px-2.5 text-xs sm:text-sm font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeListTab === 'qotd' ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                       >
-                        <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
+                        <Flame className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
                         <span>QOTD ({residentQotdHistory ? residentQotdHistory.length : '—'})</span>
+                      </button>
+                      <button 
+                        onClick={() => setActiveListTab('readiness')}
+                        className={`flex-1 whitespace-nowrap px-2.5 text-xs sm:text-sm font-bold py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeListTab === 'readiness' ? 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                      >
+                        <ShieldCheck className="w-4 h-4 text-indigo-500 shrink-0" />
+                        <span>Board Readiness</span>
                       </button>
                     </div>
 
@@ -1751,7 +1797,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                                      <span className={`text-xs sm:text-sm font-black px-2.5 sm:px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (r.percentage || 0) > 50 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
+                                      <span className={`text-xs sm:text-sm font-black px-2.5 sm:px-3 py-1 rounded-full ${(r.percentage || 0) > 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (r.percentage || 0) >= 60 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
                                         {(r.percentage || 0).toFixed(1)}%
                                       </span>
                                       {blockAttendance > 0 && (
@@ -1785,7 +1831,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                                      <span className={`text-xs sm:text-sm font-black px-2.5 sm:px-3 py-1 rounded-full ${(r.percentage || 0) >= 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (r.percentage || 0) > 50 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
+                                      <span className={`text-xs sm:text-sm font-black px-2.5 sm:px-3 py-1 rounded-full ${(r.percentage || 0) > 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (r.percentage || 0) >= 60 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
                                         {(r.percentage || 0).toFixed(1)}%
                                       </span>
                                       <ChevronRight className="w-4 h-4 text-indigo-200 dark:text-indigo-700 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -1875,6 +1921,25 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                         ) : (
                           <p className="text-slate-400 dark:text-slate-500 font-bold text-sm bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">No attendance recorded.</p>
                         )}
+                      </div>
+                    ) : activeListTab === 'readiness' ? (
+                      <div className="animate-fade-in">
+                        <BoardReadinessTool
+                          residentKey={selectedResident.email || selectedResident.userId || selectedResident.name}
+                          residentName={formatDisplayName(selectedResident.name)}
+                          pgyLevel={
+                            /3/.test(selectedResident.label || selectedResident.pgy || '')
+                              ? 3
+                              : /1/.test(selectedResident.label || selectedResident.pgy || '')
+                              ? 1
+                              : 2
+                          }
+                          blocksCompleted={selectedResident.blocksCompleted}
+                          totalQuestionsAnswered={selectedResident.curriculumTotalQuestions}
+                          curriculumAvgPct={selectedResident.curriculumAvg}
+                          isFacultyView={true}
+                          onScoresChange={() => setScoresVersion((v) => v + 1)}
+                        />
                       </div>
                     ) : (
                       <div className="space-y-6">
@@ -2359,7 +2424,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                               </td>
                               <td className="px-3 py-3 text-center font-bold">
                                 {isCompleted ? (
-                                  <span className={`text-xs px-2 py-0.5 rounded-md font-black ${(result.percentage || 0) >= 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (result.percentage || 0) > 50 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
+                                  <span className={`text-xs px-2 py-0.5 rounded-md font-black ${(result.percentage || 0) > 65 ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : (result.percentage || 0) >= 60 ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300' : 'bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-300'}`}>
                                     {(result.percentage || 0).toFixed(0)}% <span className="font-normal text-[11px] opacity-75">({result.score || 0}/{result.total || block.question_count || 40})</span>
                                   </span>
                                 ) : (
@@ -2460,7 +2525,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
           onSelectResident={(r) => {
             const match = residentStats.find(res => res.email === r.email || (res.userId && res.userId === r.userId));
             if (match) {
-              setSelectedResident(match);
+              openResidentModal(match, expandedMetric === 'board_readiness' ? 'readiness' : 'questions');
             }
             setExpandedMetric(null);
           }}
