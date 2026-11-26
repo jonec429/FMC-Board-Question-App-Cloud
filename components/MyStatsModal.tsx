@@ -7,7 +7,15 @@ import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save, Check, Layers } from './AppIcons';
 import { LeaderboardEntry, Profile, Result, UserBadge, Question, QotdPeerComparisonResponse, Block, BlockSchedule } from '@/lib/types';
 import { computeResidentReadiness, ResidentReadiness, ReadinessStatus } from '@/lib/residentRisk';
-import { computeWeightedAccuracy, computeTopicBreakdown, isGradedQuizResult } from '@/lib/quizMetrics';
+import {
+  computeWeightedAccuracy,
+  computeTopicBreakdown,
+  isGradedQuizResult,
+  computeAttemptMetrics,
+  computeCurriculumAttemptAccuracy,
+  AttemptAccuracySummary,
+  AttemptRecordInput,
+} from '@/lib/quizMetrics';
 import { ShieldCheck, AlertTriangle, AlertCircle, Clock, Info, ArrowRight, BookOpen, CheckCircle } from 'lucide-react';
 import QuizReview from './QuizReview';
 import FlashcardsModal from './FlashcardsModal';
@@ -97,6 +105,9 @@ export default function MyStatsModal({
   const [showAllReview, setShowAllReview] = useState(false);
   const [qotdStats, setQotdStats] = useState<{ correct: number; incorrect: number } | null>(null);
   const [qotdComparison, setQotdComparison] = useState<QotdPeerComparisonResponse | null>(null);
+  const [rawAttempts, setRawAttempts] = useState<AttemptRecordInput[]>([]);
+  const [metricScope, setMetricScope] = useState<'global' | 'curriculum'>('global');
+  const [metricAttempt, setMetricAttempt] = useState<'first' | 'best'>('first');
 
   // Weak Areas State
   const [loadingWeakAreas, setLoadingWeakAreas] = useState(false);
@@ -126,14 +137,69 @@ export default function MyStatsModal({
   // Past Quizzes: the resident's completed blocks/customs (newest first). Excludes
   // QOTD, the demo, and attendance/manual credit records. New quizzes carry a `review_data` snapshot for full review.
   
+  // Fetch all non-QOTD question_attempts once for Global First-Pass & Best-Attempt metrics
+  useEffect(() => {
+    let cancelled = false;
+    if (!userId) return;
+    fetchAllPages((from, to) =>
+      supabase
+        .from('question_attempts')
+        .select('question_id, is_correct, created_at, is_qotd')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to)
+    )
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows)) setRawAttempts(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const attemptMetrics: AttemptAccuracySummary = useMemo(
+    () => computeAttemptMetrics(rawAttempts),
+    [rawAttempts]
+  );
+
+  const assignedCurriculumResults = useMemo(
+    () =>
+      (myResults || []).filter(
+        (r) =>
+          !r.topic?.includes('[Attendance]') &&
+          !r.topic?.includes('[Manual]') &&
+          !r.topic?.toLowerCase().includes('demo') &&
+          ((r.academic_points || 0) > 0 || r.timing_status != null)
+      ),
+    [myResults]
+  );
+
+  const curriculumFirstStats = useMemo(
+    () => computeCurriculumAttemptAccuracy(assignedCurriculumResults, 'first'),
+    [assignedCurriculumResults]
+  );
+  const curriculumBestStats = useMemo(
+    () => computeCurriculumAttemptAccuracy(assignedCurriculumResults, 'best'),
+    [assignedCurriculumResults]
+  );
+
   const readiness: ResidentReadiness = useMemo(() => {
     return computeResidentReadiness({
       results: myResults || [],
       blocks: blocks || [],
       blockSchedule: blockSchedule || [],
       academicYear: selectedYear,
+      globalFirstPass:
+        attemptMetrics.firstPassTotal > 0
+          ? {
+              accuracy: attemptMetrics.firstPassAccuracy,
+              totalQuestions: attemptMetrics.firstPassTotal,
+            }
+          : null,
     });
-  }, [myResults, blocks, blockSchedule, selectedYear]);
+  }, [myResults, blocks, blockSchedule, selectedYear, attemptMetrics]);
 
   const statusConfig = {
     'Board Ready': {
@@ -974,24 +1040,103 @@ export default function MyStatsModal({
             </div>
           )}
 
-          {activeTab === 'readiness' && (
-            <div className="animate-fade-in">
-              <BoardReadinessTool
-                residentKey={userEmail || userId}
-                residentName={formatDisplayName(profile?.full_name)}
-                pgyLevel={
-                  /3/.test(profile?.pgy || '')
-                    ? 3
-                    : /1/.test(profile?.pgy || '')
-                    ? 1
-                    : 2
-                }
-                blocksCompleted={blocksCompleted}
-                totalQuestionsAnswered={totalQs}
-                curriculumAvgPct={readiness.curriculumAvg || accurateAvgScore || 0}
-              />
-            </div>
-          )}
+          {activeTab === 'readiness' && (() => {
+            const activePct =
+              metricScope === 'global'
+                ? metricAttempt === 'first'
+                  ? (attemptMetrics.firstPassAccuracy ?? readiness.standingAvg)
+                  : (attemptMetrics.bestAccuracy ?? readiness.standingAvg)
+                : metricAttempt === 'first'
+                  ? (curriculumFirstStats.accuracy ?? readiness.curriculumAvg)
+                  : (curriculumBestStats.accuracy ?? readiness.curriculumAvg);
+            const activeQs =
+              metricScope === 'global'
+                ? metricAttempt === 'first'
+                  ? (attemptMetrics.firstPassTotal || totalQs)
+                  : (attemptMetrics.bestTotal || totalQs)
+                : metricAttempt === 'first'
+                  ? curriculumFirstStats.totalQuestions
+                  : curriculumBestStats.totalQuestions;
+
+            return (
+              <div className="animate-fade-in space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 sm:p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex rounded-xl bg-white dark:bg-slate-900 p-0.5 border border-slate-200 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setMetricScope('global')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-colors ${
+                          metricScope === 'global'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        Global (All Qs)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMetricScope('curriculum')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-colors ${
+                          metricScope === 'curriculum'
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        Curriculum Blocks
+                      </button>
+                    </div>
+                    <div className="inline-flex rounded-xl bg-white dark:bg-slate-900 p-0.5 border border-slate-200 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setMetricAttempt('first')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-colors ${
+                          metricAttempt === 'first'
+                            ? 'bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        First Attempt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMetricAttempt('best')}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-colors ${
+                          metricAttempt === 'best'
+                            ? 'bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        Best Attempt
+                      </button>
+                    </div>
+                  </div>
+                  <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                    Active: <strong className="text-slate-800 dark:text-slate-200">{activePct.toFixed(1)}%</strong> ({activeQs} Qs)
+                    {metricScope === 'global' && metricAttempt === 'first' && (
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+                        Used for Standing
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <BoardReadinessTool
+                  residentKey={userEmail || userId}
+                  residentName={formatDisplayName(profile?.full_name)}
+                  pgyLevel={
+                    /3/.test(profile?.pgy || '')
+                      ? 3
+                      : /1/.test(profile?.pgy || '')
+                      ? 1
+                      : 2
+                  }
+                  blocksCompleted={blocksCompleted}
+                  totalQuestionsAnswered={activeQs}
+                  curriculumAvgPct={activePct}
+                />
+              </div>
+            );
+          })()}
 
           {activeTab === 'apTracker' && (
             <div className="space-y-4 sm:space-y-5 animate-fade-in">
@@ -1739,14 +1884,14 @@ export default function MyStatsModal({
                         </div>
                       )}
 
-                      {readiness.curriculumAvg < 65 && (
+                      {readiness.standingAvg < 65 && (
                         <div className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/70 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
                           <span className="font-bold text-amber-600 shrink-0">
                             {readiness.overdueBlocks.length > 0 ? '2.' : '1.'}
                           </span>
                           <div>
-                            <span className="font-bold text-slate-800 dark:text-slate-100">Elevate Curriculum Average to &gt; 65%: </span>
-                            Your current average is <strong className="font-black">{readiness.curriculumAvg.toFixed(1)}%</strong>. Aim for &ge; 70% on your upcoming block quizzes and review incorrect answers in Weak Areas to lift your average above the 65% safe buffer.
+                            <span className="font-bold text-slate-800 dark:text-slate-100">Elevate Global 1st-Pass Average to &gt; 65%: </span>
+                            Your current Global 1st-Pass average is <strong className="font-black">{readiness.standingAvg.toFixed(1)}%</strong>. Aim for &ge; 70% on upcoming curriculum blocks and unseen custom practice quizzes to lift your first-pass average above the 65% safe buffer.
                           </div>
                         </div>
                       )}
@@ -1754,11 +1899,21 @@ export default function MyStatsModal({
                       {readiness.onTimePct <= 75 && (
                         <div className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/70 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
                           <span className="font-bold text-blue-600 shrink-0">
-                            {readiness.overdueBlocks.length > 0 && readiness.curriculumAvg < 65 ? '3.' : readiness.overdueBlocks.length > 0 || readiness.curriculumAvg < 65 ? '2.' : '1.'}
+                            {readiness.overdueBlocks.length > 0 && readiness.standingAvg < 65 ? '3.' : readiness.overdueBlocks.length > 0 || readiness.standingAvg < 65 ? '2.' : '1.'}
                           </span>
                           <div>
                             <span className="font-bold text-slate-800 dark:text-slate-100">Submit Future Blocks On-Time or Early: </span>
                             Your on-time rate is currently <strong className="font-black">{readiness.onTimePct.toFixed(0)}%</strong>. Submitting future blocks before their deadline will restore your compliance rate above the 75% threshold.
+                          </div>
+                        </div>
+                      )}
+
+                      {readiness.declining && (
+                        <div className="flex items-start gap-2 bg-white/70 dark:bg-slate-900/70 p-2 rounded-xl border border-slate-200 dark:border-slate-800">
+                          <span className="font-bold text-purple-600 shrink-0">•</span>
+                          <div>
+                            <span className="font-bold text-slate-800 dark:text-slate-100">Reverse Recent Score Dip: </span>
+                            Your recent blocks dropped by <strong className="font-black">{Math.abs(Math.round(readiness.trendDelta || 0))}%</strong> compared to your earlier baseline. Review missed items in Weak Areas to stabilize your trajectory.
                           </div>
                         </div>
                       )}

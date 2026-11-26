@@ -20,8 +20,8 @@ async function fetchCore(): Promise<CoreData> {
     throw new Error(`Failed to load admin data: ${errorMessages}`);
   }
 
-  // Fetch potentially large tables with deterministic 1,000-row pagination
-  const [resultsData, attendanceData] = await Promise.all([
+  // Fetch potentially large tables with deterministic 1,000-row pagination + server-side attempt metrics RPC
+  const [resultsData, attendanceData, attemptMetricsRes] = await Promise.all([
     fetchAllPages<any>((from, to) =>
       supabase
         .from('results')
@@ -36,7 +36,13 @@ async function fetchCore(): Promise<CoreData> {
         .order('id', { ascending: true })
         .range(from, to)
     ),
+    Promise.resolve(supabase.rpc('get_resident_attempt_metrics')).catch(() => ({ data: [], error: null })),
   ]);
+
+  const attemptMetrics =
+    attemptMetricsRes && !attemptMetricsRes.error && Array.isArray(attemptMetricsRes.data)
+      ? attemptMetricsRes.data
+      : [];
 
   return {
     blocks: blocksRes.data || [],
@@ -45,6 +51,7 @@ async function fetchCore(): Promise<CoreData> {
     profiles: profilesRes.data || [],
     roster: rosterRes.data || [],
     attendance: attendanceData || [],
+    attemptMetrics,
   };
 }
 

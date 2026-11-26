@@ -58,6 +58,14 @@ export interface LeaderboardEntry {
   isGraduated?: boolean;
 }
 
+export interface ResidentAttemptMetricRow {
+  user_id: string;
+  first_pass_correct: number;
+  first_pass_total: number;
+  best_correct: number;
+  best_total: number;
+}
+
 export interface AdminData {
   questions: Question[];
   blocks: Block[];
@@ -66,6 +74,7 @@ export interface AdminData {
   profiles: Profile[];
   roster: RosterEntry[];
   attendance: AttendanceRecord[];
+  attemptMetrics?: ResidentAttemptMetricRow[];
 }
 
 export interface QuizSession {

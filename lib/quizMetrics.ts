@@ -179,3 +179,134 @@ export function computeTopicBreakdown(
     }))
     .sort((a, b) => b.avg - a.avg);
 }
+
+export interface AttemptAccuracySummary {
+  firstPassCorrect: number;
+  firstPassTotal: number;
+  firstPassAccuracy: number | null;
+  bestCorrect: number;
+  bestTotal: number;
+  bestAccuracy: number | null;
+}
+
+export interface AttemptRecordInput {
+  question_id: string | null | undefined;
+  is_correct: boolean;
+  created_at?: string | null;
+  id?: string | null;
+  is_qotd?: boolean | null;
+}
+
+/**
+ * Computes Global question-level First-Pass and Best-Attempt accuracy from
+ * `question_attempts` rows. Excludes QOTD (`is_qotd === true`) and deduplicates
+ * by `question_id` using the earliest `created_at` for First Pass.
+ */
+export function computeAttemptMetrics(
+  attempts: AttemptRecordInput[] | null | undefined
+): AttemptAccuracySummary {
+  if (!attempts || attempts.length === 0) {
+    return {
+      firstPassCorrect: 0,
+      firstPassTotal: 0,
+      firstPassAccuracy: null,
+      bestCorrect: 0,
+      bestTotal: 0,
+      bestAccuracy: null,
+    };
+  }
+
+  const byQuestion = new Map<
+    string,
+    { firstCorrect: boolean; firstTs: number; anyCorrect: boolean }
+  >();
+
+  for (const a of attempts) {
+    if (!a || !a.question_id || a.is_qotd) continue;
+    const ts = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const existing = byQuestion.get(a.question_id);
+    if (!existing) {
+      byQuestion.set(a.question_id, {
+        firstCorrect: Boolean(a.is_correct),
+        firstTs: Number.isNaN(ts) ? 0 : ts,
+        anyCorrect: Boolean(a.is_correct),
+      });
+    } else {
+      if (a.is_correct) existing.anyCorrect = true;
+      if (!Number.isNaN(ts) && ts < existing.firstTs) {
+        existing.firstTs = ts;
+        existing.firstCorrect = Boolean(a.is_correct);
+      }
+    }
+  }
+
+  const total = byQuestion.size;
+  if (total === 0) {
+    return {
+      firstPassCorrect: 0,
+      firstPassTotal: 0,
+      firstPassAccuracy: null,
+      bestCorrect: 0,
+      bestTotal: 0,
+      bestAccuracy: null,
+    };
+  }
+
+  let firstPassCorrect = 0;
+  let bestCorrect = 0;
+  byQuestion.forEach((v) => {
+    if (v.firstCorrect) firstPassCorrect += 1;
+    if (v.anyCorrect) bestCorrect += 1;
+  });
+
+  return {
+    firstPassCorrect,
+    firstPassTotal: total,
+    firstPassAccuracy: (firstPassCorrect / total) * 100,
+    bestCorrect,
+    bestTotal: total,
+    bestAccuracy: (bestCorrect / total) * 100,
+  };
+}
+
+/**
+ * Computes Curriculum-block First-Attempt or Best-Attempt weighted accuracy
+ * across assigned curriculum `Result` rows (grouped by `topic`).
+ */
+export function computeCurriculumAttemptAccuracy(
+  assignedResults: Array<Partial<Result>> | null | undefined,
+  mode: 'first' | 'best'
+): WeightedAccuracyResult {
+  if (!assignedResults || assignedResults.length === 0) {
+    return { accuracy: null, totalCorrect: 0, totalQuestions: 0, quizCount: 0 };
+  }
+
+  const pickedByTopic = new Map<string, Partial<Result>>();
+
+  for (const r of assignedResults) {
+    if (!r || !r.topic) continue;
+    if (/\[attendance\]|\[manual\]/i.test(r.topic)) continue;
+    if (r.topic.toLowerCase().includes('demo')) continue;
+
+    const current = pickedByTopic.get(r.topic);
+    if (!current) {
+      pickedByTopic.set(r.topic, r);
+      continue;
+    }
+
+    if (mode === 'first') {
+      const rTs = r.created_at ? new Date(r.created_at).getTime() : Infinity;
+      const cTs = current.created_at ? new Date(current.created_at).getTime() : Infinity;
+      if (rTs < cTs) pickedByTopic.set(r.topic, r);
+    } else {
+      const rPct = typeof r.percentage === 'number' ? r.percentage : -1;
+      const cPct = typeof current.percentage === 'number' ? current.percentage : -1;
+      if (rPct > cPct) pickedByTopic.set(r.topic, r);
+    }
+  }
+
+  return computeWeightedAccuracy(Array.from(pickedByTopic.values()), {
+    excludeQotd: true,
+    excludeDemo: true,
+  });
+}

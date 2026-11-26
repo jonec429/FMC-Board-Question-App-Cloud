@@ -50,6 +50,14 @@ export interface BoardReadinessResidentInput {
   curriculumAvg: number;
   curriculumQuestions?: string;
   curriculumTotalQuestions: number;
+  globalFirstAvg?: number | null;
+  globalFirstTotal?: number;
+  globalBestAvg?: number | null;
+  globalBestTotal?: number;
+  curriculumFirstAvg?: number | null;
+  curriculumFirstTotal?: number;
+  curriculumBestAvg?: number | null;
+  curriculumBestTotal?: number;
   blocksCompleted: number;
   overdueCount: number;
   onTimePct: number;
@@ -108,6 +116,8 @@ export default function AdminBoardReadiness({
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('zone');
   const [sortAsc, setSortAsc] = useState<boolean>(true);
+  const [metricScope, setMetricScope] = useState<'global' | 'curriculum'>('global');
+  const [metricAttempt, setMetricAttempt] = useState<'first' | 'best'>('first');
 
   useEffect(() => {
     const next: Record<string, SavedResidentExamScores> = {};
@@ -140,10 +150,28 @@ export default function AdminBoardReadiness({
         }
       }
 
+      const activeTotalQuestions =
+        metricScope === 'global'
+          ? metricAttempt === 'first'
+            ? (resident.globalFirstTotal || resident.curriculumTotalQuestions)
+            : (resident.globalBestTotal || resident.curriculumTotalQuestions)
+          : metricAttempt === 'first'
+            ? (resident.curriculumFirstTotal ?? resident.curriculumTotalQuestions)
+            : (resident.curriculumBestTotal ?? resident.curriculumTotalQuestions);
+
+      const activeAccuracyPct =
+        metricScope === 'global'
+          ? metricAttempt === 'first'
+            ? (resident.globalFirstAvg ?? resident.curriculumAvg)
+            : (resident.globalBestAvg ?? resident.curriculumAvg)
+          : metricAttempt === 'first'
+            ? (resident.curriculumFirstAvg ?? resident.curriculumAvg)
+            : (resident.curriculumBestAvg ?? resident.curriculumAvg);
+
       const readiness = computeExperimentalReadiness({
         blocksCompleted: resident.blocksCompleted,
-        totalQuestionsAnswered: resident.curriculumTotalQuestions,
-        rawAccuracyPct: resident.curriculumAvg,
+        totalQuestionsAnswered: activeTotalQuestions,
+        rawAccuracyPct: activeAccuracyPct,
         pgyLevel,
         bayesianBaseline: bayesian,
       });
@@ -156,7 +184,7 @@ export default function AdminBoardReadiness({
         readiness,
       };
     });
-  }, [residents, scoresByKey]);
+  }, [residents, scoresByKey, metricScope, metricAttempt]);
 
   // Cohort-scoped rows (before zoneFilter/search) for summary cards
   const cohortScoped = useMemo(() => {
@@ -775,6 +803,68 @@ export default function AdminBoardReadiness({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-3 border-t border-slate-200/70 dark:border-slate-800/70">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-xl bg-white dark:bg-slate-900 p-0.5 border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setMetricScope('global')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-colors ${
+                    metricScope === 'global'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Global (All Qs)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetricScope('curriculum')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-colors ${
+                    metricScope === 'curriculum'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Curriculum Blocks
+                </button>
+              </div>
+              <div className="inline-flex rounded-xl bg-white dark:bg-slate-900 p-0.5 border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setMetricAttempt('first')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-colors ${
+                    metricAttempt === 'first'
+                      ? 'bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  First Attempt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMetricAttempt('best')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-black transition-colors ${
+                    metricAttempt === 'best'
+                      ? 'bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Best Attempt
+                </button>
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              {metricScope === 'global' && metricAttempt === 'first'
+                ? 'Official Standing Mode (excludes Demo, Attendance & QOTD)'
+                : metricScope === 'global'
+                ? 'Global Mastery (Best Attempt per unique question)'
+                : metricAttempt === 'first'
+                ? 'Curriculum Blocks (First Attempt per block)'
+                : 'Curriculum Blocks (Best Attempt per block)'}
+            </span>
           </div>
         </div>
 

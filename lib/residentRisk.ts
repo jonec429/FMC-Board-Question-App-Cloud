@@ -154,6 +154,8 @@ export interface ResidentReadiness {
   academicRisk: RiskLevel;
   complianceRisk: RiskLevel;
   curriculumAvg: number;
+  globalFirstAvg: number | null;
+  standingAvg: number;
   onTimePct: number;
   blocksCompleted: number;
   overdueBlocks: DueBlock[];
@@ -168,11 +170,13 @@ export function computeResidentReadiness({
   blocks,
   blockSchedule,
   academicYear,
+  globalFirstPass,
 }: {
   results: Result[];
   blocks: Block[];
   blockSchedule: BlockSchedule[];
   academicYear: number;
+  globalFirstPass?: { accuracy: number | null; totalQuestions: number } | null;
 }): ResidentReadiness {
   const targetYear = academicYear === 0 ? getCurrentAcademicYear() : academicYear;
   const dueBlocks = getDueBlocks(blocks || [], blockSchedule || [], targetYear);
@@ -218,12 +222,20 @@ export function computeResidentReadiness({
     .map((r) => r.percentage as number);
   const { delta: trendDelta, declining } = computeTrend(scoresChrono);
 
-  const academicRisk = getRiskLevel(curriculumAvg, assignedResults.length);
+  const globalFirstAvg =
+    globalFirstPass && globalFirstPass.accuracy != null && globalFirstPass.totalQuestions > 0
+      ? globalFirstPass.accuracy
+      : null;
+  const standingAvg = globalFirstAvg ?? curriculumAvg;
+  const hasEnoughGlobalQs = (globalFirstPass?.totalQuestions ?? 0) >= 120;
+  const effectiveAcademicAttempts = hasEnoughGlobalQs ? Math.max(assignedResults.length, 3) : assignedResults.length;
+
+  const academicRisk = getRiskLevel(standingAvg, effectiveAcademicAttempts);
   const complianceRisk = getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
 
   const reasons = getRiskReasons({
-    curriculumAvg,
-    curriculumAttempts: assignedResults.length,
+    curriculumAvg: standingAvg,
+    curriculumAttempts: effectiveAcademicAttempts,
     onTimePct,
     blocksCompleted,
     overdueCount,
@@ -231,11 +243,11 @@ export function computeResidentReadiness({
   });
 
   let status: ReadinessStatus = 'Evaluating';
-  if (assignedResults.length < 3 && blocksCompleted + overdueCount < 3) {
+  if (!hasEnoughGlobalQs && assignedResults.length < 3 && blocksCompleted + overdueCount < 3) {
     status = 'Evaluating';
   } else if (academicRisk === 'red' || complianceRisk === 'red') {
     status = 'At Risk';
-  } else if (academicRisk === 'yellow' || complianceRisk === 'yellow' || declining || curriculumAvg < 65) {
+  } else if (academicRisk === 'yellow' || complianceRisk === 'yellow' || declining || standingAvg < 65) {
     status = 'Needs Attention';
   } else {
     status = 'Board Ready';
@@ -246,6 +258,8 @@ export function computeResidentReadiness({
     academicRisk,
     complianceRisk,
     curriculumAvg,
+    globalFirstAvg,
+    standingAvg,
     onTimePct,
     blocksCompleted,
     overdueBlocks,

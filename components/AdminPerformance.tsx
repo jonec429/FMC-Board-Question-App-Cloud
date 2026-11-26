@@ -17,7 +17,7 @@ import AdminMetricModal, { MetricType } from './AdminMetricModal';
 import BoardReadinessTool from './BoardReadinessTool';
 import AdminBoardReadiness from './AdminBoardReadiness';
 import { RiskLevel, getRiskLevel, getDueBlocks, getOverdueBlocks, getComplianceRisk, getRiskReasons, computeTrend } from '@/lib/residentRisk';
-import { computeWeightedAccuracy, extractQuizCorrectAndTotal } from '@/lib/quizMetrics';
+import { computeWeightedAccuracy, extractQuizCorrectAndTotal, computeCurriculumAttemptAccuracy } from '@/lib/quizMetrics';
 import { MIN_BLOCKS_FOR_READINESS, MIN_QUESTIONS_FOR_READINESS } from '@/lib/iteScoring';
 import { DataTable } from './DataTable';
 import { ColumnDef } from '@tanstack/react-table';
@@ -46,6 +46,14 @@ interface ResidentStat {
   overallQuestions?: string;
   curriculumTotalQuestions: number;
   overallTotalQuestions: number;
+  globalFirstAvg?: number | null;
+  globalFirstTotal?: number;
+  globalBestAvg?: number | null;
+  globalBestTotal?: number;
+  curriculumFirstAvg?: number | null;
+  curriculumFirstTotal?: number;
+  curriculumBestAvg?: number | null;
+  curriculumBestTotal?: number;
 
   blocksCompleted: number;
   onTimePct: number;
@@ -598,6 +606,20 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
     };
   }, [adminData, selectedYear, showGraduates, profiles, allResults, roster]);
 
+  const attemptMetricsByUser = useMemo(() => {
+    const m = new Map<string, { firstPassCorrect: number; firstPassTotal: number; bestCorrect: number; bestTotal: number }>();
+    (adminData?.attemptMetrics || []).forEach((row) => {
+      if (!row?.user_id) return;
+      m.set(row.user_id, {
+        firstPassCorrect: Number(row.first_pass_correct || 0),
+        firstPassTotal: Number(row.first_pass_total || 0),
+        bestCorrect: Number(row.best_correct || 0),
+        bestTotal: Number(row.best_total || 0),
+      });
+    });
+    return m;
+  }, [adminData?.attemptMetrics]);
+
   const computeUserStats = useMemo(() => {
     return (list: RosterEntry[], isFacultyUser: boolean): ResidentStat[] => {
       if (!adminData) return [];
@@ -680,7 +702,21 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
         const overallWeighted = computeWeightedAccuracy(resQuizzes);
         const overallAvg = overallWeighted.accuracy ?? 0;
 
-        const academicRisk = isFacultyUser ? 'gray' : getRiskLevel(curriculumAvg, assignedResults.length);
+        const residentUserId = emailToUserId.get(resident.email?.toLowerCase()) || null;
+        const attemptRow = residentUserId ? attemptMetricsByUser.get(residentUserId) : undefined;
+        const globalFirstTotal = attemptRow?.firstPassTotal ?? 0;
+        const globalFirstAvg = globalFirstTotal > 0 ? (attemptRow!.firstPassCorrect / globalFirstTotal) * 100 : null;
+        const globalBestTotal = attemptRow?.bestTotal ?? 0;
+        const globalBestAvg = globalBestTotal > 0 ? (attemptRow!.bestCorrect / globalBestTotal) * 100 : null;
+
+        const currFirst = computeCurriculumAttemptAccuracy(curriculumQuizzes, 'first');
+        const currBest = computeCurriculumAttemptAccuracy(curriculumQuizzes, 'best');
+
+        const standingAvg = globalFirstAvg ?? curriculumAvg;
+        const hasEnoughGlobalQs = globalFirstTotal >= MIN_QUESTIONS_FOR_READINESS;
+        const effectiveAcademicAttempts = hasEnoughGlobalQs ? Math.max(assignedResults.length, 3) : assignedResults.length;
+
+        const academicRisk = isFacultyUser ? 'gray' : getRiskLevel(standingAvg, effectiveAcademicAttempts);
         const complianceRisk = isFacultyUser ? 'gray' : getComplianceRisk(onTimePct, blocksCompleted, overdueCount);
 
         // Early-warning: recent scores sliding vs earlier ones (even if the average still looks OK).
@@ -692,8 +728,8 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
         const declining = isFacultyUser ? false : rawDeclining;
 
         const riskReasons = isFacultyUser ? [] : getRiskReasons({
-          curriculumAvg,
-          curriculumAttempts: assignedResults.length,
+          curriculumAvg: standingAvg,
+          curriculumAttempts: effectiveAcademicAttempts,
           onTimePct,
           blocksCompleted,
           overdueCount,
@@ -725,6 +761,14 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
           overallQuestions: overallWeighted.totalQuestions > 0 ? `${overallWeighted.totalCorrect}/${overallWeighted.totalQuestions}` : undefined,
           curriculumTotalQuestions: currWeighted.totalQuestions,
           overallTotalQuestions: overallWeighted.totalQuestions,
+          globalFirstAvg,
+          globalFirstTotal,
+          globalBestAvg,
+          globalBestTotal,
+          curriculumFirstAvg: currFirst.accuracy,
+          curriculumFirstTotal: currFirst.totalQuestions,
+          curriculumBestAvg: currBest.accuracy,
+          curriculumBestTotal: currBest.totalQuestions,
 
           blocksCompleted,
           onTimePct,
@@ -746,7 +790,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
 
       return stats.sort((a, b) => b.totalPoints - a.totalPoints);
     };
-  }, [adminData, selectedYear, blocks, block_schedule, enriched, emailToUserId]);
+  }, [adminData, selectedYear, blocks, block_schedule, enriched, emailToUserId, attemptMetricsByUser]);
 
   const residentStats = useMemo(() => {
     return computeUserStats(scopedResidents, false);
