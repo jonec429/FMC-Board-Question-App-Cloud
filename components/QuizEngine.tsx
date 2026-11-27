@@ -11,7 +11,7 @@ import { withTimeout } from '@/lib/utils';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { getTodayDateString, isPastNoon } from '@/lib/qotd';
 import { getEasternDateString, isPastNoonEastern, getEasternTzAbbreviation } from '@/lib/timezone';
-import { processGamification, awardMockExamBadges } from '@/lib/gamification';
+import { processGamification, awardMockExamBadges, evaluateQotdReactionBadge, evaluateGiantSlayerBadge } from '@/lib/gamification';
 import BreakLounge from './BreakLounge';
 import { Shield, AlertTriangle, Coffee, Play, Pause } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -1133,7 +1133,25 @@ export default function QuizEngine({
         if (attemptsData && attemptsData.length > 0) {
           const correct = Number(attemptsData[0].correct) || 0;
           const incorrect = Number(attemptsData[0].incorrect) || 0;
-          setQotdStats({ correct, incorrect, total: correct + incorrect });
+          const total = correct + incorrect;
+          setQotdStats({ correct, incorrect, total });
+
+          if (finalAnswers[0] === questions[0].correct_index && total >= 5 && correct / total < 0.3) {
+            evaluateGiantSlayerBadge(user.id)
+              .then((awarded) => {
+                if (awarded && awarded.length > 0) {
+                  setNewBadgesEarned(true);
+                  try {
+                    const existingRecent = JSON.parse(localStorage.getItem('recent_badges') || '[]');
+                    const combined = [...existingRecent, ...awarded];
+                    const uniqueMap = new Map();
+                    combined.forEach((b: any) => uniqueMap.set(b.id || b.name, b));
+                    localStorage.setItem('recent_badges', JSON.stringify(Array.from(uniqueMap.values())));
+                  } catch {}
+                }
+              })
+              .catch(() => {});
+          }
         }
 
         fetchPeerComparison(questions[0].id);
@@ -1527,6 +1545,21 @@ export default function QuizEngine({
         }, { onConflict: 'user_id, question_id, date' });
 
         if (error) throw error;
+
+        evaluateQotdReactionBadge(user.id)
+          .then((awarded) => {
+            if (awarded && awarded.length > 0) {
+              setNewBadgesEarned(true);
+              try {
+                const existingRecent = JSON.parse(localStorage.getItem('recent_badges') || '[]');
+                const combined = [...existingRecent, ...awarded];
+                const uniqueMap = new Map();
+                combined.forEach((b: any) => uniqueMap.set(b.id || b.name, b));
+                localStorage.setItem('recent_badges', JSON.stringify(Array.from(uniqueMap.values())));
+              } catch {}
+            }
+          })
+          .catch(() => {});
       } catch (err) {
         console.error('Error saving reaction:', err);
         // Revert optimistic update

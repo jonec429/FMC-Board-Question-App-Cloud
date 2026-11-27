@@ -29,7 +29,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { getQotdQuestion, isPastNoon, getTodayDateString } from '@/lib/qotd';
 import { computeResidentReadiness } from '@/lib/residentRisk';
 import { computeWeightedAccuracy } from '@/lib/quizMetrics';
-import { evaluateLeaderboardBadges } from '@/lib/gamification';
+import { evaluateLeaderboardBadges, evaluateMilestoneAndAttendanceBadges } from '@/lib/gamification';
 import { User, Profile, Block, Result, Question, QuizSession, AssignedQuiz, ChallengeStandingsResponse, ChallengeResidentStanding } from '@/lib/types';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
@@ -436,7 +436,29 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         }
       })
       .catch(() => {});
-  }, [isActive, data, user?.id, effectiveRole, myRank, totalPoints, activeLeaderboard.length, userBadges, refetch]);
+
+    const attendanceCount = myResults.filter(
+      (r) => r.topic && /\[attendance\]/i.test(r.topic) && !/advisor meeting/i.test(r.topic)
+    ).length;
+    const hasAdvisorMeeting = myResults.some(
+      (r) => r.topic && /advisor meeting/i.test(r.topic)
+    );
+
+    evaluateMilestoneAndAttendanceBadges(user.id, {
+      yearlyPoints: totalPoints,
+      cumulativePoints: totalPoints,
+      attendanceCount,
+      hasAdvisorMeeting,
+      earnedBadgeNames: earnedNames,
+    })
+      .then((awarded) => {
+        if (awarded && awarded.length > 0) {
+          setRecentBadges((prev) => [...prev, ...awarded]);
+          refetch();
+        }
+      })
+      .catch(() => {});
+  }, [isActive, data, user?.id, effectiveRole, myRank, totalPoints, activeLeaderboard.length, myResults, userBadges, refetch]);
 
   // Advisor Meeting logic
   const [claimingAdvisorMeeting, setClaimingAdvisorMeeting] = useState(false);

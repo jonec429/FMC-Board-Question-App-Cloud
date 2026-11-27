@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import { supabase } from '@/lib/supabase';
 import { fetchAllPages } from '@/lib/supabasePagination';
@@ -8,6 +8,7 @@ import { Question } from '@/lib/types';
 import { formatIteId } from '@/lib/iteQuestionMap';
 import { getCareDimensionMeta } from '@/lib/careDimensions';
 import { getFlaggedQuestionIds, toggleFlaggedQuestion } from '@/lib/flaggedQuestions';
+import { evaluateFlashcardBadges } from '@/lib/gamification';
 import {
   getFlashcardProgress,
   setQuestionBox,
@@ -75,6 +76,7 @@ export default function FlashcardsModal({
   // User Progress States
   const [progress, setProgress] = useState<FlashcardProgressMap>({});
   const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
+  const earnedFlashcardBadgesRef = useRef<string[]>([]);
 
   // Load questions if not provided
   useEffect(() => {
@@ -199,8 +201,27 @@ export default function FlashcardsModal({
     if (!currentQuestion) return;
     const nextProgress = setQuestionBox(userId, currentQuestion.id, box);
     setProgress(nextProgress);
+    if (userId) {
+      evaluateFlashcardBadges(userId, nextProgress, allQuestions, earnedFlashcardBadgesRef.current)
+        .then((awarded) => {
+          if (awarded && awarded.length > 0) {
+            earnedFlashcardBadgesRef.current = [
+              ...earnedFlashcardBadgesRef.current,
+              ...awarded.map((b) => b.name),
+            ];
+            try {
+              const existingRecent = JSON.parse(localStorage.getItem('recent_badges') || '[]');
+              const combined = [...existingRecent, ...awarded];
+              const uniqueMap = new Map();
+              combined.forEach((b: any) => uniqueMap.set(b.id || b.name, b));
+              localStorage.setItem('recent_badges', JSON.stringify(Array.from(uniqueMap.values())));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
     handleNext();
-  }, [currentQuestion, userId, handleNext]);
+  }, [currentQuestion, userId, allQuestions, handleNext]);
 
   // Flag toggle
   const handleToggleFlag = useCallback(async () => {

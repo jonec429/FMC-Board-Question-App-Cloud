@@ -10,6 +10,8 @@ import {
 } from './timezone';
 import { getRecentITEYears } from './questionFilters';
 import { fetchAllPages, fetchInBatches } from './supabasePagination';
+import { CANONICAL_CARE_DIMENSIONS } from './careDimensions';
+import type { FlashcardProgressMap } from './flashcards';
 
 export async function processGamification(
   userId: string,
@@ -142,10 +144,13 @@ export async function processGamification(
       await evaluateBadge('QOTD 5x Streak', current_qotd_streak >= 5, { description: 'Completed 5 Question of the Day challenges in a row.', icon: '🔥', type: 'qotd' });
       await evaluateBadge('QOTD 10x Streak', current_qotd_streak >= 10, { description: 'Completed 10 Question of the Day challenges in a row.', icon: '⚡', type: 'qotd' });
       await evaluateBadge('QOTD 30x Streak', current_qotd_streak >= 30, { description: 'Completed 30 Question of the Day challenges in a row. Legendary dedication!', icon: '🌟', type: 'qotd' });
+      await evaluateBadge('QOTD 60x Streak', current_qotd_streak >= 60, { description: 'Completed 60 Question of the Day challenges in a row.', icon: '💎', type: 'qotd' });
+      await evaluateBadge('QOTD 100x Streak', current_qotd_streak >= 100, { description: 'Completed 100 Question of the Day challenges in a row. Unmatched consistency!', icon: '🌠', type: 'qotd' });
       await evaluateBadge('Streak Master', current_qotd_streak >= 10, { description: 'Achieved a double-digit daily QOTD streak.', icon: '👑', type: 'qotd' });
       
       // Sharpshooter — correct QOTD answers on consecutive days (correct-streak, not just participation).
       await evaluateBadge('Sharpshooter', current_qotd_correct_streak >= 5, { description: 'Answered QOTD correctly 5 consecutive days in a row.', icon: '🎯', type: 'qotd' });
+      await evaluateBadge('Sharpshooter II', current_qotd_correct_streak >= 10, { description: 'Answered QOTD correctly 10 consecutive days in a row.', icon: '🏹', type: 'qotd' });
 
       // Check "Just in Time" — answered in the 5 minutes before the 12:30 PM unlock
       if (estHour === 12 && estMinute >= 25 && estMinute <= 29) {
@@ -227,6 +232,9 @@ export async function processGamification(
           if (blockScorePercentage - prevPercentage >= 15) {
             await evaluateBadge('Comeback Kid', true, { description: 'Improved your block score by 15% or more compared to your last block!', icon: '🏆', type: 'block' });
           }
+          if (blockScorePercentage - prevPercentage >= 20) {
+            await evaluateBadge('Comeback Kid (Gold)', true, { description: 'Improved your block score by 20% or more compared to your previous block.', icon: '📈', type: 'block' });
+          }
         }
       }
 
@@ -263,6 +271,24 @@ export async function processGamification(
         if (totalQCount >= 800) await evaluateBadge('800 Club', true);
         if (totalQCount >= 900) await evaluateBadge('900 Club', true);
         if (totalQCount >= 1000) await evaluateBadge('1k Club', true);
+        if (totalQCount >= 1500) await evaluateBadge('1.5k Club', true, { description: 'Answered 1,500 total questions across blocks, custom quizzes, and QOTD.', icon: '🚀', type: 'block' });
+        if (totalQCount >= 2000) await evaluateBadge('2k Club', true, { description: 'Answered 2,000 total questions across blocks, custom quizzes, and QOTD.', icon: '🌌', type: 'block' });
+      }
+
+      // Ahead of the Curve — 3+ Early block submissions
+      if (timingStatus === 'Early') {
+        const { count: earlyCount } = await supabase
+          .from('results')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('timing_status', 'Early');
+        if ((earlyCount || 0) >= 3) {
+          await evaluateBadge('Ahead of the Curve', true, {
+            description: 'Submitted 3 assigned curriculum blocks Early (at least 3 days before the due date).',
+            icon: '⏩',
+            type: 'block',
+          });
+        }
       }
 
       // Perfectionist — 100% on 5 different blocks. This block's result row is
@@ -408,6 +434,117 @@ export async function processGamification(
         icon: '🏆',
         type: 'block'
       });
+    }
+
+    // 3h. ABFM Care Dimensions, Redemption Arc & Flag & Conquer (single paginated attempt scan)
+    if (!isQotd && totalQuestionsAnsweredInBlock) {
+      const userAttempts = await fetchAllPages<{ question_id: string; is_correct: boolean; created_at: string }>((from, to) =>
+        supabase
+          .from('question_attempts')
+          .select('question_id, is_correct, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to)
+      );
+
+      if (userAttempts.length > 0) {
+        // Redemption Arc: previously missed questions later answered correctly
+        const seenWrong = new Set<string>();
+        const redeemed = new Set<string>();
+        const correctAttemptIds = new Set<string>();
+
+        for (const att of userAttempts) {
+          if (!att.question_id) continue;
+          if (!att.is_correct) {
+            seenWrong.add(att.question_id);
+          } else {
+            correctAttemptIds.add(att.question_id);
+            if (seenWrong.has(att.question_id)) {
+              redeemed.add(att.question_id);
+            }
+          }
+        }
+
+        if (redeemed.size >= 10) {
+          await evaluateBadge('Redemption Arc', true, {
+            description: 'Answered 10 previously missed questions correctly on a later attempt.',
+            icon: '🔄',
+            type: 'block',
+          });
+        }
+
+        // Flag & Conquer: flagged question later answered correctly
+        const { data: flaggedRows } = await supabase
+          .from('user_flagged_questions')
+          .select('question_id')
+          .eq('user_id', userId);
+        if (flaggedRows && flaggedRows.some((f: { question_id: string }) => correctAttemptIds.has(f.question_id))) {
+          await evaluateBadge('Flag & Conquer', true, {
+            description: 'Flagged a question for review and later answered it correctly.',
+            icon: '🚩',
+            type: 'block',
+          });
+        }
+
+        // ABFM Care Dimensions accuracy & coverage
+        const uniqueAttemptedQIds = Array.from(new Set(userAttempts.map((a) => a.question_id).filter(Boolean)));
+        if (uniqueAttemptedQIds.length > 0) {
+          const qMeta = await fetchInBatches<{ id: string; abfm_category: string | null }>(
+            uniqueAttemptedQIds,
+            async (batch) => {
+              const { data, error } = await supabase
+                .from('questions')
+                .select('id, abfm_category')
+                .in('id', batch);
+              return { data, error };
+            }
+          );
+
+          const dimByQId = new Map<string, string>();
+          qMeta.forEach((q) => {
+            if (q.abfm_category) dimByQId.set(q.id, q.abfm_category);
+          });
+
+          const dimStats = new Map<string, { total: number; correct: number }>();
+          for (const att of userAttempts) {
+            const dim = dimByQId.get(att.question_id);
+            if (!dim) continue;
+            const entry = dimStats.get(dim) || { total: 0, correct: 0 };
+            entry.total += 1;
+            if (att.is_correct) entry.correct += 1;
+            dimStats.set(dim, entry);
+          }
+
+          const coveredAllDims = CANONICAL_CARE_DIMENSIONS.every((d) => (dimStats.get(d)?.total || 0) >= 1);
+          if (coveredAllDims) {
+            await evaluateBadge('Care Continuum', true, {
+              description: 'Answered questions across all 5 ABFM Care Dimensions.',
+              icon: '🧭',
+              type: 'block',
+            });
+          }
+
+          const careBadges: Array<{ dim: string; minQ: number; name: string; icon: string; desc: string }> = [
+            { dim: 'Preventive Care', minQ: 20, name: 'Preventive Champion', icon: '🛡️', desc: 'Achieved 80% or higher accuracy across at least 20 Preventive Care questions.' },
+            { dim: 'Acute Care and Diagnosis', minQ: 20, name: 'Acute Specialist', icon: '🩺', desc: 'Achieved 80% or higher accuracy across at least 20 Acute Care and Diagnosis questions.' },
+            { dim: 'Chronic Care Management', minQ: 20, name: 'Chronic Care Steward', icon: '📋', desc: 'Achieved 80% or higher accuracy across at least 20 Chronic Care Management questions.' },
+            { dim: 'Emergent and Urgent Care', minQ: 20, name: 'Triage Ace', icon: '🚨', desc: 'Achieved 80% or higher accuracy across at least 20 Emergent and Urgent Care questions.' },
+            { dim: 'Foundations of Care', minQ: 15, name: 'Foundations Scholar', icon: '📚', desc: 'Achieved 80% or higher accuracy across at least 15 Foundations of Care questions.' },
+          ];
+
+          for (const cb of careBadges) {
+            const stat = dimStats.get(cb.dim);
+            if (stat && stat.total >= cb.minQ && stat.correct / stat.total >= 0.8) {
+              await evaluateBadge(cb.name, true, {
+                description: cb.desc,
+                icon: cb.icon,
+                type: 'block',
+              });
+            }
+          }
+        }
+      }
     }
 
     // 3d. Over Achiever
@@ -750,6 +887,194 @@ export async function awardMockExamBadges(
     ]);
   } catch (err) {
     console.error('Error in awardMockExamBadges:', err);
+    return [];
+  }
+}
+
+/**
+ * Evaluates and awards Leitner Flashcard achievements (Card Shark, Box 3 Graduate, Deck Sweeper).
+ */
+export async function evaluateFlashcardBadges(
+  userId: string,
+  progress: FlashcardProgressMap,
+  questions: Pick<Question, 'id' | 'category' | 'abfm_category'>[],
+  earnedBadgeNames: string[] = []
+): Promise<{ id: string; name: string; description: string; icon: string }[]> {
+  if (!userId) return [];
+  try {
+    const entries = Object.values(progress);
+    const reviewedCount = entries.length;
+    const box3Count = entries.filter((p) => p.box === 3).length;
+
+    // Deck Sweeper: all cards in any Organ System or ABFM Care Dimension (>= 10 cards) in Box 3
+    let hasSweptDeck = false;
+    if (box3Count >= 10 && questions.length > 0) {
+      const decks = new Map<string, string[]>();
+      for (const q of questions) {
+        if (q.category) {
+          const k = `sys:${q.category}`;
+          const arr = decks.get(k) || [];
+          arr.push(q.id);
+          decks.set(k, arr);
+        }
+        if (q.abfm_category) {
+          const k = `dim:${q.abfm_category}`;
+          const arr = decks.get(k) || [];
+          arr.push(q.id);
+          decks.set(k, arr);
+        }
+      }
+      for (const ids of Array.from(decks.values())) {
+        if (ids.length >= 10 && ids.every((id) => progress[id]?.box === 3)) {
+          hasSweptDeck = true;
+          break;
+        }
+      }
+    }
+
+    const earnedSet = new Set(earnedBadgeNames);
+    const candidates: BadgeCandidate[] = [
+      {
+        qualifies: reviewedCount >= 25 && !earnedSet.has('Card Shark'),
+        name: 'Card Shark',
+        description: 'Reviewed at least 25 flashcards in Leitner study mode.',
+        icon: '🃏',
+        type: 'block',
+      },
+      {
+        qualifies: box3Count >= 25 && !earnedSet.has('Box 3 Graduate'),
+        name: 'Box 3 Graduate',
+        description: 'Mastered 25 flashcards into Leitner Box 3.',
+        icon: '⭐',
+        type: 'block',
+      },
+      {
+        qualifies: hasSweptDeck && !earnedSet.has('Deck Sweeper'),
+        name: 'Deck Sweeper',
+        description: 'Mastered an entire Organ System or Care Dimension flashcard deck (10+ cards) into Box 3.',
+        icon: '🧹',
+        type: 'block',
+      },
+    ];
+
+    if (!candidates.some((c) => c.qualifies)) return [];
+    return await awardBadgeDefinitions(userId, candidates);
+  } catch (err) {
+    console.error('Error in evaluateFlashcardBadges:', err);
+    return [];
+  }
+}
+
+/**
+ * Evaluates and awards Engaged Peer after reacting to 10+ QOTD explanations.
+ */
+export async function evaluateQotdReactionBadge(
+  userId: string
+): Promise<{ id: string; name: string; description: string; icon: string }[]> {
+  if (!userId) return [];
+  try {
+    const { count } = await supabase
+      .from('qotd_reactions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    if ((count || 0) < 10) return [];
+    return await awardBadgeDefinitions(userId, [
+      {
+        qualifies: true,
+        name: 'Engaged Peer',
+        description: 'Reacted to 10 Question of the Day explanations after the noon reveal.',
+        icon: '💬',
+        type: 'qotd',
+      },
+    ]);
+  } catch (err) {
+    console.error('Error in evaluateQotdReactionBadge:', err);
+    return [];
+  }
+}
+
+/**
+ * Awards Giant Slayer when a resident answers a QOTD correctly that <30% of peers got right.
+ */
+export async function evaluateGiantSlayerBadge(
+  userId: string
+): Promise<{ id: string; name: string; description: string; icon: string }[]> {
+  if (!userId) return [];
+  try {
+    return await awardBadgeDefinitions(userId, [
+      {
+        qualifies: true,
+        name: 'Giant Slayer',
+        description: 'Answered a QOTD correctly when fewer than 30% of peers got it right.',
+        icon: '🗿',
+        type: 'qotd',
+      },
+    ]);
+  } catch (err) {
+    console.error('Error in evaluateGiantSlayerBadge:', err);
+    return [];
+  }
+}
+
+/**
+ * Evaluates Academic Points milestones, Conference Attendance, and Advisor Check-In badges.
+ */
+export async function evaluateMilestoneAndAttendanceBadges(
+  userId: string,
+  params: {
+    yearlyPoints: number;
+    cumulativePoints: number;
+    attendanceCount: number;
+    hasAdvisorMeeting: boolean;
+    earnedBadgeNames?: string[];
+  }
+): Promise<{ id: string; name: string; description: string; icon: string }[]> {
+  if (!userId) return [];
+  try {
+    const earnedSet = new Set(params.earnedBadgeNames || []);
+    const candidates: BadgeCandidate[] = [
+      {
+        qualifies: params.yearlyPoints >= 100 && !earnedSet.has('Century Club'),
+        name: 'Century Club',
+        description: 'Earned 100 Academic Points in an academic year.',
+        icon: '💯',
+        type: 'general',
+      },
+      {
+        qualifies: params.cumulativePoints >= 200 && !earnedSet.has('200 AP Milestone'),
+        name: '200 AP Milestone',
+        description: 'Earned 200 cumulative Academic Points toward graduation.',
+        icon: '🎖️',
+        type: 'general',
+      },
+      {
+        qualifies: params.cumulativePoints >= 300 && !earnedSet.has('Graduation Ready (300 AP)'),
+        name: 'Graduation Ready (300 AP)',
+        description: 'Reached the 300 Academic Points graduation milestone.',
+        icon: '🎓',
+        type: 'general',
+      },
+      {
+        qualifies: params.attendanceCount >= 10 && !earnedSet.has('Conference Regular'),
+        name: 'Conference Regular',
+        description: 'Attended 10 or more conference sessions.',
+        icon: '🏛️',
+        type: 'general',
+      },
+      {
+        qualifies: params.hasAdvisorMeeting && !earnedSet.has('Advisor Check-In'),
+        name: 'Advisor Check-In',
+        description: 'Completed and logged a faculty advisor check-in meeting.',
+        icon: '🤝',
+        type: 'general',
+      },
+    ];
+
+    if (!candidates.some((c) => c.qualifies)) return [];
+    return await awardBadgeDefinitions(userId, candidates);
+  } catch (err) {
+    console.error('Error in evaluateMilestoneAndAttendanceBadges:', err);
     return [];
   }
 }
