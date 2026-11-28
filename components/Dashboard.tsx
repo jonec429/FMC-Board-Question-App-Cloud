@@ -450,6 +450,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
       attendanceCount,
       hasAdvisorMeeting,
       earnedBadgeNames: earnedNames,
+      userEmail: user.email,
     })
       .then((awarded) => {
         if (awarded && awarded.length > 0) {
@@ -458,7 +459,7 @@ export default function Dashboard({ user, profile, isActive = true, currentBlock
         }
       })
       .catch(() => {});
-  }, [isActive, data, user?.id, effectiveRole, myRank, totalPoints, activeLeaderboard.length, myResults, userBadges, refetch]);
+  }, [isActive, data, user?.id, user?.email, effectiveRole, myRank, totalPoints, activeLeaderboard.length, myResults, userBadges, refetch]);
 
   // Advisor Meeting logic
   const [claimingAdvisorMeeting, setClaimingAdvisorMeeting] = useState(false);

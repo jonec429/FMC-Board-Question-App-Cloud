@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError } from '@/lib/supabaseServer';
+import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError, verifyCronSecret } from '@/lib/supabaseServer';
 import { getEasternDateParts, getEasternDateString, getEasternTimeString } from '@/lib/timezone';
 
 export const maxDuration = 60;
@@ -23,9 +23,8 @@ export async function GET(request: Request) {
     privateKey
   );
 
-  // Verify Vercel Cron Secret
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Verify Vercel Cron Secret (timing-safe, rejects unset secret)
+  if (!verifyCronSecret(request)) {
     console.warn('[qotd-morning] Unauthorized request — CRON_SECRET mismatch or missing.');
     return new Response('Unauthorized', { status: 401 });
   }
@@ -61,6 +60,19 @@ export async function GET(request: Request) {
         console.log('[qotd-morning] Already ran successfully today. Exiting early.');
         return NextResponse.json({ success: true, message: 'Already ran today.', counts: { total: 0 } });
       }
+    }
+
+    // Verify a QOTD is actually scheduled for today before pushing notifications
+    const todayStr = getEasternDateString();
+    const { data: qotdSchedule } = await supabase
+      .from('qotd_schedule')
+      .select('question_id')
+      .eq('schedule_date', todayStr)
+      .maybeSingle();
+
+    if (!qotdSchedule) {
+      console.log('[qotd-morning] No QOTD scheduled for today. Skipping push.');
+      return NextResponse.json({ success: true, message: 'No QOTD scheduled for today.', counts: { total: 0 } });
     }
 
     const { data: subs, error } = await supabase.from('web_push_subscriptions').select('*');

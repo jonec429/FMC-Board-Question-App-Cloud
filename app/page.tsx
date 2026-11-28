@@ -21,6 +21,7 @@ import confetti from 'canvas-confetti';
 import { applyStreakSaveSuccess } from '@/lib/streakSaver';
 import { awardStreakSaverBadge } from '@/lib/gamification';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
+import { canAccessAdmin } from '@/lib/roles';
 
 interface ActiveQuizState {
   isQotd?: boolean;
@@ -82,7 +83,7 @@ export default function Home() {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
   const envMissing = !supabaseUrl || !supabaseKey;
 
-  const loadProfile = async (sessionUser: User) => {
+  const loadProfile = async (sessionUser: User): Promise<Profile | null> => {
     // Fetch profile and authorized_roster in parallel
     const [profileRes, rosterRes] = await Promise.all([
       supabase
@@ -136,7 +137,7 @@ export default function Home() {
           });
       }
 
-      setProfile({
+      const resolvedProfile: Profile = {
         ...(profileData || {}),
         id: sessionUser.id,
         email: sessionUser.email,
@@ -147,16 +148,18 @@ export default function Home() {
         advisor: canonicalAdvisor,
         role: canonicalRole,
         created_at: profileData?.created_at || new Date().toISOString(),
-      });
-      return;
+      };
+      setProfile(resolvedProfile);
+      return resolvedProfile;
     }
 
     if (profileData) {
       setProfile(profileData);
-      return;
+      return profileData;
     }
 
     setProfile(null);
+    return null;
   };
 
   const loadCurrentBlock = async () => {
@@ -217,11 +220,11 @@ export default function Home() {
         if (session?.user) {
           setUser(session.user);
           // Run sequentially with step labels so a single hung query is identifiable
-          await runStep('loadProfile', () => loadProfile(session.user));
+          const loadedProfile = await runStep('loadProfile', () => loadProfile(session.user));
           await runStep('loadCurrentBlock', () => loadCurrentBlock());
 
-          // Deep link support: ?admin=performance opens Admin Console directly to requested tab
-          if (typeof window !== 'undefined') {
+          // Deep link support: ?admin=performance opens Admin Console directly ONLY for authorized faculty/admins
+          if (typeof window !== 'undefined' && canAccessAdmin(session.user, loadedProfile)) {
             const params = new URLSearchParams(window.location.search);
             const adminParam = params.get('admin');
             if (adminParam) {
@@ -287,6 +290,19 @@ export default function Home() {
     }
   };
 
+  const clearAuthSessionOnly = () => {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const key = window.localStorage.key(i);
+        if (key && key.startsWith('sb-')) keysToRemove.push(key);
+      }
+      keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+      window.sessionStorage.clear();
+    } catch {}
+    window.location.reload();
+  };
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     if (loading && !showReset) {
@@ -310,11 +326,7 @@ export default function Home() {
               </p>
               <p className="text-slate-400 text-xs mt-2">If it seems permanently stuck:</p>
               <button 
-                onClick={() => {
-                  window.localStorage.clear();
-                  window.sessionStorage.clear();
-                  window.location.reload();
-                }}
+                onClick={clearAuthSessionOnly}
                 className="px-4 py-2 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-200 transition-colors text-xs"
               >
                 Reset Session & Reload
@@ -349,11 +361,7 @@ export default function Home() {
             </button>
             <p className="text-[10px] text-center text-slate-400 font-medium">Warning: Any unsaved quiz progress from the last few seconds may be lost.</p>
             <button
-              onClick={() => {
-                window.localStorage.clear();
-                window.sessionStorage.clear();
-                window.location.reload();
-              }}
+              onClick={clearAuthSessionOnly}
               className="flex-1 px-5 py-3 bg-white text-red-600 font-bold border-2 border-red-100 rounded-xl hover:bg-red-50 transition-all shadow-sm active:scale-95"
             >
               Reset Session

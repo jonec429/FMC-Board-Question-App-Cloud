@@ -795,6 +795,10 @@ This file serves as the shared source of truth for development progress between 
 - **New Achievements (Badges)**:
   - *Top of the Class*: Maintain the most academic points in the program for 3 consecutive months.
   - *Comeback Kid*: Improve performance in a block by 20% compared to the last block completed.
+- **Red-Team Security & Repo Hygiene (Tabled 2026-11-27 — Low Immediate Risk for Closed Cohort)**:
+  - *Anti-Cheat / Server-Side Quiz Grading & Write Lockdown*: Move quiz scoring, Academic Points computation, and advisor-meeting validation strictly server-side, and lock down direct resident `INSERT`/`UPDATE` RLS policies on `results`, `question_attempts`, `user_streaks`, `user_badges`, and `profiles.role` (after removing client-side `role` writes on signup/sync).
+  - *QOTD Server-Side Answer Gating Before 12:30 PM*: Strip `correct_index` and `explanation` from `qotd_schedule` client queries and gate `/api/resident/qotd-comparison` option breakdowns until `isPastNoonEastern()`.
+  - *Git Repository History Pruning*: Keep repo strictly private; optionally purge historical resident CSVs (`roster.csv`, `attendance.csv`, `results.csv`) and 28 MB `data/scratch/` dumps from Git history using `git filter-repo` if repo access is ever widened.
 
 ## 🗄️ Abandoned / Dropped Ideas
 *Features explicitly evaluated and dropped to maintain app simplicity, clinical validity, and academic rigor.*
@@ -813,6 +817,17 @@ This file serves as the shared source of truth for development progress between 
 
 ## 📅 Recent Updates (Changelog)
 *These items will appear in the app's "What's New" modal. Newest entries on top.*
+
+### 2026-11-27 — FERPA Privacy Hardening, Stability/Quota Relief, Live Bug Fixes & Locked Achievements Showcase (Antigravity)
+*   **Achievements Showcase (`components/MyStatsModal.tsx`, `components/AchievementsModal.tsx`):** Upgraded the resident Achievements tab to load the full badge catalog alongside earned badges, displaying progress bars, `All / Earned / To Unlock` filters, and clear unlock criteria on locked badges across 4 organized categories.
+*   **FERPA & Privacy Hardening (`app/api/resident/challenge-standings/route.ts`, `app/page.tsx`, `components/AdminConsole.tsx`, `lib/supabaseServer.ts`, `app/api/*`):** Stripped peer `blockAudit` grades from resident Challenge Standings responses; gated `/?admin=` deep links and `adminOnly` tabs on `canAccessAdmin`/`isAdmin`; verified admin/faculty routes server-side against `authorized_roster` (including `gme_staff`); removed PII from `/api/auth/verify-roster`; added `DOMPurify` sanitization in `MyStatsModal.tsx` and `Login.tsx`; hardened `verifyCronSecret` (timing-safe, rejects unset secrets), `/api/web-push/receipt`, and `/api/web-push/unsubscribe`; patched Next.js to `14.2.35` and added security headers in `next.config.js`.
+*   **Stability, Quota & Data-Integrity Fixes (`app/api/admin/points/route.ts`, `user-password/route.ts`, `bulk-attendance/route.ts`, `block-reminders/route.ts`, `hooks/useAdminData.ts`, `hooks/useDashboardData.ts`, `components/ClassYoyModal.tsx`, `components/QuizEngine.tsx`, `lib/gamification.ts`):**
+    *   Fixed destructive `%topic%` matching in `/api/admin/points` so editing/deleting attendance never touches graded quiz scores.
+    *   Fixed `/api/admin/user-password` failing past 50 accounts (`listUsers` page cap) and hardened `block-reminders` against null emails & wrong academic years.
+    *   Eliminated upfront `review_data` blob fetching in `useAdminData` (lazy-loaded on review open), deferred the 5 YoY leaderboard RPCs in `useDashboardData` until `ClassYoyModal` opens, and eliminated legacy `quizzes` fallback scans when `assigned_quizzes` is empty.
+    *   Fixed Mock Exam double-logging into `question_attempts`, concurrent `recent_badges` overwrites, cumulative all-time AP/attendance milestone checks, distinct `Early` topic counting for `Ahead of the Curve`, and chronological `Flag & Conquer` checks.
+*   **Board Readiness Cloud Sync & Usability Polish (`lib/iteScoring.ts`, `BoardReadinessTool.tsx`, `AdminBoardReadiness.tsx`, `app/layout.tsx`, `app/auth/callback/page.tsx`, `public/sw.js`):** Added cloud persistence (`resident_exam_scores` with automatic `localStorage` fallback & one-time backfill), clarified USMLE Step 2 / COMLEX L2 as `(ref.)`, fixed `Class of 2031`-style PGY parsing, re-enabled mobile pinch-to-zoom, removed duplicate Google Font loads, fixed recovery-link `must_reset_password` loop, and hardened PWA service worker badge/click handling.
+*   **Pending Supabase SQL Migrations (`supabase/migrations/`):** Run `20261127_new_achievements.sql`, `20261127_hardening_and_rpcs.sql`, and `20261127_pgcron_jitter_fix.sql` (replacing `__PASTE_YOUR_CRON_SECRET_HERE__`) in the Supabase SQL Editor.
 
 ### 2026-11-24 — Admin Board Readiness Console, Pathway to Good Standing & Housekeeping (Antigravity)
 *   **Admin Board Readiness View (`components/AdminBoardReadiness.tsx`, `AdminPerformance.tsx`, `BoardReadinessTool.tsx`, `AdminMetricModal.tsx`):** Added dedicated program-wide Board Readiness dashboard for faculty and admins with cohort filtering, Bayesian scaled score projections, and readiness tier breakdowns.

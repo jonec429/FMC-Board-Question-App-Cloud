@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { X, Trophy } from './AppIcons';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { X, Trophy, Loader2 } from './AppIcons';
 import { LeaderboardEntry } from '@/lib/types';
 import { formatAcademicYear, getAvailableAcademicYears } from '@/lib/academicYear';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -13,33 +15,68 @@ interface ClassYoyModalProps {
 }
 
 export default function ClassYoyModal({ onClose, selectedClass, leaderboardData }: ClassYoyModalProps) {
+  const availableYears = useMemo(() => getAvailableAcademicYears().sort((a, b) => a - b), []);
+
+  // Lazy-load YoY breakdown only when this modal is opened (saves 5 RPCs per dashboard load)
+  const { data: yoyByYear, isLoading } = useQuery({
+    queryKey: ['leaderboard-yoy', availableYears.join(',')],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const results = await Promise.all(
+        availableYears.map((yr) => supabase.rpc('get_leaderboard_stats', { p_academic_year: yr }))
+      );
+      const map: Record<number, Record<string, number>> = {};
+      results.forEach((res, idx) => {
+        const yr = availableYears[idx];
+        const byEmail: Record<string, number> = {};
+        if (Array.isArray(res.data)) {
+          res.data.forEach((row: { legacy_email?: string | null; total_points?: number | null }) => {
+            const em = row.legacy_email?.toLowerCase().trim();
+            if (em) {
+              byEmail[em] = (byEmail[em] || 0) + (Number(row.total_points) || 0);
+            }
+          });
+        }
+        map[yr] = byEmail;
+      });
+      return map;
+    },
+  });
+
   const chartData = useMemo(() => {
     const classMembers = leaderboardData.filter(r => r.pgy === selectedClass);
     const yearlyTotals: Record<number, number> = {};
-    
-    // Initialize available years to 0
-    const availableYears = getAvailableAcademicYears().sort((a, b) => a - b);
     availableYears.forEach(year => {
       yearlyTotals[year] = 0;
     });
 
-    classMembers.forEach(m => {
-      if (m.yoyStats) {
-        Object.entries(m.yoyStats).forEach(([yearStr, points]) => {
-          const year = parseInt(yearStr, 10);
-          if (availableYears.includes(year)) {
-            yearlyTotals[year] = (yearlyTotals[year] || 0) + points;
-          }
+    if (yoyByYear) {
+      classMembers.forEach((m) => {
+        const em = m.email?.toLowerCase().trim();
+        if (!em) return;
+        availableYears.forEach((yr) => {
+          yearlyTotals[yr] = (yearlyTotals[yr] || 0) + (yoyByYear[yr]?.[em] || 0);
         });
-      }
-    });
+      });
+    } else {
+      classMembers.forEach(m => {
+        if (m.yoyStats) {
+          Object.entries(m.yoyStats).forEach(([yearStr, points]) => {
+            const year = parseInt(yearStr, 10);
+            if (availableYears.includes(year)) {
+              yearlyTotals[year] = (yearlyTotals[year] || 0) + points;
+            }
+          });
+        }
+      });
+    }
 
     return availableYears.map(year => ({
       name: formatAcademicYear(year).replace('AY ', ''), // e.g. "25-26"
       year,
       Points: yearlyTotals[year]
     }));
-  }, [selectedClass, leaderboardData]);
+  }, [selectedClass, leaderboardData, availableYears, yoyByYear]);
 
   // Aggregate current year's stats to highlight
   const currentTotal = chartData.reduce((sum, d) => sum + d.Points, 0);
@@ -72,12 +109,17 @@ export default function ClassYoyModal({ onClose, selectedClass, leaderboardData 
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <p className="text-3xl font-black text-slate-800 dark:text-white">{currentTotal}</p>
+              <p className="text-3xl font-black text-slate-800 dark:text-white">{isLoading ? '—' : currentTotal}</p>
               <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Total Cumulative Points</p>
             </div>
           </div>
 
           <div className="h-64 w-full">
+            {isLoading ? (
+              <div className="h-full flex items-center justify-center text-slate-400">
+                <Loader2 className="w-7 h-7 animate-spin text-blue-500" />
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.3} />
@@ -107,6 +149,7 @@ export default function ClassYoyModal({ onClose, selectedClass, leaderboardData 
                 />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

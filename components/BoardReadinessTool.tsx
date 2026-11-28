@@ -14,6 +14,8 @@ import {
   computeExperimentalReadiness,
   loadResidentExamScores,
   saveResidentExamScores,
+  fetchResidentExamScores,
+  upsertResidentExamScores,
 } from '@/lib/iteScoring';
 import {
   AlertTriangle,
@@ -69,13 +71,25 @@ export default function BoardReadinessTool({
   const [savedToast, setSavedToast] = useState<boolean>(false);
 
   useEffect(() => {
-    const loaded = loadResidentExamScores(residentKey);
-    setScores(loaded);
-    setPgy1Input(loaded.pgy1Ite != null ? String(loaded.pgy1Ite) : '');
-    setPgy2Input(loaded.pgy2Ite != null ? String(loaded.pgy2Ite) : '');
-    setPgy3Input(loaded.pgy3Ite != null ? String(loaded.pgy3Ite) : '');
-    const lic = loaded.examType === 'COMLEX' ? loaded.comlex2Score : loaded.step2Score;
-    setLicensingInput(lic != null ? String(lic) : '');
+    let cancelled = false;
+    const applyLoaded = (loaded: SavedResidentExamScores) => {
+      setScores(loaded);
+      setPgy1Input(loaded.pgy1Ite != null ? String(loaded.pgy1Ite) : '');
+      setPgy2Input(loaded.pgy2Ite != null ? String(loaded.pgy2Ite) : '');
+      setPgy3Input(loaded.pgy3Ite != null ? String(loaded.pgy3Ite) : '');
+      const lic = loaded.examType === 'COMLEX' ? loaded.comlex2Score : loaded.step2Score;
+      setLicensingInput(lic != null ? String(lic) : '');
+    };
+
+    // Instant local hydration first, then sync with Supabase cloud
+    applyLoaded(loadResidentExamScores(residentKey));
+    fetchResidentExamScores(residentKey).then((cloudScores) => {
+      if (!cancelled) applyLoaded(cloudScores);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [residentKey]);
 
   const parseScoreInput = (val: string, min: number, max: number): number | null => {
@@ -106,6 +120,7 @@ export default function BoardReadinessTool({
     };
     setScores(updated);
     saveResidentExamScores(residentKey, updated);
+    upsertResidentExamScores(residentKey, updated).catch(() => {});
     onScoresChange?.(updated);
     setSavedToast(true);
     setTimeout(() => setSavedToast(false), 2000);
@@ -126,6 +141,7 @@ export default function BoardReadinessTool({
     setLicensingInput('');
     setScores(cleared);
     saveResidentExamScores(residentKey, cleared);
+    upsertResidentExamScores(residentKey, cleared).catch(() => {});
     onScoresChange?.(cleared);
   };
 
@@ -496,8 +512,12 @@ export default function BoardReadinessTool({
             {/* Score Inputs Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-3">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                  {scores.examType === 'COMLEX' ? 'COMLEX L2' : 'USMLE Step 2'}
+                <label
+                  className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1"
+                  title="Recorded for reference only — the ABFM Bayesian Markov prediction is anchored to entered ITE scores."
+                >
+                  {scores.examType === 'COMLEX' ? 'COMLEX L2' : 'USMLE Step 2'}{' '}
+                  <span className="font-semibold lowercase opacity-75">(ref.)</span>
                 </label>
                 <input
                   type="number"
@@ -569,7 +589,7 @@ export default function BoardReadinessTool({
               <div className="flex items-center gap-2 shrink-0">
                 {savedToast && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle className="w-3 h-3" /> Saved locally
+                    <CheckCircle className="w-3 h-3" /> Saved
                   </span>
                 )}
                 {bayesianOutput.mostRecentObservedStage !== 'none' && (

@@ -1,16 +1,25 @@
 import { NextResponse } from 'next/server';
-import { getAdminSupabase } from '@/lib/supabaseServer';
+import { getAdminSupabase, getAuthenticatedUser } from '@/lib/supabaseServer';
 
 export async function POST(request: Request) {
   try {
+    const { user, errorResponse } = await getAuthenticatedUser(request);
+    if (!user || errorResponse) {
+      return errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { endpoint } = await request.json();
 
-    if (!endpoint) {
+    if (!endpoint || typeof endpoint !== 'string') {
       return NextResponse.json({ error: 'Missing endpoint' }, { status: 400 });
     }
 
     const supabase = getAdminSupabase();
-    const { error } = await supabase.from('web_push_subscriptions').delete().eq('endpoint', endpoint);
+    const { error } = await supabase
+      .from('web_push_subscriptions')
+      .delete()
+      .eq('endpoint', endpoint)
+      .eq('user_id', user.id);
 
     if (error) {
       throw error;

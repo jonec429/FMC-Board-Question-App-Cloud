@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError } from '@/lib/supabaseServer';
+import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError, verifyCronSecret } from '@/lib/supabaseServer';
 import { getEasternDateParts, getEasternDateString, getEasternTimeString } from '@/lib/timezone';
 
 export const maxDuration = 60;
@@ -23,9 +23,8 @@ export async function GET(request: Request) {
     privateKey
   );
 
-  // Verify Vercel Cron Secret
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Verify Vercel Cron Secret (timing-safe, rejects unset secret)
+  if (!verifyCronSecret(request)) {
     console.warn('[qotd-reminder] Unauthorized request — CRON_SECRET mismatch or missing.');
     return new Response('Unauthorized', { status: 401 });
   }

@@ -131,8 +131,8 @@ self.addEventListener('push', function (event) {
       self.registration.showNotification(data.title, options)
     ];
     
-    if ('setAppBadge' in navigator) {
-      promises.push(navigator.setAppBadge(1));
+    if ('setAppBadge' in navigator && typeof navigator.setAppBadge === 'function') {
+      promises.push(Promise.resolve(navigator.setAppBadge(1)).catch(function () {}));
     }
     
     // Delivery Receipt Logic
@@ -162,19 +162,26 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
   
-  if ('clearAppBadge' in navigator) {
-    navigator.clearAppBadge();
+  if ('clearAppBadge' in navigator && typeof navigator.clearAppBadge === 'function') {
+    Promise.resolve(navigator.clearAppBadge()).catch(function () {});
   }
 
-  const targetUrl = event.notification.data?.url || '/';
-  
+  const rawTarget = event.notification.data?.url || '/';
+  let safeTargetUrl = '/';
+  try {
+    const parsedTarget = new URL(rawTarget, self.location.origin);
+    if (parsedTarget.origin === self.location.origin) {
+      safeTargetUrl = parsedTarget.href;
+    }
+  } catch {}
+
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then(windowClients => {
       // Check if there is already a window/tab open with the target URL
       for (var i = 0; i < windowClients.length; i++) {
         var client = windowClients[i];
         var clientUrl = new URL(client.url);
-        var tUrl = new URL(targetUrl, self.location.origin);
+        var tUrl = new URL(safeTargetUrl, self.location.origin);
         
         if (clientUrl.href === tUrl.href && 'focus' in client) {
           return client.focus();
@@ -182,7 +189,7 @@ self.addEventListener('notificationclick', function (event) {
       }
       // If not, open a new window
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(safeTargetUrl);
       }
     })
   );

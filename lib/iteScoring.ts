@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 /**
  * ABFM In-Training Examination (ITE) Score Equating & Board Readiness (Beta) Engine
  *
@@ -606,5 +608,149 @@ export function saveResidentExamScores(emailOrId: string, scores: SavedResidentE
     window.localStorage.setItem(STORAGE_PREFIX + emailOrId.toLowerCase().trim(), JSON.stringify(payload));
   } catch {
     // Ignore storage quota errors
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 5. Cloud Persistence Helpers (`resident_exam_scores` table with fallback)
+// ---------------------------------------------------------------------------
+
+let examScoresTableMissing = false;
+
+function isMissingExamTableError(err: any): boolean {
+  const code = err?.code;
+  const msg = String(err?.message || '').toLowerCase();
+  return code === 'PGRST205' || code === '42P01' || msg.includes('does not exist') || msg.includes('could not find the table');
+}
+
+function hasAnyEnteredScore(scores: SavedResidentExamScores): boolean {
+  return (
+    scores.step2Score != null ||
+    scores.comlex2Score != null ||
+    scores.pgy1Ite != null ||
+    scores.pgy2Ite != null ||
+    scores.pgy3Ite != null
+  );
+}
+
+function rowToSavedScores(row: any): SavedResidentExamScores {
+  return {
+    examType: row.exam_type === 'COMLEX' ? 'COMLEX' : 'USMLE',
+    step2Score: row.step2_score ?? null,
+    comlex2Score: row.comlex2_score ?? null,
+    pgy1Ite: row.pgy1_ite ?? null,
+    pgy2Ite: row.pgy2_ite ?? null,
+    pgy3Ite: row.pgy3_ite ?? null,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+/**
+ * Fetches a single resident's saved ITE & licensing scores from Supabase,
+ * falling back cleanly to localStorage if the table isn't migrated yet, and
+ * auto-migrating any pre-existing localStorage scores to Supabase on first read.
+ */
+export async function fetchResidentExamScores(emailOrId: string): Promise<SavedResidentExamScores> {
+  const local = loadResidentExamScores(emailOrId);
+  const cleanKey = (emailOrId || '').toLowerCase().trim();
+  if (!cleanKey || examScoresTableMissing) return local;
+
+  try {
+    const { data, error } = await supabase
+      .from('resident_exam_scores')
+      .select('*')
+      .eq('resident_email', cleanKey)
+      .maybeSingle();
+
+    if (error) {
+      if (isMissingExamTableError(error)) examScoresTableMissing = true;
+      return local;
+    }
+
+    if (data) {
+      const cloud = rowToSavedScores(data);
+      saveResidentExamScores(cleanKey, cloud);
+      return cloud;
+    }
+
+    // One-time seamless backfill from localStorage if cloud row doesn't exist yet
+    if (hasAnyEnteredScore(local)) {
+      upsertResidentExamScores(cleanKey, local).catch(() => {});
+    }
+    return local;
+  } catch {
+    return local;
+  }
+}
+
+/**
+ * Fetches all resident_exam_scores rows visible to the caller (for AdminBoardReadiness).
+ */
+export async function fetchAllResidentExamScores(): Promise<Record<string, SavedResidentExamScores>> {
+  if (examScoresTableMissing) return {};
+  try {
+    const { data, error } = await supabase
+      .from('resident_exam_scores')
+      .select('*');
+
+    if (error) {
+      if (isMissingExamTableError(error)) examScoresTableMissing = true;
+      return {};
+    }
+
+    const map: Record<string, SavedResidentExamScores> = {};
+    (data || []).forEach((row: any) => {
+      const key = (row.resident_email || '').toLowerCase().trim();
+      if (key) {
+        const parsed = rowToSavedScores(row);
+        map[key] = parsed;
+        saveResidentExamScores(key, parsed);
+      }
+    });
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Saves a resident's scores to both localStorage (instant) and Supabase `resident_exam_scores`.
+ */
+export async function upsertResidentExamScores(
+  emailOrId: string,
+  scores: SavedResidentExamScores,
+  userId?: string | null
+): Promise<void> {
+  const cleanKey = (emailOrId || '').toLowerCase().trim();
+  if (!cleanKey) return;
+
+  saveResidentExamScores(cleanKey, scores);
+  if (examScoresTableMissing) return;
+
+  try {
+    const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+    const { error } = await supabase
+      .from('resident_exam_scores')
+      .upsert(
+        {
+          resident_email: cleanKey,
+          ...(userId ? { user_id: userId } : {}),
+          exam_type: scores.examType,
+          step2_score: scores.step2Score ?? null,
+          comlex2_score: scores.comlex2Score ?? null,
+          pgy1_ite: scores.pgy1Ite ?? null,
+          pgy2_ite: scores.pgy2Ite ?? null,
+          pgy3_ite: scores.pgy3Ite ?? null,
+          updated_by: authData?.user?.id ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'resident_email' }
+      );
+
+    if (error && isMissingExamTableError(error)) {
+      examScoresTableMissing = true;
+    }
+  } catch {
+    // Non-fatal: localStorage copy is already saved
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAdminSupabase, verifyCronSecret, recordPushDispatchFailure } from '@/lib/supabaseServer';
+import { getCurrentAcademicYear } from '@/lib/academicYear';
 import { Resend } from 'resend';
 import webpush from 'web-push';
 import { getEasternDateParts, getEasternUpcomingSunday, getEasternTimeString } from '@/lib/timezone';
@@ -8,6 +9,15 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export async function GET(request: Request) {
   try {
@@ -33,7 +43,7 @@ export async function GET(request: Request) {
     // Find if there is a block due on this upcoming Sunday
     const { data: scheduleData, error: scheduleError } = await supabase
       .from('block_schedule')
-      .select('block_id, end_date, blocks(title)')
+      .select('block_id, end_date, blocks(title, academic_year)')
       .eq('end_date', sundayDateStr)
       .limit(1)
       .maybeSingle();
@@ -48,8 +58,10 @@ export async function GET(request: Request) {
     }
 
     // Supabase types relation as array or single object depending on constraints
-    const blocksData = scheduleData.blocks as { title?: string } | { title?: string }[];
-    const blockTitle = (Array.isArray(blocksData) ? blocksData[0]?.title : blocksData?.title) || 'the current block';
+    const blocksData = scheduleData.blocks as { title?: string; academic_year?: number | null } | { title?: string; academic_year?: number | null }[];
+    const blockObj = Array.isArray(blocksData) ? blocksData[0] : blocksData;
+    const blockTitle = blockObj?.title || 'the current block';
+    const blockAy = blockObj?.academic_year ?? getCurrentAcademicYear();
 
     // Get all active residents from authorized_roster (strictly excluding faculty and graduated/on-leave)
     const { data: roster, error: rosterError } = await supabase
@@ -60,17 +72,22 @@ export async function GET(request: Request) {
       throw new Error(`Failed to fetch roster: ${rosterError.message}`);
     }
 
-    // Find who has completed the block
+    // Find who has completed the block in the target academic year
     const { data: results, error: resultsError } = await supabase
       .from('results')
-      .select('legacy_email')
-      .eq('topic', blockTitle);
+      .select('legacy_email, user_id')
+      .eq('topic', blockTitle)
+      .eq('academic_year', blockAy);
 
     if (resultsError) {
       throw new Error(`Failed to fetch results: ${resultsError.message}`);
     }
 
-    const completedEmails = new Set(results.map(r => r.legacy_email.toLowerCase()));
+    const completedEmails = new Set(
+      (results || [])
+        .map((r) => r.legacy_email?.toLowerCase().trim())
+        .filter((e): e is string => Boolean(e))
+    );
 
     const activeResidents = (roster || []).filter(r =>
       r.email &&
@@ -114,8 +131,12 @@ export async function GET(request: Request) {
 
     const failedEmails: string[] = [];
     
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://brq.stvfamilymed.org').replace(/\/+$/, '');
+    const safeBlockTitle = escapeHtml(blockTitle);
+
     // Send notifications
     for (const user of missingUsers) {
+      const firstName = escapeHtml((user.name || 'Doctor').split(' ')[0] || 'Doctor');
       // 1. Send Email via Resend
       if (process.env.RESEND_API_KEY) {
         try {
@@ -126,10 +147,10 @@ export async function GET(request: Request) {
             html: `
               <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <h2 style="color: #4f46e5;">Friendly Reminder!</h2>
-                <p>Hi ${user.name.split(' ')[0]},</p>
-                <p>This is a quick reminder that <strong>${blockTitle}</strong> is due this coming Sunday at 11:59 PM.</p>
+                <p>Hi ${firstName},</p>
+                <p>This is a quick reminder that <strong>${safeBlockTitle}</strong> is due this coming Sunday at 11:59 PM.</p>
                 <p>Please log in and complete the block to maintain your streaks and stay on track!</p>
-                <a href="https://${request.headers.get('host') || 'fmc-board-prep.vercel.app'}/" style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 20px;">Go to Dashboard</a>
+                <a href="${appUrl}/" style="display: inline-block; background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 20px;">Go to Dashboard</a>
               </div>
             `,
           });

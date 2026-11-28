@@ -21,11 +21,12 @@ async function fetchCore(): Promise<CoreData> {
   }
 
   // Fetch potentially large tables with deterministic 1,000-row pagination + server-side attempt metrics RPC
+  // Note: `review_data` is omitted from bulk fetch (lazy-fetched per quiz in AdminPerformance.openReview) to protect Supabase egress.
   const [resultsData, attendanceData, attemptMetricsRes] = await Promise.all([
     fetchAllPages<any>((from, to) =>
       supabase
         .from('results')
-        .select('user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, category_stats, review_data')
+        .select('id, user_id, legacy_email, topic, score, total, percentage, academic_points, created_at, academic_year, timing_status, category_stats')
         .order('id', { ascending: true })
         .range(from, to)
     ),
@@ -78,19 +79,23 @@ async function fetchQuestions(): Promise<any[]> {
  * `includeQuestions` so the heavy fetch only happens on the tabs that use it.
  * Keeps the original return shape so consumers are unchanged.
  */
-export function useAdminData({ includeQuestions = false }: { includeQuestions?: boolean } = {}) {
+export function useAdminData({
+  includeQuestions = false,
+  enabled = true,
+}: { includeQuestions?: boolean; enabled?: boolean } = {}) {
   const queryClient = useQueryClient();
 
   // Allow React Query to handle retries natively (defaults to 3 retries)
   const coreQuery = useQuery({ 
     queryKey: ['admin', 'core'], 
-    queryFn: fetchCore 
+    queryFn: fetchCore,
+    enabled,
   });
 
   const questionsQuery = useQuery({
     queryKey: ['admin', 'questions'],
     queryFn: fetchQuestions,
-    enabled: includeQuestions,
+    enabled: enabled && includeQuestions,
     staleTime: 30 * 60_000,
   });
 
@@ -100,7 +105,7 @@ export function useAdminData({ includeQuestions = false }: { includeQuestions?: 
 
   // Show the full-screen loader for the initial core load, and for the first
   // lazy-load of questions. Subsequent cache-refetches happen invisibly.
-  const loading = coreQuery.isLoading || (includeQuestions && questionsQuery.isLoading);
+  const loading = enabled && (coreQuery.isLoading || (includeQuestions && questionsQuery.isLoading));
   
   const error = coreQuery.error || questionsQuery.error;
 

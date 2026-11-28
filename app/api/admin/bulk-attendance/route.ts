@@ -94,7 +94,14 @@ export async function POST(request: Request) {
       // Guard against duplicates inside the same batch
       if (dateKey) datedKeys.add(dateKey);
       recentKeys.add(recentKey);
-      newEntries.push(entry);
+      newEntries.push({
+        resident_email: entry.resident_email.trim(),
+        topic: topicKey,
+        points: Number(entry.points) || 1,
+        ...(entry.date ? { date: entry.date } : {}),
+        ...(entry.resident_name ? { resident_name: entry.resident_name } : {}),
+        ...(entry.status ? { status: entry.status } : {}),
+      });
     }
 
     if (newEntries.length === 0) {
@@ -108,12 +115,24 @@ export async function POST(request: Request) {
       });
     }
 
-    const { error } = await adminSupabase.from('attendance').insert(newEntries);
+    const { data: insertedAtt, error } = await adminSupabase
+      .from('attendance')
+      .insert(newEntries)
+      .select('id');
 
     if (error) {
       console.error('Error inserting bulk attendance:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Resolve user_ids from profiles so attendance points link cleanly to user_id
+    const { data: profilesList } = await adminSupabase
+      .from('profiles')
+      .select('id, email');
+    const userIdByEmail = new Map<string, string>();
+    (profilesList || []).forEach((p: { id: string; email?: string | null }) => {
+      if (p.email && p.id) userIdByEmail.set(p.email.toLowerCase().trim(), p.id);
+    });
 
     // Also award academic points for attendance by inserting into the results table
     const defaultAy = getCurrentAcademicYear();
@@ -133,7 +152,10 @@ export async function POST(request: Request) {
         } catch {}
       }
 
+      const uid = userIdByEmail.get(entry.resident_email.toLowerCase().trim());
+
       return {
+        ...(uid ? { user_id: uid } : {}),
         legacy_email: entry.resident_email,
         topic: `[Attendance] ${entry.topic}`,
         academic_points: Number(entry.points) || 1,
@@ -147,6 +169,11 @@ export async function POST(request: Request) {
 
     if (resultsError) {
       console.error('Error inserting attendance points to results:', resultsError);
+      // Roll back the attendance rows just inserted so the two tables stay consistent
+      const insertedIds = (insertedAtt || []).map((row: { id: string }) => row.id).filter(Boolean);
+      if (insertedIds.length > 0) {
+        await adminSupabase.from('attendance').delete().in('id', insertedIds);
+      }
       return NextResponse.json({ error: resultsError.message }, { status: 500 });
     }
 

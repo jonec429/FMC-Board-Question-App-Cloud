@@ -1,54 +1,25 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdminOrFaculty } from '@/lib/supabaseServer';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.split('Bearer ')[1];
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
+    const authResult = await requireAdminOrFaculty(request);
+    if (!authResult.authorized || !authResult.user || !authResult.adminSupabase) {
+      return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user } } = await supabaseClient.auth.getUser(token);
+    const user = authResult.user;
+    const adminSupabase = authResult.adminSupabase;
 
-    if (!user || !user.email) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid user' }, { status: 401 });
-    }
-
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey
-    );
-
-    // Verify caller has faculty or admin role
-    const { data: callerRoster } = await adminSupabase
-      .from('authorized_roster')
-      .select('role, name')
-      .eq('email', user.email)
-      .maybeSingle();
-
-    const { data: callerProfile } = await adminSupabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const callerRole = (callerProfile?.role || callerRoster?.role || '').toLowerCase();
-    const isFacultyOrAdmin = ['faculty', 'admin', 'superadmin', 'pd', 'apd'].includes(callerRole);
-
-    if (!isFacultyOrAdmin) {
-      return NextResponse.json({ error: 'Forbidden: Only faculty and admins can log advisor meetings' }, { status: 403 });
-    }
+    const { data: callerRoster } = user.email
+      ? await adminSupabase
+          .from('authorized_roster')
+          .select('name')
+          .ilike('email', user.email)
+          .maybeSingle()
+      : { data: null };
 
     const body = await request.json();
     const { residentEmail, blockTitle, selectedYear, notes } = body;
@@ -57,24 +28,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required parameters (residentEmail, blockTitle, selectedYear)' }, { status: 400 });
     }
 
-    // Look up resident name
-    const { data: residentRoster } = await adminSupabase
-      .from('authorized_roster')
-      .select('name')
-      .eq('email', residentEmail)
-      .maybeSingle();
+    const cleanResidentEmail = String(residentEmail).trim().toLowerCase();
 
-    const residentName = residentRoster?.name || residentEmail;
-    const advisorName = callerRoster?.name || user.email;
+    // Look up resident name & profile user_id
+    const [{ data: residentRoster }, { data: residentProfile }] = await Promise.all([
+      adminSupabase
+        .from('authorized_roster')
+        .select('name, email')
+        .ilike('email', cleanResidentEmail)
+        .maybeSingle(),
+      adminSupabase
+        .from('profiles')
+        .select('id')
+        .ilike('email', cleanResidentEmail)
+        .maybeSingle(),
+    ]);
+
+    const residentName = residentRoster?.name || cleanResidentEmail;
+    const canonicalEmail = residentRoster?.email || cleanResidentEmail;
+    const advisorName = callerRoster?.name || user.email || 'Faculty Advisor';
 
     const baseTopic = `[AY ${selectedYear}] Block: ${blockTitle} - Advisor Meeting`;
     const fullTopic = `[Attendance] ${baseTopic}`;
 
-    // Deduplication check in results table
+    // Deduplication check in results table (case-insensitive email)
     const { data: existing } = await adminSupabase
       .from('results')
       .select('id')
-      .eq('legacy_email', residentEmail)
+      .ilike('legacy_email', canonicalEmail)
       .eq('topic', fullTopic)
       .maybeSingle();
 
@@ -85,7 +66,7 @@ export async function POST(request: Request) {
     // Insert attendance record
     const attendanceNotes = notes?.trim() ? ` [Notes: ${notes.trim()}]` : '';
     const attendanceEntry = {
-      resident_email: residentEmail,
+      resident_email: canonicalEmail,
       resident_name: residentName,
       date: new Date().toISOString().split('T')[0],
       status: 'Attended',
@@ -101,7 +82,8 @@ export async function POST(request: Request) {
 
     // Insert results record for academic points
     const resultEntry = {
-      legacy_email: residentEmail,
+      ...(residentProfile?.id ? { user_id: residentProfile.id } : {}),
+      legacy_email: canonicalEmail,
       topic: fullTopic,
       academic_points: 1,
       timing_status: 'Manual',

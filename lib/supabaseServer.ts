@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
-import { SUPER_ADMIN_EMAILS, UserRole } from './roles';
+import { SUPER_ADMIN_EMAILS } from './roles';
 import { Profile } from './types';
 
 let adminClientInstance: SupabaseClient | null = null;
@@ -112,15 +113,81 @@ export async function getAuthenticatedUser(request: Request): Promise<{
 }
 
 /**
+ * Resolves a caller's authoritative role using SUPER_ADMIN_EMAILS first,
+ * then `authorized_roster` (case-insensitive), falling back to `profiles`
+ * only when no roster row exists for the user's email.
+ */
+async function resolveAuthoritativeRole(
+  adminSupabase: SupabaseClient,
+  user: User
+): Promise<{
+  isSuperAdmin: boolean;
+  isAdmin: boolean;
+  isPrivileged: boolean;
+  profile: Profile | null;
+}> {
+  const email = (user.email || '').toLowerCase().trim();
+  const isSuperAdmin = Boolean(
+    email && SUPER_ADMIN_EMAILS.some((e) => e.toLowerCase() === email)
+  );
+
+  const [rosterRes, profileRes] = await Promise.all([
+    email
+      ? adminSupabase
+          .from('authorized_roster')
+          .select('role, pgy, track')
+          .ilike('email', email)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    adminSupabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle(),
+  ]);
+
+  const profile = (profileRes.data as Profile | null) ?? null;
+  const roster = rosterRes.data as { role?: string | null; pgy?: string | null; track?: string | null } | null;
+
+  if (isSuperAdmin) {
+    return { isSuperAdmin: true, isAdmin: true, isPrivileged: true, profile };
+  }
+
+  if (roster) {
+    const rosterRole = (roster.role || '').toLowerCase().trim();
+    const rosterPgy = (roster.pgy || '').toLowerCase().trim();
+    const rosterTrack = (roster.track || '').toLowerCase().trim();
+    const isAdmin = rosterRole === 'admin';
+    const isPrivileged =
+      isAdmin ||
+      rosterRole === 'faculty' ||
+      rosterRole === 'gme_staff' ||
+      rosterPgy === 'faculty' ||
+      rosterTrack === 'faculty';
+    return { isSuperAdmin: false, isAdmin, isPrivileged, profile };
+  }
+
+  // Fallback for accounts without a roster entry (e.g. legacy service/faculty profiles)
+  const profRole = (profile?.role || '').toLowerCase().trim();
+  const profPgy = (profile?.pgy || '').toLowerCase().trim();
+  const isAdmin = profRole === 'admin';
+  const isPrivileged =
+    isAdmin || profRole === 'faculty' || profRole === 'gme_staff' || profPgy === 'faculty';
+  return { isSuperAdmin: false, isAdmin, isPrivileged, profile };
+}
+
+/**
  * Verifies that the caller has admin or faculty privileges, taking into account:
  * 1. Hardcoded SUPER_ADMIN_EMAILS
- * 2. profile.role in ('admin', 'faculty', 'gme_staff')
- * 3. authorized_roster pgy === 'Faculty'
+ * 2. authorized_roster role in ('admin', 'faculty', 'gme_staff'), pgy === 'Faculty', or track === 'faculty'
+ * 3. profile fallback only if no authorized_roster row exists
  */
 export async function requireAdminOrFaculty(request: Request): Promise<{
   authorized: boolean;
   user?: User;
   profile?: Profile | null;
+  isSuperAdmin?: boolean;
+  isAdmin?: boolean;
   adminSupabase?: SupabaseClient;
   errorResponse?: NextResponse;
 }> {
@@ -130,27 +197,15 @@ export async function requireAdminOrFaculty(request: Request): Promise<{
   }
 
   const adminSupabase = getAdminSupabase();
-  const email = (user.email || '').toLowerCase().trim();
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(email);
+  const resolved = await resolveAuthoritativeRole(adminSupabase, user);
 
-  if (isSuperAdmin) {
-    return { authorized: true, user, adminSupabase };
-  }
-
-  const { data: profile } = await adminSupabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const role = (profile?.role || '').toLowerCase();
-  const isPrivileged = role === 'admin' || role === 'faculty' || role === 'gme_staff';
-
-  if (!isPrivileged) {
+  if (!resolved.isPrivileged) {
     return {
       authorized: false,
       user,
-      profile,
+      profile: resolved.profile,
+      isSuperAdmin: false,
+      isAdmin: false,
       errorResponse: NextResponse.json(
         { error: 'Forbidden: administrative or faculty role required' },
         { status: 403 }
@@ -158,18 +213,74 @@ export async function requireAdminOrFaculty(request: Request): Promise<{
     };
   }
 
-  return { authorized: true, user, profile, adminSupabase };
+  return {
+    authorized: true,
+    user,
+    profile: resolved.profile,
+    isSuperAdmin: resolved.isSuperAdmin,
+    isAdmin: resolved.isAdmin,
+    adminSupabase,
+  };
 }
 
 /**
- * Verifies Vercel Cron authorization header against process.env.CRON_SECRET.
+ * Verifies that the caller has strict program administrator privileges:
+ * SUPER_ADMIN_EMAILS or authorized_roster.role === 'admin' (profile fallback if no roster row).
+ */
+export async function requireAdminOnly(request: Request): Promise<{
+  authorized: boolean;
+  user?: User;
+  profile?: Profile | null;
+  isSuperAdmin?: boolean;
+  adminSupabase?: SupabaseClient;
+  errorResponse?: NextResponse;
+}> {
+  const { user, errorResponse } = await getAuthenticatedUser(request);
+  if (!user || errorResponse) {
+    return { authorized: false, errorResponse };
+  }
+
+  const adminSupabase = getAdminSupabase();
+  const resolved = await resolveAuthoritativeRole(adminSupabase, user);
+
+  if (!resolved.isAdmin) {
+    return {
+      authorized: false,
+      user,
+      profile: resolved.profile,
+      isSuperAdmin: false,
+      errorResponse: NextResponse.json(
+        { error: 'Forbidden: program administrator role required' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return {
+    authorized: true,
+    user,
+    profile: resolved.profile,
+    isSuperAdmin: resolved.isSuperAdmin,
+    adminSupabase,
+  };
+}
+
+/**
+ * Verifies Vercel/pg_cron authorization header against process.env.CRON_SECRET
+ * using constant-time comparison. Rejects whenever CRON_SECRET is unset/empty.
  */
 export function verifyCronSecret(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
 
   const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
-  return authHeader === `Bearer ${secret}`;
+  if (!authHeader) return false;
+
+  const expected = `Bearer ${secret}`;
+  const a = Buffer.from(authHeader, 'utf8');
+  const b = Buffer.from(expected, 'utf8');
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
 export interface PushDispatchError {

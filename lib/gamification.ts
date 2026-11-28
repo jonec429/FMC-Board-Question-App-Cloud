@@ -275,16 +275,21 @@ export async function processGamification(
         if (totalQCount >= 2000) await evaluateBadge('2k Club', true, { description: 'Answered 2,000 total questions across blocks, custom quizzes, and QOTD.', icon: '🌌', type: 'block' });
       }
 
-      // Ahead of the Curve — 3+ Early block submissions
+      // Ahead of the Curve — 3+ distinct assigned curriculum blocks submitted Early
       if (timingStatus === 'Early') {
-        const { count: earlyCount } = await supabase
+        const { data: earlyRows } = await supabase
           .from('results')
-          .select('*', { count: 'exact', head: true })
+          .select('topic')
           .eq('user_id', userId)
           .eq('timing_status', 'Early');
-        if ((earlyCount || 0) >= 3) {
+        const distinctEarlyTopics = new Set(
+          (earlyRows || [])
+            .map((r: { topic?: string | null }) => (r.topic || '').trim().toLowerCase())
+            .filter(Boolean)
+        );
+        if (distinctEarlyTopics.size >= 3) {
           await evaluateBadge('Ahead of the Curve', true, {
-            description: 'Submitted 3 assigned curriculum blocks Early (at least 3 days before the due date).',
+            description: 'Submitted 3 assigned curriculum blocks Early (before the block start date).',
             icon: '⏩',
             type: 'block',
           });
@@ -436,112 +441,144 @@ export async function processGamification(
       });
     }
 
-    // 3h. ABFM Care Dimensions, Redemption Arc & Flag & Conquer (single paginated attempt scan)
+    // 3h. ABFM Care Dimensions, Redemption Arc & Flag & Conquer
+    // Prefer lightweight Postgres RPC (1 round-trip); gracefully fall back to client scan if RPC is not yet deployed.
     if (!isQotd && totalQuestionsAnsweredInBlock) {
-      const userAttempts = await fetchAllPages<{ question_id: string; is_correct: boolean; created_at: string }>((from, to) =>
-        supabase
-          .from('question_attempts')
-          .select('question_id, is_correct, created_at')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: true })
-          .order('id', { ascending: true })
-          .range(from, to)
-      );
+      let redeemedCount = 0;
+      let flagAndConquerEarned = false;
+      const dimStats = new Map<string, { total: number; correct: number }>();
 
-      if (userAttempts.length > 0) {
-        // Redemption Arc: previously missed questions later answered correctly
-        const seenWrong = new Set<string>();
-        const redeemed = new Set<string>();
-        const correctAttemptIds = new Set<string>();
+      const { data: rpcProgress, error: rpcErr } = await supabase.rpc('get_user_achievement_progress');
+      const rpcRow = Array.isArray(rpcProgress) ? rpcProgress[0] : rpcProgress;
 
-        for (const att of userAttempts) {
-          if (!att.question_id) continue;
-          if (!att.is_correct) {
-            seenWrong.add(att.question_id);
-          } else {
-            correctAttemptIds.add(att.question_id);
-            if (seenWrong.has(att.question_id)) {
-              redeemed.add(att.question_id);
-            }
-          }
-        }
-
-        if (redeemed.size >= 10) {
-          await evaluateBadge('Redemption Arc', true, {
-            description: 'Answered 10 previously missed questions correctly on a later attempt.',
-            icon: '🔄',
-            type: 'block',
+      if (!rpcErr && rpcRow) {
+        redeemedCount = Number(rpcRow.redeemed_count) || 0;
+        flagAndConquerEarned = Boolean(rpcRow.flag_and_conquer_earned);
+        const rawDims = (rpcRow.care_dimension_stats || {}) as Record<string, { total?: number; correct?: number }>;
+        Object.entries(rawDims).forEach(([dim, vals]) => {
+          dimStats.set(dim, {
+            total: Number(vals?.total) || 0,
+            correct: Number(vals?.correct) || 0,
           });
-        }
+        });
+      } else {
+        const userAttempts = await fetchAllPages<{ question_id: string; is_correct: boolean; created_at: string }>((from, to) =>
+          supabase
+            .from('question_attempts')
+            .select('question_id, is_correct, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true })
+            .range(from, to)
+        );
 
-        // Flag & Conquer: flagged question later answered correctly
-        const { data: flaggedRows } = await supabase
-          .from('user_flagged_questions')
-          .select('question_id')
-          .eq('user_id', userId);
-        if (flaggedRows && flaggedRows.some((f: { question_id: string }) => correctAttemptIds.has(f.question_id))) {
-          await evaluateBadge('Flag & Conquer', true, {
-            description: 'Flagged a question for review and later answered it correctly.',
-            icon: '🚩',
-            type: 'block',
-          });
-        }
+        if (userAttempts.length > 0) {
+          const seenWrong = new Set<string>();
+          const redeemed = new Set<string>();
+          const latestCorrectTsByQ = new Map<string, number>();
 
-        // ABFM Care Dimensions accuracy & coverage
-        const uniqueAttemptedQIds = Array.from(new Set(userAttempts.map((a) => a.question_id).filter(Boolean)));
-        if (uniqueAttemptedQIds.length > 0) {
-          const qMeta = await fetchInBatches<{ id: string; abfm_category: string | null }>(
-            uniqueAttemptedQIds,
-            async (batch) => {
-              const { data, error } = await supabase
-                .from('questions')
-                .select('id, abfm_category')
-                .in('id', batch);
-              return { data, error };
-            }
-          );
-
-          const dimByQId = new Map<string, string>();
-          qMeta.forEach((q) => {
-            if (q.abfm_category) dimByQId.set(q.id, q.abfm_category);
-          });
-
-          const dimStats = new Map<string, { total: number; correct: number }>();
           for (const att of userAttempts) {
-            const dim = dimByQId.get(att.question_id);
-            if (!dim) continue;
-            const entry = dimStats.get(dim) || { total: 0, correct: 0 };
-            entry.total += 1;
-            if (att.is_correct) entry.correct += 1;
-            dimStats.set(dim, entry);
+            if (!att.question_id) continue;
+            if (!att.is_correct) {
+              seenWrong.add(att.question_id);
+            } else {
+              const ts = att.created_at ? new Date(att.created_at).getTime() : 0;
+              const prevTs = latestCorrectTsByQ.get(att.question_id) ?? -Infinity;
+              if (ts > prevTs) latestCorrectTsByQ.set(att.question_id, ts);
+              if (seenWrong.has(att.question_id)) {
+                redeemed.add(att.question_id);
+              }
+            }
           }
+          redeemedCount = redeemed.size;
 
-          const coveredAllDims = CANONICAL_CARE_DIMENSIONS.every((d) => (dimStats.get(d)?.total || 0) >= 1);
-          if (coveredAllDims) {
-            await evaluateBadge('Care Continuum', true, {
-              description: 'Answered questions across all 5 ABFM Care Dimensions.',
-              icon: '🧭',
-              type: 'block',
+          // Flag & Conquer: must be flagged BEFORE the later correct attempt
+          const { data: flaggedRows } = await supabase
+            .from('user_flagged_questions')
+            .select('question_id, created_at')
+            .eq('user_id', userId);
+          if (flaggedRows) {
+            flagAndConquerEarned = flaggedRows.some((f: { question_id: string; created_at?: string | null }) => {
+              const correctTs = latestCorrectTsByQ.get(f.question_id);
+              if (correctTs === undefined) return false;
+              const flagTs = f.created_at ? new Date(f.created_at).getTime() : 0;
+              return correctTs > flagTs;
             });
           }
 
-          const careBadges: Array<{ dim: string; minQ: number; name: string; icon: string; desc: string }> = [
-            { dim: 'Preventive Care', minQ: 20, name: 'Preventive Champion', icon: '🛡️', desc: 'Achieved 80% or higher accuracy across at least 20 Preventive Care questions.' },
-            { dim: 'Acute Care and Diagnosis', minQ: 20, name: 'Acute Specialist', icon: '🩺', desc: 'Achieved 80% or higher accuracy across at least 20 Acute Care and Diagnosis questions.' },
-            { dim: 'Chronic Care Management', minQ: 20, name: 'Chronic Care Steward', icon: '📋', desc: 'Achieved 80% or higher accuracy across at least 20 Chronic Care Management questions.' },
-            { dim: 'Emergent and Urgent Care', minQ: 20, name: 'Triage Ace', icon: '🚨', desc: 'Achieved 80% or higher accuracy across at least 20 Emergent and Urgent Care questions.' },
-            { dim: 'Foundations of Care', minQ: 15, name: 'Foundations Scholar', icon: '📚', desc: 'Achieved 80% or higher accuracy across at least 15 Foundations of Care questions.' },
-          ];
+          // ABFM Care Dimensions accuracy & coverage
+          const uniqueAttemptedQIds = Array.from(new Set(userAttempts.map((a) => a.question_id).filter(Boolean)));
+          if (uniqueAttemptedQIds.length > 0) {
+            const qMeta = await fetchInBatches<{ id: string; abfm_category: string | null }>(
+              uniqueAttemptedQIds,
+              async (batch) => {
+                const { data, error } = await supabase
+                  .from('questions')
+                  .select('id, abfm_category')
+                  .in('id', batch);
+                return { data, error };
+              }
+            );
 
-          for (const cb of careBadges) {
-            const stat = dimStats.get(cb.dim);
-            if (stat && stat.total >= cb.minQ && stat.correct / stat.total >= 0.8) {
-              await evaluateBadge(cb.name, true, {
-                description: cb.desc,
-                icon: cb.icon,
-                type: 'block',
-              });
+            const dimByQId = new Map<string, string>();
+            qMeta.forEach((q) => {
+              if (q.abfm_category) dimByQId.set(q.id, q.abfm_category);
+            });
+
+            for (const att of userAttempts) {
+              const dim = dimByQId.get(att.question_id);
+              if (!dim) continue;
+              const entry = dimStats.get(dim) || { total: 0, correct: 0 };
+              entry.total += 1;
+              if (att.is_correct) entry.correct += 1;
+              dimStats.set(dim, entry);
             }
+          }
+        }
+      }
+
+      if (redeemedCount >= 10) {
+        await evaluateBadge('Redemption Arc', true, {
+          description: 'Answered 10 previously missed questions correctly on a later attempt.',
+          icon: '🔄',
+          type: 'block',
+        });
+      }
+
+      if (flagAndConquerEarned) {
+        await evaluateBadge('Flag & Conquer', true, {
+          description: 'Flagged a question for review and later answered it correctly.',
+          icon: '🚩',
+          type: 'block',
+        });
+      }
+
+      if (dimStats.size > 0) {
+        const coveredAllDims = CANONICAL_CARE_DIMENSIONS.every((d) => (dimStats.get(d)?.total || 0) >= 1);
+        if (coveredAllDims) {
+          await evaluateBadge('Care Continuum', true, {
+            description: 'Answered questions across all 5 ABFM Care Dimensions.',
+            icon: '🧭',
+            type: 'block',
+          });
+        }
+
+        const careBadges: Array<{ dim: string; minQ: number; name: string; icon: string; desc: string }> = [
+          { dim: 'Preventive Care', minQ: 20, name: 'Preventive Champion', icon: '🛡️', desc: 'Achieved 80% or higher accuracy across at least 20 Preventive Care questions.' },
+          { dim: 'Acute Care and Diagnosis', minQ: 20, name: 'Acute Specialist', icon: '🩺', desc: 'Achieved 80% or higher accuracy across at least 20 Acute Care and Diagnosis questions.' },
+          { dim: 'Chronic Care Management', minQ: 20, name: 'Chronic Care Steward', icon: '📋', desc: 'Achieved 80% or higher accuracy across at least 20 Chronic Care Management questions.' },
+          { dim: 'Emergent and Urgent Care', minQ: 20, name: 'Triage Ace', icon: '🚨', desc: 'Achieved 80% or higher accuracy across at least 20 Emergent and Urgent Care questions.' },
+          { dim: 'Foundations of Care', minQ: 15, name: 'Foundations Scholar', icon: '📚', desc: 'Achieved 80% or higher accuracy across at least 15 Foundations of Care questions.' },
+        ];
+
+        for (const cb of careBadges) {
+          const stat = dimStats.get(cb.dim);
+          if (stat && stat.total >= cb.minQ && stat.correct / stat.total >= 0.8) {
+            await evaluateBadge(cb.name, true, {
+              description: cb.desc,
+              icon: cb.icon,
+              type: 'block',
+            });
           }
         }
       }
@@ -1019,6 +1056,9 @@ export async function evaluateGiantSlayerBadge(
 
 /**
  * Evaluates Academic Points milestones, Conference Attendance, and Advisor Check-In badges.
+ * Queries the resident's all-time `results` rows when any of the 5 badges remain unearned so
+ * multi-year cumulative AP (200 / 300 AP) and all-time attendance work regardless of the
+ * Dashboard's currently selected academic year filter.
  */
 export async function evaluateMilestoneAndAttendanceBadges(
   userId: string,
@@ -1028,42 +1068,124 @@ export async function evaluateMilestoneAndAttendanceBadges(
     attendanceCount: number;
     hasAdvisorMeeting: boolean;
     earnedBadgeNames?: string[];
+    userEmail?: string | null;
   }
 ): Promise<{ id: string; name: string; description: string; icon: string }[]> {
   if (!userId) return [];
   try {
     const earnedSet = new Set(params.earnedBadgeNames || []);
+    const targetNames = [
+      'Century Club',
+      '200 AP Milestone',
+      'Graduation Ready (300 AP)',
+      'Conference Regular',
+      'Advisor Check-In',
+    ];
+    if (targetNames.every((name) => earnedSet.has(name))) {
+      return [];
+    }
+
+    let bestYearlyPoints = params.yearlyPoints;
+    let cumulativePoints = params.cumulativePoints;
+    let attendanceCount = params.attendanceCount;
+    let hasAdvisorMeeting = params.hasAdvisorMeeting;
+
+    // Fetch lightweight all-time results for this resident so multi-year totals are accurate
+    const emailClean = params.userEmail?.trim();
+    const orFilter = emailClean
+      ? `user_id.eq.${userId},legacy_email.ilike.${emailClean}`
+      : `user_id.eq.${userId}`;
+    const allTimeRows = await fetchAllPages<{
+      topic: string | null;
+      academic_points: number | null;
+      academic_year: number | null;
+    }>((from, to) =>
+      supabase
+        .from('results')
+        .select('topic, academic_points, academic_year')
+        .or(orFilter)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ).catch(() => []);
+
+    if (allTimeRows.length > 0) {
+      const yearTotals = new Map<number, number>();
+      const blockBestByYearTopic = new Map<string, { ay: number; pts: number }>();
+      let allAttendance = 0;
+      let anyAdvisor = false;
+
+      for (const r of allTimeRows) {
+        const top = r.topic || '';
+        if (/demo/i.test(top)) continue;
+        const ay = r.academic_year || 0;
+        const pts = Number(r.academic_points) || 0;
+
+        if (/\[attendance\]/i.test(top)) {
+          if (/advisor meeting/i.test(top)) {
+            anyAdvisor = true;
+          } else {
+            allAttendance += 1;
+          }
+          yearTotals.set(ay, (yearTotals.get(ay) || 0) + pts);
+        } else if (/\[manual\]/i.test(top)) {
+          yearTotals.set(ay, (yearTotals.get(ay) || 0) + pts);
+        } else if (top) {
+          const key = `${ay}::${top}`;
+          const prev = blockBestByYearTopic.get(key);
+          if (!prev || pts > prev.pts) {
+            blockBestByYearTopic.set(key, { ay, pts });
+          }
+        }
+      }
+
+      blockBestByYearTopic.forEach(({ ay, pts }) => {
+        yearTotals.set(ay, (yearTotals.get(ay) || 0) + pts);
+      });
+
+      let computedCumulative = 0;
+      let computedMaxYear = 0;
+      yearTotals.forEach((pts) => {
+        computedCumulative += pts;
+        if (pts > computedMaxYear) computedMaxYear = pts;
+      });
+
+      bestYearlyPoints = Math.max(bestYearlyPoints, computedMaxYear);
+      cumulativePoints = Math.max(cumulativePoints, computedCumulative);
+      attendanceCount = Math.max(attendanceCount, allAttendance);
+      hasAdvisorMeeting = hasAdvisorMeeting || anyAdvisor;
+    }
+
     const candidates: BadgeCandidate[] = [
       {
-        qualifies: params.yearlyPoints >= 100 && !earnedSet.has('Century Club'),
+        qualifies: bestYearlyPoints >= 100 && !earnedSet.has('Century Club'),
         name: 'Century Club',
         description: 'Earned 100 Academic Points in an academic year.',
         icon: '💯',
         type: 'general',
       },
       {
-        qualifies: params.cumulativePoints >= 200 && !earnedSet.has('200 AP Milestone'),
+        qualifies: cumulativePoints >= 200 && !earnedSet.has('200 AP Milestone'),
         name: '200 AP Milestone',
         description: 'Earned 200 cumulative Academic Points toward graduation.',
         icon: '🎖️',
         type: 'general',
       },
       {
-        qualifies: params.cumulativePoints >= 300 && !earnedSet.has('Graduation Ready (300 AP)'),
+        qualifies: cumulativePoints >= 300 && !earnedSet.has('Graduation Ready (300 AP)'),
         name: 'Graduation Ready (300 AP)',
         description: 'Reached the 300 Academic Points graduation milestone.',
         icon: '🎓',
         type: 'general',
       },
       {
-        qualifies: params.attendanceCount >= 10 && !earnedSet.has('Conference Regular'),
+        qualifies: attendanceCount >= 10 && !earnedSet.has('Conference Regular'),
         name: 'Conference Regular',
         description: 'Attended 10 or more conference sessions.',
         icon: '🏛️',
         type: 'general',
       },
       {
-        qualifies: params.hasAdvisorMeeting && !earnedSet.has('Advisor Check-In'),
+        qualifies: hasAdvisorMeeting && !earnedSet.has('Advisor Check-In'),
         name: 'Advisor Check-In',
         description: 'Completed and logged a faculty advisor check-in meeting.',
         icon: '🤝',

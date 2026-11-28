@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase, getAuthenticatedUser } from '@/lib/supabaseServer';
+import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
 import { getCurrentAcademicYear, deriveLabel, isGraduated } from '@/lib/academicYear';
 import { computeMaxQotdStreak, computeQotdStreak } from '@/lib/streaks';
 import { getTodayDateString } from '@/lib/qotd';
@@ -7,29 +8,17 @@ import { ChallengeResidentStanding, ChallengeStandingsResponse } from '@/lib/typ
 
 export const dynamic = 'force-dynamic';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const STREAK_SAVER_PLACEHOLDER_QID = '00000000-0000-0000-0000-000000000001';
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
+    const { user, errorResponse } = await getAuthenticatedUser(request);
+    if (!user || errorResponse) {
+      return errorResponse || NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
     }
 
-    // Authenticate with anon client for standard JWT verification
-    const anonSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user }, error: authError } = await anonSupabase.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+    const supabaseAdmin = getAdminSupabase();
+    const callerEmail = (user.email || '').toLowerCase().trim();
 
     const { searchParams } = new URL(request.url);
     const academicYearParam = searchParams.get('academicYear');
@@ -75,13 +64,39 @@ export async function GET(request: Request) {
     // 2. Fetch active roster (excluding faculty)
     const { data: rosterData, error: rosterErr } = await supabaseAdmin
       .from('authorized_roster')
-      .select('email, name, pgy, cohort_year, status, pgy_override, track')
+      .select('email, name, pgy, cohort_year, status, pgy_override, track, role')
       .neq('pgy', 'Faculty');
 
     if (rosterErr) throw rosterErr;
+
+    // Determine whether the caller is an admin/faculty member (can view peer blockAudits)
+    const isSuperAdmin = Boolean(
+      callerEmail && SUPER_ADMIN_EMAILS.some((e) => e.toLowerCase() === callerEmail)
+    );
+    let isCallerPrivileged = isSuperAdmin;
+    if (!isCallerPrivileged && callerEmail) {
+      const { data: callerRoster } = await supabaseAdmin
+        .from('authorized_roster')
+        .select('role, pgy, track')
+        .ilike('email', callerEmail)
+        .maybeSingle();
+      if (callerRoster) {
+        const crRole = (callerRoster.role || '').toLowerCase();
+        isCallerPrivileged =
+          crRole === 'admin' ||
+          crRole === 'faculty' ||
+          crRole === 'gme_staff' ||
+          (callerRoster.pgy || '').toLowerCase() === 'faculty' ||
+          (callerRoster.track || '').toLowerCase() === 'faculty';
+      }
+    }
+
     const activeRoster = (rosterData || []).filter((r) => 
       r.status !== 'archived' && 
       r.status !== 'inactive' &&
+      (r.track || '').toLowerCase() !== 'faculty' &&
+      (r.role || '').toLowerCase() !== 'faculty' &&
+      (r.role || '').toLowerCase() !== 'admin' &&
       (showGraduatesParam || !isGraduated(r, academicYear))
     );
 
@@ -116,6 +131,7 @@ export async function GET(request: Request) {
         .from('results')
         .select('user_id, legacy_email, topic, academic_points, timing_status, score, total, percentage, created_at')
         .eq('academic_year', academicYear)
+        .order('id', { ascending: true })
         .range(resPage * resPageSize, (resPage + 1) * resPageSize - 1);
 
       if (pageErr) throw pageErr;
@@ -136,16 +152,17 @@ export async function GET(request: Request) {
     });
 
     // 6. Fetch QOTD attempts for this academic year (paginate if large)
-    const qotdAttempts: Array<{ user_id: string; created_at: string }> = [];
+    const qotdAttempts: Array<{ user_id: string; question_id: string | null; created_at: string }> = [];
     let page = 0;
     const pageSize = 1000;
     while (true) {
       const { data: pageData, error: pageErr } = await supabaseAdmin
         .from('question_attempts')
-        .select('user_id, created_at')
+        .select('user_id, question_id, created_at')
         .eq('is_qotd', true)
         .gte('created_at', ayStartDate)
         .lt('created_at', ayEndDate)
+        .order('id', { ascending: true })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (pageErr) throw pageErr;
@@ -155,11 +172,11 @@ export async function GET(request: Request) {
       page++;
     }
 
-    const qotdAttemptsByUserId = new Map<string, string[]>();
+    const qotdAttemptsByUserId = new Map<string, Array<{ question_id: string | null; created_at: string }>>();
     qotdAttempts.forEach((qa) => {
-      if (!qa.user_id) return;
+      if (!qa.user_id || !qa.created_at) return;
       const list = qotdAttemptsByUserId.get(qa.user_id) || [];
-      if (qa.created_at) list.push(qa.created_at);
+      list.push({ question_id: qa.question_id, created_at: qa.created_at });
       qotdAttemptsByUserId.set(qa.user_id, list);
     });
 
@@ -212,14 +229,15 @@ export async function GET(request: Request) {
       const totalAp = blockPoints + attendancePoints + manualPoints;
 
       // QOTD and streaks
-      const rawUserStreak = uid ? streakByUserId.get(uid) : null;
-      const userQotdTimestamps = uid ? (qotdAttemptsByUserId.get(uid) || []) : [];
-      const qotdCompletedCount = userQotdTimestamps.length;
+      const userQotdEntries = uid ? (qotdAttemptsByUserId.get(uid) || []) : [];
+      // Exclude Streak Saver Demo Q1 placeholder from QOTD count, while keeping its date for streak continuity
+      const qotdCompletedCount = userQotdEntries.filter(
+        (entry) => entry.question_id !== STREAK_SAVER_PLACEHOLDER_QID
+      ).length;
 
-      // Calculate max streak in this AY from real attempts timestamps
-      const qotdDateStrings = userQotdTimestamps.map((ts) => getTodayDateString(new Date(ts)));
-      const derivedMaxStreak = computeMaxQotdStreak(qotdDateStrings);
-      const longestStreak = Math.max(rawUserStreak?.max_qotd_streak || 0, derivedMaxStreak);
+      // Calculate max streak strictly within this academic year from real attempts timestamps
+      const qotdDateStrings = userQotdEntries.map((entry) => getTodayDateString(new Date(entry.created_at)));
+      const longestStreak = computeMaxQotdStreak(qotdDateStrings);
       const currentStreak = computeQotdStreak(qotdDateStrings, getTodayDateString());
 
       const completedTitlesArray = Array.from(completedBlockTitles);
@@ -227,25 +245,30 @@ export async function GET(request: Request) {
       const missingBlockTitles = requiredBlockTitles.filter((t) => !completedBlockTitles.has(t));
       const isEligible = totalRequiredBlocks > 0 && completedBlocksCount >= totalRequiredBlocks;
 
-      // Detailed Block Audit for verifying and spot checking
-      const blockAudit = requiredBlocks.map((b) => {
-        const bTitle = (b.title || '').trim().toLowerCase();
-        const res = resList.find((r) => {
-          const rTop = (r.topic || '').trim().toLowerCase();
-          return rTop === bTitle || rTop.startsWith(bTitle) || (b.id && (r as any).quiz_id === b.id);
-        });
-        const isDone = !!res && (res.timing_status != null || (res.academic_points || 0) > 0 || (res.total || 0) > 0);
-        return {
-          title: b.title,
-          isCompleted: isDone,
-          timingStatus: res?.timing_status || (isDone ? 'Completed' : 'Missing'),
-          score: res?.score ?? null,
-          total: res?.total ?? null,
-          percentage: res?.percentage ?? null,
-          academicPoints: res?.academic_points ?? 0,
-          completedAt: res?.created_at ?? null,
-        };
-      });
+      const isCallerRow = (uid && uid === user.id) || (email && email === callerEmail);
+      const includeBlockAudit = isCallerPrivileged || isCallerRow;
+
+      // Detailed Block Audit for verifying and spot checking (restricted to caller's own row or faculty/admin)
+      const blockAudit = includeBlockAudit
+        ? requiredBlocks.map((b) => {
+            const bTitle = (b.title || '').trim().toLowerCase();
+            const res = resList.find((r) => {
+              const rTop = (r.topic || '').trim().toLowerCase();
+              return rTop === bTitle || rTop.startsWith(bTitle) || (b.id && (r as any).quiz_id === b.id);
+            });
+            const isDone = !!res && (res.timing_status != null || (res.academic_points || 0) > 0 || (res.total || 0) > 0);
+            return {
+              title: b.title,
+              isCompleted: isDone,
+              timingStatus: res?.timing_status || (isDone ? 'Completed' : 'Missing'),
+              score: res?.score ?? null,
+              total: res?.total ?? null,
+              percentage: res?.percentage ?? null,
+              academicPoints: res?.academic_points ?? 0,
+              completedAt: res?.created_at ?? null,
+            };
+          })
+        : [];
 
       return {
         userId: uid,
@@ -276,42 +299,64 @@ export async function GET(request: Request) {
       };
     });
 
-    // 8. Assign Rankings
-    // AP Ranks
+    // 8. Assign Rankings (standard competition ranking so ties share rank & eligibility)
+    const assignCompetitionRanks = <T,>(
+      sorted: T[],
+      getValue: (item: T) => number,
+      setOverallRank: (item: T, rank: number) => void,
+      isElig: (item: T) => boolean,
+      setEligibleRank: (item: T, rank: number) => void
+    ) => {
+      let lastVal: number | null = null;
+      let currentRank = 0;
+      sorted.forEach((s, idx) => {
+        const val = getValue(s);
+        if (lastVal === null || val !== lastVal) {
+          currentRank = idx + 1;
+          lastVal = val;
+        }
+        setOverallRank(s, currentRank);
+      });
+
+      const eligList = sorted.filter(isElig);
+      let lastEligVal: number | null = null;
+      let currentEligRank = 0;
+      eligList.forEach((s, idx) => {
+        const val = getValue(s);
+        if (lastEligVal === null || val !== lastEligVal) {
+          currentEligRank = idx + 1;
+          lastEligVal = val;
+        }
+        setEligibleRank(s, currentEligRank);
+      });
+    };
+
     const sortedByAp = [...rawStandings].sort((a, b) => b.totalAp - a.totalAp);
-    sortedByAp.forEach((s, idx) => {
-      s.rankAp = idx + 1;
-    });
-    let eligibleApRank = 1;
-    sortedByAp.forEach((s) => {
-      if (s.isEligible) {
-        s.eligibleRankAp = eligibleApRank++;
-      }
-    });
+    assignCompetitionRanks(
+      sortedByAp,
+      (s) => s.totalAp,
+      (s, r) => { s.rankAp = r; },
+      (s) => s.isEligible,
+      (s, r) => { s.eligibleRankAp = r; }
+    );
 
-    // QOTD Ranks
     const sortedByQotd = [...rawStandings].sort((a, b) => b.qotdCompletedCount - a.qotdCompletedCount);
-    sortedByQotd.forEach((s, idx) => {
-      s.rankQotd = idx + 1;
-    });
-    let eligibleQotdRank = 1;
-    sortedByQotd.forEach((s) => {
-      if (s.isEligible) {
-        s.eligibleRankQotd = eligibleQotdRank++;
-      }
-    });
+    assignCompetitionRanks(
+      sortedByQotd,
+      (s) => s.qotdCompletedCount,
+      (s, r) => { s.rankQotd = r; },
+      (s) => s.isEligible,
+      (s, r) => { s.eligibleRankQotd = r; }
+    );
 
-    // Streak Ranks
     const sortedByStreak = [...rawStandings].sort((a, b) => b.longestStreak - a.longestStreak);
-    sortedByStreak.forEach((s, idx) => {
-      s.rankStreak = idx + 1;
-    });
-    let eligibleStreakRank = 1;
-    sortedByStreak.forEach((s) => {
-      if (s.isEligible) {
-        s.eligibleRankStreak = eligibleStreakRank++;
-      }
-    });
+    assignCompetitionRanks(
+      sortedByStreak,
+      (s) => s.longestStreak,
+      (s, r) => { s.rankStreak = r; },
+      (s) => s.isEligible,
+      (s, r) => { s.eligibleRankStreak = r; }
+    );
 
     // 9. Assign Projected Prizes ($50 per won challenge for rank 1 eligible)
     rawStandings.forEach((s) => {

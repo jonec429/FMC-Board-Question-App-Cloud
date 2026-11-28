@@ -3,23 +3,49 @@ import { getAdminSupabase } from '@/lib/supabaseServer';
 
 export async function POST(request: Request) {
   try {
-    const { run_id, endpoint } = await request.json();
+    const body = await request.json();
+    const { run_id, endpoint } = body || {};
 
-    if (!run_id || !endpoint) {
-      return NextResponse.json({ error: 'Missing run_id or endpoint' }, { status: 400 });
+    if (
+      typeof run_id !== 'string' ||
+      typeof endpoint !== 'string' ||
+      !run_id.trim() ||
+      !endpoint.trim() ||
+      run_id.length > 128 ||
+      endpoint.length > 1000
+    ) {
+      return NextResponse.json({ error: 'Invalid run_id or endpoint' }, { status: 400 });
     }
 
     const supabase = getAdminSupabase();
 
-    // Attempt to lookup the user's email based on the endpoint
+    // Verify the subscription endpoint is registered so arbitrary callers cannot flood push_receipts
     const { data: sub } = await supabase
       .from('web_push_subscriptions')
       .select('user_id, legacy_email')
       .eq('endpoint', endpoint)
       .maybeSingle();
 
-    let email = sub?.legacy_email || 'unknown';
-    if (sub?.user_id && email === 'unknown') {
+    if (!sub) {
+      return NextResponse.json({ error: 'Unknown push subscription endpoint' }, { status: 403 });
+    }
+
+    // Verify run_id corresponds to a recent push dispatch in cron_logs (within 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: matchingRun } = await supabase
+      .from('cron_logs')
+      .select('id')
+      .gte('executed_at', sevenDaysAgo)
+      .contains('details', { run_id })
+      .limit(1)
+      .maybeSingle();
+
+    if (!matchingRun) {
+      return NextResponse.json({ error: 'Unrecognized or expired run_id' }, { status: 403 });
+    }
+
+    let email = sub.legacy_email || 'unknown';
+    if (sub.user_id && email === 'unknown') {
       const { data: prof } = await supabase
         .from('profiles')
         .select('email')
@@ -34,7 +60,7 @@ export async function POST(request: Request) {
       .insert({
         run_id,
         endpoint,
-        email
+        email,
       });
 
     if (error) throw error;

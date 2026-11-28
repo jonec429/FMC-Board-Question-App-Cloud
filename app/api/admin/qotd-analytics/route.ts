@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
-import { getCurrentAcademicYear, derivePGY, deriveLabel, isActiveResident } from '@/lib/academicYear';
+import { requireAdminOrFaculty } from '@/lib/supabaseServer';
+import { getCurrentAcademicYear, deriveLabel, isActiveResident } from '@/lib/academicYear';
 import {
   QotdAnalyticsResponse,
   QotdDailyStatItem,
@@ -18,47 +17,14 @@ import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const STREAK_SAVER_PLACEHOLDER_QID = '00000000-0000-0000-0000-000000000001';
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!authHeader) {
-    return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
+  const authResult = await requireAdminOrFaculty(request);
+  if (!authResult.authorized || !authResult.adminSupabase) {
+    return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  const token = authHeader.replace('Bearer ', '');
-  let isAuthorized = false;
-
-  try {
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
-
-    const callerEmail = (user.email || '').toLowerCase();
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('role, pgy')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const isSuperAdmin = SUPER_ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(callerEmail);
-    const isAdmin = isSuperAdmin || profile?.role === 'admin';
-    const isFaculty = profile?.role === 'faculty' || profile?.pgy === 'Faculty';
-
-    if (isAdmin || isFaculty) {
-      isAuthorized = true;
-    }
-  } catch (err) {
-    return NextResponse.json({ error: 'Auth validation error' }, { status: 401 });
-  }
-
-  if (!isAuthorized) {
-    return NextResponse.json({ error: 'Forbidden: Admin or Faculty access required' }, { status: 403 });
-  }
+  const supabaseAdmin = authResult.adminSupabase;
 
   try {
     const { searchParams } = new URL(request.url);
@@ -103,12 +69,19 @@ export async function GET(request: Request) {
 
       const streakData = streakRes.data;
 
-      if (residentAttempts.length === 0) {
+      const realResidentAttempts = residentAttempts.filter((a) => a.question_id !== STREAK_SAVER_PLACEHOLDER_QID);
+
+      if (realResidentAttempts.length === 0) {
+        const qotdDateStrings = residentAttempts
+          .map((a) => (a.created_at ? getTodayDateString(new Date(a.created_at)) : null))
+          .filter(Boolean) as string[];
+        const derivedStreak = computeQotdStreak(qotdDateStrings, todayStr);
+        const derivedMax = Math.max(computeMaxQotdStreak(qotdDateStrings), streakData?.max_qotd_streak || 0, derivedStreak);
         return NextResponse.json({
           history: [],
           streak: {
-            current: streakData?.current_qotd_streak || 0,
-            max: streakData?.max_qotd_streak || 0,
+            current: derivedStreak,
+            max: derivedMax,
             lastDate: streakData?.last_qotd_date || null,
           },
           stats: {
@@ -119,7 +92,7 @@ export async function GET(request: Request) {
         });
       }
 
-      const questionIds = Array.from(new Set(residentAttempts.map((a) => a.question_id)));
+      const questionIds = Array.from(new Set(realResidentAttempts.map((a) => a.question_id)));
 
       // 2. Fetch question details, schedule dates, & peer attempts (batched & paginated)
       const [questionsList, scheduleList, allAttemptsForQuestions] = await Promise.all([
@@ -167,7 +140,7 @@ export async function GET(request: Request) {
         peerStatsMap.set(a.question_id, current);
       });
 
-      const history: ResidentQotdHistoryItem[] = residentAttempts.map((a) => {
+      const history: ResidentQotdHistoryItem[] = realResidentAttempts.map((a) => {
         const q = questionMap.get(a.question_id);
         const schedDate = scheduleMap.get(a.question_id) || (a.created_at ? a.created_at.split('T')[0] : '—');
         const peer = peerStatsMap.get(a.question_id) || { total: 0, correct: 0, optionCounts: {} };
@@ -254,7 +227,7 @@ export async function GET(request: Request) {
     ]);
 
     // Fetch all QOTD attempts with deterministic pagination to avoid PostgREST 1,000-row cap
-    const attempts = await fetchAllPages((from, to) =>
+    const rawAttempts = await fetchAllPages((from, to) =>
       supabaseAdmin
         .from('question_attempts')
         .select('id, user_id, question_id, is_correct, selected_index, created_at')
@@ -262,6 +235,16 @@ export async function GET(request: Request) {
         .order('id', { ascending: true })
         .range(from, to)
     );
+    // Keep streak-saver placeholder dates for streak continuity, but exclude from QOTD stats/counts
+    const streakDatesByUserId = new Map<string, string[]>();
+    rawAttempts.forEach((a) => {
+      if (a.user_id && a.created_at) {
+        const list = streakDatesByUserId.get(a.user_id) || [];
+        list.push(getTodayDateString(new Date(a.created_at)));
+        streakDatesByUserId.set(a.user_id, list);
+      }
+    });
+    const attempts = rawAttempts.filter((a) => a.question_id !== STREAK_SAVER_PLACEHOLDER_QID);
     const scheduleData = (scheduleRes.data || []).filter((s: any) => s.question != null);
     const profiles = profilesRes.data || [];
     const roster = rosterRes.data || [];
@@ -442,10 +425,10 @@ export async function GET(request: Request) {
         ? Math.round((attemptsCount / totalQuestionsServed) * 100)
         : 0;
 
-      // Self-healing derived streak from actual attempts history
-      const qotdDateStrings = userAtts
-        .map((a) => (a.created_at ? getTodayDateString(new Date(a.created_at)) : null))
-        .filter(Boolean) as string[];
+      // Self-healing derived streak from actual attempts history (including streak-saver bridge dates)
+      const qotdDateStrings = uid
+        ? (streakDatesByUserId.get(uid) || [])
+        : (userAtts.map((a) => (a.created_at ? getTodayDateString(new Date(a.created_at)) : null)).filter(Boolean) as string[]);
       const derivedStreak = computeQotdStreak(qotdDateStrings, getTodayDateString());
       const derivedMax = computeMaxQotdStreak(qotdDateStrings);
       const effectiveCurrentStreak = derivedStreak;

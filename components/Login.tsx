@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { supabase } from '@/lib/supabase';
 import { AbfmShield, Lock, MailIcon, Loader2, Info, HelpCircle, XCircle, X, Eye, EyeOff, Smartphone } from './AppIcons';
 import { withTimeout } from '@/lib/utils';
@@ -90,8 +91,8 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
       return;
     }
 
-    // Securely check authorized roster via API
-    let authorized = null;
+    // Securely check authorized roster via API (no PII returned)
+    let authorized = false;
     try {
       const res = await fetch('/api/auth/verify-roster', {
         method: 'POST',
@@ -99,8 +100,8 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
         body: JSON.stringify({ email: cleanEmail }),
       });
       const data = await res.json();
-      if (res.ok && data.user) {
-        authorized = data.user;
+      if (res.ok && data.success) {
+        authorized = true;
       }
     } catch (err) {
       console.error('Error verifying roster:', err);
@@ -130,7 +131,7 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
       if (signUpError) {
         setError(signUpError.message);
       } else {
-        // Create/Update profile explicitly to be sure
+        // Create/Update baseline profile; canonical pgy/role/advisor sync from authorized_roster on login
         await withTimeout(
           supabase.from('profiles').upsert({
             id: signUpData.user?.id,
@@ -138,8 +139,7 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
             full_name: `${firstName.trim()} ${lastName.trim()}`,
             first_name: firstName.trim(),
             last_name: lastName.trim(),
-            pgy: authorized.pgy,
-            role: authorized.role || (authorized.pgy === 'Faculty' ? 'faculty' : 'resident')
+            role: 'resident',
           })
         );
 
@@ -164,13 +164,6 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
     setLoading(true);
     setError('');
     setResetSentMsg('');
-
-    // Helpful check if someone typed isaac.smith instead of isaac.smith1
-    if (cleanEmail === 'isaac.smith@ascension.org') {
-      setError('Did you mean isaac.smith1@ascension.org? Please check your username format.');
-      setLoading(false);
-      return;
-    }
 
     try {
       const { error } = await withTimeout(
@@ -427,7 +420,17 @@ export default function Login({ onLogin }: { onLogin: (user: User) => void }) {
                         {release.items.map((item, j) => (
                           <li key={j} className="flex gap-2 items-start text-xs">
                             <div className="w-1.5 h-1.5 bg-blue-500/50 rounded-full shrink-0 mt-1.5" />
-                            <span className="leading-relaxed text-slate-600" dangerouslySetInnerHTML={{ __html: item.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-slate-800">$1</strong>') }} />
+                            <span
+                              className="leading-relaxed text-slate-600"
+                              dangerouslySetInnerHTML={{
+                                __html:
+                                  typeof window !== 'undefined'
+                                    ? DOMPurify.sanitize(
+                                        item.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-slate-800">$1</strong>')
+                                      )
+                                    : item,
+                              }}
+                            />
                           </li>
                         ))}
                       </ul>

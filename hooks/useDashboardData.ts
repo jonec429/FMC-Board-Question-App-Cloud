@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { getQotdQuestion, getTodayDateString } from '@/lib/qotd';
 import { computeQotdStreak } from '@/lib/streaks';
 import { Block, Result, Question, LeaderboardEntry, BlockSchedule } from '@/lib/types';
-import { isGraduated, getCurrentAcademicYear, getAvailableAcademicYears } from '@/lib/academicYear';
+import { isGraduated, getCurrentAcademicYear } from '@/lib/academicYear';
 import { fetchAllPages } from '@/lib/supabasePagination';
 
 let assignedQuizzesTableMissing = false;
@@ -85,7 +85,7 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
       }
       
       let assignedQuizzes = assignedQuizzesData || [];
-      if (assignedQuizzesErr || assignedQuizzes.length === 0) {
+      if (assignedQuizzesErr) {
         try {
           const { data: qData } = await supabase.from('quizzes').select('*');
           if (qData && qData.length > 0) {
@@ -117,8 +117,6 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         } catch {}
       }
 
-      const availableYears = getAvailableAcademicYears();
-
       // BATCH 2: Leaderboard & Heavy Data
       const [
         { data: resultsData, error: resultsErr },
@@ -128,7 +126,6 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
         { data: qotdAttemptData, error: qotdAttemptErr },
         { data: qotdHistoryData },
         { data: attendanceData },
-        ...yoyResults
       ] = (await Promise.all([
         fetchAllPages((from, to) => {
           let q = supabase.from('results').select('*');
@@ -187,8 +184,6 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           }
           return q.order('id', { ascending: true }).range(from, to).abortSignal(signal);
         }).then((data) => ({ data, error: null })),
-        // Fetch YOY breakdown
-        ...availableYears.map(yr => supabase.rpc('get_leaderboard_stats', { p_academic_year: yr }).abortSignal(signal))
       ])) as any[];
 
       const err2 = resultsErr || allResultsErr || rosterErr || qotdAttemptErr;
@@ -236,11 +231,12 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
 
         const aggregatedByEmail = new Map<string, { totalPoints: number; totalQs: number }>();
         allResults.forEach((r: any) => {
-          const email = r.legacy_email?.toLowerCase();
+          const email = r.legacy_email?.toLowerCase().trim();
           if (!email) return;
+          const prev = aggregatedByEmail.get(email) || { totalPoints: 0, totalQs: 0 };
           aggregatedByEmail.set(email, { 
-            totalPoints: Number(r.total_points) || 0, 
-            totalQs: Number(r.total_qs) || 0 
+            totalPoints: prev.totalPoints + (Number(r.total_points) || 0), 
+            totalQs: prev.totalQs + (Number(r.total_qs) || 0),
           });
         });
 
@@ -248,21 +244,8 @@ export function useDashboardData(userId: string, userEmail: string, selectedYear
           const entry = aggregatedByEmail.get(email);
           const totalPoints = entry ? entry.totalPoints : 0;
           const totalQs = entry ? entry.totalQs : 0;
-          
-          const yoyStats: Record<number, number> = {};
-          yoyResults.forEach((yrResult, idx) => {
-            const yr = availableYears[idx];
-            if (yrResult.data) {
-              const yrEntry = yrResult.data.find((r: any) => r.legacy_email?.toLowerCase() === email);
-              if (yrEntry) {
-                yoyStats[yr] = Number(yrEntry.total_points) || 0;
-              } else {
-                yoyStats[yr] = 0;
-              }
-            }
-          });
 
-          leaderboard.push({ email, name, pgy, totalPoints, totalQs, yoyStats, isGraduated: isGrad });
+          leaderboard.push({ email, name, pgy, totalPoints, totalQs, isGraduated: isGrad });
         });
         leaderboard.sort((a, b) => b.totalPoints - a.totalPoints);
       }

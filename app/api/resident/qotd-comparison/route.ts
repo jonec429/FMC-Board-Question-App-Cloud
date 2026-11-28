@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminSupabase, getAuthenticatedUser } from '@/lib/supabaseServer';
 import { QotdPeerComparisonResponse, QotdOptionDistribution } from '@/lib/types';
 import { getTodayDateString } from '@/lib/qotd';
 import { computeQotdStreak, computeMaxQotdStreak } from '@/lib/streaks';
@@ -7,24 +7,17 @@ import { computeQotdStreak, computeMaxQotdStreak } from '@/lib/streaks';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const STREAK_SAVER_PLACEHOLDER_QID = '00000000-0000-0000-0000-000000000001';
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!authHeader) {
-    return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
+  const { user, errorResponse } = await getAuthenticatedUser(request);
+  if (!user || errorResponse) {
+    return errorResponse || NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
   }
 
-  const token = authHeader.replace('Bearer ', '');
+  const supabaseAdmin = getAdminSupabase();
 
   try {
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const questionId = searchParams.get('questionId');
@@ -33,7 +26,7 @@ export async function GET(request: Request) {
     // 1. If questionId is provided, calculate anonymous option breakdown
     let questionStats: QotdPeerComparisonResponse['questionStats'] = null;
 
-    if (questionId) {
+    if (questionId && questionId !== STREAK_SAVER_PLACEHOLDER_QID) {
       const [qDataRes, qAttemptsRes] = await Promise.all([
         supabaseAdmin
           .from('questions')
@@ -80,22 +73,35 @@ export async function GET(request: Request) {
     }
 
     // 2. Program-wide cumulative QOTD aggregates (anonymous benchmark)
-    // Fetch all QOTD attempts with pagination to ensure we never get truncated by PostgREST 1000 row cap
-    const allAttempts: any[] = [];
+    // Fetch all QOTD attempts with deterministic pagination to ensure we never get truncated by PostgREST 1000 row cap
+    const rawAttempts: any[] = [];
     let attPage = 0;
     const attPageSize = 1000;
     while (true) {
       const { data: pageData, error: pageErr } = await supabaseAdmin
         .from('question_attempts')
-        .select('user_id, is_correct, created_at')
+        .select('user_id, question_id, is_correct, created_at')
         .eq('is_qotd', true)
+        .order('id', { ascending: true })
         .range(attPage * attPageSize, (attPage + 1) * attPageSize - 1);
       if (pageErr) throw pageErr;
       if (!pageData || pageData.length === 0) break;
-      allAttempts.push(...pageData);
+      rawAttempts.push(...pageData);
       if (pageData.length < attPageSize) break;
       attPage++;
     }
+
+    // Keep streak-saver placeholder dates for streak continuity, but exclude from QOTD accuracy/counts
+    const userDatesMap = new Map<string, string[]>();
+    rawAttempts.forEach((a) => {
+      if (!userDatesMap.has(a.user_id)) {
+        userDatesMap.set(a.user_id, []);
+      }
+      if (a.created_at) {
+        userDatesMap.get(a.user_id)!.push(getTodayDateString(new Date(a.created_at)));
+      }
+    });
+    const allAttempts = rawAttempts.filter((a) => a.question_id !== STREAK_SAVER_PLACEHOLDER_QID);
 
     const { data: streaksData } = await supabaseAdmin
       .from('user_streaks')
@@ -109,17 +115,6 @@ export async function GET(request: Request) {
     const programAccuracyPct = totalProgramAttempts > 0
       ? Math.round((totalProgramCorrect / totalProgramAttempts) * 100)
       : 0;
-
-    // Self-healing streaks derived from real attempt dates
-    const userDatesMap = new Map<string, string[]>();
-    allAttempts.forEach((a) => {
-      if (!userDatesMap.has(a.user_id)) {
-        userDatesMap.set(a.user_id, []);
-      }
-      if (a.created_at) {
-        userDatesMap.get(a.user_id)!.push(getTodayDateString(new Date(a.created_at)));
-      }
-    });
 
     const activeStreaks: number[] = [];
     userDatesMap.forEach((dates) => {

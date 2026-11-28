@@ -227,7 +227,17 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
     setReviewItems(null);
     
     try {
-      const rd = Array.isArray(r.review_data) ? r.review_data : null;
+      let rd = Array.isArray(r.review_data) ? r.review_data : null;
+      if (!rd && r.id) {
+        const { data: rowData, error: rowErr } = await supabase
+          .from('results')
+          .select('review_data')
+          .eq('id', r.id)
+          .maybeSingle();
+        if (!rowErr && Array.isArray(rowData?.review_data)) {
+          rd = rowData.review_data;
+        }
+      }
       if (!rd || rd.length === 0) {
         setReviewItems([]);
         setLoadingReview(false);
@@ -1837,7 +1847,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                                       <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                                         {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'} · {timingLabel}
                                         {total > 0 ? ` · ${correct}/${total} Qs` : ''}
-                                        {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
+                                        {r.review_data !== undefined && (!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -1871,7 +1881,7 @@ export default function AdminPerformance({ user, profile, onNavigateTab }: Admin
                                       <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5">
                                         {r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}
                                         {total > 0 ? ` · ${correct}/${total} Qs` : ''}
-                                        {(!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
+                                        {r.review_data !== undefined && (!Array.isArray(r.review_data) || r.review_data.length === 0) ? ' · review unavailable' : ''}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2 sm:gap-3 shrink-0">

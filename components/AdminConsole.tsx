@@ -18,7 +18,7 @@ import QotdAnalytics from './QotdAnalytics';
 import ChallengeTracker from './ChallengeTracker';
 import QuestionSearchModal from './QuestionSearchModal';
 import ErrorBoundary from './ErrorBoundary';
-import { getUserRole, isAdmin, getRoleLabel } from '@/lib/roles';
+import { getUserRole, isAdmin, canAccessAdmin, getRoleLabel } from '@/lib/roles';
 import { useAdminData } from '@/hooks/useAdminData';
 
 import { User, Profile } from '@/lib/types';
@@ -33,18 +33,46 @@ interface AdminConsoleProps {
 }
 
 export default function AdminConsole({ user, profile, onExit, initialTab }: AdminConsoleProps) {
-  const role = getUserRole(user, profile);
+  const hasAccess = canAccessAdmin(user, profile);
   const userIsAdmin = isAdmin(user, profile);
-  // Faculty land directly on Performance (or initialTab); admins start on Performance too (most-used tab)
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab || 'performance');
+  const adminOnlyTabs = new Set<TabId>(['roster', 'attendance', 'notifications', 'questions', 'builder', 'content', 'rollover']);
+  const validTabs = new Set<TabId>(['performance', 'challenge', 'reporting', 'roster', 'attendance', 'builder', 'questions', 'notifications', 'rollover', 'assign', 'qotd']);
+  const safeInitialTab: TabId =
+    initialTab && validTabs.has(initialTab) && (userIsAdmin || !adminOnlyTabs.has(initialTab))
+      ? initialTab
+      : 'performance';
+
+  // Faculty land directly on Performance (or safeInitialTab); admins start on Performance too (most-used tab)
+  const [activeTab, setActiveTab] = useState<TabId>(safeInitialTab);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
 
   // Hoist the hook call to the top level to avoid React Rules of Hooks violations.
   // Questions are lazily fetched only on tabs that require them.
   const adminDataResult = useAdminData({ 
-    includeQuestions: activeTab === 'questions' || activeTab === 'builder' 
+    includeQuestions: hasAccess && (activeTab === 'questions' || activeTab === 'builder'),
+    enabled: hasAccess,
   });
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-lg text-center">
+          <Shield className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2">Access Restricted</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+            The Faculty &amp; Admin Console is restricted to authorized faculty and program administrators.
+          </p>
+          <button
+            onClick={onExit}
+            className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors text-sm"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Sidebar groups — ordered by likely-use frequency
   // `adminOnly: true` tabs are hidden from faculty users

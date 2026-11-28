@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError } from '@/lib/supabaseServer';
+import {
+  getAdminSupabase,
+  recordPushDispatchFailure,
+  PushDispatchError,
+  verifyCronSecret,
+  requireAdminOnly,
+} from '@/lib/supabaseServer';
 import { getCurrentAcademicYear } from '@/lib/academicYear';
 import {
   getDueBlocks,
@@ -59,39 +65,14 @@ export async function GET(request: Request) {
   const isDryRun = url.searchParams.get('dryRun') === 'true';
 
   // Authenticate request: accept CRON_SECRET or an authenticated Admin user token
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  let isAuthorized = false;
   let callerEmail = 'cron-system';
-
-  if (authHeader) {
-    const token = authHeader.replace('Bearer ', '');
-    if (token === process.env.CRON_SECRET) {
-      isAuthorized = true;
-    } else {
-      try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-        if (!authError && user?.email) {
-          callerEmail = user.email;
-          const isSuperAdmin = SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(user.email.toLowerCase());
-          const { data: callerProfile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          if (isSuperAdmin || callerProfile?.role === 'admin') {
-            isAuthorized = true;
-          }
-        }
-      } catch (err) {
-        console.warn('[faculty-digest] Error verifying bearer token:', err);
-      }
+  if (!verifyCronSecret(request)) {
+    const authResult = await requireAdminOnly(request);
+    if (!authResult.authorized || !authResult.user) {
+      console.warn('[faculty-digest] Unauthorized request — CRON_SECRET or Admin token required.');
+      return authResult.errorResponse || new Response('Unauthorized', { status: 401 });
     }
-  }
-
-  if (!isAuthorized) {
-    console.warn('[faculty-digest] Unauthorized request — CRON_SECRET or Admin token required.');
-    return new Response('Unauthorized', { status: 401 });
+    callerEmail = authResult.user.email || 'admin-user';
   }
 
   // Early Trigger Guard (DST-safety): Target is Monday 9:00 AM Eastern.

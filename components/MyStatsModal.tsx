@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import DOMPurify from 'dompurify';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { withTimeout, formatDisplayName, formatTopicDisplay } from '@/lib/utils';
 import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
-import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save, Check, Layers } from './AppIcons';
+import { Trophy, X, Loader2, Target, ExternalLink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Save, Check, Layers, Lock } from './AppIcons';
+import { ACHIEVEMENT_GROUPS, categorizeBadge } from './AchievementsModal';
 import { LeaderboardEntry, Profile, Result, UserBadge, Question, QotdPeerComparisonResponse, Block, BlockSchedule } from '@/lib/types';
 import { computeResidentReadiness, ResidentReadiness, ReadinessStatus } from '@/lib/residentRisk';
 import {
@@ -73,7 +76,21 @@ export default function MyStatsModal({
   const [showReadinessModal, setShowReadinessModal] = useState(false);
   const [isHoveringStatus, setIsHoveringStatus] = useState(false);
   const [activeTab, setActiveTab] = useState<'stats' | 'readiness' | 'apTracker' | 'achievements' | 'weakAreas' | 'pastQuizzes'>(initialTab || 'stats');
+  const [achievementFilter, setAchievementFilter] = useState<'all' | 'earned' | 'locked'>('all');
   const [isSnapshotCollapsed, setIsSnapshotCollapsed] = useState(true);
+
+  const { data: badgesCatalog = [], isLoading: loadingBadgesCatalog } = useQuery({
+    queryKey: ['badges-catalog'],
+    enabled: activeTab === 'achievements',
+    staleTime: 30 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('badges')
+        .select('id, name, description, icon, type');
+      if (error) throw error;
+      return (data || []) as Array<{ id?: string; name: string; description: string | null; icon: string | null; type: string | null }>;
+    },
+  });
 
   // Close modal on Escape key
   useEffect(() => {
@@ -1394,35 +1411,168 @@ export default function MyStatsModal({
                 </div>
               )}
 
-              {/* Earned Badges Showcase */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-3.5 sm:p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  <div>
-                    <h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white">Earned Badges ({userBadges.length})</h3>
-                    <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">Badges unlocked through curriculum questions and milestones</p>
-                  </div>
-                </div>
+              {/* Full Achievements Catalog (Earned + Locked) */}
+              {(() => {
+                const earnedByName = new Map<string, any>();
+                userBadges.forEach((b: any) => {
+                  const name = b?.badges?.name || b?.name;
+                  if (name) earnedByName.set(name, b);
+                });
 
-                {userBadges.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
-                    {userBadges.map((badge, idx) => (
-                      <div key={idx} className="p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-2.5 sm:gap-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white dark:bg-slate-800 shadow-xs border border-slate-200 dark:border-slate-700 flex items-center justify-center text-lg sm:text-xl shrink-0">
-                          {badge.icon}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-xs text-slate-800 dark:text-slate-100 truncate">{badge.name}</div>
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 line-clamp-2">{badge.description}</div>
-                        </div>
+                const mergedBadges: Array<{ name: string; description: string | null; icon: string | null; type: string | null }> = [...badgesCatalog];
+                userBadges.forEach((b: any) => {
+                  const name = b?.badges?.name || b?.name;
+                  if (name && !mergedBadges.some((m) => m.name === name)) {
+                    mergedBadges.push({
+                      name,
+                      description: b?.badges?.description ?? b?.description ?? null,
+                      icon: b?.badges?.icon ?? b?.icon ?? null,
+                      type: b?.badges?.type ?? b?.type ?? null,
+                    });
+                  }
+                });
+
+                const earnedCount = mergedBadges.filter((m) => earnedByName.has(m.name)).length;
+                const totalCount = mergedBadges.length;
+                const lockedCount = Math.max(0, totalCount - earnedCount);
+                const progressPct = totalCount > 0 ? Math.round((earnedCount / totalCount) * 100) : 0;
+
+                const sortFn = (a: { name: string }, b: { name: string }) => {
+                  const ea = earnedByName.has(a.name) ? 0 : 1;
+                  const eb = earnedByName.has(b.name) ? 0 : 1;
+                  if (ea !== eb) return ea - eb;
+                  return a.name.localeCompare(b.name);
+                };
+
+                return (
+                  <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-3.5 sm:p-5 shadow-sm space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white">
+                          Achievements ({loadingBadgesCatalog ? `${userBadges.length} earned` : `${earnedCount} of ${totalCount} unlocked`})
+                        </h3>
+                        <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+                          Track earned badges and see what you can unlock next
+                        </p>
                       </div>
-                    ))}
+                      {!loadingBadgesCatalog && totalCount > 0 && (
+                        <span className="self-start sm:self-auto px-2.5 py-1 rounded-full text-[11px] font-black bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
+                          {progressPct}% Complete
+                        </span>
+                      )}
+                    </div>
+
+                    {!loadingBadgesCatalog && totalCount > 0 && (
+                      <>
+                        <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-indigo-500 to-amber-500 rounded-full transition-all duration-500"
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {[
+                            { id: 'all' as const, label: `All (${totalCount})` },
+                            { id: 'earned' as const, label: `Earned (${earnedCount})` },
+                            { id: 'locked' as const, label: `To Unlock (${lockedCount})` },
+                          ].map((pill) => (
+                            <button
+                              key={pill.id}
+                              type="button"
+                              onClick={() => setAchievementFilter(pill.id)}
+                              className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                                achievementFilter === pill.id
+                                  ? 'bg-indigo-600 text-white shadow-xs'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              {pill.label}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {loadingBadgesCatalog ? (
+                      <div className="flex items-center justify-center py-8 gap-2 text-slate-400 dark:text-slate-500 text-xs font-bold">
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                        Loading full achievement catalog…
+                      </div>
+                    ) : totalCount === 0 ? (
+                      <div className="text-center py-6 sm:py-8 text-slate-400 dark:text-slate-500 text-xs italic">
+                        No badges available yet. Answer daily questions and complete practice blocks to unlock badges!
+                      </div>
+                    ) : (
+                      <div className="space-y-5">
+                        {ACHIEVEMENT_GROUPS.map((g) => {
+                          const items = mergedBadges
+                            .filter((m) => categorizeBadge(m) === g.key)
+                            .filter((m) => {
+                              const isEarned = earnedByName.has(m.name);
+                              if (achievementFilter === 'earned') return isEarned;
+                              if (achievementFilter === 'locked') return !isEarned;
+                              return true;
+                            })
+                            .sort(sortFn);
+                          if (items.length === 0) return null;
+
+                          return (
+                            <div key={g.key}>
+                              <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5">
+                                {g.label}
+                              </h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
+                                {items.map((badge) => {
+                                  const earned = earnedByName.get(badge.name);
+                                  return (
+                                    <div
+                                      key={badge.name}
+                                      className={`p-2.5 sm:p-3 rounded-xl border flex items-start gap-2.5 sm:gap-3 transition-colors ${
+                                        earned
+                                          ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/60'
+                                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800'
+                                      }`}
+                                    >
+                                      <div
+                                        className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl shrink-0 ${
+                                          earned
+                                            ? 'bg-white dark:bg-slate-800 shadow-xs border border-indigo-200 dark:border-indigo-700/60'
+                                            : 'bg-slate-200/60 dark:bg-slate-700/60 grayscale opacity-55'
+                                        }`}
+                                      >
+                                        {badge.icon || '🏅'}
+                                        {!earned && (
+                                          <div className="absolute -bottom-1 -right-1 bg-slate-400 dark:bg-slate-600 text-white rounded-full p-0.5">
+                                            <Lock className="w-2.5 h-2.5" />
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className={`font-bold text-xs truncate ${earned ? 'text-indigo-900 dark:text-indigo-100' : 'text-slate-600 dark:text-slate-300'}`}>
+                                          {badge.name}
+                                        </div>
+                                        <div className={`text-[10px] mt-0.5 line-clamp-2 ${earned ? 'text-indigo-700/80 dark:text-indigo-300/80' : 'text-slate-400 dark:text-slate-500'}`}>
+                                          {badge.description || 'Keep practicing to unlock this achievement.'}
+                                        </div>
+                                        {earned?.earned_at && (
+                                          <div className="text-[9px] font-bold text-indigo-400 dark:text-indigo-400/80 mt-1">
+                                            Earned {new Date(earned.earned_at).toLocaleDateString()}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="text-center py-6 sm:py-8 text-slate-400 dark:text-slate-500 text-xs italic">
-                    No badges earned yet. Answer daily questions and complete practice blocks to unlock badges!
-                  </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1765,7 +1915,14 @@ export default function MyStatsModal({
                                 </div>
                               </div>
                               <div className="space-y-3 text-slate-300 text-xs leading-relaxed font-medium">
-                                <div dangerouslySetInnerHTML={{ __html: q.explanation }} />
+                                <div
+                                  dangerouslySetInnerHTML={{
+                                    __html:
+                                      typeof window !== 'undefined'
+                                        ? DOMPurify.sanitize(q.explanation || '')
+                                        : (q.explanation || ''),
+                                  }}
+                                />
                               </div>
                               <div className="mt-4 sm:mt-6 flex flex-wrap gap-2 sm:gap-3">
                                 <a href="https://www.openevidence.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 rounded-xl text-blue-400 text-xs font-bold transition-all border border-blue-500/20">

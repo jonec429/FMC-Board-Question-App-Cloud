@@ -140,6 +140,7 @@ export default function QuizEngine({
     : questions.length - 1;
 
   const confettiFiredRef = useRef(false);
+  const savedMockQuestionIndicesRef = useRef<Set<number>>(new Set());
 
   // Load user's flagged question IDs
   useEffect(() => {
@@ -925,12 +926,15 @@ export default function QuizEngine({
     };
 
     const attempts = !isDemo
-      ? questions.map((q, idx) => ({
-          user_id: user.id,
-          question_id: q.id,
-          is_correct: finalAnswers[idx] === q.correct_index,
-          selected_index: finalAnswers[idx] ?? null,
-        }))
+      ? questions
+          .map((q, idx) => ({ q, idx }))
+          .filter(({ idx }) => !savedMockQuestionIndicesRef.current.has(idx))
+          .map(({ q, idx }) => ({
+            user_id: user.id,
+            question_id: q.id,
+            is_correct: finalAnswers[idx] === q.correct_index,
+            selected_index: finalAnswers[idx] ?? null,
+          }))
       : [];
 
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -1025,8 +1029,10 @@ export default function QuizEngine({
         }
 
         if (!isDemo && !attemptsSavedRef.current) {
-          const { error: blockAttErr } = await withTimeout(supabase.from('question_attempts').insert(attempts), 20000);
-          if (blockAttErr) throw blockAttErr;
+          if (attempts.length > 0) {
+            const { error: blockAttErr } = await withTimeout(supabase.from('question_attempts').insert(attempts), 20000);
+            if (blockAttErr) throw blockAttErr;
+          }
           attemptsSavedRef.current = true;
         }
       } else if (isQotd) {
@@ -1095,8 +1101,12 @@ export default function QuizEngine({
          if (res && res.newlyEarnedBadges && res.newlyEarnedBadges.length > 0) {
            setNewBadgesEarned(true);
            try {
-             // Store in localStorage for Dashboard to pick up and display modal
-             localStorage.setItem('recent_badges', JSON.stringify(res.newlyEarnedBadges));
+             // Merge with any concurrent mock/QOTD badges in localStorage
+             const existingRecent = JSON.parse(localStorage.getItem('recent_badges') || '[]');
+             const combined = [...existingRecent, ...res.newlyEarnedBadges];
+             const uniqueMap = new Map();
+             combined.forEach((b: any) => uniqueMap.set(b.id || b.name, b));
+             localStorage.setItem('recent_badges', JSON.stringify(Array.from(uniqueMap.values())));
            } catch (e) {
              console.warn('Failed to save recent badges to local storage:', e);
            }
@@ -1229,21 +1239,27 @@ export default function QuizEngine({
     const updatedSummaries = [...sectionSummaries, summary];
     setSectionSummaries(updatedSummaries);
 
-    // Intermediate database save of completed section's attempts
-    const sectionAttempts = secQuestions.map((q, idx) => {
-      const globalIdx = sectionStartIndex + idx;
-      return {
+    // Intermediate database save of completed section's attempts (skip indices already persisted)
+    const unsavedEntries = secQuestions
+      .map((q, idx) => ({ q, globalIdx: sectionStartIndex + idx }))
+      .filter(({ globalIdx }) => !savedMockQuestionIndicesRef.current.has(globalIdx));
+
+    if (unsavedEntries.length > 0) {
+      const sectionAttempts = unsavedEntries.map(({ q, globalIdx }) => ({
         user_id: user.id,
         question_id: q.id,
         is_correct: answers[globalIdx] === q.correct_index,
         selected_index: answers[globalIdx] ?? null,
-      };
-    });
+      }));
 
-    try {
-      await supabase.from('question_attempts').insert(sectionAttempts);
-    } catch (err) {
-      console.warn('Failed intermediate question_attempts save:', err);
+      try {
+        const { error: secAttErr } = await supabase.from('question_attempts').insert(sectionAttempts);
+        if (!secAttErr) {
+          unsavedEntries.forEach(({ globalIdx }) => savedMockQuestionIndicesRef.current.add(globalIdx));
+        }
+      } catch (err) {
+        console.warn('Failed intermediate question_attempts save:', err);
+      }
     }
 
     if (currentSection < mockSectionsCount) {

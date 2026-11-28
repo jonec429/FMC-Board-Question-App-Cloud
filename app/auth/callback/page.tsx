@@ -18,6 +18,8 @@ export default function AuthCallback() {
     processedRef.current = true;
 
     let isMounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const initAuth = async () => {
       try {
@@ -90,15 +92,16 @@ export default function AuthCallback() {
         }
 
         // 5. Listen for auth state change (e.g. PASSWORD_RECOVERY event from hash parse)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
           if (!isMounted) return;
           if (event === 'PASSWORD_RECOVERY' || (session && (event === 'SIGNED_IN' || event === 'USER_UPDATED'))) {
             setStatus('form');
           }
         });
+        subscription = authListener.subscription;
 
         // 6. Graceful timeout check (give it up to 4.5 seconds for hash parsing or slow mobile connections)
-        setTimeout(async () => {
+        timeoutId = setTimeout(async () => {
           if (!isMounted) return;
           const { data: { session: finalCheck } } = await supabase.auth.getSession();
           if (finalCheck) {
@@ -108,10 +111,6 @@ export default function AuthCallback() {
             setErrorMessage(current => current || 'The password reset link is invalid, expired, or has already been used. Please request a new one from your login screen or contact your program administrator.');
           }
         }, 4500);
-
-        return () => {
-          subscription.unsubscribe();
-        };
 
       } catch (err: any) {
         if (isMounted) {
@@ -125,6 +124,8 @@ export default function AuthCallback() {
 
     return () => {
       isMounted = false;
+      if (subscription) subscription.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
 
@@ -145,6 +146,9 @@ export default function AuthCallback() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({
         password: password,
+        data: {
+          must_reset_password: false,
+        },
       });
 
       if (updateError) {

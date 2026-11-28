@@ -35,3 +35,7 @@ next-env.d.ts
 
 # scratch scripts and temp files
 /scratch/
+/data/scratch/
+
+# exported data / resident CSVs
+*.csv

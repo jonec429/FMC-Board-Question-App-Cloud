@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { getAdminSupabase, recordPushDispatchFailure, PushDispatchError } from '@/lib/supabaseServer';
-import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
+import {
+  getAdminSupabase,
+  recordPushDispatchFailure,
+  PushDispatchError,
+  verifyCronSecret,
+  requireAdminOnly,
+} from '@/lib/supabaseServer';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   const supabase = getAdminSupabase();
@@ -20,53 +27,16 @@ export async function POST(request: Request) {
     privateKey
   );
 
-  // Authenticate request
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!authHeader) {
-    console.warn('[web-push/send] Unauthorized request — Authorization header missing.');
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  let isAuthorized = false;
+  // Authenticate request: CRON_SECRET or strict Admin role
   let callerEmail = '';
-
-  if (token === process.env.CRON_SECRET) {
-    isAuthorized = true;
+  if (verifyCronSecret(request)) {
     callerEmail = 'cron-system';
   } else {
-    // Verify using Supabase token
-    try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !user) {
-        console.warn('[web-push/send] Unauthorized request — Invalid Supabase user token.');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-
-      callerEmail = user.email || '';
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const isAdmin =
-        SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(callerEmail.toLowerCase()) ||
-        profile?.role === 'admin';
-
-      if (isAdmin) {
-        isAuthorized = true;
-      }
-    } catch (err) {
-      console.error('[web-push/send] Auth validation failed:', err);
-      return NextResponse.json({ error: 'Auth validation error' }, { status: 401 });
+    const authResult = await requireAdminOnly(request);
+    if (!authResult.authorized || !authResult.user) {
+      return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-  }
-
-  if (!isAuthorized) {
-    console.warn(`[web-push/send] Forbidden request — User ${callerEmail} is not an administrator.`);
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    callerEmail = authResult.user.email || '';
   }
 
   try {
@@ -103,35 +73,46 @@ export async function POST(request: Request) {
     let skipped = 0;
     const pushErrors: PushDispatchError[] = [];
 
-    const notifications = subs.map(async (sub) => {
-      if (!sub.p256dh || !sub.auth || !sub.endpoint) {
-        console.warn(`[web-push/send] Skipping subscription ${sub.id}: missing p256dh, auth, or endpoint.`);
-        skipped++;
-        return;
-      }
+    const BATCH_SIZE = 10;
+    const BATCH_DELAY_MS = 200;
 
-      const pushSubscription = {
-        endpoint: sub.endpoint,
-        keys: {
-          auth: sub.auth,
-          p256dh: sub.p256dh
+    for (let i = 0; i < subs.length; i += BATCH_SIZE) {
+      const batch = subs.slice(i, i + BATCH_SIZE);
+
+      const batchPromises = batch.map(async (sub) => {
+        if (!sub.p256dh || !sub.auth || !sub.endpoint) {
+          console.warn(`[web-push/send] Skipping subscription ${sub.id}: missing p256dh, auth, or endpoint.`);
+          skipped++;
+          return;
         }
-      };
 
-      try {
-        await webpush.sendNotification(pushSubscription, payload, { urgency: 'high', TTL: 14400 });
-        sent++;
-      } catch (err: unknown) {
-        const outcome = await recordPushDispatchFailure(supabase, 'web-push/send', sub, err, pushErrors);
-        if (outcome === 'expired') {
-          expired++;
-        } else {
-          failed++;
+        const pushSubscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            auth: sub.auth,
+            p256dh: sub.p256dh
+          }
+        };
+
+        try {
+          await webpush.sendNotification(pushSubscription, payload, { urgency: 'high', TTL: 14400 });
+          sent++;
+        } catch (err: unknown) {
+          const outcome = await recordPushDispatchFailure(supabase, 'web-push/send', sub, err, pushErrors);
+          if (outcome === 'expired') {
+            expired++;
+          } else {
+            failed++;
+          }
         }
-      }
-    });
+      });
 
-    await Promise.allSettled(notifications);
+      await Promise.allSettled(batchPromises);
+
+      if (i + BATCH_SIZE < subs.length) {
+        await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+    }
 
     const summary = { total: subs.length, sent, failed, expired, skipped };
     console.log('[web-push/send] Dispatch complete:', JSON.stringify(summary));
@@ -162,45 +143,13 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const supabase = getAdminSupabase();
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!authHeader) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-  let isAuthorized = false;
-
-  try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const callerEmail = user.email || '';
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const isAdmin =
-      SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(callerEmail.toLowerCase()) ||
-      profile?.role === 'admin';
-
-    if (isAdmin) {
-      isAuthorized = true;
-    }
-  } catch (err) {
-    return NextResponse.json({ error: 'Auth validation error' }, { status: 401 });
-  }
-
-  if (!isAuthorized) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const authResult = await requireAdminOnly(request);
+  if (!authResult.authorized || !authResult.adminSupabase) {
+    return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { count, error } = await supabase
+    const { count, error } = await authResult.adminSupabase
       .from('web_push_subscriptions')
       .select('*', { count: 'exact', head: true });
     

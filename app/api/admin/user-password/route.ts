@@ -1,56 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireAdminOnly } from '@/lib/supabaseServer';
 import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.split('Bearer ')[1];
-
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: missing authorization token' }, { status: 401 });
+    const authResult = await requireAdminOnly(request);
+    if (!authResult.authorized || !authResult.adminSupabase || !authResult.user) {
+      return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const anonSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const { data: { user: callerUser }, error: callerError } = await anonSupabase.auth.getUser(token);
-    if (callerError || !callerUser) {
-      return NextResponse.json({ error: 'Unauthorized: invalid session' }, { status: 401 });
-    }
-
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceRoleKey) {
-      return NextResponse.json({ error: 'Server configuration error: missing service role key' }, { status: 500 });
-    }
-
-    const adminSupabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey
-    );
-
-    // Verify admin role
-    const callerEmail = (callerUser.email || '').toLowerCase();
-    const isSuperAdmin = SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(callerEmail);
-
-    let isAdminUser = isSuperAdmin;
-    if (!isAdminUser) {
-      const { data: callerProfile } = await adminSupabase
-        .from('profiles')
-        .select('role')
-        .eq('id', callerUser.id)
-        .single();
-
-      if (callerProfile?.role === 'admin') {
-        isAdminUser = true;
-      }
-    }
-
-    if (!isAdminUser) {
-      return NextResponse.json({ error: 'Forbidden: only program administrators can manage credentials' }, { status: 403 });
-    }
+    const adminSupabase = authResult.adminSupabase;
+    const isCallerSuperAdmin = Boolean(authResult.isSuperAdmin);
 
     const body = await request.json();
     const { action, email, userId, password } = body;
@@ -70,21 +32,51 @@ export async function POST(request: Request) {
     }
 
     if (!targetUser && email) {
-      const cleanEmail = email.toLowerCase().trim();
-      const { data: userList, error: listErr } = await adminSupabase.auth.admin.listUsers();
-      if (!listErr && userList?.users) {
-        targetUser = userList.users.find((u: any) => u.email?.toLowerCase().trim() === cleanEmail);
+      const cleanEmail = String(email).toLowerCase().trim();
+      // Fast O(1) lookup via profiles table first (avoids listUsers 50-user cap)
+      const { data: profMatch } = await adminSupabase
+        .from('profiles')
+        .select('id')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+
+      if (profMatch?.id) {
+        const { data: userById, error: userByIdErr } = await adminSupabase.auth.admin.getUserById(profMatch.id);
+        if (!userByIdErr && userById?.user) {
+          targetUser = userById.user;
+        }
+      }
+
+      // Fallback: paginate auth.admin.listUsers if profile row was never created
+      if (!targetUser) {
+        let page = 1;
+        const perPage = 1000;
+        while (true) {
+          const { data: userList, error: listErr } = await adminSupabase.auth.admin.listUsers({ page, perPage });
+          if (listErr || !userList?.users || userList.users.length === 0) break;
+          const found = userList.users.find((u: any) => u.email?.toLowerCase().trim() === cleanEmail);
+          if (found) {
+            targetUser = found;
+            break;
+          }
+          if (userList.users.length < perPage) break;
+          page++;
+        }
       }
     }
 
     // If still not found, check authorized_roster to give helpful diagnostic feedback
     if (!targetUser) {
-      const cleanEmail = (email || '').toLowerCase().trim();
-      const { data: rosterEntry } = await adminSupabase
-        .from('authorized_roster')
-        .select('name, email, role, status')
-        .or(`email.ilike.%${cleanEmail}%,email.ilike.%${cleanEmail.replace(/@.*$/, '')}%`)
-        .limit(5);
+      const cleanEmail = String(email || '').toLowerCase().trim();
+      const safeLike = cleanEmail.replace(/[,().%*_\\]/g, '');
+      const safeLocal = safeLike.replace(/@.*$/, '');
+      const { data: rosterEntry } = safeLike
+        ? await adminSupabase
+            .from('authorized_roster')
+            .select('name, email, role, status')
+            .or(`email.ilike.%${safeLike}%,email.ilike.%${safeLocal}%`)
+            .limit(5)
+        : { data: [] };
 
       if (rosterEntry && rosterEntry.length > 0) {
         const exactMatch = rosterEntry.find(r => r.email.toLowerCase() === cleanEmail);
@@ -105,11 +97,23 @@ export async function POST(request: Request) {
       }, { status: 404 });
     }
 
-    // Determine base URL for links
-    const reqOrigin = request.headers.get('origin') || 
-                      (request.headers.get('referer') ? new URL(request.headers.get('referer')!).origin : null) || 
-                      process.env.NEXT_PUBLIC_APP_URL || 
-                      'https://brq.stvfamilymed.org';
+    // Prevent non-super-admins from modifying super-admin credentials
+    const targetEmail = (targetUser.email || '').toLowerCase().trim();
+    const isTargetSuperAdmin = SUPER_ADMIN_EMAILS.some((e) => e.toLowerCase() === targetEmail);
+    if (isTargetSuperAdmin && !isCallerSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden: only a super administrator can modify super-admin credentials.' },
+        { status: 403 }
+      );
+    }
+
+    // Determine trusted base URL for recovery links (ignore spoofable Origin/Referer in production)
+    const configuredAppUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://brq.stvfamilymed.org').replace(/\/+$/, '');
+    const reqOriginHeader = request.headers.get('origin') || '';
+    const reqOrigin =
+      process.env.NODE_ENV !== 'production' && reqOriginHeader.startsWith('http://localhost:')
+        ? reqOriginHeader
+        : configuredAppUrl;
 
     // 1. ACTION: set_password
     if (action === 'set_password') {

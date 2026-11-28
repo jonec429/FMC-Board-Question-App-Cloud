@@ -1,33 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
+import { requireAdminOnly } from '@/lib/supabaseServer';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const token = authHeader.replace('Bearer ', '');
-  let isAuthorized = false;
-
-  try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const callerEmail = user.email || '';
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-
-    const isAdmin = SUPER_ADMIN_EMAILS.map(e => e.toLowerCase()).includes(callerEmail.toLowerCase()) || profile?.role === 'admin';
-    if (isAdmin) isAuthorized = true;
-  } catch (err) {
-    return NextResponse.json({ error: 'Auth validation error' }, { status: 401 });
+  const authResult = await requireAdminOnly(request);
+  if (!authResult.authorized || !authResult.adminSupabase) {
+    return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!isAuthorized) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const supabase = authResult.adminSupabase;
 
   try {
     let cronLogs = [];

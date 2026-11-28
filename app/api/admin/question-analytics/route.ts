@@ -1,49 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { SUPER_ADMIN_EMAILS } from '@/lib/roles';
+import { requireAdminOrFaculty } from '@/lib/supabaseServer';
 import { isActiveResident, residentMatchesCohort, getCurrentAcademicYear } from '@/lib/academicYear';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
-  if (!authHeader) {
-    return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
+  const authResult = await requireAdminOrFaculty(request);
+  if (!authResult.authorized || !authResult.adminSupabase) {
+    return authResult.errorResponse || NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  const token = authHeader.replace(/^Bearer\s+/i, '');
-  let isAuthorized = false;
-
-  try {
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
-
-    const callerEmail = (user.email || '').toLowerCase();
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('role, pgy')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    const isSuperAdmin = SUPER_ADMIN_EMAILS.map((e) => e.toLowerCase()).includes(callerEmail);
-    const isAdmin = isSuperAdmin || profile?.role === 'admin';
-    const isFaculty = profile?.role === 'faculty' || profile?.pgy === 'Faculty' || profile?.role === 'gme_staff';
-
-    if (isAdmin || isFaculty) {
-      isAuthorized = true;
-    }
-  } catch (err) {
-    return NextResponse.json({ error: 'Auth validation error' }, { status: 401 });
-  }
-
-  if (!isAuthorized) {
-    return NextResponse.json({ error: 'Forbidden: Admin or Faculty access required' }, { status: 403 });
-  }
+  const supabaseAdmin = authResult.adminSupabase;
 
   try {
     const { searchParams } = new URL(request.url);
@@ -107,6 +73,7 @@ export async function GET(request: Request) {
         .from('question_attempts')
         .select('user_id, question_id, is_correct, selected_index, is_qotd, created_at')
         .in('user_id', activeUserIdsArray)
+        .order('id', { ascending: true })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (type === 'blocks') {

@@ -1,7 +1,108 @@
 import { NextResponse } from 'next/server';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { requireAdminOrFaculty } from '@/lib/supabaseServer';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Strips trailing advisor/notes annotations added by faculty advisor meeting logging
+ * so `attendance.topic` can be matched cleanly against `[Attendance] <baseTopic>` in `results`.
+ */
+function stripAdvisorMetadata(attTopic: string): string {
+  return attTopic
+    .replace(/\s*\(Advisor:[^)]*\)(?:\s*\[Notes:[^\]]*\])?$/i, '')
+    .trim();
+}
+
+/**
+ * Escapes LIKE wildcards (`%`, `_`, `\`) for literal PostgREST `.ilike()` matching.
+ */
+function escapeLikeLiteral(str: string): string {
+  return str.replace(/[\\%_]/g, '\\$&');
+}
+
+async function syncAttendanceFromResult(
+  adminSupabase: SupabaseClient,
+  existingResult: { legacy_email?: string | null; topic?: string | null; created_at?: string | null },
+  action: 'update' | 'delete',
+  points?: number
+) {
+  const resTopic = existingResult.topic || '';
+  const email = existingResult.legacy_email;
+  if (!resTopic.includes('[Attendance]') || !email) return;
+
+  const rawTopic = resTopic.replace(/^\[Attendance\]\s*/i, '').trim();
+  if (!rawTopic) return;
+
+  const basePattern = escapeLikeLiteral(rawTopic);
+  const dateStr = existingResult.created_at ? existingResult.created_at.slice(0, 10) : null;
+
+  // Narrow by date first when available so deleting/editing one session doesn't clobber other dates
+  let matchingIds: string[] = [];
+  if (dateStr) {
+    const { data: datedRows } = await adminSupabase
+      .from('attendance')
+      .select('id')
+      .ilike('resident_email', email)
+      .eq('date', dateStr)
+      .or(`topic.ilike.${basePattern},topic.ilike.${basePattern} (Advisor:%`);
+    matchingIds = (datedRows || []).map((r: { id: string }) => r.id);
+  }
+
+  if (matchingIds.length === 0) {
+    const { data: fallbackRows } = await adminSupabase
+      .from('attendance')
+      .select('id')
+      .ilike('resident_email', email)
+      .or(`topic.ilike.${basePattern},topic.ilike.${basePattern} (Advisor:%`);
+    matchingIds = (fallbackRows || []).map((r: { id: string }) => r.id);
+  }
+
+  if (matchingIds.length === 0) return;
+
+  if (action === 'update' && typeof points === 'number') {
+    await adminSupabase.from('attendance').update({ points }).in('id', matchingIds);
+  } else if (action === 'delete') {
+    await adminSupabase.from('attendance').delete().in('id', matchingIds);
+  }
+}
+
+async function syncResultFromAttendance(
+  adminSupabase: SupabaseClient,
+  existingAtt: { resident_email?: string | null; topic?: string | null; date?: string | null },
+  action: 'update' | 'delete',
+  points?: number
+) {
+  if (!existingAtt.resident_email || !existingAtt.topic) return;
+
+  const baseTopic = stripAdvisorMetadata(existingAtt.topic);
+  if (!baseTopic) return;
+
+  // Strictly match `[Attendance] <baseTopic>` — NEVER `%topic%` which could match real quiz results!
+  const expectedResultTopic = `[Attendance] ${baseTopic}`;
+  let query = adminSupabase
+    .from('results')
+    .select('id, created_at')
+    .ilike('legacy_email', existingAtt.resident_email)
+    .ilike('topic', escapeLikeLiteral(expectedResultTopic));
+
+  const { data: candidateResults } = await query;
+  if (!candidateResults || candidateResults.length === 0) return;
+
+  let targetIds = candidateResults.map((r: { id: string }) => r.id);
+  if (existingAtt.date && candidateResults.length > 1) {
+    const dated = candidateResults
+      .filter((r: { id: string; created_at?: string | null }) => r.created_at?.slice(0, 10) === existingAtt.date)
+      .map((r: { id: string }) => r.id);
+    if (dated.length > 0) targetIds = dated;
+  }
+
+  if (action === 'update' && typeof points === 'number') {
+    await adminSupabase.from('results').update({ academic_points: points }).in('id', targetIds);
+  } else if (action === 'delete') {
+    await adminSupabase.from('results').delete().in('id', targetIds);
+  }
+}
 
 export async function PATCH(request: Request) {
   try {
@@ -42,17 +143,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: updateErr.message }, { status: 500 });
       }
 
-      // If it's an attendance record, keep attendance table in sync
-      const resTopic = existingResult.topic || '';
-      const email = existingResult.legacy_email;
-      if (resTopic.includes('[Attendance]') && email) {
-        const rawTopic = resTopic.replace(/^\[Attendance\]\s*/i, '').trim();
-        await adminSupabase
-          .from('attendance')
-          .update({ points })
-          .ilike('resident_email', email)
-          .ilike('topic', rawTopic);
-      }
+      await syncAttendanceFromResult(adminSupabase, existingResult, 'update', points);
 
       return NextResponse.json({ success: true, updated: 'result' });
     }
@@ -82,14 +173,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: updateErr.message }, { status: 500 });
       }
 
-      // Also update results table if matching record exists
-      if (existingAtt.resident_email && existingAtt.topic) {
-        await adminSupabase
-          .from('results')
-          .update({ academic_points: points })
-          .ilike('legacy_email', existingAtt.resident_email)
-          .ilike('topic', `%${existingAtt.topic}%`);
-      }
+      await syncResultFromAttendance(adminSupabase, existingAtt, 'update', points);
 
       return NextResponse.json({ success: true, updated: 'attendance' });
     }
@@ -118,7 +202,7 @@ export async function DELETE(request: Request) {
     if (Array.isArray(resultIds) && resultIds.length > 0) {
       const { data: resultsToDelete } = await adminSupabase
         .from('results')
-        .select('id, legacy_email, topic')
+        .select('id, legacy_email, topic, created_at')
         .in('id', resultIds);
 
       const { error: delErr } = await adminSupabase
@@ -132,14 +216,7 @@ export async function DELETE(request: Request) {
 
       if (resultsToDelete && resultsToDelete.length > 0) {
         for (const r of resultsToDelete) {
-          if (r.topic?.includes('[Attendance]') && r.legacy_email) {
-            const rawTopic = r.topic.replace(/^\[Attendance\]\s*/i, '').trim();
-            await adminSupabase
-              .from('attendance')
-              .delete()
-              .ilike('resident_email', r.legacy_email)
-              .ilike('topic', rawTopic);
-          }
+          await syncAttendanceFromResult(adminSupabase, r, 'delete');
         }
       }
 
@@ -149,7 +226,7 @@ export async function DELETE(request: Request) {
     if (Array.isArray(attendanceIds) && attendanceIds.length > 0) {
       const { data: attToDelete } = await adminSupabase
         .from('attendance')
-        .select('id, resident_email, topic')
+        .select('id, resident_email, topic, date')
         .in('id', attendanceIds);
 
       const { error: delErr } = await adminSupabase
@@ -163,13 +240,7 @@ export async function DELETE(request: Request) {
 
       if (attToDelete && attToDelete.length > 0) {
         for (const a of attToDelete) {
-          if (a.resident_email && a.topic) {
-            await adminSupabase
-              .from('results')
-              .delete()
-              .ilike('legacy_email', a.resident_email)
-              .ilike('topic', `%${a.topic}%`);
-          }
+          await syncResultFromAttendance(adminSupabase, a, 'delete');
         }
       }
 
@@ -197,14 +268,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: delErr.message }, { status: 500 });
       }
 
-      if (existingResult.topic?.includes('[Attendance]') && existingResult.legacy_email) {
-        const rawTopic = existingResult.topic.replace(/^\[Attendance\]\s*/i, '').trim();
-        await adminSupabase
-          .from('attendance')
-          .delete()
-          .ilike('resident_email', existingResult.legacy_email)
-          .ilike('topic', rawTopic);
-      }
+      await syncAttendanceFromResult(adminSupabase, existingResult, 'delete');
 
       return NextResponse.json({ success: true, deleted: 'result' });
     }
@@ -230,13 +294,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: delErr.message }, { status: 500 });
       }
 
-      if (existingAtt.resident_email && existingAtt.topic) {
-        await adminSupabase
-          .from('results')
-          .delete()
-          .ilike('legacy_email', existingAtt.resident_email)
-          .ilike('topic', `%${existingAtt.topic}%`);
-      }
+      await syncResultFromAttendance(adminSupabase, existingAtt, 'delete');
 
       return NextResponse.json({ success: true, deleted: 'attendance' });
     }

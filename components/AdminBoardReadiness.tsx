@@ -16,9 +16,10 @@ import {
   runAbfmBayesianModel,
   computeExperimentalReadiness,
   loadResidentExamScores,
+  fetchAllResidentExamScores,
 } from '@/lib/iteScoring';
 import { formatLastNameFirst } from '@/lib/utils';
-import { getCurrentAcademicYear, residentMatchesCohort } from '@/lib/academicYear';
+import { getCurrentAcademicYear, residentMatchesCohort, normalizePgy } from '@/lib/academicYear';
 import {
   AlertTriangle,
   AlertCircle,
@@ -92,8 +93,9 @@ const ZONE_PRIORITY: Record<ReadinessZone, number> = {
 };
 
 function parsePgyLevel(labelOrPgy: string): 1 | 2 | 3 {
-  if (/3/.test(labelOrPgy)) return 3;
-  if (/1/.test(labelOrPgy)) return 1;
+  const norm = normalizePgy(labelOrPgy);
+  const match = norm.match(/\bPGY[-\s]*([1-3])\b/i);
+  if (match) return parseInt(match[1], 10) as 1 | 2 | 3;
   return 2;
 }
 
@@ -120,18 +122,34 @@ export default function AdminBoardReadiness({
   const [metricAttempt, setMetricAttempt] = useState<'first' | 'best'>('first');
 
   useEffect(() => {
-    const next: Record<string, SavedResidentExamScores> = {};
-    for (const r of residents) {
-      const key = r.email || r.userId || r.name;
-      next[key] = loadResidentExamScores(key);
-    }
-    setScoresByKey(next);
+    let cancelled = false;
+    const hydrate = async () => {
+      const localMap: Record<string, SavedResidentExamScores> = {};
+      for (const r of residents) {
+        const key = (r.email || r.userId || r.name || '').toLowerCase().trim();
+        if (key) localMap[key] = loadResidentExamScores(key);
+      }
+      setScoresByKey(localMap);
+
+      const cloudMap = await fetchAllResidentExamScores();
+      if (cancelled || Object.keys(cloudMap).length === 0) return;
+
+      setScoresByKey((prev) => ({
+        ...prev,
+        ...cloudMap,
+      }));
+    };
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
   }, [residents, scoresVersion]);
 
   const evaluated = useMemo<EvaluatedResident[]>(() => {
     return residents.map((resident) => {
       const pgyLevel = parsePgyLevel(resident.label || resident.pgy || '');
-      const key = resident.email || resident.userId || resident.name;
+      const key = (resident.email || resident.userId || resident.name || '').toLowerCase().trim();
       const savedScores = scoresByKey[key] || null;
       let bayesian: BayesianPredictionOutput | null = null;
 
